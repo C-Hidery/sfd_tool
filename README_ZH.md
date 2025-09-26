@@ -1,5 +1,7 @@
 # sfd_tool
 
+![Logo](icon.png)
+
 工具'spreadtrum_flash'的修改版
 
 sfd_tool是它的一个维护版本（原仓库已存档）
