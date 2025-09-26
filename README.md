@@ -1,9 +1,9 @@
-# spd_platformer
-[**中文文档**](https://github.com/C-Hidery/spd_platformer/blob/master/README_ZH.md)
+# sfd_tool
+[**中文文档**](https://github.com/C-Hidery/sfd_tool/blob/master/README_ZH.md)
 
 The modified version of tool 'spreadtrum_flash'
 
-spd_platformer is a maintenance release for spreadtrum_flash
+sfd_tool is a maintenance release for spreadtrum_flash
 
 [spreadtrum_flash](https://github.com/TomKing062/spreadtrum_flash)
 
