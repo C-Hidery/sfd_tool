@@ -4,7 +4,7 @@
 //spd_dump By TomKing062
 //SPDX-License-Identifier: GPL-3.0-or-later
 //addon funcs by YC (SPRDClientCore-second-amendment)
-const char* Version = "[1.1.5.0@_250726]";
+const char* Version = "[1.1.5.1@_250726]";
 int bListenLibusb = -1;
 int gpt_failed = 1;
 int m_bOpened = 0;
@@ -30,9 +30,9 @@ void print_help() {
 	//TODO
 	DBG_LOG("Usage:\n"
 	"\nOne-line mode example:\n"
-	"\tspd_main|spd_platformer --wait 300 fdl path/to/fdl 0x0000 fdl path/to/fdl 0x0000 exec read_part boot write_part boot boot.img reset\n"
+	"\tsfd_tool --wait 300 fdl path/to/fdl 0x0000 fdl path/to/fdl 0x0000 exec read_part boot write_part boot boot.img reset\n"
 	"\nInteractive mode example:\n"
-	"\tspd_main|spd_platformer --wait 300 fdl path/to/fdl 0x0000 fdl path/to/fdl 0x0000 exec\n"
+	"\tsfd_tool --wait 300 fdl path/to/fdl 0x0000 fdl path/to/fdl 0x0000 exec\n"
 	"\nOptions\n"
 	"\t--wait [TIME(second)]\n"
 	"\t\tSpecifies the time to wait for the device to connect.\n"
@@ -227,7 +227,7 @@ int main(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(NULL));
-	printf("sfd_tool version 1.5.1.0\n");
+	printf("sfd_tool version 1.5.2.0\n");
 	printf("Copyright (C) 2025 Ryan Crepa\n");
 	printf("Core by TomKing062\n");
 #if _DEBUG
@@ -854,7 +854,7 @@ int main(int argc, char** argv) {
 				else if (ret != BSL_REP_ACK) {
 					ThrowExit();
 					const char* name = get_bsl_enum_name(ret);
-					ERR_EXIT("%s: excepted response (%s : )(0x%04x)\n",name, o_exception, ret);
+					ERR_EXIT("%s: excepted response (%s : 0x%04x)\n",name, o_exception, ret);
 				}
 				DEG_LOG(OP, "Execute FDL2");
 				//remove 0d detection for nand device
@@ -1384,7 +1384,7 @@ int main(int argc, char** argv) {
     		if (ret) {
 				ret = recv_type(io);
 				const char* name = get_bsl_enum_name(ret);
-				if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"excepted response (%s : )(0x%04x)\n",name, ret);
+				if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"excepted response (%s : 0x%04x)\n",name, ret);
 				else Da_Info.dwStorageType = 0x101;
 				// need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
 				// for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
@@ -1393,10 +1393,10 @@ int main(int argc, char** argv) {
 			else DEG_LOG(I, "Device storage is not nand");
 			argc -= 1; argv += 1;
 		}
-		else if (!strcmp(str2[1], "w") || !strcmp(str2[1],"flash")) {
+		else if (!strcmp(str2[1], "w") || !strcmp(str2[1],"write_part")) {
 			const char* fn; FILE* fi;
 			const char* name = str2[2];
-			if (argcount <= 3) { DEG_LOG(W,"w/flash part_name/part_id FILE\n"); argc = 1; continue; }
+			if (argcount <= 3) { DEG_LOG(W,"w/write_part part_name/part_id FILE\n"); argc = 1; continue; }
 			fn = str2[3];
 			fi = fopen(fn, "r");
 			if (fi == NULL) { DEG_LOG(E,"File does not exist.\n"); argc -= 3; argv += 3; continue; }
@@ -1591,7 +1591,7 @@ int main(int argc, char** argv) {
 								if (!ret) ERR_EXIT("timeout reached\n");
 								if ((ret = recv_type(io)) != BSL_REP_READ_CHIP_UID) {
 									const char* name = get_bsl_enum_name(ret);
-									DEG_LOG(E,"excepted response (%s : )(0x%04x)\n",name, ret); argc -= 1; argv += 1; continue;
+									DEG_LOG(E,"excepted response (%s : 0x%04x)\n",name, ret); argc -= 1; argv += 1; continue;
 								}
 
 								DEG_LOG(I,"Response: chip_uid:");
