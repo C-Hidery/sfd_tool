@@ -1,4 +1,7 @@
 # sfd_tool
+
+![Logo](icon.png)
+
 [**中文文档**](https://github.com/C-Hidery/sfd_tool/blob/master/README_ZH.md)
 
 The modified version of tool 'spreadtrum_flash'
