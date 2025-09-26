@@ -280,6 +280,7 @@ int main(int argc, char** argv) {
 		}
 		else if (!strcmp(argv[1], "--nor_bar")) {
 			io->nor_bar = 1;
+			argc -= 1; argv += 1;
 		}
 		else if (!strcmp(argv[1], "--sync")) {
 			async = 0;
