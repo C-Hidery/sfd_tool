@@ -1,8 +1,8 @@
-# spd_platformer
+# sfd_tool
 
 工具'spreadtrum_flash'的修改版
 
-spd_platformer是它的一个维护版本（原仓库已存档）
+sfd_tool是它的一个维护版本（原仓库已存档）
 
 [spreadtrum_flash](https://github.com/TomKing062/spreadtrum_flash)
 
