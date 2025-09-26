@@ -3,7 +3,7 @@ LIBUSB = 1
 CFLAGS = -O2 -Wall -Wextra -std=c99 -pedantic -Wno-unused
 CFLAGS += -DUSE_LIBUSB=$(LIBUSB)
 LIBS = -lm -lpthread
-APPNAME = spd_platformer
+APPNAME = sfd_tool
 
 # 检测操作系统 - 在 Termux 中，uname -s 返回 "Linux"
 UNAME_S := $(shell uname -s)
@@ -39,5 +39,5 @@ endif
 
 
 
-$(APPNAME): spd_main.c common.c
+$(APPNAME): main.c common.c
 	$(CC) -s $(CFLAGS) -o $@ $^ $(LIBS)
