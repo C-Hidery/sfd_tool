@@ -38,7 +38,7 @@ termux-usb -l
 # 授权OTG设备
 termux-usb -r /dev/bus/usb/xxx/xxx
 # 运行
-termux-usb -e './spd_platformer --usb-fd' /dev/bus/usb/xxx/xxx
+termux-usb -e './sfd_tool --usb-fd' /dev/bus/usb/xxx/xxx
 ```
 
 ---
