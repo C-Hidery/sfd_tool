@@ -18,7 +18,7 @@ Run this before making on linux:
 
 ``` bash
 sudo apt update
-# Ubuntu/Obsidian
+# Ubuntu/Debian
 sudo apt install libusb-1.0-0-dev
 # Android(Termux)
 pkg install termux-api libusb clang git
