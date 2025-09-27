@@ -788,7 +788,7 @@ int send_and_check(spdio_t *io) {
 	ret = recv_type(io);
 	if (ret != BSL_REP_ACK) {
 		const char* name = get_bsl_enum_name(ret);
-		DEG_LOG(E,"excepted response (%s : )(0x%04x)",name, ret);
+		DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
 		return -1;
 	}
 	return 0;
@@ -968,7 +968,7 @@ unsigned dump_flash(spdio_t *io,
 		if (!ret) ERR_EXIT("timeout reached\n");
 		if ((ret = recv_type(io)) != BSL_REP_READ_FLASH) {
 			const char* name = get_bsl_enum_name(ret);
-			DEG_LOG(E,"excepted response (%s : )(0x%04x)",name, ret);
+			DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
 			break;
 		}
 		nread = READ16_BE(io->raw_buf + 2);
@@ -1006,7 +1006,7 @@ unsigned dump_mem(spdio_t *io,
 		if (!ret) ERR_EXIT("timeout reached\n");
 		if ((ret = recv_type(io)) != BSL_REP_READ_FLASH) {
 			const char* name = get_bsl_enum_name(ret);
-			DEG_LOG(E,"excepted response (%s : )(0x%04x)",name, ret);
+			DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
 			break;
 		}
 		nread = READ16_BE(io->raw_buf + 2);
@@ -1134,7 +1134,7 @@ uint64_t dump_partition(spdio_t *io,
 		if (!ret) ERR_EXIT("timeout reached\n");
 		if ((ret = recv_type(io)) != BSL_REP_READ_FLASH) {
 			const char* name = get_bsl_enum_name(ret);
-			DEG_LOG(E,"excepted response (%s : )(0x%04x)",name, ret);
+			DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
 			break;
 		}
 		nread = READ16_BE(io->raw_buf + 2);
@@ -1185,7 +1185,7 @@ uint64_t read_pactime(spdio_t *io) {
 	if (!ret) ERR_EXIT("timeout reached\n");
 	if ((ret = recv_type(io)) != BSL_REP_READ_FLASH) {
 		const char* name = get_bsl_enum_name(ret);
-		DEG_LOG(E,"excepted response (%s : )(0x%04x)",name, ret);
+		DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
 		encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
 		send_and_check(io);
 		return 0;
@@ -1381,7 +1381,7 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 		ret = recv_type(io);
 		if (ret != BSL_REP_READ_PARTITION) {
 			const char* name = get_bsl_enum_name(ret);
-			DEG_LOG(E,"excepted response (%s : )(0x%04x)",name, ret);
+			DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
 			gpt_failed = -1;
 			free(ptable);
 			return NULL;
@@ -1920,7 +1920,7 @@ void load_partition(spdio_t *io, const char *name,
 			}
 			if ((ret = recv_type(io)) != BSL_REP_ACK) {
 				const char* name = get_bsl_enum_name(ret);
-				DEG_LOG(E,"excepted response (%s : )(0x%04x)",name, ret);
+				DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
 				break;
 			}
 			print_progress_bar(io,offset + n, len, time_start);
@@ -1944,7 +1944,7 @@ fallback_load:
 			}
 			if ((ret = recv_type(io)) != BSL_REP_ACK) {
 				const char* name = get_bsl_enum_name(ret);
-				DEG_LOG(E,"excepted response (%s : )(0x%04x)",name, ret);
+				DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
 				break;
 			}
 			print_progress_bar(io,offset + n, len, time_start);
@@ -2107,7 +2107,7 @@ void load_nv_partition(spdio_t *io, const char *name,
 		if (!ret) ERR_EXIT("timeout reached\n");
 		if ((ret = recv_type(io)) != BSL_REP_ACK) {
 			const char* name = get_bsl_enum_name(ret);
-			DEG_LOG(E,"excepted response (%s : )(0x%04x)",name, ret);
+			DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
 			break;
 		}
 	}
@@ -3255,6 +3255,12 @@ void ChangeMode(spdio_t *io, int ms, int bootmode, int at) {
 	while (done != 1) {
 		DBG_LOG("<waiting for connection,mode:cali/boot/dl,%ds>\n", ms / 1000);
 		for (int i = 0; ; i++) {
+			//fix port find / 20250927
+			libusb_device** devices = FindPort(0);
+			if (devices && devices[0]) {
+				curPort = devices[0];
+				//libusb_ref_device(curPort);
+			}
 			if (curPort) {
 				if (libusb_open(curPort, &io->dev_handle) < 0) ERR_EXIT("Connection failed\n");
 				call_Initialize_libusb(io);
