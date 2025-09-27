@@ -16,7 +16,7 @@ sfd_tool是它的一个维护版本（原仓库已存档）
 
 ``` bash
 sudo apt update
-# Ubuntu/Obsidian
+# Ubuntu/Debian
 sudo apt install libusb-1.0-0-dev
 # Android(Termux)
 pkg install termux-api libusb clang git
