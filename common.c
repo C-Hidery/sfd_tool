@@ -3255,16 +3255,37 @@ void ChangeMode(spdio_t *io, int ms, int bootmode, int at) {
 	while (done != 1) {
 		DBG_LOG("<waiting for connection,mode:cali/boot/dl,%ds>\n", ms / 1000);
 		for (int i = 0; ; i++) {
-			//fix port find / 20250927
+			// 添加设备搜索逻辑
+				//libusb_device **devices = FindPort(0x4d00);  // 明确搜索 0x4d00
 			libusb_device** devices = FindPort(0);
 			if (devices && devices[0]) {
 				curPort = devices[0];
-				//libusb_ref_device(curPort);
+				libusb_ref_device(curPort);  // 增加引用计数
+				if (libusb_open(curPort, &io->dev_handle) < 0) {
+					DBG_LOG("Failed to open device\n");
+					curPort = NULL;
+				}
+				else {
+					call_Initialize_libusb(io);
+					// 释放设备列表但保留我们正在使用的设备引用
+					libusb_device** dev_ptr = devices;
+					while (*dev_ptr) {
+						if (*dev_ptr != curPort) {
+							libusb_unref_device(*dev_ptr);
+						}
+						dev_ptr++;
+					}
+					free(devices);
+					break;
+				}
 			}
-			if (curPort) {
-				if (libusb_open(curPort, &io->dev_handle) < 0) ERR_EXIT("Connection failed\n");
-				call_Initialize_libusb(io);
-				break;
+			if (devices) {
+				libusb_device** dev_ptr = devices;
+				while (*dev_ptr) {
+					libusb_unref_device(*dev_ptr);
+					dev_ptr++;
+				}
+				free(devices);
 			}
 			if (100 * i >= ms) ERR_EXIT("find port failed\n");
 			usleep(100000);
