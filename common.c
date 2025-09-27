@@ -3255,6 +3255,7 @@ void ChangeMode(spdio_t *io, int ms, int bootmode, int at) {
 	while (done != 1) {
 		DBG_LOG("<waiting for connection,mode:cali/boot/dl,%ds>\n", ms / 1000);
 		for (int i = 0; ; i++) {
+			// kick fix for libusb by XiaoTong6666
 			// 添加设备搜索逻辑
 				//libusb_device **devices = FindPort(0x4d00);  // 明确搜索 0x4d00
 			libusb_device** devices = FindPort(0);
