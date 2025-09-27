@@ -40,7 +40,7 @@ termux-usb -l
 # Authorize OTG device
 termux-usb -r /dev/bus/usb/xxx/xxx
 # Run
-termux-usb -e './spd_platformer --usb-fd' /dev/bus/usb/xxx/xxx
+termux-usb -e './sfd_tool --usb-fd' /dev/bus/usb/xxx/xxx
 ```
 
 ---
