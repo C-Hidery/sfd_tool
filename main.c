@@ -13,6 +13,7 @@ int fdl2_executed = 0;
 int isKickMode = 0;
 int isCMethod = 0;
 int selected_ab = -1;
+int no_fdl_mode = 0;
 uint64_t fblk_size = 0;
 const char* o_exception;
 int init_stage = -1;
@@ -54,6 +55,8 @@ void print_help() {
 	"\t\tShow original progress bar.\n"
 	"\t--usb-fd [CODE]\n"
 	"\t\tConvert termux transfered usb port fd.(Android platform only!!!)\n"
+	"\t--no-fdl\n"
+	"\t\tSkip sending the FDL file and execute FDL2\n"
 	);
 	DBG_LOG(
 		"\nRuntime Commands\n"
@@ -230,7 +233,7 @@ int main(int argc, char** argv) {
 	printf("sfd_tool version 1.5.2.0\n");
 	printf("Copyright (C) 2025 Ryan Crepa\n");
 	printf("Core by TomKing062\n");
-#if _DEBUG
+#if _DEBUG  
 	DBG_LOG("version:debug, core version:%s\n", Version);
 #else
 	DBG_LOG("version:stable, core version:%s\n", Version);
@@ -280,6 +283,10 @@ int main(int argc, char** argv) {
 		}
 		else if (!strcmp(argv[1], "--nor_bar")) {
 			io->nor_bar = 1;
+			argc -= 1; argv += 1;
+		}
+		else if (!strcmp(argv[1], "--no-fdl")) {
+			no_fdl_mode = 1;
 			argc -= 1; argv += 1;
 		}
 		else if (!strcmp(argv[1], "--sync")) {
@@ -440,13 +447,16 @@ int main(int argc, char** argv) {
 				if (fdl1_loaded == 1) {
 					device_stage = FDL1;
 					DEG_LOG(OP, "FDL1 connected."); 
-					if (!memcmp(io->raw_buf + 4, "SPRD4", 5)) fdl2_executed = -1;
+					if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
 					break;
 				}
 				else {
 					device_stage = BROM;
 					DEG_LOG(OP, "Check baud BROM");
-					if (!memcmp(io->raw_buf + 4, "SPRD4", 5)) { fdl1_loaded = -1; fdl2_executed = -1; }
+					if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) {
+						fdl1_loaded = -1; 
+						fdl2_executed = -1;
+					}
 				}
 				DBG_LOG("[INFO] Device mode version: ");
 				print_string(stdout, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
@@ -521,23 +531,23 @@ int main(int argc, char** argv) {
 		if (device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: FDL2/SPRD3");
 		}
-		else DEG_LOG(I, "Device stage: FDL2/SPRD4(Auto:D)");
+		else DEG_LOG(I, "Device stage: FDL2/SPRD4(AutoD)");
 	}
 	else if(fdl1_loaded > 0) {
 		if (device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: FDL1/SPRD3");
 		}
-		else DEG_LOG(I, "Device stage: FDL1/SPRD4(Auto:D)");
+		else DEG_LOG(I, "Device stage: FDL1/SPRD4(AutoD)");
 	}
 	else if (device_stage == BROM) {
 		if (device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: BROM/SPRD3");
 		}
-		else DEG_LOG(I, "Device stage: BROM/SPRD4(Auto:D)");
+		else DEG_LOG(I, "Device stage: BROM/SPRD4(AutoD)");
 	}
 	else { 
 		if(device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
-		else DEG_LOG(I, "Device stage: Unknown/SPRD4(Auto:D)");
+		else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
 	}
 	//get in interaction 
 	
@@ -552,7 +562,6 @@ int main(int argc, char** argv) {
 			}
 			else if (fdl2_executed == -1) {
 				if (!save_argv) save_argv = argv;
-				//Auto execute FDL1 in One-line mode
 				str2[1] = "exec";
 			}
 			else {
@@ -779,7 +788,7 @@ int main(int argc, char** argv) {
 
 				DEG_LOG(I,"Device REP_Version: ");
 				print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
-				if (!memcmp(io->raw_buf + 4, "SPRD4", 5)) fdl2_executed = -1;
+				if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
 				//special FDL1 MEM, DISABLED FOR STABILITY
 #if FDL1_DUMP_MEM
 				//read dump mem
@@ -953,7 +962,7 @@ int main(int argc, char** argv) {
 
 				DEG_LOG(I, "Device REP_Version: ");
 				print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
-				if (!memcmp(io->raw_buf + 4, "SPRD4", 5)) fdl2_executed = -1;
+				if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
 				//special FDL1 MEM, DISABLED FOR STABILITY
 #if FDL1_DUMP_MEM
 				//read dump mem
