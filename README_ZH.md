@@ -41,6 +41,8 @@ termux-usb -r /dev/bus/usb/xxx/xxx
 termux-usb -e './sfd_tool --usb-fd' /dev/bus/usb/xxx/xxx
 ```
 
+**警告：您可能必须以 root 用户运行该工具才能正确连接设备!**
+
 ---
 
 ***修改的命令:***
