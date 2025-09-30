@@ -43,6 +43,8 @@ termux-usb -r /dev/bus/usb/xxx/xxx
 termux-usb -e './sfd_tool --usb-fd' /dev/bus/usb/xxx/xxx
 ```
 
+**WARN : You may must run tool as root to connect to device correctly!**
+
 ---
 
 ***Modified commands:***
