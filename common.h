@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <string.h>
+#include <signal.h>
 #include <ctype.h> // tolower
 #include <math.h>
 #include <time.h>
@@ -46,7 +47,6 @@ DWORD WINAPI ThrdFunc(LPVOID lpParam);
 #include <unistd.h>
 #endif
 #else
-#include <setupapi.h>
 #include "Wrapper.h"
 #endif
 
@@ -287,3 +287,4 @@ int GetStage(int mode);
 double get_time();
 const char* get_bsl_enum_name(unsigned int value);
 void print_all_bsl_commands();
+void signal_handler(int sig);
