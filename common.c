@@ -1111,14 +1111,14 @@ uint64_t dump_partition(spdio_t *io,
 		if (len > 512)
 			len -= 512;
 	}
-	if (isCancel) { isCancel = 0;signal(SIGINT, SIG_DFL); return; }
+	if (isCancel) { isCancel = 0;signal(SIGINT, SIG_DFL); return 0; }
 	select_partition(io, name, start + len, mode64, BSL_CMD_READ_START);
 	if (send_and_check(io)) {
 		encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
 		send_and_check(io);
 		return 0;
 	}
-	if (isCancel) { isCancel = 0;signal(SIGINT, SIG_DFL); return; }
+	if (isCancel) { isCancel = 0;signal(SIGINT, SIG_DFL); return 0; }
 	FILE *fo = my_fopen(fn, "wb");
 	if (!fo) ERR_EXIT("fopen(dump) failed\n");
 
@@ -1126,12 +1126,12 @@ uint64_t dump_partition(spdio_t *io,
 	for (offset = start; (n64 = start + len - offset); ) {
 		uint32_t *data = (uint32_t *)io->temp_buf;
 		n = (uint32_t)(n64 > step ? step : n64);
-		if (isCancel) { isCancel = 0;signal(SIGINT, SIG_DFL); return; }
+		if (isCancel) { isCancel = 0;signal(SIGINT, SIG_DFL); return offset - start; }
 		WRITE32_LE(data, n);
 		WRITE32_LE(data + 1, offset);
 		t32 = offset >> 32;
 		WRITE32_LE(data + 2, t32);
-		if (isCancel) { isCancel = 0;signal(SIGINT, SIG_DFL); return; }
+		//if (isCancel) { isCancel = 0;signal(SIGINT, SIG_DFL); return; }
 		encode_msg_nocpy(io, BSL_CMD_READ_MIDST, mode64 ? 12 : 8);
 		send_msg(io);
 		ret = recv_msg(io);
