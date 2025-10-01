@@ -56,7 +56,7 @@ void print_help() {
 	"\t--usb-fd [CODE]\n"
 	"\t\tConvert termux transfered usb port fd.(Android platform only!!!)\n"
 	"\t--no-fdl\n"
-	"\t\tSkip sending the FDL file and execute FDL2\n"
+	"\t\tSkip sending the FDL file and execute FDL2(Sprd4 mode only)\n"
 	);
 	DBG_LOG(
 		"\nRuntime Commands\n"
@@ -230,7 +230,7 @@ int main(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(NULL));
-	printf("sfd_tool version 1.5.2.0\n");
+	printf("sfd_tool version 1.5.5.0\n");
 	printf("Copyright (C) 2025 Ryan Crepa\n");
 	printf("Core by TomKing062\n");
 #if _DEBUG  
