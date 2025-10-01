@@ -64,3 +64,7 @@ termux-usb -e './sfd_tool --usb-fd' /dev/bus/usb/xxx/xxx
     read_spec [PART NAME] [SIZE] [OFFSET]
 
 **Modified, equivalent to the `read_part` command, then `read_part` is equivalent to the `r`**
+
+    --no-fdl
+
+**New option, execute it if you want to connect to device without FDL1/2(Only Sprd4 Mode).**
