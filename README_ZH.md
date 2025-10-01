@@ -62,3 +62,7 @@ termux-usb -e './sfd_tool --usb-fd' /dev/bus/usb/xxx/xxx
    read_spec [分区名] [大小] [偏移]
 
 **等同于`read_part`命令，之后`read_part`等同于`r`**
+
+   --no-fdl
+
+**新增参数，如果你想免FDL刷机，那么执行它（仅Sprd4模式）**
