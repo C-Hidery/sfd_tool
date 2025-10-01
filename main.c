@@ -162,7 +162,7 @@ void print_help() {
 		"\t->write_word\n"
 		"\t\tWrite a HEX number word to a specified address.\n"
 		"\t->read_nand\n"
-		"\t\tDetermine whether the current device is a NAND model; not all devices are supported.\n"
+		"\t\tDetermine whether the current device is a NAND model; not all devices are supported.(through 0x0D)\n"
 		"Notice:\n"
 		"\t1.The compatibility method to get part table sometimes can not get all partitions on your device\n"
 		"\t2.Command `bootloader` : It is only supported on special FDL2 and requires trustos and sml partition files."
@@ -230,7 +230,7 @@ int main(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(NULL));
-	printf("sfd_tool version 1.5.7.0\n");
+	printf("sfd_tool version 1.5.7.1\n");
 	printf("Copyright (C) 2025 Ryan Crepa\n");
 	printf("Core by TomKing062\n");
 #if _DEBUG  
@@ -880,6 +880,7 @@ int main(int argc, char** argv) {
 					// for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
 				}
 				*/
+				//encode_msg_nocpy(io,BSL_CMD_READ_START,0xffffffff);
 				if (Da_Info.bDisableHDLC) {
 					encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
 					if (!send_and_check(io)) {
