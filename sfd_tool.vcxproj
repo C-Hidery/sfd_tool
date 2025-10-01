@@ -31,6 +31,9 @@
     <ClCompile Include="main.c" />
     <ClCompile Include="Wrapper.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="app.rc" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
