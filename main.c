@@ -4,7 +4,7 @@
 //spd_dump By TomKing062
 //SPDX-License-Identifier: GPL-3.0-or-later
 //addon funcs by YC (SPRDClientCore-second-amendment)
-const char* Version = "[1.1.5.1@_250726]";
+const char* Version = "[1.1.6.0@_250726]";
 int bListenLibusb = -1;
 int gpt_failed = 1;
 int m_bOpened = 0;
@@ -15,6 +15,7 @@ int isCMethod = 0;
 int selected_ab = -1;
 int no_fdl_mode = 0;
 uint64_t fblk_size = 0;
+uint64_t g_spl_size;
 const char* o_exception;
 int init_stage = -1;
 //uint32_t e_addr = 0;
@@ -230,7 +231,7 @@ int main(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(NULL));
-	printf("sfd_tool version 1.5.7.1\n");
+	printf("sfd_tool version 1.5.8.0\n");
 	printf("Copyright (C) 2025 Ryan Crepa\n");
 	printf("Core by TomKing062\n");
 #if _DEBUG  
@@ -493,10 +494,21 @@ int main(int argc, char** argv) {
 			if (!send_and_check(io)) {
 				io->flags &= ~FLAGS_TRANSCODE;
 				DEG_LOG(OP, "Try to disable transcode 0x7D.");
+				fdl2_executed = 1;
+				device_stage = FDL2;
+				int o = io->verbose;
+				io->verbose = -1;
+				g_spl_size = check_partition(io, "splloader", 1);
+				io->verbose = o;
+				io->Cptable = partition_list_d(io, fn_partlist);
+				isCMethod = 1;
+				if (nand_id == DEFAULT_NAND_ID) {
+					nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+					nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+					nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+				}
+				break;
 			}
-			fdl2_executed = 1;
-			device_stage = FDL2;
-			break;
 		}
 		
 		//fail
@@ -888,6 +900,10 @@ int main(int argc, char** argv) {
 						DEG_LOG(OP, "Try to disable transcode 0x7D.");
 					}
 				}
+				int o = io->verbose;
+				io->verbose = -1;
+				g_spl_size = check_partition(io,"splloader",1);
+				io->verbose = o;
 				if (Da_Info.bSupportRawData) {
 					blk_size = 0xf800;
 					io->ptable = partition_list(io, fn_partlist, &io->part_count);
@@ -1182,10 +1198,12 @@ int main(int argc, char** argv) {
 			const char* list[] = { "vbmeta", "splloader", "uboot", "sml", "trustos", "teecfg", "boot", "recovery" };
 			if (argcount <= 2) { DEG_LOG(W,"r|read_part all/all_lite/partition_name/part_id"); argc = 1; continue; }
 			if (!strcmp(name, "preset_modem")) {
+				start_signal();
 				if (gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 				if (!io->part_count) { DEG_LOG(W,"Partition table not available"); argc -= 2; argv += 2; continue; }
 				if (selected_ab > 0) { DEG_LOG(OP,"Saving slot info"); dump_partition(io, "misc", 0, 1048576, "misc.bin", blk_size); }
 				for (i = 0; i < io->part_count; i++)
+					if (isCancel) break;
 					if (0 == strncmp("l_", (*(io->ptable + i)).name, 2) || 0 == strncmp("nr_", (*(io->ptable + i)).name, 3)) {
 						char dfile[40];
 						snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->ptable + i)).name);
@@ -1195,11 +1213,15 @@ int main(int argc, char** argv) {
 				continue;
 			}
 			else if (!strcmp(name, "all")) {
+				start_signal();
 				if (gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 				if (!isCMethod) {
 					if (!io->part_count) { DEG_LOG(W, "Partition table not available\n"); argc -= 2; argv += 2; continue; }
-					dump_partition(io, "splloader", 0, 256 * 1024, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
+					dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
 					for (i = 0; i < io->part_count; i++) {
+						if (isCancel) {
+							break;
+						}
 						char dfile[40];
 						if (!strncmp((*(io->ptable + i)).name, "blackbox", 8)) continue;
 						else if (!strncmp((*(io->ptable + i)).name, "cache", 5)) continue;
@@ -1209,9 +1231,11 @@ int main(int argc, char** argv) {
 					}
 				}
 				else {
+
 					if(!io->part_count_c) { DEG_LOG(W, "Partition table not available\n"); argc -= 2; argv += 2; continue; }
-					dump_partition(io, "splloader", 0, 256 * 1024, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
+					dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
 					for (i = 0; i < io->part_count_c; i++) {
+						if (isCancel) break;
 						char dfile[40];
 						if (!strncmp((*(io->Cptable + i)).name, "blackbox", 8)) continue;
 						else if (!strncmp((*(io->Cptable + i)).name, "cache", 5)) continue;
@@ -1224,11 +1248,13 @@ int main(int argc, char** argv) {
 				continue;
 			}
 			else if (!strcmp(name, "all_lite")) {
+				start_signal();
 				if (gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 				if (!isCMethod) {
 					if (!io->part_count) { DEG_LOG(E, "Partition table not available\n"); argc -= 2; argv += 2; continue; }
-					dump_partition(io, "splloader", 0, 256 * 1024, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
+					dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
 					for (i = 0; i < io->part_count; i++) {
+						if (isCancel) break;
 						char dfile[40];
 						size_t namelen = strlen((*(io->ptable + i)).name);
 						if (!strncmp((*(io->ptable + i)).name, "blackbox", 8)) continue;
@@ -1242,8 +1268,9 @@ int main(int argc, char** argv) {
 				}
 				else {
 					if(!io->part_count_c) { DEG_LOG(E, "Partition table not available\n"); argc -= 2; argv += 2; continue; }
-					dump_partition(io, "splloader", 0, 256 * 1024, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
+					dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
 					for (i = 0; i < io->part_count_c; i++) {
+						if (isCancel) break;
 						char dfile[40];
 						size_t namelen = strlen((*(io->Cptable + i)).name);
 						if (!strncmp((*(io->Cptable + i)).name, "blackbox", 8)) continue;

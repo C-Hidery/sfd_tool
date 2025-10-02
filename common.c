@@ -1,5 +1,5 @@
 #include "common.h"
-static int isCancel = 0;
+extern int isCancel = 0;
 #if !USE_LIBUSB
 
 DWORD curPort = 0;
@@ -1099,7 +1099,7 @@ uint64_t dump_partition(spdio_t *io,
 	double rtime = get_time();
 	DEG_LOG(OP,"Start to read partition %s",name);
 	DEG_LOG(I,"Type CTRL + C to cancel...");
-	signal(SIGINT, signal_handler);
+	start_signal();
 	if (!strcmp(name, "super")) dump_partition(io, "metadata", 0, check_partition(io, "metadata", 1), "metadata.bin", step);
 	else if (!strncmp(name, "userdata", 8)) { if (!check_confirm("read userdata")) return 0; }
 	else if (strstr(name, "nv1")) {
@@ -1111,14 +1111,14 @@ uint64_t dump_partition(spdio_t *io,
 		if (len > 512)
 			len -= 512;
 	}
-	if (isCancel) { isCancel = 0;signal(SIGINT, SIG_DFL); return 0; }
+	if (isCancel) {  return 0; }
 	select_partition(io, name, start + len, mode64, BSL_CMD_READ_START);
 	if (send_and_check(io)) {
 		encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
 		send_and_check(io);
 		return 0;
 	}
-	if (isCancel) { isCancel = 0;signal(SIGINT, SIG_DFL);  return 0; }
+	if (isCancel) {   return 0; }
 	FILE *fo = my_fopen(fn, "wb");
 	if (!fo) ERR_EXIT("fopen(dump) failed\n");
 
@@ -1126,7 +1126,7 @@ uint64_t dump_partition(spdio_t *io,
 	for (offset = start; (n64 = start + len - offset); ) {
 		uint32_t *data = (uint32_t *)io->temp_buf;
 		n = (uint32_t)(n64 > step ? step : n64);
-		if (isCancel) { isCancel = 0; signal(SIGINT, SIG_DFL); fclose(fo); return offset - start; }
+		if (isCancel) { fclose(fo); return offset - start; }
 		WRITE32_LE(data, n);
 		WRITE32_LE(data + 1, offset);
 		t32 = offset >> 32;
@@ -1866,7 +1866,7 @@ void load_partition(spdio_t *io, const char *name,
 	if (!strcmp(name, "calinv")) { return; } //skip calinv
 	DEG_LOG(OP, "Start to read partition %s", name);
 	DEG_LOG(I, "Type CTRL + C to cancel...");
-	signal(SIGINT, signal_handler);
+	start_signal();
 	fi = fopen(fn, "rb");
 	if (!fi) ERR_EXIT("fopen(load) failed\n");
 
@@ -1882,7 +1882,7 @@ void load_partition(spdio_t *io, const char *name,
 	mode64 = len >> 32;
 	select_partition(io, name, len, mode64, BSL_CMD_START_DATA);
 	if (send_and_check(io)) { fclose(fi); return; }
-	if (isCancel) { isCancel = 0;signal(SIGINT, SIG_DFL); fclose(fi); return; }
+	if (isCancel) { fclose(fi); return; }
 	unsigned long long time_start = GetTickCount64();
 #if !USE_LIBUSB
 	if (Da_Info.bSupportRawData) {
@@ -1895,7 +1895,7 @@ void load_partition(spdio_t *io, const char *name,
 		if (!rawbuf) ERR_EXIT("malloc failed\n");
 
 		for (offset = 0; (n64 = len - offset); offset += n) {
-			if (isCancel) { isCancel = 0; signal(SIGINT, SIG_DFL); free(rawbuf); return; }
+			if (isCancel) {  free(rawbuf); return; }
 			n = (unsigned)(n64 > step ? step : n64);
 			if (Da_Info.bSupportRawData == 1) {
 				uint32_t *data = (uint32_t *)io->temp_buf;
@@ -1939,7 +1939,7 @@ void load_partition(spdio_t *io, const char *name,
 #endif
 fallback_load:
 		for (offset = 0; (n64 = len - offset); offset += n) {
-			if (isCancel) { isCancel = 0;signal(SIGINT, SIG_DFL); fclose(fi); return; }
+			if (isCancel) {fclose(fi); return; }
 			n = (unsigned)(n64 > step ? step : n64);
 			if (fread(io->temp_buf, 1, n, fi) != n)
 				ERR_EXIT("fread(load) failed\n");
@@ -2108,7 +2108,7 @@ void load_nv_partition(spdio_t *io, const char *name,
 	if (send_and_check(io)) { free(mem0); return; }
 
 	for (offset = 0; (rsz = len - offset); offset += n) {
-		if (isCancel) { isCancel = 0; signal(SIGINT, SIG_DFL); free(mem0); return; }
+		if (isCancel) { free(mem0); return; }
 		n = rsz > step ? step : rsz;
 		memcpy(io->temp_buf, &mem[offset], n);
 		encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
@@ -2135,6 +2135,7 @@ void load_nv_partition(spdio_t *io, const char *name,
 void signal_handler(int sig) {
 	//Cancallation handler
 	isCancel = 1;
+	signal(SIGINT, SIG_DFL);
 	DBG_LOG("\n\n");
 }
 double get_time() {
@@ -2421,7 +2422,10 @@ uint64_t str_to_size_ubi(const char *str, int *nand_info) {
 		else return n;
 	}
 }
-
+void start_signal() {
+	signal(SIGINT, signal_handler);
+	isCancel = 0;
+}
 void dump_partitions(spdio_t *io, const char *fn, int *nand_info, unsigned step) {
 	const char *part1 = "Partitions>";
 	char *src, *p;
@@ -2431,7 +2435,7 @@ void dump_partitions(spdio_t *io, const char *fn, int *nand_info, unsigned step)
 	if (partitions == NULL) return;
 	DEG_LOG(OP, "Start to read partitions");
 	DEG_LOG(I, "Type CTRL + C to cancel...");
-	signal(SIGINT, signal_handler);
+	start_signal();
 	if (!strncmp(fn, "ubi", 3)) ubi = 1;
 	src = (char *)loadfile(fn, &size, 1);
 	if (!src) ERR_EXIT("Load file failed\n");
@@ -2485,7 +2489,7 @@ void dump_partitions(spdio_t *io, const char *fn, int *nand_info, unsigned step)
 	if (stage != 2) ERR_EXIT("xml: unexpected syntax\n");
 
 	for (int i = 0; i < found; i++) {
-		if (isCancel) { isCancel = 0;signal(SIGINT, SIG_DFL); free(src);free(partitions); return; }
+		if (isCancel) { free(src);free(partitions); return; }
 		DBG_LOG("Partition %d: name=%s, size=%llim\n", i + 1, partitions[i].name, partitions[i].size);
 		if (!strncmp(partitions[i].name, "userdata", 8)) continue;
 
@@ -2517,6 +2521,9 @@ void dump_partitions(spdio_t *io, const char *fn, int *nand_info, unsigned step)
 
 int ab_compare_slots(const slot_metadata *a, const slot_metadata *b);
 void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab) {
+	DEG_LOG(OP,"Start to write partitions");
+	DEG_LOG(I,"Type CTRL + C to cancel...");
+	start_signal();
 	typedef struct {
 		char name[36];
 		char file_path[1024];
@@ -2635,7 +2642,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab)
 	}
 	if (selected_ab) DEG_LOG(I,"Flashing to slot %c.\n", 96 + selected_ab);
 	for (int i = 0; i < partition_count; i++) {
-		if (isCancel) { isCancel = 0; signal(SIGINT, SIG_DFL); free(partitions); return; }
+		if (isCancel) {  free(partitions); return; }
 		fn = partitions[i].name;
 		namelen = strlen(fn);
 		if (selected_ab == 1 && namelen > 2 && 0 == strcmp(fn + namelen - 2, "_b")) { partitions[i].written_flag = 1; continue; }
@@ -2668,6 +2675,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab)
 	}
 	int metadata_in_dump = 0, super_in_dump = 0, metadata_id = -1, super_id = -1;
 	for (int i = 0; i < partition_count; i++) {
+		if (isCancel) { free(partitions); return; }
 		if (!partitions[i].written_flag) {
 			fn = partitions[i].name;
 			get_partition_info(io, fn, 0);

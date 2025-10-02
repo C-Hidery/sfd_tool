@@ -236,6 +236,7 @@ enum Stages {
 	SPRD3 = 3,
 	SPRD4 = 4
 };
+extern int isCancel;
 spdio_t *spdio_init(int flags);
 void spdio_free(spdio_t *io);
 extern const char* CommonPartitions[];
@@ -288,3 +289,4 @@ double get_time();
 const char* get_bsl_enum_name(unsigned int value);
 void print_all_bsl_commands();
 void signal_handler(int sig);
+void start_signal();
