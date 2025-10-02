@@ -1,5 +1,5 @@
 #include "common.h"
-extern int isCancel = 0;
+int isCancel = 0;
 #if !USE_LIBUSB
 
 DWORD curPort = 0;
