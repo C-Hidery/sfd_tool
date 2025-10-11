@@ -1159,7 +1159,7 @@ int main(int argc, char** argv) {
 			}
 			encode_msg_nocpy(io,strtoul(str2[2],NULL,0), length);
 			int verb = io->verbose;
-			io->verbose = 1;
+			io->verbose = 2;
 			int ret;
 			send_msg(io);
 			ret = recv_msg(io);
