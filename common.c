@@ -1813,6 +1813,8 @@ void add_partition(spdio_t* io, const char* name, long long size) {
 	io->part_count_c++;
 	DEG_LOG(I,"Partition %s added.",name);
 	DEG_LOG(I, "You can get partition xml manually by `part_table` command.");
+	DEG_LOG(I,"By default, the partition is added to the last position of the partition table.");
+	DEG_LOG(I,"You may need to re-flash the firmware after repartitioning using this partition table.");
 }
 void repartition(spdio_t *io, const char *fn) {
 	uint8_t *buf = io->temp_buf;

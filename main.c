@@ -1,10 +1,6 @@
 #include <stdio.h>
 #include "common.h"
-//spd_dump second amendment By Ryan Crepa
-//spd_dump By TomKing062
-//SPDX-License-Identifier: GPL-3.0-or-later
-//addon funcs by YC (SPRDClientCore-second-amendment)
-const char* Version = "[1.1.6.0@_250726]";
+const char* Version = "[1.2.0.0@_250726]";
 int bListenLibusb = -1;
 int gpt_failed = 1;
 int m_bOpened = 0;
@@ -18,8 +14,6 @@ uint64_t fblk_size = 0;
 uint64_t g_spl_size;
 const char* o_exception;
 int init_stage = -1;
-//uint32_t e_addr = 0;
-//device stage from SPRDClientCore
 int device_stage = Nothing, device_mode = Nothing;
 //spd_dump protocol
 char** str2;
@@ -136,8 +130,6 @@ void print_help() {
 		"\t\t(Only compatibility-method mode)\n"
 		"\t->bootloader {0,1}\n"
 		"\t\tSet the bootloader status (FDL2 stage only).\n"
-		"\t->rawcmd [TYPE] <FILE>\n"
-		"\t\tSend a specified command (with a file)\n"
 		"\t->show_cmd\n"
 		"\t\tShow BSL commands\n"
 		"\t->find_cmd [TYPE]\n"
@@ -164,6 +156,10 @@ void print_help() {
 		"\t\tWrite a HEX number word to a specified address.\n"
 		"\t->read_nand\n"
 		"\t\tDetermine whether the current device is a NAND model; not all devices are supported.(through 0x0D)\n"
+		"\t->sendcmd [TYPE] <FILE>\n"
+		"\t\tSend a specified command (with a file)\n"
+		"\t->pactime\n"
+		"\t\tRead the last time the PAC firmware was flashed.\n"
 		"Notice:\n"
 		"\t1.The compatibility method to get part table sometimes can not get all partitions on your device\n"
 		"\t2.Command `bootloader` : It is only supported on special FDL2 and requires trustos and sml partition files."
@@ -231,9 +227,7 @@ int main(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(NULL));
-	printf("sfd_tool version 1.5.8.0\n");
-	printf("Copyright (C) 2025 Ryan Crepa\n");
-	printf("Core by TomKing062\n");
+	printf("sfd_tool version 1.6.0.0\n");
 #if _DEBUG  
 	DBG_LOG("version:debug, core version:%s\n", Version);
 #else
@@ -1149,8 +1143,8 @@ int main(int argc, char** argv) {
 			argc -= 2; argv += 2;
 
 		}
-		else if (!strcmp(str2[1], "rawcmd")) {
-			if (argcount <= 2) { DEG_LOG(W, "rawcmd [TYPE] <FILE>"); argc = 1; continue; }
+		else if (!strcmp(str2[1], "sendcmd")) {
+			if (argcount <= 2) { DEG_LOG(W, "sendcmd [TYPE] <FILE>"); argc = 1; continue; }
 			size_t length = 0;
 			FILE* fi;
 			if (argcount > 3) {
@@ -1164,13 +1158,17 @@ int main(int argc, char** argv) {
 				fclose(fi);
 			}
 			encode_msg_nocpy(io,strtoul(str2[2],NULL,0), length);
+			int verb = io->verbose;
+			io->verbose = 1;
 			int ret;
 			send_msg(io);
 			ret = recv_msg(io);
 			if (!ret) ERR_EXIT("timeout reached\n");
-			DEG_LOG(I, "Sent raw cmd 0x%x with %zu bytes data", strtoul(str2[2], NULL, 0), length);
+			DEG_LOG(I, "Sent cmd 0x%x with %zu bytes data", strtoul(str2[2], NULL, 0), length);
 			ret = recv_type(io);
-			DEG_LOG(I, "Response 0x%04x with %u bytes data", ret, READ16_BE(io->raw_buf + 2));
+			const char* name = get_bsl_enum_name(ret);
+			DEG_LOG(I, "Response 0x%04x(%s) with %u bytes data", ret, name, READ16_BE(io->raw_buf + 2));
+			io->verbose = verb;
 			argc -= (argcount > 3) ? 3 : 2; argv += (argcount > 3) ? 3 : 2;
 		}
 		else if (!strcmp(str2[1], "read_spec")) {
@@ -1592,6 +1590,9 @@ int main(int argc, char** argv) {
 			argc -= 1; argv += 1;
 
 			}
+		else if (!strcmp(str2[1], "pactime")) {
+			read_pactime(io);
+		}
 		else if (!strcmp(str2[1], "firstmode")) {
 				if (argcount <= 2) { DEG_LOG(W,"firstmode mode_id"); argc = 1; continue; }
 				uint8_t* modebuf = malloc(4);
