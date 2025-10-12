@@ -564,7 +564,7 @@ int main(int argc, char** argv) {
 			if (fdl1_loaded == -1) {
 				save_argv = argv;
 				strcpy(str2[1],"loadfdl");
-				strcpy(str2[1],"0x0");
+				strcpy(str2[2],"0x0");
 			}
 			else if (fdl2_executed == -1) {
 				if (!save_argv) save_argv = argv;
