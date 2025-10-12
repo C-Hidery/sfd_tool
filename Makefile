@@ -13,5 +13,5 @@ LIBS += -lusb-1.0
 endif
 
 #make
-$(APPNAME): main.c common.c
+$(APPNAME): main.cpp common.cpp
 	$(CC) -s $(CFLAGS) -o $@ $^ $(LIBS)
