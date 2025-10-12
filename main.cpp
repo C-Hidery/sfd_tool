@@ -563,12 +563,12 @@ int main(int argc, char** argv) {
 			str2 = (char**)malloc(argc * sizeof(char*));
 			if (fdl1_loaded == -1) {
 				save_argv = argv;
-				strcpy(str2[1],"loadfdl");
-				strcpy(str2[2],"0x0");
+				str2[1] = const_cast<char*>("loadfdl");
+				str2[2] = const_cast<char*>("0x0");
 			}
 			else if (fdl2_executed == -1) {
 				if (!save_argv) save_argv = argv;
-				strcpy(str2[1],"exec");
+				str2[1] = const_cast<char*>("exec");
 			}
 			else {
 				if (save_argv) { argv = save_argv; save_argv = NULL; }
