@@ -22,17 +22,21 @@
     <ClInclude Include="BMPlatform.h" />
     <ClInclude Include="common.h" />
     <ClInclude Include="define.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="spd_cmd.h" />
     <ClInclude Include="Wrapper.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BMPlatform.cpp" />
-    <ClCompile Include="common.c" />
-    <ClCompile Include="main.c" />
+    <ClCompile Include="common.cpp" />
+    <ClCompile Include="main.cpp" />
     <ClCompile Include="Wrapper.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="app.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="icon.ico" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
