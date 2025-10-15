@@ -1,8 +1,9 @@
 
 LIBUSB = 1
-CFLAGS = -O2 -Wall -Wextra -std=c99 -pedantic -Wno-unused
+CFLAGS = -O2 -Wall -Wextra -std=c++14 -pedantic -Wno-unused
 CFLAGS += -DUSE_LIBUSB=$(LIBUSB)
 LIBS = -lm -lpthread
+CC = g++
 APPNAME = sfd_tool
 
 LIBUSB = 1
