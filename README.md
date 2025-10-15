@@ -19,9 +19,9 @@ Run this before making on linux:
 ``` bash
 sudo apt update
 # Ubuntu/Debian
-sudo apt install libusb-1.0-0-dev
+sudo apt install libusb-1.0-0-dev gcc g++
 # Android(Termux)
-pkg install termux-api libusb clang git
+pkg install termux-api libusb clang git g++
 ```
 
 Then make:
