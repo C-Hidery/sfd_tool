@@ -490,7 +490,6 @@ int main(int argc, char** argv) {
 				DEG_LOG(OP, "Try to disable transcode 0x7D.");
 				fdl2_executed = 1;
 				device_stage = FDL2;
-				io->ptable = partition_list(io, fn_partlist, &io->part_count);
 				int o = io->verbose;
 				io->verbose = -1;
 				g_spl_size = check_partition(io, "splloader", 1);
