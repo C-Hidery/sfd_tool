@@ -1913,8 +1913,12 @@ void load_partition(spdio_t *io, const char *name,
 					else { delete[](rawbuf); step = step0; Da_Info.bSupportRawData = 0; goto fallback_load; }
 				}
 			}
-			if (fread(rawbuf, 1, n, fi) != n)
-				ERR_EXIT("fread(load) failed\n");
+			// 修复缓冲区溢出问题，确保 n 不超过 rawbuf 的实际分配大小
+			if (n > step + 1) {
+				// 限制 n 的最大值，防止溢出
+				n = step + 1;
+			}
+			if (fread(rawbuf, 1, n, fi) != n) ERR_EXIT("fread(load) failed\n");
 #if USE_LIBUSB
 			int err = libusb_bulk_transfer(io->dev_handle, io->endp_out, rawbuf, n, &ret, io->timeout); //libusb will fail with rawbuf
 			if (err < 0) ERR_EXIT("usb_send failed : %s\n", libusb_error_name(err));
