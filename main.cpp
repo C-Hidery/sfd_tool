@@ -190,7 +190,7 @@ void ThrowExit() {
 
 int main(int argc, char** argv) {
 	ThrowExit;
-	spdio_t* io = NULL;
+	spdio_t* io = nullptr;
 	int ret, wait = 30 * REOPEN_FREQ;
 	int keep_charge = 1, end_data = 0, blk_size = 0, skip_confirm = 1, highspeed = 0, cve_v2 = 0;
 	int nand_info[3];
@@ -207,7 +207,7 @@ int main(int argc, char** argv) {
 	extern libusb_device* curPort;
 	libusb_device** ports;
 #endif
-	char* execfile = (char*)malloc(ARGV_LEN);
+	char* execfile = new(std::nothrow)char[ARGV_LEN];
 	if (!execfile) { ThrowExit(); ERR_EXIT("%s: malloc failed\n",o_exception); }
 	io = spdio_init(0);
 
@@ -217,17 +217,17 @@ int main(int argc, char** argv) {
 	//libusb_device_handle *handle; // Use spdio_t.dev_handle
 	//libusb_device* device; //use curPort
 	struct libusb_device_descriptor desc;
-	libusb_set_option(NULL, LIBUSB_OPTION_NO_DEVICE_DISCOVERY);
+	libusb_set_option(nullptr, LIBUSB_OPTION_NO_DEVICE_DISCOVERY);
 #endif
-	ret = libusb_init(NULL);
+	ret = libusb_init(nullptr);
 	if (ret < 0)
 		ERR_EXIT("libusb_init failed: %s\n", libusb_error_name(ret));
 #else
 	io->handle = createClass();
 	call_Initialize(io->handle);
 #endif
-	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(NULL));
-	printf("sfd_tool version 1.6.0.0\n");
+	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(nullptr));
+	printf("sfd_tool version 1.6.2.0\n");
 #if _DEBUG  
 	DBG_LOG("version:debug, core version:%s\n", Version);
 #else
@@ -273,7 +273,7 @@ int main(int argc, char** argv) {
 		else if (!strcmp(argv[1], "--kickto")) {
 			isKickMode = 1;
 			if (argc <= 2) { ThrowExit(); ERR_EXIT("%s: bad option\n",o_exception); }
-			bootmode = strtol(argv[2], NULL, 0); at = 0;
+			bootmode = strtol(argv[2], nullptr, 0); at = 0;
 			argc -= 2; argv += 2;
 		}
 		else if (!strcmp(argv[1], "--nor_bar")) {
@@ -299,7 +299,7 @@ int main(int argc, char** argv) {
 		ERR_EXIT("Example: termux-usb -e \"./sfd_tool` --usb-fd\" /dev/bus/usb/xxx/xxx\n"
 			"Provide --usb-fd if run on android\n");
 
-	if (libusb_wrap_sys_device(NULL, (intptr_t)xfd, &io->dev_handle))
+	if (libusb_wrap_sys_device(nullptr, (intptr_t)xfd, &io->dev_handle))
 		ERR_EXIT("libusb_wrap_sys_device exit unconditionally!\n");
 
 	curPort = libusb_get_device(io->dev_handle);
@@ -315,8 +315,8 @@ int main(int argc, char** argv) {
 #if !USE_LIBUSB
 	bListenLibusb = 0;
 	if (at || bootmode >= 0) {
-		io->hThread = CreateThread(NULL, 0, ThrdFunc, NULL, 0, &io->iThread);
-		if (io->hThread == NULL) return -1;
+		io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
+		if (io->hThread == nullptr) return -1;
 		ChangeMode(io, wait / REOPEN_FREQ * 1000, bootmode, at);
 		wait = 30 * REOPEN_FREQ;
 		stage = -1;
@@ -333,8 +333,8 @@ int main(int argc, char** argv) {
 #endif
 #if _WIN32
 	if (!bListenLibusb) {
-		if (io->hThread == NULL) io->hThread = CreateThread(NULL, 0, ThrdFunc, NULL, 0, &io->iThread);
-		if (io->hThread == NULL) return -1;
+		if (io->hThread == nullptr) io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
+		if (io->hThread == nullptr) return -1;
 	}
 #if !USE_LIBUSB
 	if (!m_bOpened && async) {
@@ -361,7 +361,7 @@ int main(int argc, char** argv) {
 			}
 			if (!(i % 4)) {
 				if ((ports = FindPort(0x4d00))) {
-					for (libusb_device** port = ports; *port != NULL; port++) {
+					for (libusb_device** port = ports; *port != nullptr; port++) {
 						if (libusb_open(*port, &io->dev_handle) >= 0) {
 							call_Initialize_libusb(io);
 							curPort = *port;
@@ -369,7 +369,7 @@ int main(int argc, char** argv) {
 						}
 					}
 					libusb_free_device_list(ports, 1);
-					ports = NULL;
+					ports = nullptr;
 					if (m_bOpened) break;
 				}
 			}
@@ -389,8 +389,8 @@ int main(int argc, char** argv) {
 							break;
 						}
 					}
-					free(ports);
-					ports = NULL;
+					delete[](ports);
+					ports = nullptr;
 					if (m_bOpened) break;
 				}
 			}
@@ -408,7 +408,7 @@ int main(int argc, char** argv) {
 		io->flags &= ~FLAGS_CRC16;
 		encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
 	}
-	else encode_msg(io, BSL_CMD_CHECK_BAUD, NULL, 1);
+	else encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
 	//handshake
 	for (int i = 0; ; ++i) {
 		//check if device is connected correctly.
@@ -490,16 +490,19 @@ int main(int argc, char** argv) {
 				DEG_LOG(OP, "Try to disable transcode 0x7D.");
 				fdl2_executed = 1;
 				device_stage = FDL2;
+				io->ptable = partition_list(io, fn_partlist, &io->part_count);
 				int o = io->verbose;
 				io->verbose = -1;
 				g_spl_size = check_partition(io, "splloader", 1);
 				io->verbose = o;
-				io->Cptable = partition_list_d(io, fn_partlist);
-				isCMethod = 1;
-				if (nand_id == DEFAULT_NAND_ID) {
-					nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
-					nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
-					nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+				if(!io->part_count){
+					io->Cptable = partition_list_d(io);
+					isCMethod = 1;
+					if (nand_id == DEFAULT_NAND_ID) {
+						nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+						nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+						nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+					}
 				}
 				break;
 			}
@@ -528,7 +531,7 @@ int main(int argc, char** argv) {
 	DEG_LOG(I,"SPRD3 Current : %d",found);
 	if(!found && isKickMode) device_mode = SPRD4;
 	else device_mode = SPRD3;
-	char** save_argv = NULL;
+	char** save_argv = nullptr;
 	if (fdl1_loaded == -1) argc += 2;
 	if (fdl2_executed == -1) argc += 1;
 	init_stage = 2;
@@ -560,7 +563,7 @@ int main(int argc, char** argv) {
 	while (1) {
 		//TODO
 		if (argc > 1) {
-			str2 = (char**)malloc(argc * sizeof(char*));
+			str2 = new(std::nothrow)char*[argc * sizeof(char*)];
 			if (fdl1_loaded == -1) {
 				save_argv = argv;
 				str2[1] = const_cast<char*>("loadfdl");
@@ -571,7 +574,7 @@ int main(int argc, char** argv) {
 				str2[1] = const_cast<char*>("exec");
 			}
 			else {
-				if (save_argv) { argv = save_argv; save_argv = NULL; }
+				if (save_argv) { argv = save_argv; save_argv = nullptr; }
 				for (i = 1; i < argc; i++) str2[i] = argv[i];
 			}
 			argcount = argc;
@@ -579,7 +582,7 @@ int main(int argc, char** argv) {
 		}
 		else {
 			char ifs = '"';
-			str2 = (char**)malloc(ARGC_MAX * sizeof(char*));
+			str2 = new(std::nothrow)char*[ARGC_MAX * sizeof(char*)];
 			memset(str1, 0, sizeof(str1));
 			argcount = 0;
 			in_quote = 0;
@@ -598,7 +601,7 @@ int main(int argc, char** argv) {
 				if (!in_quote) {
 					argcount++;
 					if (argcount == ARGC_MAX) break;
-					str2[argcount] = (char*)malloc(ARGV_LEN);
+					str2[argcount] = new(std::nothrow)char[ARGV_LEN];
 					if (!str2[argcount]) ERR_EXIT("malloc failed\n");
 					memset(str2[argcount], 0, ARGV_LEN);
 				}
@@ -617,12 +620,12 @@ int main(int argc, char** argv) {
 				}
 
 				strcat(str2[argcount], temp);
-				temp = strtok(NULL, " ");
+				temp = strtok(nullptr, " ");
 			}
 			argcount++;
 		}
 		if (argcount == 1) {
-			str2[1] = (char*)malloc(1);
+			str2[1] = new(std::nothrow)char[1];
 			if (str2[1]) str2[1][0] = '\0';
 			else ERR_EXIT("malloc failed\n");
 			argcount++;
@@ -633,7 +636,7 @@ int main(int argc, char** argv) {
 			if (argcount <= 2) { DBG_LOG("sendloop [ADDR]\n"); argc = 1; continue; }
 
 			uint8_t data[4] = { 0 };
-			addr = strtoul(str2[2], NULL, 0);
+			addr = strtoul(str2[2], nullptr, 0);
 			while (1) {
 				send_buf(io, addr, 0, 528, data, 4);
 				DBG_LOG("SEND 4 bytes to 0x%x\n", addr);
@@ -645,8 +648,8 @@ int main(int argc, char** argv) {
 			uint32_t addr, data;
 			if (argc <= 3) { DBG_LOG("write_word [ADDR] [VALUE](max is 0xFFFFFFFF)\n"); argc = 1; continue; }
 
-			addr = strtoul(str2[2], NULL, 0);
-			data = strtoul(str2[3], NULL, 0);
+			addr = strtoul(str2[2], nullptr, 0);
+			data = strtoul(str2[3], nullptr, 0);
 			send_buf(io, addr, end_data, 528, (uint8_t*)&data, 4);
 			argc -= 3; argv += 3;
 
@@ -654,10 +657,10 @@ int main(int argc, char** argv) {
 		else if (!memcmp(str2[1], "exec_addr",9)) {
 			FILE* fi;
 			if (0 == fdl1_loaded && argcount > 2) {
-				exec_addr = strtoul(str2[3], NULL, 0);
+				exec_addr = strtoul(str2[3], nullptr, 0);
 				sprintf(execfile, str2[2]);
 				fi = fopen(execfile, "r");
-				if (fi == NULL) { DEG_LOG(W,"%s does not exist", execfile); exec_addr = 0; }
+				if (fi == nullptr) { DEG_LOG(W,"%s does not exist", execfile); exec_addr = 0; }
 				else fclose(fi);
 			}
 			DEG_LOG(I,"Current CVE address is 0x%x", exec_addr);
@@ -670,9 +673,9 @@ int main(int argc, char** argv) {
 
 			fn = str2[2];
 			fi = fopen(fn, "r");
-			if (fi == NULL) { DEG_LOG(E,"File does not exist."); argc -= 3; argv += 3; continue; }
+			if (fi == nullptr) { DEG_LOG(E,"File does not exist."); argc -= 3; argv += 3; continue; }
 			else fclose(fi);
-			addr = strtoul(str2[3], NULL, 0);
+			addr = strtoul(str2[3], nullptr, 0);
 			if (!strcmp(str2[1], "send_file")) send_file(io, fn, addr, end_data, 528, 0, 0);
 			else send_file(io, fn, addr, 0, 528, 0, 0);
 			argc -= 3; argv += 3;
@@ -685,28 +688,28 @@ int main(int argc, char** argv) {
 			if (addr_in_name) {
 				argchange = 2;
 				if (argcount <= argchange) { DEG_LOG(W,"loadfdl FILE\n"); argc = 1; continue; }
-				char* pos = NULL, * last_pos = NULL;
+				char* pos = nullptr, * last_pos = nullptr;
 
 				pos = (char*)strstr(fn, "0X");
 				while (pos) {
 					last_pos = pos;
 					pos = strstr(pos + 2, "0X");
 				}
-				if (last_pos == NULL) {
+				if (last_pos == nullptr) {
 					pos = (char*)strstr(fn, "0x");
 					while (pos) {
 						last_pos = pos;
 						pos = strstr(pos + 2, "0x");
 					}
 				}
-				if (last_pos) addr = strtoul(last_pos, NULL, 16);
+				if (last_pos) addr = strtoul(last_pos, nullptr, 16);
 				else { DEG_LOG(E,"\"0x\" not found in name.\n"); argc -= argchange; argv += argchange; continue; }
 			}
 			else{
 				argchange = 3;
 				if (argcount <= argchange) { DEG_LOG(W, "fdl FILE addr"); argc = 1; continue; }
 				//convert to ulong
-				addr = strtoul(str2[3], NULL, 0);
+				addr = strtoul(str2[3], nullptr, 0);
 			}
 			
 			
@@ -722,7 +725,7 @@ int main(int argc, char** argv) {
 			else if (fdl1_loaded > 0) {
 				if (fdl2_executed != -1) {
 					fi = fopen(fn, "r");
-					if (fi == NULL) { DEG_LOG(W,"File does not exist."); argc -= argchange; argv += argchange; continue; }
+					if (fi == nullptr) { DEG_LOG(W,"File does not exist."); argc -= argchange; argv += argchange; continue; }
 					else fclose(fi);
 					send_file(io, fn, addr, end_data, blk_size ? blk_size : 528, 0, 0);
 				}
@@ -731,7 +734,7 @@ int main(int argc, char** argv) {
 			else {
 				if (fdl1_loaded != -1) {
 					fi = fopen(fn, "r");
-					if (fi == NULL) { DEG_LOG(W,"File does not exist.\n"); argc -= argchange; argv += argchange; continue; }
+					if (fi == nullptr) { DEG_LOG(W,"File does not exist.\n"); argc -= argchange; argv += argchange; continue; }
 					else fclose(fi);
 					if (cve_v2) {
 						size_t execsize = send_file(io, fn, addr, 0, 528, 0, 0);
@@ -752,13 +755,13 @@ int main(int argc, char** argv) {
 						}
 						encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
 						if (send_and_check(io)) exit(1);
-						free(execfile);
+						delete[](execfile);
 					}
 					else {
 						send_file(io, fn, addr, end_data, 528, 0, 0);
 						if (exec_addr) {
 							send_file(io, execfile, exec_addr, 0, 528, 0, 0);
-							free(execfile);
+							delete[](execfile);
 						}
 						else {
 							encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
@@ -781,7 +784,7 @@ int main(int argc, char** argv) {
 				/* FDL1 (chk = sum) */
 				io->flags &= ~FLAGS_CRC16;
 
-				encode_msg(io, BSL_CMD_CHECK_BAUD, NULL, 1);
+				encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
 				for (i = 0; ; i++) {
 					send_msg(io);
 					recv_msg(io);
@@ -803,7 +806,7 @@ int main(int argc, char** argv) {
 				char chdump;
 				FILE* fdump;
 				fdump = my_fopen("memdump.bin", "wb");
-				encode_msg(io, BSL_CMD_CHECK_BAUD, NULL, 1);
+				encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
 				while (1) {
 					send_msg(io);
 					ret = recv_msg(io);
@@ -933,7 +936,7 @@ int main(int argc, char** argv) {
 					}
 				}
 				else {
-					io->Cptable = partition_list_d(io, fn_partlist);
+					io->Cptable = partition_list_d(io);
 					isCMethod = 1;
 				}
 				if (nand_id == DEFAULT_NAND_ID) {
@@ -947,7 +950,7 @@ int main(int argc, char** argv) {
 			}else if (fdl1_loaded != 1) {
 				//Execute FDL1 manually
 				if (argcount <= 2) { DEG_LOG(W, "`exec` command need fdl addr when exec in FDL1"); argc = 1; continue; }
-				uint32_t addr = strtoul(str2[2], NULL, 0);
+				uint32_t addr = strtoul(str2[2], nullptr, 0);
 				encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
 				if (send_and_check(io)) exit(1);
 				DEG_LOG(OP, "Execute FDL1");
@@ -960,7 +963,7 @@ int main(int argc, char** argv) {
 				/* FDL1 (chk = sum) */
 				io->flags &= ~FLAGS_CRC16;
 
-				encode_msg(io, BSL_CMD_CHECK_BAUD, NULL, 1);
+				encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
 				for (i = 0; ; i++) {
 					send_msg(io);
 					recv_msg(io);
@@ -982,7 +985,7 @@ int main(int argc, char** argv) {
 				char chdump;
 				FILE* fdump;
 				fdump = my_fopen("memdump.bin", "wb");
-				encode_msg(io, BSL_CMD_CHECK_BAUD, NULL, 1);
+				encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
 				while (1) {
 					send_msg(io);
 					ret = recv_msg(io);
@@ -1030,7 +1033,7 @@ int main(int argc, char** argv) {
 		}
 		else if (!strcmp(str2[1], "baudrate")) {
 			if (argcount > 2) {
-				baudrate = strtoul(str2[2], NULL, 0);
+				baudrate = strtoul(str2[2], nullptr, 0);
 				if (fdl2_executed) call_SetProperty(io->handle, 0, 100, (LPCVOID)&baudrate);
 			}
 			DEG_LOG(I,"Baudrate is %u", baudrate);
@@ -1046,7 +1049,7 @@ int main(int argc, char** argv) {
 		else if (!strcmp(str2[1], "nand_id")) {
 			//spd_dump func
 			if (argcount > 2) {
-				nand_id = strtol(str2[2], NULL, 0);
+				nand_id = strtol(str2[2], nullptr, 0);
 				nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
 				nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
 				nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
@@ -1070,7 +1073,7 @@ int main(int argc, char** argv) {
 		}
 		else if (!strcmp(str2[1], "bootloader")) {
 			if (argcount < 2) { DEG_LOG(W, "bootloader {0,1}"); argc = 1; continue; }
-			int status = strtol(str2[2], NULL, 0);
+			int status = strtol(str2[2], nullptr, 0);
 			if (status < 0 || status > 1) { DEG_LOG(W, "bootloader {0,1}"); argc -= 2; argv += 2; continue; }
 			set_bootloader_status(io, status);
 		}
@@ -1100,7 +1103,7 @@ int main(int argc, char** argv) {
 		}
 		else if (!strcmp(str2[1], "find_cmd")) {
 			if (argcount <= 2) { DEG_LOG(W, "find_cmd [TYPE]"); argc = 1; continue; }
-			const char* name = get_bsl_enum_name(strtoul(str2[2],NULL,0));
+			const char* name = get_bsl_enum_name(strtoul(str2[2],nullptr,0));
 			DEG_LOG(I, "%s", name);
 		}
 		else if (!strcmp(str2[1], "read_mem")) {
@@ -1157,14 +1160,14 @@ int main(int argc, char** argv) {
 				}
 				fclose(fi);
 			}
-			encode_msg_nocpy(io,strtoul(str2[2],NULL,0), length);
+			encode_msg_nocpy(io,strtoul(str2[2],nullptr,0), length);
 			int verb = io->verbose;
 			io->verbose = 2;
 			int ret;
 			send_msg(io);
 			ret = recv_msg(io);
 			if (!ret) ERR_EXIT("timeout reached\n");
-			DEG_LOG(I, "Sent cmd 0x%x with %zu bytes data", strtoul(str2[2], NULL, 0), length);
+			DEG_LOG(I, "Sent cmd 0x%x with %zu bytes data", strtoul(str2[2], nullptr, 0), length);
 			ret = recv_type(io);
 			const char* name = get_bsl_enum_name(ret);
 			DEG_LOG(I, "Response 0x%04x(%s) with %u bytes data", ret, name, READ16_BE(io->raw_buf + 2));
@@ -1310,7 +1313,7 @@ int main(int argc, char** argv) {
 			if (argcount <= 2) { DEG_LOG(W,"read_parts partition_table_file"); argc = 1; continue; }
 			fn = str2[2];
 			fi = fopen(fn, "r");
-			if (fi == NULL) { DEG_LOG(E,"File does not exist."); argc -= 2; argv += 2; continue; }
+			if (fi == nullptr) { DEG_LOG(E,"File does not exist."); argc -= 2; argv += 2; continue; }
 			else fclose(fi);
 			dump_partitions(io, fn, nand_info, blk_size ? blk_size : DEFAULT_BLK_SIZE);
 			argc -= 2; argv += 2;
@@ -1373,7 +1376,7 @@ int main(int argc, char** argv) {
 			if (argcount <= 2) { DEG_LOG(W,"repartition FILE"); argc = 1; continue; }
 			fn = str2[2];
 			fi = fopen(fn, "r");
-			if (fi == NULL) { DEG_LOG(E,"File does not exist."); argc -= 2; argv += 2; continue; }
+			if (fi == nullptr) { DEG_LOG(E,"File does not exist."); argc -= 2; argv += 2; continue; }
 			else fclose(fi);
 			if (skip_confirm) repartition(io, str2[2]);
 			else if (check_confirm("repartition")) repartition(io, str2[2]);
@@ -1434,7 +1437,7 @@ int main(int argc, char** argv) {
 			if (argcount <= 3) { DEG_LOG(W,"w/write_part part_name/part_id FILE\n"); argc = 1; continue; }
 			fn = str2[3];
 			fi = fopen(fn, "r");
-			if (fi == NULL) { DEG_LOG(E,"File does not exist.\n"); argc -= 3; argv += 3; continue; }
+			if (fi == nullptr) { DEG_LOG(E,"File does not exist.\n"); argc -= 3; argv += 3; continue; }
 			else fclose(fi);
 			if (!skip_confirm)
 				if (!check_confirm("write partition")) {
@@ -1465,7 +1468,7 @@ int main(int argc, char** argv) {
 			if (!io->part_count) { DEG_LOG(E,"Partition table not available or compatibility-method mode detected\n(compatibility-method mode not support w_force for security)"); argc -= 3; argv += 3; continue; }
 			fn = str2[3];
 			fi = fopen(fn, "r");
-			if (fi == NULL) { DEG_LOG(E,"File does not exist."); argc -= 3; argv += 3; continue; }
+			if (fi == nullptr) { DEG_LOG(E,"File does not exist."); argc -= 3; argv += 3; continue; }
 			else fclose(fi);
 			get_partition_info(io, name, 0);
 			if (!gPartInfo.size) { DEG_LOG(E,"Partition does not exist"); argc -= 3; argv += 3; continue; }
@@ -1496,10 +1499,10 @@ int main(int argc, char** argv) {
 
 			offset = str_to_size(str2[3]);
 			if (!strcmp(str2[1], "wov")) {
-				src = (uint8_t*)malloc(4);
+				src = new(std::nothrow)uint8_t[4];
 				if (!src) { DEG_LOG(E,"malloc failed"); argc -= 4; argv += 4; continue; }
 				length = 4;
-				*(uint32_t*)src = strtoul(str2[4], NULL, 0);
+				*(uint32_t*)src = strtoul(str2[4], nullptr, 0);
 			}
 			else {
 				const char* fn = str2[4];
@@ -1507,13 +1510,13 @@ int main(int argc, char** argv) {
 				if (!src) { DEG_LOG(E,"Open %s failed", fn); argc -= 4; argv += 4; continue; }
 			}
 			w_mem_to_part_offset(io, name, offset, src, length, blk_size ? blk_size : DEFAULT_BLK_SIZE);
-			free(src);
+			delete[](src);
 			argc -= 4; argv += 4;
 
 		}
 		else if (!strcmp(str2[1], "blk_size") || !strcmp(str2[1], "bs")) {
 			if (argcount <= 2) { DEG_LOG(E,"blk_size byte\n\tmax is 65535"); argc = 1; continue; }
-			blk_size = strtol(str2[2], NULL, 0);
+			blk_size = strtol(str2[2], nullptr, 0);
 #ifndef _MYDEBUG
 			blk_size = blk_size < 0 ? 0 :
 				blk_size > 0xf800 ? 0xf800 : ((blk_size + 0x7FF) & ~0x7FF);
@@ -1525,7 +1528,7 @@ int main(int argc, char** argv) {
 			}
 		else if (!strcmp(str2[1], "fblk_size") || !strcmp(str2[1], "fbs")) {
 				if (argcount <= 2) { DEG_LOG(E,"fblk_size [value]\n\tvalue unit: MB"); argc = 1; continue; }
-				fblk_size = strtoull(str2[2], NULL, 0) * 1024 * 1024;
+				fblk_size = strtoull(str2[2], nullptr, 0) * 1024 * 1024;
 				argc -= 2; argv += 2;
 
 		}
@@ -1595,12 +1598,12 @@ int main(int argc, char** argv) {
 		}
 		else if (!strcmp(str2[1], "firstmode")) {
 				if (argcount <= 2) { DEG_LOG(W,"firstmode mode_id"); argc = 1; continue; }
-				uint8_t* modebuf = (uint8_t*)malloc(4);
+				uint8_t* modebuf = new(std::nothrow)uint8_t[4];
 				if (!modebuf) ERR_EXIT("malloc failed\n");
-				uint32_t mode = strtol(str2[2], NULL, 0) + 0x53464D00;
+				uint32_t mode = strtol(str2[2], nullptr, 0) + 0x53464D00;
 				memcpy(modebuf, &mode, 4);
 				w_mem_to_part_offset(io, "miscdata", 0x2420, modebuf, 4, 0x1000);
-				free(modebuf);
+				delete[](modebuf);
 				argc -= 2; argv += 2;
 
 				}
@@ -1694,12 +1697,12 @@ int main(int argc, char** argv) {
 																argc -= 1; argv += 1;
 																continue;
 															}
-															char* miscbuf = (char*)malloc(0x800);
+															char* miscbuf = new(std::nothrow)char[0x800];
 															if (!miscbuf) ERR_EXIT("malloc failed\n");
 															memset(miscbuf, 0, 0x800);
 															strcpy(miscbuf, "boot-recovery");
 															w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000);
-															free(miscbuf);
+															delete[](miscbuf);
 															encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
 															if (!send_and_check(io)) break;
 
@@ -1710,13 +1713,13 @@ int main(int argc, char** argv) {
 																	argc -= 1; argv += 1;
 																	continue;
 																}
-																char* miscbuf = (char*)malloc(0x800);
+																char* miscbuf = new(std::nothrow)char[0x800];
 																if (!miscbuf) ERR_EXIT("malloc failed\n");
 																memset(miscbuf, 0, 0x800);
 																strcpy(miscbuf, "boot-recovery");
 																strcpy(miscbuf + 0x40, "recovery\n--fastboot\n");
 																w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000);
-																free(miscbuf);
+																delete[](miscbuf);
 																encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
 																if (!send_and_check(io)) break;
 
@@ -1743,8 +1746,8 @@ int main(int argc, char** argv) {
 		}
 		if (in_quote != -1)
 			for (i = 1; i < argcount; i++)
-				free(str2[i]);
-		free(str2);
+				delete[](str2[i]);
+		delete[](str2);
 		if (m_bOpened == -1) {
 			DEG_LOG(E,"device unattached, exiting...");
 			break;

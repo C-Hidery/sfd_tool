@@ -6,6 +6,8 @@
 #define ARGC_MAX 8
 #define ARGV_LEN 384
 //#include "define.h"
+#include <memory>
+#include <new>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -277,7 +279,7 @@ void dm_enable(spdio_t *io, unsigned step);
 void w_mem_to_part_offset(spdio_t *io, const char *name, size_t offset, uint8_t *mem, size_t length, unsigned step);
 void set_active(spdio_t *io, const char *arg);
 void DEG_LOG(int type, const char* format, ...);
-partition_t* partition_list_d(spdio_t* io, const char* fn);
+partition_t* partition_list_d(spdio_t* io);
 int set_bootloader_status(spdio_t* io,int status);
 void add_partition(spdio_t* io, const char* name, long long size);
 int print_to_string(char* dest, size_t dest_size, const void* src, size_t n,int o);
