@@ -1076,7 +1076,7 @@ void print_progress_bar(spdio_t* io,uint64_t done, uint64_t total, unsigned long
 	unsigned long long time = GetTickCount64();
 	if (completed0 == PROGRESS_BAR_WIDTH) { completed0 = 0; done0 = 0; }
 	int completed = (int)(PROGRESS_BAR_WIDTH * done / (double)total);
-	if (completed != completed0) {
+	if (completed != completed0 && isCancel == 0) {
 		int remaining = PROGRESS_BAR_WIDTH - completed;
 		DBG_LOG("[");
 		for (int i = 0; i < completed; i++) {
@@ -2140,7 +2140,7 @@ void signal_handler(int sig) {
 	//Cancallation handler
 	isCancel = 1;
 	signal(SIGINT, SIG_DFL);
-	DBG_LOG("\n\n");
+	DBG_LOG("\nCancelled.\n");
 }
 double get_time() {
 #if defined(_WIN32) || defined(_WIN64)
