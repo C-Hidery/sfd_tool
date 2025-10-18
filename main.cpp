@@ -1182,7 +1182,7 @@ int main(int argc, char** argv) {
 		else if (!strcmp(str2[1], "read_spec")) {
 			const char* name, * fn; uint64_t offset, size;
 			uint64_t realsize = 0;
-			if (argcount <= 5) { DEG_LOG(W,"read_spec part_name offset size FILE\n(read ubi on nand) read_part system 0 ubi40m system.bin"); argc = 1; continue; }
+			if (argcount <= 5) { DEG_LOG(W,"read_spec part_name offset size FILE\n(read ubi on nand) read_spec system 0 ubi40m system.bin"); argc = 1; continue; }
 
 			offset = str_to_size_ubi(str2[3], nand_info);
 			size = str_to_size_ubi(str2[4], nand_info);
