@@ -51,7 +51,7 @@ void print_help() {
 	);
 #ifdef __ANDROID__
 	DBG_LOG(
-		"\t--usb - fd[CODE]\n"
+		"\t--usb-fd[CODE]\n"
 		"\t\tConvert termux transfered usb port fd.(Android platform only!!!)\n"
 	);
 #endif // __ANDROID__
