@@ -213,7 +213,7 @@ int main(int argc, char** argv) {
 	extern libusb_device* curPort;
 	libusb_device** ports;
 #endif
-	char* execfile = new(std::nothrow)char[ARGV_LEN];
+	char* execfile = NEWN char[ARGV_LEN];
 	if (!execfile) { ThrowExit(); ERR_EXIT("%s: malloc failed\n",o_exception); }
 	io = spdio_init(0);
 
@@ -233,7 +233,7 @@ int main(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(nullptr));
-	printf("sfd_tool version 1.6.2.0\n");
+	printf("sfd_tool version 1.6.2.1\n");
 #if _DEBUG  
 	DBG_LOG("version:debug, core version:%s\n", Version);
 #else
@@ -568,7 +568,7 @@ int main(int argc, char** argv) {
 	while (1) {
 		//TODO
 		if (argc > 1) {
-			str2 = new(std::nothrow)char*[argc * sizeof(char*)];
+			str2 = NEWN char*[argc * sizeof(char*)];
 			if (fdl1_loaded == -1) {
 				save_argv = argv;
 				str2[1] = const_cast<char*>("loadfdl");
@@ -587,7 +587,7 @@ int main(int argc, char** argv) {
 		}
 		else {
 			char ifs = '"';
-			str2 = new(std::nothrow)char*[ARGC_MAX * sizeof(char*)];
+			str2 = NEWN char*[ARGC_MAX * sizeof(char*)];
 			memset(str1, 0, sizeof(str1));
 			argcount = 0;
 			in_quote = 0;
@@ -606,7 +606,7 @@ int main(int argc, char** argv) {
 				if (!in_quote) {
 					argcount++;
 					if (argcount == ARGC_MAX) break;
-					str2[argcount] = new(std::nothrow)char[ARGV_LEN];
+					str2[argcount] = NEWN char[ARGV_LEN];
 					if (!str2[argcount]) ERR_EXIT("malloc failed\n");
 					memset(str2[argcount], 0, ARGV_LEN);
 				}
@@ -630,7 +630,7 @@ int main(int argc, char** argv) {
 			argcount++;
 		}
 		if (argcount == 1) {
-			str2[1] = new(std::nothrow)char[1];
+			str2[1] = NEWN char[1];
 			if (str2[1]) str2[1][0] = '\0';
 			else ERR_EXIT("malloc failed\n");
 			argcount++;
@@ -1504,7 +1504,7 @@ int main(int argc, char** argv) {
 
 			offset = str_to_size(str2[3]);
 			if (!strcmp(str2[1], "wov")) {
-				src = new(std::nothrow)uint8_t[4];
+				src = NEWN uint8_t[4];
 				if (!src) { DEG_LOG(E,"malloc failed"); argc -= 4; argv += 4; continue; }
 				length = 4;
 				*(uint32_t*)src = strtoul(str2[4], nullptr, 0);
@@ -1603,7 +1603,7 @@ int main(int argc, char** argv) {
 		}
 		else if (!strcmp(str2[1], "firstmode")) {
 				if (argcount <= 2) { DEG_LOG(W,"firstmode mode_id"); argc = 1; continue; }
-				uint8_t* modebuf = new(std::nothrow)uint8_t[4];
+				uint8_t* modebuf = NEWN uint8_t[4];
 				if (!modebuf) ERR_EXIT("malloc failed\n");
 				uint32_t mode = strtol(str2[2], nullptr, 0) + 0x53464D00;
 				memcpy(modebuf, &mode, 4);
@@ -1702,7 +1702,7 @@ int main(int argc, char** argv) {
 																argc -= 1; argv += 1;
 																continue;
 															}
-															char* miscbuf = new(std::nothrow)char[0x800];
+															char* miscbuf = NEWN char[0x800];
 															if (!miscbuf) ERR_EXIT("malloc failed\n");
 															memset(miscbuf, 0, 0x800);
 															strcpy(miscbuf, "boot-recovery");
@@ -1718,7 +1718,7 @@ int main(int argc, char** argv) {
 																	argc -= 1; argv += 1;
 																	continue;
 																}
-																char* miscbuf = new(std::nothrow)char[0x800];
+																char* miscbuf = NEWN char[0x800];
 																if (!miscbuf) ERR_EXIT("malloc failed\n");
 																memset(miscbuf, 0, 0x800);
 																strcpy(miscbuf, "boot-recovery");

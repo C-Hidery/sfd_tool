@@ -17,7 +17,7 @@
 #include <ctype.h> // tolower
 #include <math.h>
 #include <time.h>
-
+#define NEWN new (std::nothrow)
 #ifndef LIBUSB_DETACH
 /* detach the device from crappy kernel drivers */
 #define LIBUSB_DETACH 1
@@ -126,6 +126,7 @@ typedef struct {
 #if USE_LIBUSB
 	libusb_device_handle *dev_handle;
 	int endp_in, endp_out;
+	int endp_in_blk, endp_out_blk;
 	int m_dwRecvThreadID;
 #else
 	ClassHandle *handle;

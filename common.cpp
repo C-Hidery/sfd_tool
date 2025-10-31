@@ -87,7 +87,7 @@ libusb_device **FindPort(int pid) {
 			libusb_ref_device(dev);
 		}
 	}
-	libusb_delete[]_device_list(devs, 1);
+	libusb_free_device_list(devs, 1);
 	if (count > 0) ports[count] = nullptr;
 	return ports;
 }
@@ -252,8 +252,8 @@ int print_to_string(char* dest, size_t dest_size, const void* src, size_t n,int 
 
 int part_count_c = 0;
 #if USE_LIBUSB
-void find_endpoints(libusb_device_handle *dev_handle, int result[2]) {
-	int endp_in = -1, endp_out = -1;
+void find_endpoints(libusb_device_handle *dev_handle, int result[4]) {
+	int endp_in = -1, endp_out = -1, endp_in_blk = 0, endp_out_blk = 0;
 	int i, k, err;
 	//struct libusb_device_descriptor desc;
 	struct libusb_config_descriptor *config;
@@ -282,11 +282,13 @@ void find_endpoints(libusb_device_handle *dev_handle, int result[2]) {
 				if (addr & 0x80) {
 					if (endp_in >= 0) ERR_EXIT("more than one endp_in\n");
 					endp_in = addr;
+					endp_in_blk = endpoint->wMaxPacketSize;
 					claim = 1;
 				}
 				else {
 					if (endp_out >= 0) ERR_EXIT("more than one endp_out\n");
 					endp_out = addr;
+					endp_out_blk = endpoint->wMaxPacketSize;
 					claim = 1;
 				}
 			}
@@ -316,6 +318,8 @@ void find_endpoints(libusb_device_handle *dev_handle, int result[2]) {
 
 	result[0] = endp_in;
 	result[1] = endp_out;
+	result[2] = endp_in_blk;
+	result[3] = endp_out_blk;
 }
 #endif
 
@@ -328,7 +332,7 @@ partition_t gPartInfo;
 
 spdio_t *spdio_init(int flags) {
 	size_t total_size = sizeof(spdio_t) + RECV_BUF_LEN + (4 + 0x10000 + 2) * 4 + 4;
-	uint8_t *p = new (std::nothrow) uint8_t[total_size];
+	uint8_t *p = NEWN uint8_t[total_size];
 	if (p == nullptr) {
 		DEG_LOG(E, "Memory allocation failed: insufficient memory");
 		return nullptr;
@@ -556,6 +560,13 @@ int send_msg(spdio_t *io) {
 	int err = libusb_bulk_transfer(io->dev_handle, io->endp_out, io->send_buf, io->enc_len, &ret, io->timeout);
 	if (err < 0)
 		ERR_EXIT("usb_send failed : %s\n", libusb_error_name(err));
+	// UMS9117 waits too long after a Integer multiple byte block.
+	if (io->endp_out_blk > 0 && !((unsigned)io->enc_len % io->endp_out_blk)) {
+		int dummy;
+		// signal end of transfer
+		libusb_bulk_transfer(io->dev_handle,
+			io->endp_out, NULL, 0, &dummy, io->timeout);
+	}
 #else
 	ret = call_Write(io->handle, io->send_buf, io->enc_len);
 #endif
@@ -816,7 +827,7 @@ uint8_t *loadfile(const char *fn, size_t *num, size_t extra) {
 		n = ftell(fi);
 		if (n) {
 			fseek(fi, 0, SEEK_SET);
-			buf = new (std::nothrow)uint8_t[n + extra];
+			buf = NEWN uint8_t[n + extra];
 			if (buf) j = fread(buf, 1, n, fi);
 		}
 		fclose(fi);
@@ -1216,7 +1227,7 @@ int scan_xml_partitions(spdio_t *io, const char *fn, uint8_t *buf, size_t buf_si
 	const char *part1 = "Partitions>";
 	char *src, *p; size_t fsize = 0;
 	int part1_len = strlen(part1), found = 0, stage = 0;
-	if (io->ptable == nullptr) io->ptable = new (std::nothrow)partition_t[128 * sizeof(partition_t)];
+	if (io->ptable == nullptr) io->ptable = NEWN partition_t[128 * sizeof(partition_t)];
 	src = (char *)loadfile(fn, &fsize, 1);
 	if (!src) ERR_EXIT("loadfile failed\n");
 	src[fsize] = 0;
@@ -1311,7 +1322,7 @@ int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
 		else Da_Info.dwStorageType = 0x103;
 	}
 	int real_SECTOR_SIZE = SECTOR_SIZE * sector_index;
-	efi_entry *entries = new(std::nothrow)efi_entry[header.number_of_partition_entries * sizeof(efi_entry)];
+	efi_entry *entries = NEWN efi_entry[header.number_of_partition_entries * sizeof(efi_entry)];
 	if (entries == nullptr) {
 		fclose(fp);
 		return -1;
@@ -1368,7 +1379,7 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 	long size;
 	unsigned i, n = 0;
 	int ret; FILE *fo = nullptr; uint8_t *p;
-	partition_t *ptable = new(std::nothrow)partition_t[128 * sizeof(partition_t)];
+	partition_t *ptable = NEWN partition_t[128 * sizeof(partition_t)];
 	if (ptable == nullptr) return nullptr;
 
 	DEG_LOG(OP,"Reading partition table...\n");
@@ -1752,7 +1763,7 @@ partition_t* partition_list_d(spdio_t* io) {
 	long long size;
 	unsigned i, n = 0;
 	FILE* fo = nullptr;
-	partition_t* ptable = new(std::nothrow)partition_t[128 * sizeof(partition_t)];
+	partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
 	if (ptable == nullptr) return nullptr;
 	DEG_LOG(OP, "Reading partition table through compatibility method.");
 	if (selected_ab < 0) select_ab(io);
@@ -1794,7 +1805,7 @@ partition_t* partition_list_d(spdio_t* io) {
 	return ptable;
 }
 void add_partition(spdio_t* io, const char* name, long long size) {
-	partition_t* ptable = new(std::nothrow)partition_t[128 * sizeof(partition_t)];
+	partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
 	if (ptable == nullptr) return;
 	int k = io->part_count_c;
 	for (int i = 0; i < io->part_count_c; i++) {
@@ -1831,7 +1842,7 @@ void erase_partition(spdio_t *io, const char *name) {
 	int timeout0 = io->timeout;
 	char name0[36];
 	if (!strcmp(name, "userdata")) {
-		char *miscbuf = new(std::nothrow)char[0x800];
+		char *miscbuf = NEWN char[0x800];
 		if (!miscbuf) ERR_EXIT("memory alloc failed\n");
 		memset(miscbuf, 0, 0x800);
 		strcpy(miscbuf, "boot-recovery");
@@ -1895,7 +1906,7 @@ void load_partition(spdio_t *io, const char *name,
 			if (send_and_check(io)) { Da_Info.bSupportRawData = 0; goto fallback_load; }
 		}
 		step = Da_Info.dwFlushSize << 10;
-		uint8_t *rawbuf = new(std::nothrow)uint8_t[step + 1];
+		uint8_t *rawbuf = NEWN uint8_t[step + 1];
 		if (!rawbuf) ERR_EXIT("malloc failed\n");
 
 		for (offset = 0; (n64 = len - offset); offset += n) {
@@ -2174,7 +2185,7 @@ double get_time() {
 
 void find_partition_size_new(spdio_t *io, const char *name, unsigned long long *offset_ptr) {
 	int ret;
-	char *name_tmp = new(std::nothrow)char[strlen(name) + 5 + 1];
+	char *name_tmp = NEWN char[strlen(name) + 5 + 1];
 	if (name_tmp == nullptr) return;
 	sprintf(name_tmp, "%s_size", name);
 	select_partition(io, name_tmp, 0x80, 0, BSL_CMD_READ_START);
@@ -2439,7 +2450,7 @@ void dump_partitions(spdio_t *io, const char *fn, int *nand_info, unsigned step)
 	char *src, *p;
 	int part1_len = strlen(part1), found = 0, stage = 0, ubi = 0;
 	size_t size = 0;
-	partition_t *partitions = new(std::nothrow)partition_t[128 * sizeof(partition_t)];
+	partition_t *partitions = NEWN partition_t[128 * sizeof(partition_t)];
 	if (partitions == nullptr) return;
 	DEG_LOG(OP, "Start to read partitions");
 	DEG_LOG(I, "Type CTRL + C to cancel...");
@@ -2541,7 +2552,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab)
 	char miscname[1024] = { 0 };
 	int VAB = 0; // slot_in_name
 	int partition_count = 0;
-	partition_info_t *partitions = new(std::nothrow)partition_info_t[128 * sizeof(partition_info_t)];
+	partition_info_t *partitions = NEWN partition_info_t[128 * sizeof(partition_info_t)];
 	if (partitions == nullptr) return;
 	char *fn;
 #if _WIN32
@@ -3412,10 +3423,12 @@ void ChangeMode(spdio_t *io, int ms, int bootmode, int at) {
 }
 
 void call_Initialize_libusb(spdio_t *io) {
-	int endpoints[2];
+	int endpoints[4];
 	find_endpoints(io->dev_handle, endpoints);
 	io->endp_in = endpoints[0];
 	io->endp_out = endpoints[1];
+	io->endp_in_blk = endpoints[2];
+	io->endp_out_blk = endpoints[3];
 	int ret = libusb_control_transfer(io->dev_handle, 0x21, 34, 0x601, 0, nullptr, 0, io->timeout);
 	if (ret < 0) ERR_EXIT("libusb_control_transfer failed : %s\n", libusb_error_name(ret));
 	DEG_LOG(I,"libusb_control_transfer ok");
