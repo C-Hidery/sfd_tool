@@ -1879,7 +1879,7 @@ void load_partition(spdio_t *io, const char *name,
 	double rtime = get_time();
 	if (strstr(name, "runtimenv")) { erase_partition(io, name); return; }
 	if (!strcmp(name, "calinv")) { return; } //skip calinv
-	DEG_LOG(OP, "Start to read partition %s", name);
+	DEG_LOG(OP, "Start to write partition %s", name);
 	DEG_LOG(I, "Type CTRL + C to cancel...");
 	start_signal();
 	fi = fopen(fn, "rb");
