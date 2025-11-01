@@ -15,7 +15,7 @@ uint64_t g_spl_size;
 const char* o_exception;
 int init_stage = -1;
 int device_stage = Nothing, device_mode = Nothing;
-//spd_dump protocol
+//sfd_tool protocol
 char** str2;
 char mode_str[256];
 int in_quote;
@@ -168,7 +168,8 @@ void print_help() {
 		"\t\tRead the last time the PAC firmware was flashed.\n"
 		"Notice:\n"
 		"\t1.The compatibility method to get part table sometimes can not get all partitions on your device\n"
-		"\t2.Command `bootloader` : It is only supported on special FDL2 and requires trustos and sml partition files."
+		"\t2.Command `bootloader` : It is only supported on special FDL2 and requires trustos and sml partition files.\n"
+		"\t3.Command `sendloop` : sfd_tool has a debugging command called sendloop [ADDR], \n          which sends four zeros to write to the specified address,\n          and then sends four more zeros to (initial address - 8), (initial -16), and so on until the device becomes unresponsive.\n          The following are u2s accessed via keypad (SPL not erased; if SPL is erased, the resulting addresses will change):\n\t\tsc98xx: sfd_tool sendloop 0x5000\n\t\tums312/512: sfd_tool sendloop 0x4000 -> device enters while loop at 0x3f68\n\t\tud710: sfd_tool sendloop 0x4000 -> device enters while loop at 0x3fa0\n\t\tums9230: sfd_tool sendloop 0x65016000\n\t\tums9230: sfd_tool sendloop 0x65013000\n          Since the FDL addresses of 9230 and 9620 are both 0x65000800,\n          a better approach is to increment in a loop from 0x65000800; \n          By the time you reach 0x65013000, you can tell which one it is.\n          The send loop was written as a loop decrementing.\n          (Getting message: 7E 01 00 00 00 08 00 00 00 ... 7E)"
 	);
 	DBG_LOG(
 		"\nExit Commands\n"
@@ -860,7 +861,7 @@ int main(int argc, char** argv) {
 			argc -= argchange; argv += argchange;
 		}
 		else if (!strcmp(str2[1], "exec")) {
-			//spd_dump exec command
+			//sfd_tool exec command
 			
 			if (fdl2_executed > 0) {
 				DEG_LOG(W, "FDL2 is already executed, skipped.");
@@ -1051,13 +1052,13 @@ int main(int argc, char** argv) {
 #endif
 		}
 		else if (!strcmp(str2[1], "path")) {
-			//spd_dump func
+			//sfd_tool func
 			if (argcount > 2) strcpy(savepath, str2[2]);
 			DEG_LOG(I,"Save dir is %s", savepath);
 			argc -= 2; argv += 2;
 		}
 		else if (!strcmp(str2[1], "nand_id")) {
-			//spd_dump func
+			//sfd_tool func
 			if (argcount > 2) {
 				nand_id = strtol(str2[2], nullptr, 0);
 				nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
