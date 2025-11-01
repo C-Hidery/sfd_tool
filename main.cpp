@@ -686,6 +686,9 @@ int main(int argc, char** argv) {
 			argc -= 3; argv += 3;
 		}
 		else if (!strncmp(str2[1], "fdl",3) || !strncmp(str2[1], "loadfdl", 7)) {
+#if _DEBUG
+			DEG_LOG(DE,"fdl1_loaded = %d, fdl2_executed = %d",fdl1_loaded,fdl2_executed);
+#endif
 			int addr_in_name = !strncmp(str2[1], "loadfdl", 7);
 			const char* fn; uint32_t addr = 0; FILE* fi;
 			int argchange;
@@ -732,7 +735,8 @@ int main(int argc, char** argv) {
 					fi = fopen(fn, "r");
 					if (fi == nullptr) { DEG_LOG(W,"File does not exist."); argc -= argchange; argv += argchange; continue; }
 					else fclose(fi);
-					send_file(io, fn, addr, end_data, blk_size ? blk_size : 528, 0, 0);
+					if(!isKickMode) send_file(io, fn, addr, end_data, blk_size ? blk_size : 528, 0, 0);
+					else send_file(io, fn, addr, 0, 528, 0, 0);
 				}
 			}
 			//FDL1, MAY NEED TO SEND CVE FILE
@@ -802,6 +806,7 @@ int main(int argc, char** argv) {
 
 				DEG_LOG(I,"Device REP_Version: ");
 				print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+				
 				if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
 				//special FDL1 MEM, DISABLED FOR STABILITY
 #if FDL1_DUMP_MEM
