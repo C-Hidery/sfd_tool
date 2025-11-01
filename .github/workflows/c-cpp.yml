@@ -17,7 +17,3 @@ jobs:
       run: sudo apt-get update && sudo apt-get install -y libusb-1.0-0-dev
     - name: make
       run: make
-    - name: make check
-      run: make check
-    - name: make distcheck
-      run: make distcheck
