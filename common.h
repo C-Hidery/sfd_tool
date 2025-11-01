@@ -213,7 +213,7 @@ extern partition_t gPartInfo;
 libusb_device **FindPort(int pid);
 void startUsbEventHandle(void);
 void stopUsbEventHandle(void);
-void find_endpoints(libusb_device_handle *dev_handle, int result[2]);
+void find_endpoints(libusb_device_handle *dev_handle, int result[4]);
 void call_Initialize_libusb(spdio_t *io);
 #else
 DWORD *FindPort(const char *USB_DL);
@@ -240,6 +240,7 @@ enum Stages {
 	SPRD4 = 4
 };
 extern int isCancel;
+extern uint64_t g_spl_size;
 spdio_t *spdio_init(int flags);
 void spdio_free(spdio_t *io);
 extern const char* CommonPartitions[];

@@ -1335,7 +1335,7 @@ int main(int argc, char** argv) {
 				if (gpt_failed == 1) io->ptable = partition_list(io, str2[2], &io->part_count);
 				if (!io->part_count) { DEG_LOG(E, "Partition table not available"); argc -= 2; argv += 2; continue; }
 				else {
-					DBG_LOG("  0 %36s     256KB\n", "splloader");
+					DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size);
 					FILE* fo = my_fopen(str2[2], "wb");
 					if (!fo) ERR_EXIT("Failed to open file\n");
 					fprintf(fo, "<Partitions>\n");
@@ -1355,7 +1355,7 @@ int main(int argc, char** argv) {
 				int c = io->part_count_c;
 				if (!c) { DEG_LOG(E, "Partition table not available"); argc -= 2; argv += 2; continue; }
 				else {
-					DBG_LOG("  0 %36s     256KB\n", "splloader");
+					DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size);
 					FILE* fo = my_fopen(str2[2], "wb");
 					if (!fo) ERR_EXIT("Failed to open file\n");
 					fprintf(fo, "<Partitions>\n");
@@ -1586,13 +1586,13 @@ int main(int argc, char** argv) {
 		}
 		else if (!strcmp(str2[1], "p") || !strcmp(str2[1], "print")) {
 			if (io->part_count) {
-				DBG_LOG("  0 %36s     256KB\n", "splloader");
+				DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size);
 				for (i = 0; i < io->part_count; i++) {
 					DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->ptable + i)).name, ((*(io->ptable + i)).size >> 20));
 				}
 			}
 			else if (io->part_count_c) {
-				DBG_LOG("  0 %36s     256KB\n", "splloader");
+				DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size);
 				for (i = 0; i < io->part_count_c; i++) {
 					DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->Cptable + i)).name, ((*(io->Cptable + i)).size >> 20));
 				}
