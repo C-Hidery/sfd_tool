@@ -1345,7 +1345,7 @@ int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
 			break;
 		}
 	}
-	DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size);
+	DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size / 1024);
 	for (int i = 0; i < n; i++) {
 		efi_entry entry = *(entries + i);
 		copy_from_wstr((*(ptable + i)).name, 36, (uint16_t *)entry.partition_name);
@@ -1431,7 +1431,7 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 		if (divisor == 10) Da_Info.dwStorageType = 0x102;
 		else Da_Info.dwStorageType = 0x103;
 		p = io->raw_buf + 4;
-		DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size);
+		DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size / 1024);
 		for (i = 0; i < n; i++, p += 0x4c) {
 			ret = copy_from_wstr((*(ptable + i)).name, 36, (uint16_t *)p);
 			if (ret) ERR_EXIT("bad partition name\n");
@@ -1769,7 +1769,7 @@ partition_t* partition_list_d(spdio_t* io) {
 	if (selected_ab < 0) select_ab(io);
 	int verbose = io->verbose;
 	io->verbose = -1;
-	DBG_LOG("  0 %36s  %lldKB\n", "splloader",(long long)g_spl_size);
+	DBG_LOG("  0 %36s  %lldKB\n", "splloader",(long long)g_spl_size / 1024);
 	for (i = 0; i < CommonPartitionsCount && n < 128; ++i) {
 		const char* part = CommonPartitions[i];
 		long long result = check_partition(io, part, 0);
