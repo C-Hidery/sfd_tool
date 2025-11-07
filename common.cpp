@@ -582,7 +582,7 @@ extern const char* CommonPartitions[] = {
 	"l_fixnv1", "l_fixnv2", "l_runtimenv1", "l_runtimenv2",
 	"gpsgl", "gpsbd", "wcnmodem", "persist", "l_modem",
 	"l_deltanv", "l_gdsp", "l_ldsp", "pm_sys", "boot",
-	"system", "cache", "vendor", "uboot_log", "userdata", "dtb", "socko",
+	"system", "cache", "vendor", "uboot_log", "dtb", "socko",
 	"vbmeta", "vbmeta_bak", "vbmeta_system",
 	"trustos_a", "trustos_b", "sml_a", "sml_b", "teecfg", "teecfg_a", "teecfg_b",
 	"uboot_a", "uboot_b", "gnssmodem_a", "gnssmodem_b", "wcnmodem_a",
@@ -596,7 +596,7 @@ extern const char* CommonPartitions[] = {
 	"vbmeta_system_ext_b", "vbmeta_product_a", "nr_fixnv1", "nr_fixnv2",
 	"nr_runtimenv1", "nr_runtimenv2", "nr_pmsys", "nr_agdsp", "nr_modem",
 	"nr_v3phy", "nr_nrphy", "nr_nrdsp1", "nr_nrdsp2", "nr_deltanv", "m_raw",
-	"m_data", "m_webui", "ubipac", "vbmeta_product_b", "user_partition"
+	"m_data", "m_webui", "ubipac", "vbmeta_product_b", "user_partition","userdata"
 };
 
 // 计算数组元素数量
@@ -1775,31 +1775,25 @@ partition_t* partition_list_d(spdio_t* io) {
 		long long result = check_partition(io, part, 0);
 		//exist
 		
-		if (result == 1) {
+		if (result) {
 			size = check_partition(io, part, 1);
 			
 			//存入
-			if (part != "splloader" && part != "userdata") {
+			if (part != "splloader") {
 				strncpy(ptable[n].name, part, sizeof(ptable[n].name) - 1);
 				ptable[n].name[sizeof(ptable[n].name) - 1] = '\0'; // 确保字符串终止
 				ptable[n].size = size;
 				n++;
 			}
-			if (part != "splloader" && part != "userdata") { size = size / 1024 / 1024; DBG_LOG("  %d %36s  %lldMB\n", n, part, size); }
+			if (part != "splloader") { size = size / 1024 / 1024; DBG_LOG("  %d %36s  %lldMB\n", n, part, size); }
 			
 		}
 	}
-	long long k = check_partition(io, "userdata", 1);
-	//strncpy(ptable[n].name, "userdata", sizeof(ptable[n].name) - 1);
-	//ptable[n].name[sizeof(ptable[n].name) - 1] = '\0'; // 确保字符串终止
-	//ptable[n].size = k;
-	//n++;
-	DBG_LOG("  %d %36s  %lldMB\n", n + 1, "userdata", k / 1024 / 1024);
 	io->verbose = verbose;
 	//if (strcmp(fn, "-")) DEG_LOG(OP,"Tryed to save partition table to %s", fn);
 	DEG_LOG(I,"Compatibility-method mode will not save partition table xml automatically.");
 	DEG_LOG(I, "You can get partition xml by `part_table` command manually.");
-	DEG_LOG(I,"Total number of partitions: %d", n + 1);
+	DEG_LOG(I,"Total number of partitions: %d", n);
 	io->ptable = nullptr;
 	io->part_count_c = n;
 	return ptable;

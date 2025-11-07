@@ -12,6 +12,7 @@ int selected_ab = -1;
 int no_fdl_mode = 0;
 uint64_t fblk_size = 0;
 uint64_t g_spl_size;
+bool isUseCptable = false;
 const char* o_exception;
 int init_stage = -1;
 int device_stage = Nothing, device_mode = Nothing;
@@ -48,6 +49,8 @@ void print_help() {
 		"\t\tSync flashing setting.\n"
 		"\t--nor_bar\n"
 		"\t\tShow original progress bar.\n"
+		"\t--cptable\n"
+		"\t\tRead the partition table in compatibility mode\n"
 	);
 #ifdef __ANDROID__
 	DBG_LOG(
@@ -140,6 +143,8 @@ void print_help() {
 		"\t\tShow BSL commands\n"
 		"\t->find_cmd [TYPE]\n"
 		"\t\tFind BSL command by hex number\n"
+		"\t->cptable\n"
+		"\t\tRead the partition table in compatibility mode\n"
 		"Debug commands:\n"
 		"\t->skip_confirm {0,1}\n"
 		"\t\tSkips all confirmation prompts(use with caution!)\n"
@@ -234,7 +239,7 @@ int main(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(nullptr));
-	printf("sfd_tool version 1.6.3.2\n");
+	printf("sfd_tool version 1.6.4.0\n");
 #if _DEBUG  
 	DBG_LOG("version:debug, core version:%s\n", Version);
 #else
@@ -289,6 +294,10 @@ int main(int argc, char** argv) {
 		}
 		else if (!strcmp(argv[1], "--no-fdl")) {
 			no_fdl_mode = 1;
+			argc -= 1; argv += 1;
+		}
+		else if (!strcmp(argv[1], "--cptable")) {
+			isUseCptable = true;
 			argc -= 1; argv += 1;
 		}
 		else if (!strcmp(argv[1], "--sync")) {
@@ -501,14 +510,19 @@ int main(int argc, char** argv) {
 				io->verbose = -1;
 				g_spl_size = check_partition(io, "splloader", 1);
 				io->verbose = o;
-				if(!io->part_count){
+				if(isUseCptable){
 					io->Cptable = partition_list_d(io);
 					isCMethod = 1;
-					if (nand_id == DEFAULT_NAND_ID) {
-						nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
-						nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
-						nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
-					}
+				}
+				if (!isUseCptable) { 
+					DEG_LOG(W, "No partition table found on current device");
+					DEG_LOG(I,"You may get partition table through compatibility method.");
+					DEG_LOG(I, "(Use command `cptable` to do it.)");
+				}
+				if (nand_id == DEFAULT_NAND_ID) {
+					nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+					nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+					nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
 				}
 				break;
 			}
@@ -946,9 +960,14 @@ int main(int argc, char** argv) {
 						}
 					}
 				}
-				else {
+				else if(isUseCptable) {
 					io->Cptable = partition_list_d(io);
 					isCMethod = 1;
+				}
+				if (!isUseCptable) {
+					DEG_LOG(W, "No partition table found on current device");
+					DEG_LOG(I, "You may get partition table through compatibility method.");
+					DEG_LOG(I, "(Use command `cptable` to do it.)");
 				}
 				if (nand_id == DEFAULT_NAND_ID) {
 					nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
@@ -1361,14 +1380,12 @@ int main(int argc, char** argv) {
 					if (!fo) ERR_EXIT("Failed to open file\n");
 					fprintf(fo, "<Partitions>\n");
 					for (i = 0; i < c; i++) {
+						
 						DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->Cptable + i)).name, ((*(io->Cptable + i)).size >> 20));
 						fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->Cptable + i)).name);
-					    fprintf(fo, "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
-					}
-					if (check_partition(io, "userdata", 0)) {
-						DBG_LOG("%3d %36s %7lldMB\n", i + 1, "userdata", check_partition(io,"userdata",1) / 1024 / 1024);
-						fprintf(fo, "    <Partition id=\"%s\" size=\"", "userdata");
-						fprintf(fo, "0x%x\"/>\n", ~0);
+						if (i + 1 == io->part_count_c) fprintf(fo, "0x%x\"/>\n", ~0);
+						else fprintf(fo, "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
+						
 					}
 					fprintf(fo, "</Partitions>");
 					fclose(fo);
@@ -1425,6 +1442,15 @@ int main(int argc, char** argv) {
 			erase_partition(io, "all");
 			argc -= 1; argv += 1;
 
+		}
+		else if (!strcmp(str2[1],"cptable")) {
+			if (!io->part_count_c && !io->part_count) {
+				io->Cptable = partition_list_d(io);
+				isCMethod = 1;
+			}
+			else {
+				DEG_LOG(I, "Partition table already loaded");
+			}
 		}
 		else if (!strcmp(str2[1], "read_nand")) {
 			encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
@@ -1587,18 +1613,17 @@ int main(int argc, char** argv) {
 		}
 		else if (!strcmp(str2[1], "p") || !strcmp(str2[1], "print")) {
 			if (io->part_count) {
-				DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size);
+				DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size / 1024);
 				for (i = 0; i < io->part_count; i++) {
 					DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->ptable + i)).name, ((*(io->ptable + i)).size >> 20));
 				}
 			}
 			else if (io->part_count_c) {
-				DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size);
+				DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size / 1024);
 				for (i = 0; i < io->part_count_c; i++) {
 					DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->Cptable + i)).name, ((*(io->Cptable + i)).size >> 20));
 				}
-				long long k = check_partition(io, "userdata", 1);
-				DBG_LOG("%3d %36s %7lldMB\n", io->part_count_c + 1, "userdata", k / 1024 / 1024);
+				
 			}
 			
 			argc -= 1; argv += 1;
