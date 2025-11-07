@@ -201,7 +201,7 @@ void ThrowExit() {
 }
 
 int main(int argc, char** argv) {
-	ThrowExit;
+	ThrowExit();
 	spdio_t* io = nullptr;
 	int ret, wait = 30 * REOPEN_FREQ;
 	int keep_charge = 1, end_data = 0, blk_size = 0, skip_confirm = 1, highspeed = 0, cve_v2 = 0;
@@ -365,7 +365,7 @@ int main(int argc, char** argv) {
 	if (!m_bOpened) {
 		DBG_LOG("<waiting for connection,mode:dl,%ds>\n", wait / REOPEN_FREQ);
 		
-		ThrowExit;
+		ThrowExit();
 		for (i = 0; ; i++) {
 #if USE_LIBUSB
 			if (bListenLibusb) {
@@ -531,7 +531,7 @@ int main(int argc, char** argv) {
 		//fail
 		else if (i == 4) {
 			init_stage = 1;
-			ThrowExit;
+			ThrowExit();
 			if (stage != -1) { ERR_EXIT("Failed to connect: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n", o_exception); }
 			else { encode_msg_nocpy(io, BSL_CMD_CONNECT, 0); stage++; i = -1; }
 		}
@@ -555,7 +555,7 @@ int main(int argc, char** argv) {
 	if (fdl1_loaded == -1) argc += 2;
 	if (fdl2_executed == -1) argc += 1;
 	init_stage = 2;
-	ThrowExit;
+	ThrowExit();
 	if (fdl2_executed > 0) {
 		if (device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: FDL2/SPRD3");
