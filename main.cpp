@@ -514,7 +514,7 @@ int main(int argc, char** argv) {
 					io->Cptable = partition_list_d(io);
 					isCMethod = 1;
 				}
-				if (!isUseCptable) { 
+				if (!isUseCptable && !io->part_count) { 
 					DEG_LOG(W, "No partition table found on current device");
 					DEG_LOG(I,"You may get partition table through compatibility method.");
 					DEG_LOG(I, "(Use command `cptable` to do it.)");
@@ -964,7 +964,7 @@ int main(int argc, char** argv) {
 					io->Cptable = partition_list_d(io);
 					isCMethod = 1;
 				}
-				if (!isUseCptable) {
+				if (!isUseCptable && !io->part_count) {
 					DEG_LOG(W, "No partition table found on current device");
 					DEG_LOG(I, "You may get partition table through compatibility method.");
 					DEG_LOG(I, "(Use command `cptable` to do it.)");
