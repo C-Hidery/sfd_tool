@@ -239,7 +239,7 @@ int main(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(nullptr));
-	printf("sfd_tool version 1.6.4.0\n");
+	printf("sfd_tool version 1.6.4.1\n");
 #if _DEBUG  
 	DBG_LOG("version:debug, core version:%s\n", Version);
 #else
@@ -1379,16 +1379,20 @@ int main(int argc, char** argv) {
 					FILE* fo = my_fopen(str2[2], "wb");
 					if (!fo) ERR_EXIT("Failed to open file\n");
 					fprintf(fo, "<Partitions>\n");
+					char* name;
+					int o = io->verbose;
+					io->verbose = -1;
 					for (i = 0; i < c; i++) {
-						
-						DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->Cptable + i)).name, ((*(io->Cptable + i)).size >> 20));
-						fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->Cptable + i)).name);
-						if (i + 1 == io->part_count_c) fprintf(fo, "0x%x\"/>\n", ~0);
+						name = (*(io->Cptable + i)).name;
+						DBG_LOG("%3d %36s %7lldMB\n", i + 1, name, ((*(io->Cptable + i)).size >> 20));
+						fprintf(fo, "    <Partition id=\"%s\" size=\"", name);
+						if (check_partition(io,"userdata",0) != 0 && i + 1 == io->part_count_c) fprintf(fo, "0x%x\"/>\n", ~0);
 						else fprintf(fo, "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
 						
 					}
 					fprintf(fo, "</Partitions>");
 					fclose(fo);
+					io->verbose = o;
 					DEG_LOG(I, "Partition table saved to %s", str2[2]);
 				}
 			}
