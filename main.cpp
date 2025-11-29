@@ -1154,8 +1154,11 @@ int main(int argc, char** argv) {
 
 			name = str2[2];
 			if (selected_ab < 0) select_ab(io);
+			int v = io->verbose;
+			io->verbose = -1;
 			DEG_LOG(I, "%s: ", name);
-			DEG_LOG(I,"%lld KB",(long long)check_partition(io, name, 1));
+			DEG_LOG(I,"%lld Bytes",(long long)check_partition(io, name, 1));
+			io->verbose = v;
 			argc -= 2; argv += 2;
 
 		}
