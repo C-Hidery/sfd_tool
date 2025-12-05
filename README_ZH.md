@@ -66,3 +66,7 @@ termux-usb -e './sfd_tool --usb-fd' /dev/bus/usb/xxx/xxx
     --no-fdl
 
 **新增参数，如果你想免FDL刷机，那么执行它（仅Sprd4模式）**
+
+    cptable
+
+**新增命令，使用此命令以兼容性方法获取分区表（仅FDL2）**
