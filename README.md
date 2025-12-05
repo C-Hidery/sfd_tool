@@ -68,3 +68,7 @@ termux-usb -e './sfd_tool --usb-fd' /dev/bus/usb/xxx/xxx
     --no-fdl
 
 **New option, execute it if you want to connect to device without FDL1/2(Only Sprd4 Mode).**
+
+    cptable
+    
+**New command, use it to get partition table through compatibility method(FDL2 only)**
