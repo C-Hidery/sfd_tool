@@ -288,7 +288,7 @@ int main(int argc, char** argv) {
 			bootmode = strtol(argv[2], nullptr, 0); at = 0;
 			argc -= 2; argv += 2;
 		}
-		else if (!strcmp(argv[1], "--nor_bar")) {
+		else if (!strcmp(argv[1], "--nor-bar")) {
 			io->nor_bar = 1;
 			argc -= 1; argv += 1;
 		}
