@@ -47,7 +47,7 @@ void print_help() {
 		"\t\tShow help and usage information\n"
 		"\t--sync\n"
 		"\t\tSync flashing setting.\n"
-		"\t--nor_bar\n"
+		"\t--nor-bar\n"
 		"\t\tShow original progress bar.\n"
 		"\t--cptable\n"
 		"\t\tRead the partition table in compatibility mode\n"
@@ -239,7 +239,7 @@ int main(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(nullptr));
-	printf("sfd_tool version 1.6.4.1\n");
+	printf("sfd_tool version 1.6.5.1\n");
 #if _DEBUG  
 	DBG_LOG("version:debug, core version:%s\n", Version);
 #else
