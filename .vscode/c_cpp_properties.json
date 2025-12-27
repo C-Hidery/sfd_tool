@@ -6,7 +6,7 @@
                 "${workspaceFolder}/**"
             ],
             "defines": [
-                "USE_LIBUSB=1",
+                "USE_LIBUSB=1", //Linux=1, Windows=0
                 "_DEBUG=1"
             ],
             "compilerPath": "/usr/bin/gcc",
