@@ -103,11 +103,11 @@ void usleep(unsigned int us) {
 //Print message
 void DEG_LOG(int type, const char* format, ...) {
 	va_list args;
-	va_start(args, format); // ³õÊ¼»¯¿É±ä²ÎÊýÁÐ±í
+	va_start(args, format); // ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½É±ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½
 
 	if (type == I) {
 		fprintf(stdout, "[INFO] ");
-		vfprintf(stdout, format, args); // Ê¹ÓÃvfprintf´¦Àí¸ñÊ½»¯×Ö·û´®
+		vfprintf(stdout, format, args); // Ê¹ï¿½ï¿½vfprintfï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½
 	}
 	else if (type == W) {
 		fprintf(stdout, "[WARN] ");
@@ -126,9 +126,9 @@ void DEG_LOG(int type, const char* format, ...) {
 		vfprintf(stderr, format, args);
 	}
 
-	va_end(args); // ÇåÀí¿É±ä²ÎÊýÁÐ±í
+	va_end(args); // ï¿½ï¿½ï¿½ï¿½ï¿½É±ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½
 
-	// Ìí¼Ó»»ÐÐ·ûÊ¹ÈÕÖ¾¸üÒ×¶Á
+	// ï¿½ï¿½ï¿½Ó»ï¿½ï¿½Ð·ï¿½Ê¹ï¿½ï¿½Ö¾ï¿½ï¿½ï¿½×¶ï¿½
 	if (type == I || type == W || type == OP) {
 		fprintf(stdout, "\n");
 	}
@@ -186,14 +186,14 @@ void print_string(FILE *f, const void *src, size_t n) {
 int print_to_string(char* dest, size_t dest_size, const void* src, size_t n,int o) {
 	size_t i; int a, b = 0;
 	const uint8_t* buf = (const uint8_t*)src;
-	int offset = 0; // ¼ÇÂ¼µ±Ç°Ð´ÈëÎ»ÖÃ
+	int offset = 0; // ï¿½ï¿½Â¼ï¿½ï¿½Ç°Ð´ï¿½ï¿½Î»ï¿½ï¿½
 
-	// Ð´Èë¿ªÍ·µÄË«ÒýºÅ
+	// Ð´ï¿½ë¿ªÍ·ï¿½ï¿½Ë«ï¿½ï¿½ï¿½ï¿½
 	if (offset + 1 < dest_size) {
 		//dest[offset++] = '"';
 	}
 	else {
-		return -1; // »º³åÇø²»×ã
+		return -1; // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	}
 
 	for (i = 0; i < n; i++) {
@@ -209,7 +209,7 @@ int print_to_string(char* dest, size_t dest_size, const void* src, size_t n,int 
 		}
 
 		if (b) {
-			// Ð´Èë×ªÒåÐòÁÐ£¨Èç \\¡¢\n µÈ£©
+			// Ð´ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½ï¿½Ð£ï¿½ï¿½ï¿½ \\ï¿½ï¿½\n ï¿½È£ï¿½
 			if (offset + 2 < dest_size) {
 				dest[offset++] = '\\';
 				dest[offset++] = b;
@@ -219,7 +219,7 @@ int print_to_string(char* dest, size_t dest_size, const void* src, size_t n,int 
 			}
 		}
 		else if (a >= 32 && a < 127) {
-			// Ö±½ÓÐ´Èë¿É´òÓ¡×Ö·û
+			// Ö±ï¿½ï¿½Ð´ï¿½ï¿½É´ï¿½Ó¡ï¿½Ö·ï¿½
 			if (offset + 1 < dest_size) {
 				dest[offset++] = a;
 			}
@@ -228,7 +228,7 @@ int print_to_string(char* dest, size_t dest_size, const void* src, size_t n,int 
 			}
 		}
 		else {
-			// Ð´ÈëÊ®Áù½øÖÆ×ªÒåÐòÁÐ£¨Èç \x0a£©
+			// Ð´ï¿½ï¿½Ê®ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½ï¿½Ð£ï¿½ï¿½ï¿½ \x0aï¿½ï¿½
 			if (offset + 4 < dest_size) {
 				if(o) offset += snprintf(dest + offset, dest_size - offset, "\\x%02x", a);
 			}
@@ -238,16 +238,16 @@ int print_to_string(char* dest, size_t dest_size, const void* src, size_t n,int 
 		}
 	}
 
-	// Ð´Èë½áÎ²µÄË«ÒýºÅºÍ»»ÐÐ·û
+	// Ð´ï¿½ï¿½ï¿½Î²ï¿½ï¿½Ë«ï¿½ï¿½ï¿½ÅºÍ»ï¿½ï¿½Ð·ï¿½
 	if (offset + 2 < dest_size) {
 		dest[offset++] = '\n';
-		dest[offset] = '\0'; // È·±£×Ö·û´®ÒÔ null ½áÎ²
+		dest[offset] = '\0'; // È·ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ null ï¿½ï¿½Î²
 	}
 	else {
 		return -1;
 	}
 
-	return offset; // ·µ»ØÐ´ÈëµÄ×Ö·ûÊý£¨²»°üÀ¨ null ÖÕÖ¹·û£©
+	return offset; // ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ null ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½
 }
 
 int part_count_c = 0;
@@ -599,7 +599,7 @@ extern const char* CommonPartitions[] = {
 	"m_data", "m_webui", "ubipac", "vbmeta_product_b", "user_partition","userdata"
 };
 
-// ¼ÆËãÊý×éÔªËØÊýÁ¿
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 extern const size_t CommonPartitionsCount = sizeof(CommonPartitions) / sizeof(CommonPartitions[0]);
 int recv_read_data(spdio_t *io) {
 	int len;
@@ -867,7 +867,7 @@ void send_buf_1(spdio_t* io,
 	static uint64_t total_sent = 0;
 	static uint64_t total_size = 0;
 
-	// Èç¹ûÊÇÐÂµÄ´«ÊäÈÎÎñ£¬ÖØÖÃ¼ÆÊ±Æ÷ºÍ¼ÆÊýÆ÷
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÂµÄ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã¼ï¿½Ê±ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½
 	if (start_time == 0) {
 		start_time = GetTickCount64();
 		total_sent = 0;
@@ -881,10 +881,10 @@ void send_buf_1(spdio_t* io,
 
 	encode_msg_nocpy(io, BSL_CMD_START_DATA, 4 * 2);
 	if (send_and_check(io)) {
-		// ³ö´íÊ±ÏÔÊ¾µ±Ç°½ø¶È
+		// ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Ê¾ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½
 		print_progress_bar(total_sent, total_size, start_time);
-		printf("\n"); // »»ÐÐ
-		start_time = 0; // ÖØÖÃÒÔ±ãÏÂ´ÎÊ¹ÓÃ
+		printf("\n"); // ï¿½ï¿½ï¿½ï¿½
+		start_time = 0; // ï¿½ï¿½ï¿½ï¿½ï¿½Ô±ï¿½ï¿½Â´ï¿½Ê¹ï¿½ï¿½
 		return;
 	}
 
@@ -894,14 +894,14 @@ void send_buf_1(spdio_t* io,
 
 		encode_msg(io, BSL_CMD_MIDST_DATA, mem + i, n);
 		if (send_and_check(io)) {
-			// ³ö´íÊ±ÏÔÊ¾µ±Ç°½ø¶È
+			// ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Ê¾ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½
 			print_progress_bar(total_sent, total_size, start_time);
-			printf("\n"); // »»ÐÐ
-			start_time = 0; // ÖØÖÃÒÔ±ãÏÂ´ÎÊ¹ÓÃ
+			printf("\n"); // ï¿½ï¿½ï¿½ï¿½
+			start_time = 0; // ï¿½ï¿½ï¿½ï¿½ï¿½Ô±ï¿½ï¿½Â´ï¿½Ê¹ï¿½ï¿½
 			return;
 		}
 
-		// ¸üÐÂÒÑ·¢ËÍ×Ö½ÚÊý²¢ÏÔÊ¾½ø¶È
+		// ï¿½ï¿½ï¿½ï¿½ï¿½Ñ·ï¿½ï¿½ï¿½ï¿½Ö½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½
 		total_sent += n;
 		print_progress_bar(total_sent, total_size, start_time);
 	}
@@ -909,19 +909,19 @@ void send_buf_1(spdio_t* io,
 	if (end_data) {
 		encode_msg_nocpy(io, BSL_CMD_END_DATA, 0);
 		if (send_and_check(io)) {
-			// ³ö´íÊ±ÏÔÊ¾µ±Ç°½ø¶È
+			// ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Ê¾ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½
 			print_progress_bar(total_sent, total_size, start_time);
-			printf("\n"); // »»ÐÐ
-			start_time = 0; // ÖØÖÃÒÔ±ãÏÂ´ÎÊ¹ÓÃ
+			printf("\n"); // ï¿½ï¿½ï¿½ï¿½
+			start_time = 0; // ï¿½ï¿½ï¿½ï¿½ï¿½Ô±ï¿½ï¿½Â´ï¿½Ê¹ï¿½ï¿½
 			return;
 		}
 	}
 
-	// Íê³É´«Êä£¬ÏÔÊ¾100%½ø¶È
+	// ï¿½ï¿½É´ï¿½ï¿½ä£¬ï¿½ï¿½Ê¾100%ï¿½ï¿½ï¿½ï¿½
 	print_progress_bar(total_size, total_size, start_time);
-	printf("\n"); // Íê³É»»ÐÐ
+	printf("\n"); // ï¿½ï¿½É»ï¿½ï¿½ï¿½
 
-	// ÖØÖÃ¾²Ì¬±äÁ¿ÒÔ±ãÏÂ´ÎÊ¹ÓÃ
+	// ï¿½ï¿½ï¿½Ã¾ï¿½Ì¬ï¿½ï¿½ï¿½ï¿½ï¿½Ô±ï¿½ï¿½Â´ï¿½Ê¹ï¿½ï¿½
 	start_time = 0;
 }
 */
@@ -1186,7 +1186,7 @@ uint64_t dump_partition(spdio_t *io,
 uint64_t read_pactime(spdio_t *io) {
 	uint32_t n, offset = 0x81400, len = 8;
 	int ret; uint32_t *data = (uint32_t *)io->temp_buf;
-	unsigned long long time, unix;
+	unsigned long long time, unix1;
 
 	select_partition(io, "miscdata", offset + len, 0, BSL_CMD_READ_START);
 	if (send_and_check(io)) {
@@ -1214,9 +1214,9 @@ uint64_t read_pactime(spdio_t *io) {
 	time = (uint32_t)READ32_LE(io->raw_buf + 4);
 	time |= (uint64_t)READ32_LE(io->raw_buf + 8) << 32;
 
-	unix = time ? time / 10000000 - 11644473600 : 0;
+	unix1 = time ? time / 10000000 - 11644473600 : 0;
 	// $ date -d @unixtime
-	DEG_LOG(I,"pactime = 0x%llx (unix = %llu)", time, unix);
+	DEG_LOG(I,"pactime = 0x%llx (unix = %llu)", time, unix1);
 
 	encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
 	send_and_check(io);
@@ -1778,10 +1778,10 @@ partition_t* partition_list_d(spdio_t* io) {
 		if (result) {
 			size = check_partition(io, part, 1);
 			
-			//´æÈë
+			//ï¿½ï¿½ï¿½ï¿½
 			if (part != "splloader") {
 				strncpy(ptable[n].name, part, sizeof(ptable[n].name) - 1);
-				ptable[n].name[sizeof(ptable[n].name) - 1] = '\0'; // È·±£×Ö·û´®ÖÕÖ¹
+				ptable[n].name[sizeof(ptable[n].name) - 1] = '\0'; // È·ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½Ö¹
 				ptable[n].size = size;
 				n++;
 			}
@@ -1804,7 +1804,7 @@ void add_partition(spdio_t* io, const char* name, long long size) {
 	int k = io->part_count_c;
 	for (int i = 0; i < io->part_count_c; i++) {
 		strncpy(ptable[i].name, io->Cptable[i].name, sizeof(ptable[i].name) - 1);
-		ptable[i].name[sizeof(ptable[i].name) - 1] = '\0'; // È·±£×Ö·û´®ÖÕÖ¹
+		ptable[i].name[sizeof(ptable[i].name) - 1] = '\0'; // È·ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½Ö¹
 		ptable[i].size = io->Cptable[i].size;
 	}
 	for (int i = 0; i < io->part_count_c; i++) {
@@ -1814,7 +1814,7 @@ void add_partition(spdio_t* io, const char* name, long long size) {
 		}
 	}
 	strncpy(ptable[k].name, name, sizeof(ptable[k].name) - 1);
-	ptable[k].name[sizeof(ptable[k].name) - 1] = '\0'; // È·±£×Ö·û´®ÖÕÖ¹
+	ptable[k].name[sizeof(ptable[k].name) - 1] = '\0'; // È·ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½Ö¹
 	ptable[k].size = size;
 	io->Cptable = ptable;
 	io->part_count_c++;
@@ -1918,9 +1918,9 @@ void load_partition(spdio_t *io, const char *name,
 					else { delete[](rawbuf); step = step0; Da_Info.bSupportRawData = 0; goto fallback_load; }
 				}
 			}
-			// ÐÞ¸´»º³åÇøÒç³öÎÊÌâ£¬È·±£ n ²»³¬¹ý rawbuf µÄÊµ¼Ê·ÖÅä´óÐ¡
+			// ï¿½Þ¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â£¬È·ï¿½ï¿½ n ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ rawbuf ï¿½ï¿½Êµï¿½Ê·ï¿½ï¿½ï¿½ï¿½Ð¡
 			if (n > step + 1) {
-				// ÏÞÖÆ n µÄ×î´óÖµ£¬·ÀÖ¹Òç³ö
+				// ï¿½ï¿½ï¿½ï¿½ n ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½
 				n = step + 1;
 			}
 			if (fread(rawbuf, 1, n, fi) != n) ERR_EXIT("fread(load) failed\n");
@@ -2153,7 +2153,7 @@ void signal_handler(int sig) {
 }
 double get_time() {
 #if defined(_WIN32) || defined(_WIN64)
-	// Windows ÊµÏÖ
+	// Windows Êµï¿½ï¿½
 	static LARGE_INTEGER frequency;
 	static int initialized = 0;
 	if (!initialized) {
@@ -2165,12 +2165,12 @@ double get_time() {
 	QueryPerformanceCounter(&counter);
 	return (double)counter.QuadPart / frequency.QuadPart;
 #else
-	// Unix-like ÏµÍ³ÊµÏÖ
+	// Unix-like ÏµÍ³Êµï¿½ï¿½
 	struct timespec ts;
 #ifdef CLOCK_MONOTONIC
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 #else
-	// ±¸ÓÃ·½°¸£ºÊ¹ÓÃ½ÏµÍ¾«¶ÈµÄ clock()
+	// ï¿½ï¿½ï¿½Ã·ï¿½ï¿½ï¿½ï¿½ï¿½Ê¹ï¿½Ã½ÏµÍ¾ï¿½ï¿½Èµï¿½ clock()
 	return (double)clock() / CLOCKS_PER_SEC;
 #endif
 	return (double)ts.tv_sec + (double)ts.tv_nsec / 1e9;
