@@ -65,6 +65,9 @@ jobs:
       - name: Misc
         run: |
           cp master/*.md output/
+          cp master/Lib/Channel9.dll output/sfd_tool_x86_Release/
+          cp master/Lib/Channel.ini output/sfd_tool_x86_Release/
+          cp master/Lib/libusb-1.0.dll output/sfd_tool_x64_Release/
           cd output
           mv sfd_tool_x86_Release sfd_tool_SPRD_Release
           mv sfd_tool_x64_Release sfd_tool_LibUSB_Release
