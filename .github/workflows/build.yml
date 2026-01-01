@@ -44,6 +44,8 @@ jobs:
   release:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     needs: build
     steps:
       - name: Set Release Timestamp
@@ -66,7 +68,7 @@ jobs:
           cd output
           mv sfd_tool_x86_Release sfd_tool_SPRD_Release
           mv sfd_tool_x64_Release sfd_tool_LibUSB_Release
-          zip -r -v ../sfd_tool_${{ env.RELEASE_TAG }}.zip .
+          zip -r -v ../${{ env.RELEASE_TAG }}.zip .
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -79,6 +81,6 @@ jobs:
           body: |
             x86 ver work with SPRD driver, x64 ver work with libusb driver
           files: |
-            sfd_tool_${{ env.RELEASE_TAG }}.zip
+            ${{ env.RELEASE_TAG }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
