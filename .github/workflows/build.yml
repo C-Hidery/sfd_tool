@@ -62,7 +62,7 @@ jobs:
 
       - name: Misc
         run: |
-          cp stable/*.md output/
+          cp master/*.md output/
           cd output
           mv sfd_tool_x86_Release sfd_tool_SPRD_Release
           mv sfd_tool_x64_Release sfd_tool_LibUSB_Release
