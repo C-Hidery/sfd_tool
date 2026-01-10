@@ -736,7 +736,7 @@ int main(int argc, char** argv) {
 			}
 			
 			
-			//×ª´¢
+			//×ªï¿½ï¿½
 			//e_addr = addr;
 			//IS FDL2, NO NEED
 			if (fdl2_executed > 0) {
@@ -1248,8 +1248,9 @@ int main(int argc, char** argv) {
 			}
 			else if (!strcmp(name, "all")) {
 				start_signal();
-				if (gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+				
 				if (!isCMethod) {
+					if (gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 					if (!io->part_count) { DEG_LOG(W, "Partition table not available\n"); argc -= 2; argv += 2; continue; }
 					dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
 					for (i = 0; i < io->part_count; i++) {
@@ -1283,8 +1284,9 @@ int main(int argc, char** argv) {
 			}
 			else if (!strcmp(name, "all_lite")) {
 				start_signal();
-				if (gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+				
 				if (!isCMethod) {
+					if (gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 					if (!io->part_count) { DEG_LOG(E, "Partition table not available\n"); argc -= 2; argv += 2; continue; }
 					dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
 					for (i = 0; i < io->part_count; i++) {
