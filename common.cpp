@@ -1422,14 +1422,25 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 			fprintf(fo, "<Partitions>\n");
 		}
 		int divisor = 10;
-		DEG_LOG(OP,"detecting sector size");
-		p = io->raw_buf + 4;
-		for (i = 0; i < n; i++, p += 0x4c) {
-			size = READ32_LE(p + 0x48);
-			while (!(size >> divisor)) divisor--;
+		if (Da_Info.dwStorageType == 0) { 
+			DEG_LOG(OP,"detecting sector size");
+			p = io->raw_buf + 4;
+			for (i = 0; i < n; i++, p += 0x4c) {
+				size = READ32_LE(p + 0x48);
+				while (!(size >> divisor)) divisor--;
+			}
+			if (divisor == 10) Da_Info.dwStorageType = 0x102; //emmc
+			else Da_Info.dwStorageType = 0x103; //ufs
+		} else {
+			// 如果 Da_Info.dwStorageType 已经有值，仍然需要计算 divisor
+			// 用于后续分区大小计算
+			DEG_LOG(OP,"detecting sector size for partition size calculation");
+			p = io->raw_buf + 4;
+			for (i = 0; i < n; i++, p += 0x4c) {
+				size = READ32_LE(p + 0x48);
+				while (!(size >> divisor)) divisor--;
+			}
 		}
-		if (divisor == 10) Da_Info.dwStorageType = 0x102;
-		else Da_Info.dwStorageType = 0x103;
 		p = io->raw_buf + 4;
 		DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size / 1024);
 		for (i = 0; i < n; i++, p += 0x4c) {
