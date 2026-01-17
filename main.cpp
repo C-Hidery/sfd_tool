@@ -239,7 +239,7 @@ int main(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(nullptr));
-	printf("sfd_tool version 1.7.0.0\n");
+	printf("sfd_tool version 1.7.0.1\n");
 #if _DEBUG  
 	DBG_LOG("version:debug, core version:%s\n", Version);
 #else
