@@ -578,6 +578,17 @@ int main(int argc, char** argv) {
 		if(device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
 		else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
 	}
+	if (isKickMode && device_mode == SPRD4 && device_stage != FDL2 && !no_fdl_mode) {
+		DEG_LOG(I,"SPRD4 mode detected, but No-FDL mode not enabled.");
+		DEG_LOG(I,"You can get in FDL2 without FDL manually.");
+		DEG_LOG(I,"By execute following commands:");
+		DEG_LOG(I,"In BROM:");
+		DEG_LOG(I,"    exec 0x0");
+		DEG_LOG(I,"    exec");
+		DEG_LOG(I,"In FDL1:");
+		DEG_LOG(I,"    exec");
+		DEG_LOG(I,"(You can enable No-FDL mode by setting parameter `--no-fdl`)");
+	}
 	//get in interaction 
 	
 	while (1) {
