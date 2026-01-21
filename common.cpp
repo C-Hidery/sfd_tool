@@ -326,7 +326,7 @@ void find_endpoints(libusb_device_handle *dev_handle, int result[4]) {
 #define RECV_BUF_LEN (0x8000)
 
 char fn_partlist[40] = { 0 };
-char savepath[ARGV_LEN] = { 0 };
+char savepath[ARGV_LEN] = "./";
 DA_INFO_T Da_Info;
 partition_t gPartInfo;
 
@@ -1422,25 +1422,17 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 			fprintf(fo, "<Partitions>\n");
 		}
 		int divisor = 10;
+		DEG_LOG(OP,"detecting sector size");
+		p = io->raw_buf + 4;
+		for (i = 0; i < n; i++, p += 0x4c) {
+			size = READ32_LE(p + 0x48);
+			while (!(size >> divisor)) divisor--;
+		}
 		if (Da_Info.dwStorageType == 0) { 
-			DEG_LOG(OP,"detecting sector size");
-			p = io->raw_buf + 4;
-			for (i = 0; i < n; i++, p += 0x4c) {
-				size = READ32_LE(p + 0x48);
-				while (!(size >> divisor)) divisor--;
-			}
 			if (divisor == 10) Da_Info.dwStorageType = 0x102; //emmc
 			else Da_Info.dwStorageType = 0x103; //ufs
-		} else {
-			// 如果 Da_Info.dwStorageType 已经有值，仍然需要计算 divisor
-			// 用于后续分区大小计算
-			DEG_LOG(OP,"detecting sector size for partition size calculation");
-			p = io->raw_buf + 4;
-			for (i = 0; i < n; i++, p += 0x4c) {
-				size = READ32_LE(p + 0x48);
-				while (!(size >> divisor)) divisor--;
-			}
 		}
+		
 		p = io->raw_buf + 4;
 		DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size / 1024);
 		for (i = 0; i < n; i++, p += 0x4c) {
@@ -2333,6 +2325,7 @@ uint64_t check_partition(spdio_t *io, const char *name, int need_size) {
 			}
 		}
 	}
+	// NAND detection
 	if (end == 10) Da_Info.dwStorageType = 0x101;
 	if(io->verbose != -1) DEG_LOG(I,"Partition check: %s, size : 0x%llx", name, offset);
 	encode_msg_nocpy(io, BSL_CMD_READ_END, 0);

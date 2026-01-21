@@ -57,6 +57,7 @@ void print_help() {
 		"\t--usb-fd[CODE]\n"
 		"\t\tConvert termux transfered usb port fd.(Android platform only!!!)\n"
 	);
+
 #endif // __ANDROID__
 	DBG_LOG(
 		"\t--no-fdl\n"
@@ -239,7 +240,7 @@ int main(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(nullptr));
-	printf("sfd_tool version 1.7.0.1\n");
+	printf("sfd_tool version 1.7.0.2\n");
 #if _DEBUG  
 	DBG_LOG("version:debug, core version:%s\n", Version);
 #else
@@ -825,7 +826,7 @@ int main(int argc, char** argv) {
 					recv_msg(io);
 					if (recv_type(io) == BSL_REP_VER) break;
 					DEG_LOG(W,"Failed to check baud, retry...");
-					if (i == 4) { o_exception = "Failed to check baud FDL1."; ERR_EXIT("Can not execute FDL: %s,please reboot your phone by pressing POWER and VOL_UP for 7-10 seconds.\n",o_exception); }
+					if (i == 4) { o_exception = "Failed to check baud FDL1"; ERR_EXIT("Can not execute FDL: %s,please reboot your phone by pressing POWER and VOL_UP for 7-10 seconds.\n",o_exception); }
 					usleep(500000);
 				}
 				DEG_LOG(I,"Check baud FDL1 done.");
@@ -925,7 +926,6 @@ int main(int argc, char** argv) {
 					// for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
 				}
 				*/
-				//encode_msg_nocpy(io,BSL_CMD_READ_START,0xffffffff);
 				if (Da_Info.bDisableHDLC) {
 					encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
 					if (!send_and_check(io)) {
@@ -950,7 +950,7 @@ int main(int argc, char** argv) {
 					}
 				}
 
-
+				
 				else if (highspeed || Da_Info.dwStorageType == 0x103) {
 					blk_size = 0xf800;
 					io->ptable = partition_list(io, fn_partlist, &io->part_count);
@@ -958,7 +958,6 @@ int main(int argc, char** argv) {
 				else if (Da_Info.dwStorageType == 0x102) {
 					io->ptable = partition_list(io, fn_partlist, &io->part_count);
 				}
-				//removed
 				else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
 				if (gpt_failed != 1) {
 					if (selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
@@ -1010,12 +1009,12 @@ int main(int argc, char** argv) {
 					recv_msg(io);
 					if (recv_type(io) == BSL_REP_VER) break;
 					DEG_LOG(W, "Failed to check baud, retry...");
-					if (i == 4) { o_exception = "Failed to check baud FDL1."; ERR_EXIT("Can not execute FDL: %s,please reboot your phone by pressing POWER and VOL_UP for 7-10 seconds.\n", o_exception); }
+					if (i == 4) { o_exception = "Failed to check baud FDL1"; ERR_EXIT("Can not execute FDL: %s,please reboot your phone by pressing POWER and VOL_UP for 7-10 seconds.\n", o_exception); }
 					usleep(500000);
 				}
 				DEG_LOG(I, "Check baud FDL1 done.");
 
-				DEG_LOG(I, "Device REP_Version: ");
+				printf("[INFO] Device REP_Version: ");
 				print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
 				if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
 				//special FDL1 MEM, DISABLED FOR STABILITY
@@ -1082,11 +1081,18 @@ int main(int argc, char** argv) {
 #endif
 		}
 		else if (!strcmp(str2[1], "path")) {
-			//sfd_tool func
-			if (argcount > 2) strcpy(savepath, str2[2]);
+			if (argcount > 2) {
+				if (strlen(str2[2]) < sizeof(savepath)) {
+					snprintf(savepath, sizeof(savepath), "%s", str2[2]);
+				} else {
+					DEG_LOG(E, "Path too long");
+					argc -= 2; argv += 2;
+					continue;
+				}
+			}
 			DEG_LOG(I,"Save dir is %s", savepath);
 			argc -= 2; argv += 2;
-		}
+}
 		else if (!strcmp(str2[1], "nand_id")) {
 			//sfd_tool func
 			if (argcount > 2) {
