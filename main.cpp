@@ -520,6 +520,7 @@ int main(int argc, char** argv) {
 					DEG_LOG(I,"You may get partition table through compatibility method.");
 					DEG_LOG(I, "(Use command `cptable` to do it.)");
 				}
+				if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
 				if (nand_id == DEFAULT_NAND_ID) {
 					nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
 					nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
