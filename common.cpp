@@ -326,7 +326,8 @@ void find_endpoints(libusb_device_handle *dev_handle, int result[4]) {
 #define RECV_BUF_LEN (0x8000)
 
 char fn_partlist[40] = { 0 };
-char savepath[ARGV_LEN] = "./";
+char savepath[ARGV_LEN] = { 0 };
+
 DA_INFO_T Da_Info;
 partition_t gPartInfo;
 
@@ -948,8 +949,9 @@ int GetStage(int mode) {
 	else if (fdl1_loaded > 0) return FDL1;
 	else return BROM;
 }
+
 FILE *my_fopen(const char *fn, const char *mode) {
-	if (savepath[0]) {
+	if (savepath && savepath[0]) {
 		char fix_fn[1024];
 		char* ch;
 		if ((ch = const_cast<char*>(strrchr(fn, '/')))) sprintf(fix_fn, "%s/%s", savepath, ch + 1);
@@ -2526,7 +2528,7 @@ void dump_partitions(spdio_t *io, const char *fn, int *nand_info, unsigned step)
 	}
 	if (selected_ab > 0) { DBG_LOG("saving slot info\n"); dump_partition(io, "misc", 0, 1048576, "misc.bin", step); }
 
-	if (savepath[0]) {
+	if (savepath && savepath[0]) {
 		DEG_LOG(OP,"Saving dump list");
 		FILE *fo = my_fopen(fn, "wb");
 		if (fo) { fwrite(src, 1, size, fo); fclose(fo); }
@@ -2843,7 +2845,7 @@ void w_mem_to_part_offset(spdio_t *io, const char *name, size_t offset, uint8_t 
 	snprintf(dfile, sizeof(dfile), "%s.bin", name);
 
 	char fix_fn[1024];
-	if (savepath[0]) sprintf(fix_fn, "%s/%s", savepath, dfile);
+	if (savepath && savepath[0]) sprintf(fix_fn, "%s/%s", savepath, dfile);
 	else strcpy(fix_fn, dfile);
 
 	FILE *fi;
