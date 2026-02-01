@@ -9,7 +9,9 @@
                 "/usr/include/pango-1.0",
                 "/usr/include/cairo",
                 "/usr/include/gdk-pixbuf-2.0",
-                "/usr/lib/x86_64-linux-gnu/glib-2.0/include"
+                "/usr/lib/x86_64-linux-gnu/glib-2.0/include",
+                "/usr/include/harfbuzz",
+                "/usr/include/atk-1.0"
             ],
             "defines": [
                 "USE_LIBUSB=1",
@@ -18,8 +20,7 @@
             "compilerPath": "/usr/bin/g++",
             "cStandard": "c17",
             "cppStandard": "gnu++17",
-            "intelliSenseMode": "linux-gcc-x64",
-            "configurationProvider": "ms-vscode.cmake-tools"
+            "intelliSenseMode": "linux-gcc-x64"
         },
         {
             "name": "Windows-MSVC",
