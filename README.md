@@ -1,4 +1,4 @@
-# sfd_tool
+# sfd_tool GUI Edition
 
 [**中文文档**](https://github.com/C-Hidery/sfd_tool/blob/master/README_ZH.md)
 
@@ -14,12 +14,16 @@ sfd_tool is a maintenance release for spreadtrum_flash
 
 ---
 
-Run this before making on linux:
+Run this before making:
 
 ``` bash
 sudo apt update
 # Ubuntu/Debian
-sudo apt install libusb-1.0-0-dev gcc g++
+sudo apt install libusb-1.0-0-dev gcc g++ libgtk-3-dev pkg-config
+# Fedora/RHEL
+sudo dnf install libusb-devel gtk3-devel pkg-config
+# macOS
+brew install libusb gtk+3 pkg-config
 # Android(Termux)
 pkg install termux-api libusb clang git g++
 ```
