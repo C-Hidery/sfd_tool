@@ -5,54 +5,426 @@
 #include <thread>
 #include <chrono>
 #include <gtk/gtk.h>
-char* open_file_dialog (GtkWidget *widget, gpointer data) {
-    GtkWidget *dialog;
-    GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_OPEN;
-    gint res;
-
-    // 创建文件选择对话框
-    dialog = gtk_file_chooser_dialog_new ("Open a file 打开文件",
-                                          GTK_WINDOW (data),
-                                          action,
-                                          "_Cancel取消",
-                                          GTK_RESPONSE_CANCEL,
-                                          "_Open打开",
-                                          GTK_RESPONSE_ACCEPT,
-                                          NULL);
-
-    // 运行对话框
-	char *filename;
-    res = gtk_dialog_run (GTK_DIALOG (dialog));
-    if (res == GTK_RESPONSE_ACCEPT) {
-        
-        GtkFileChooser *chooser = GTK_FILE_CHOOSER (dialog);
-        filename = gtk_file_chooser_get_filename (chooser);
-        g_print ("选中的文件: %s\n", filename);
-       
+spdio_t* io = nullptr;
+int ret, wait = 30 * REOPEN_FREQ;
+int keep_charge = 1, end_data = 0, blk_size = 0, skip_confirm = 1, highspeed = 0, cve_v2 = 0;
+int nand_info[3];
+int argcount = 0, stage = -1, nand_id = DEFAULT_NAND_ID;
+unsigned exec_addr = 0, baudrate = 0;
+int bootmode = -1, at = 0, async = 1;
+//Set up environment
+#if !USE_LIBUSB
+	extern DWORD curPort;
+	DWORD* ports;
+	//Channel9 init(Windows platform)
+#else
+	//libsub init(Linux/Android-termux)
+	extern libusb_device* curPort;
+	libusb_device** ports;
+#endif
+// Moved initialization into gtk_kmain()
+// 选择文件
+std::string showFileChooser(GtkWindow* parent, bool open = true) {
+    GtkWidget* dialog;
+    
+    if (open) {
+        dialog = gtk_file_chooser_dialog_new("选择文件",
+                                           parent,
+                                           GTK_FILE_CHOOSER_ACTION_OPEN,
+                                           "_取消", GTK_RESPONSE_CANCEL,
+                                           "_打开", GTK_RESPONSE_ACCEPT,
+                                           NULL);
+    } else {
+        dialog = gtk_file_chooser_dialog_new("保存文件",
+                                           parent,
+                                           GTK_FILE_CHOOSER_ACTION_SAVE,
+                                           "_取消", GTK_RESPONSE_CANCEL,
+                                           "_保存", GTK_RESPONSE_ACCEPT,
+                                           NULL);
     }
-
-    // 销毁对话框
-    gtk_widget_destroy (dialog);
-	return filename;
+    
+    // 设置过滤器
+    GtkFileFilter* filter = gtk_file_filter_new();
+    gtk_file_filter_set_name(filter, "所有文件 (*.*)");
+    gtk_file_filter_add_pattern(filter, "*");
+    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+    
+    gint result = gtk_dialog_run(GTK_DIALOG(dialog));
+    std::string filename;
+    
+    if (result == GTK_RESPONSE_ACCEPT) {
+        char* file = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+        if (file) {
+            filename = file;
+            g_free(file);
+        }
+    }
+    
+    gtk_widget_destroy(dialog);
+    return filename;
 }
 
-class WidgetHandler {
-public:
-    WidgetHandler() {}
+// 选择文件夹
+std::string showFolderChooser(GtkWindow* parent) {
+    GtkWidget* dialog = gtk_file_chooser_dialog_new("选择文件夹",
+                                                   parent,
+                                                   GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER,
+                                                   "_取消", GTK_RESPONSE_CANCEL,
+                                                   "_选择", GTK_RESPONSE_ACCEPT,
+                                                   NULL);
     
-    void Button_connect_clicked() {
-        std::thread([](){
-            std::cout << "Connect button clicked!" << std::endl;
-            // Simulate a long operation
-            std::this_thread::sleep_for(std::chrono::seconds(2));
-            std::cout << "Device connected." << std::endl;
-        }).detach();
+    gint result = gtk_dialog_run(GTK_DIALOG(dialog));
+    std::string folder;
+    
+    if (result == GTK_RESPONSE_ACCEPT) {
+        char* dir = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+        if (dir) {
+            folder = dir;
+            g_free(dir);
+        }
     }
-};
+    
+    gtk_widget_destroy(dialog);
+    return folder;
+}
+// 信息对话框
+void showInfoDialog(GtkWindow* parent, const char* title, const char* message) {
+    GtkWidget* dialog = gtk_message_dialog_new(parent,
+                                              GTK_DIALOG_MODAL,
+                                              GTK_MESSAGE_INFO,
+                                              GTK_BUTTONS_OK,
+                                              "%s", message);
+    gtk_window_set_title(GTK_WINDOW(dialog), title);
+    gtk_dialog_run(GTK_DIALOG(dialog));
+    gtk_widget_destroy(dialog);
+}
+
+// 警告对话框
+void showWarningDialog(GtkWindow* parent, const char* title, const char* message) {
+    GtkWidget* dialog = gtk_message_dialog_new(parent,
+                                              GTK_DIALOG_MODAL,
+                                              GTK_MESSAGE_WARNING,
+                                              GTK_BUTTONS_OK,
+                                              "%s", message);
+    gtk_window_set_title(GTK_WINDOW(dialog), title);
+    gtk_dialog_run(GTK_DIALOG(dialog));
+    gtk_widget_destroy(dialog);
+}
+
+// 错误对话框
+void showErrorDialog(GtkWindow* parent, const char* title, const char* message) {
+    GtkWidget* dialog = gtk_message_dialog_new(parent,
+                                              GTK_DIALOG_MODAL,
+                                              GTK_MESSAGE_ERROR,
+                                              GTK_BUTTONS_OK,
+                                              "%s", message);
+    gtk_window_set_title(GTK_WINDOW(dialog), title);
+    gtk_dialog_run(GTK_DIALOG(dialog));
+    gtk_widget_destroy(dialog);
+}
+
+// 确认对话框（是/否）
+bool showConfirmDialog(GtkWindow* parent, const char* title, const char* message) {
+    GtkWidget* dialog = gtk_message_dialog_new(parent,
+                                              GTK_DIALOG_MODAL,
+                                              GTK_MESSAGE_QUESTION,
+                                              GTK_BUTTONS_YES_NO,
+                                              "%s", message);
+    gtk_window_set_title(GTK_WINDOW(dialog), title);
+    
+    gint result = gtk_dialog_run(GTK_DIALOG(dialog));
+    gtk_widget_destroy(dialog);
+    
+    return (result == GTK_RESPONSE_YES);
+}
+void on_button_clicked_connect(GtkWidgetHelper helper) {
+    GtkWidget* waitBox = helper.getWidget("wait_con");
+    GtkWidget* sprd4Switch = helper.getWidget("sprd4");
+    GtkWidget* cveSwitch = helper.getWidget("exec_addr");
+    GtkWidget* cveAddr = helper.getWidget("cve_addr");
+    GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
+	helper.disableWidget("connect_1");
+    double wait_time = helper.getSpinValue(waitBox);
+    bool isSprd4 = helper.getSwitchState(sprd4Switch);
+    bool isCve = helper.getSwitchState(cveSwitch);
+    const char* cve_path = helper.getEntryText(cveAddr).c_str();
+    const char* cve_addr = helper.getEntryText(cveAddrC).c_str();
+    DEG_LOG(I,"Begin to boot...(%fs)", wait_time);
+	wait = static_cast<int>(wait_time * REOPEN_FREQ);
+    if (isSprd4){
+        DEG_LOG(I,"Using SPRD4 mode to kick device.");
+		isKickMode = 1;
+		bootmode = strtol("2", nullptr, 0); at = 0;
+    }
+    if (isCve){
+        DEG_LOG(I,"Using CVE binary: %s at address: %s", cve_path, cve_addr);
+    }
+	
+#if !USE_LIBUSB
+	bListenLibusb = 0;
+	if (at || bootmode >= 0) {
+		io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
+		if (io->hThread == nullptr) return -1;
+		ChangeMode(io, wait / REOPEN_FREQ * 1000, bootmode, at);
+		wait = 30 * REOPEN_FREQ;
+		stage = -1;
+	}
+#else
+	if (!libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG)) { DBG_LOG("hotplug unsupported on this platform\n"); bListenLibusb = 0; bootmode = -1; at = 0; }
+	if (at || bootmode >= 0) {
+		startUsbEventHandle();
+		ChangeMode(io, wait / REOPEN_FREQ * 1000, bootmode, at);
+		wait = 30 * REOPEN_FREQ;
+		stage = -1;
+	}
+	if (bListenLibusb < 0) startUsbEventHandle();
+#endif
+	#if _WIN32
+	if (!bListenLibusb) {
+		if (io->hThread == nullptr) io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
+		if (io->hThread == nullptr) return -1;
+	}
+#if !USE_LIBUSB
+	if (!m_bOpened && async) {
+		if (FALSE == CreateRecvThread(io)) {
+			io->m_dwRecvThreadID = 0;
+			DEG_LOG(E,"Create Receive Thread Fail.");
+		}
+	}
+#endif
+#endif
+	if (!m_bOpened) {
+		DBG_LOG("<waiting for connection,mode:dl,%ds>\n", wait / REOPEN_FREQ);
+		
+		ThrowExit();
+		for (int i = 0; ; i++) {
+#if USE_LIBUSB
+			if (bListenLibusb) {
+				if (curPort) {
+					if (libusb_open(curPort, &io->dev_handle) >= 0) call_Initialize_libusb(io);
+					else ERR_EXIT("Failed to connect\n");
+					break;
+				}
+			}
+			if (!(i % 4)) {
+				if ((ports = FindPort(0x4d00))) {
+					for (libusb_device** port = ports; *port != nullptr; port++) {
+						if (libusb_open(*port, &io->dev_handle) >= 0) {
+							call_Initialize_libusb(io);
+							curPort = *port;
+							break;
+						}
+					}
+					libusb_free_device_list(ports, 1);
+					ports = nullptr;
+					if (m_bOpened) break;
+				}
+			}
+			if (i >= wait)
+				ERR_EXIT("libusb_open_device failed\n");
+#else
+			if (io->verbose) DBG_LOG("Cost: %.1f, Found: %d\n", (float)i / REOPEN_FREQ, curPort);
+			if (curPort) {
+				if (!call_ConnectChannel(io->handle, curPort, WM_RCV_CHANNEL_DATA, io->m_dwRecvThreadID)) ERR_EXIT("Connection failed\n");
+				break;
+			}
+			if (!(i % 4)) {
+				if ((ports = FindPort("SPRD U2S Diag"))) {
+					for (DWORD* port = ports; *port != 0; port++) {
+						if (call_ConnectChannel(io->handle, *port, WM_RCV_CHANNEL_DATA, io->m_dwRecvThreadID)) {
+							curPort = *port;
+							break;
+						}
+					}
+					delete[](ports);
+					ports = nullptr;
+					if (m_bOpened) break;
+				}
+			}
+			if (i >= wait) {
+				ThrowExit();
+				ERR_EXIT("%s: Failed to find port.\n",o_exception);
+		}
+#endif
+			usleep(1000000 / REOPEN_FREQ);
+		}
+	}
+	io->flags |= FLAGS_TRANSCODE;
+	if (stage != -1) {
+		io->flags &= ~FLAGS_CRC16;
+		encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+	}
+	else encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
+	//handshake
+	for (int i = 0; ; ++i) {
+		//check if device is connected correctly.
+		if (io->recv_buf[2] == BSL_REP_VER) {
+			ret = BSL_REP_VER;
+			memcpy(io->raw_buf + 4, io->recv_buf + 5, 5);
+			io->raw_buf[2] = 0;
+			io->raw_buf[3] = 5;
+			io->recv_buf[2] = 0;
+		}
+		else if (io->recv_buf[2] == BSL_REP_VERIFY_ERROR ||
+			io->recv_buf[2] == BSL_REP_UNSUPPORTED_COMMAND) {
+			if (!fdl1_loaded) {
+				ret = io->recv_buf[2];
+				io->recv_buf[2] = 0;
+			}
+			else ERR_EXIT("Failed to connect to device: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n", o_exception);
+		}
+		else {
+			//device correct, handshake operation
+			send_msg(io);
+			recv_msg(io);
+			ret = recv_type(io);
+		}
+		//device can only recv BSL_REP_ACK or BSL_REP_VER or BSL_REP_VERIFY_ERROR
+		init_stage = 1;
+		ThrowExit();
+		if (ret == BSL_REP_ACK || ret == BSL_REP_VER || ret == BSL_REP_VERIFY_ERROR) {
+			//check stage
+			if (ret == BSL_REP_VER) {
+				if (fdl1_loaded == 1) {
+					device_stage = FDL1;
+					DEG_LOG(OP, "FDL1 connected."); 
+					if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
+					break;
+				}
+				else {
+					device_stage = BROM;
+					DEG_LOG(OP, "Check baud BROM");
+					if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) {
+						fdl1_loaded = -1; 
+						fdl2_executed = -1;
+					}
+				}
+				DBG_LOG("[INFO] Device mode version: ");
+				print_string(stdout, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+				print_to_string(mode_str,sizeof(mode_str),io->raw_buf + 4, READ16_BE(io->raw_buf + 2),0);
+				
+				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+				if (send_and_check(io)) exit(1);
+			}
+			else if (ret == BSL_REP_VERIFY_ERROR) {
+				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+				if (fdl1_loaded != 1) {
+					if (send_and_check(io)) exit(1);
+				}
+				else { i = -1; continue; }
+			}
+			if (fdl1_loaded == 1) {
+				DEG_LOG(OP, "FDL1 connected."); 
+				device_stage = FDL1;
+				if (keep_charge) {
+					encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
+					if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
+				}
+				break;
+			}
+			else {
+				DEG_LOG(OP, "BROM connected.");
+				device_stage = BROM;
+				break;
+			}
+		}
+		//FDL2 response:UNSUPPORTED
+		else if (ret == BSL_REP_UNSUPPORTED_COMMAND) {
+			encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
+			if (!send_and_check(io)) {
+				io->flags &= ~FLAGS_TRANSCODE;
+				DEG_LOG(OP, "Try to disable transcode 0x7D.");
+				fdl2_executed = 1;
+				device_stage = FDL2;
+				int o = io->verbose;
+				io->verbose = -1;
+				g_spl_size = check_partition(io, "splloader", 1);
+				io->verbose = o;
+				if(isUseCptable){
+					io->Cptable = partition_list_d(io);
+					isCMethod = 1;
+				}
+				if (!isUseCptable && !io->part_count) { 
+					DEG_LOG(W, "No partition table found on current device");
+					DEG_LOG(I,"You may get partition table through compatibility method.");
+					DEG_LOG(I, "(Use command `cptable` to do it.)");
+				}
+				if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
+				if (nand_id == DEFAULT_NAND_ID) {
+					nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+					nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+					nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+				}
+				break;
+			}
+		}
+		
+		//fail
+		else if (i == 4) {
+			init_stage = 1;
+			ThrowExit();
+			if (stage != -1) { ERR_EXIT("Failed to connect: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n", o_exception); }
+			else { encode_msg_nocpy(io, BSL_CMD_CONNECT, 0); stage++; i = -1; }
+		}
+		
+	}
+	size_t sub_len = strlen("SPRD3");
+	size_t str_len = strlen(mode_str);
+	int found = 0;
+	if (str_len >= sub_len) {
+		for (size_t i = 0; i <= str_len - sub_len; i++) {
+			if (strncmp(mode_str + i, "SPRD3", sub_len) == 0) {
+				found = 1;
+				break;
+			}
+		}
+	}
+	DEG_LOG(I,"SPRD3 Current : %d",found);
+	if(!found && isKickMode) device_mode = SPRD4;
+	else device_mode = SPRD3;
+	if(!found && isKickMode) device_mode = SPRD4;
+	else device_mode = SPRD3;
+	if (fdl2_executed > 0) {
+		if (device_mode == SPRD3) {
+			DEG_LOG(I, "Device stage: FDL2/SPRD3");
+		}
+		else DEG_LOG(I, "Device stage: FDL2/SPRD4(AutoD)");
+	}
+	else if(fdl1_loaded > 0) {
+		if (device_mode == SPRD3) {
+			DEG_LOG(I, "Device stage: FDL1/SPRD3");
+		}
+		else DEG_LOG(I, "Device stage: FDL1/SPRD4(AutoD)");
+	}
+	else if (device_stage == BROM) {
+		if (device_mode == SPRD3) {
+			DEG_LOG(I, "Device stage: BROM/SPRD3");
+		}
+		else DEG_LOG(I, "Device stage: BROM/SPRD4(AutoD)");
+	}
+	else { 
+		if(device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
+		else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
+	}
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Successfully connected 连接成功", "Device already connected!\n设备已成功连接！");
+}
 int gtk_kmain(int argc, char** argv) {
     DEG_LOG(I, "Starting GUI mode...");
     gtk_init(&argc, &argv);
-    WidgetHandler handler = WidgetHandler();
+
+    // Initialization previously at file scope
+    char* execfile = NEWN char[ARGV_LEN];
+    if (!execfile) { ThrowExit(); ERR_EXIT("%s: malloc failed\n",o_exception); }
+    io = spdio_init(0);
+#if USE_LIBUSB
+    ret = libusb_init(nullptr);
+    if (ret < 0) ERR_EXIT("libusb_init failed: %s\n", libusb_error_name(ret));
+#else
+    io->handle = createClass();
+    call_Initialize(io->handle);
+#endif
+    sprintf(fn_partlist, "partition_%lld.xml", (long long)time(nullptr));
+
     // Window Setup
     GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(window), "SFD Tool GUI By Ryan Crepa");
@@ -67,12 +439,12 @@ int gtk_kmain(int argc, char** argv) {
     // 创建 GtkWidgetHelper
     GtkWidgetHelper helper(window);
     helper.setParent(window, LayoutType::GRID);
-    
+    helper.addWidget("main_window", window);
     // 创建Notebook（标签页控件）
     GtkWidget* notebook = helper.createNotebook("main_notebook", 0, 0, 1174, 672);
-    
-    // ========== Connect Page ==========
 {
+    // ========== Connect Page ==========
+
     GtkWidget* connectPage = helper.createGrid("connect_page", 5, 5);
     helper.addNotebookPage(notebook, connectPage, "Connect  连接");
     
@@ -120,6 +492,7 @@ int gtk_kmain(int argc, char** argv) {
     GtkWidget* cveSwitchBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     GtkWidget* cveSwitch = gtk_switch_new();
     gtk_widget_set_name(cveSwitch, "exec_addr");
+	helper.addWidget("exec_addr",cveSwitch);
     gtk_box_pack_start(GTK_BOX(cveSwitchBox), cveSwitch, FALSE, FALSE, 0);
     GtkWidget* cveSwitchLabel = helper.createLabel("Try to use CVE to skip FDL verification(brom stage only)   利用漏洞绕过FDL签名验证(仅BROM模式)", 
                                                    "exec_addr_label", 0, 0, 500, 20);
@@ -138,6 +511,7 @@ int gtk_kmain(int argc, char** argv) {
     GtkWidget* sprd4SwitchBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     GtkWidget* sprd4Switch = gtk_switch_new();
     gtk_widget_set_name(sprd4Switch, "sprd4");
+	helper.addWidget("sprd4",sprd4Switch);
     gtk_box_pack_start(GTK_BOX(sprd4SwitchBox), sprd4Switch, FALSE, FALSE, 0);
     GtkWidget* sprd4Label = helper.createLabel("Kick device to SPRD4  使用SPRD4模式", 
                                                "sprd4_label", 0, 0, 250, 20);
@@ -230,10 +604,9 @@ int gtk_kmain(int argc, char** argv) {
     gtk_box_pack_start(GTK_BOX(statusBox2), modeLabel, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(statusBox2), modeStatus, FALSE, FALSE, 0);
     helper.addToGrid(connectPage, statusBox2, 0, 17, 2, 1);
-}
     
     // ========== Partition Operation Page ==========
-    {
+    
         GtkWidget* partPage = helper.createGrid("part_page", 5, 5);
         helper.addNotebookPage(notebook, partPage, "Partition Operation  分区操作");
         
@@ -248,7 +621,7 @@ int gtk_kmain(int argc, char** argv) {
         GtkListStore* store = gtk_list_store_new(3, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
         GtkWidget* treeView = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
         gtk_widget_set_name(treeView, "part_list");
-        
+        helper.addWidget("part_list",treeView);
         GtkCellRenderer* renderer = gtk_cell_renderer_text_new();
         gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(treeView), -1,
                                                    "Partition Name", renderer,
@@ -279,10 +652,10 @@ int gtk_kmain(int argc, char** argv) {
         gtk_box_pack_start(GTK_BOX(buttonBox), readBtn, FALSE, FALSE, 0);
         gtk_box_pack_start(GTK_BOX(buttonBox), eraseBtn, FALSE, FALSE, 0);
         helper.addToGrid(partPage, buttonBox, 0, 10, 4, 1);
-    }
+    
     
     // ========== Manually Operate Page ==========
-    {
+    
         GtkWidget* manualPage = helper.createGrid("manual_page", 5, 5);
         helper.addNotebookPage(notebook, manualPage, "Manually Operate  手动操作");
         
@@ -350,10 +723,10 @@ int gtk_kmain(int argc, char** argv) {
         helper.addToGrid(manualPage, mPartErase, 1, row++, 2, 1);
         
         helper.addToGrid(manualPage, mEraseBtn, 0, row++, 3, 1);
-    }
     
+
     // ========== Advanced Operation Page ==========
-    {
+    
         GtkWidget* advOpPage = helper.createGrid("adv_op_page", 5, 5);
         helper.addNotebookPage(notebook, advOpPage, "Advanced Operation  高级操作");
         
@@ -378,7 +751,7 @@ int gtk_kmain(int argc, char** argv) {
         GtkWidget* dmvEnable = helper.createButton("Enable DM-verify  启用DM-verify", "dmv_enable", nullptr, 0, 0, 200, 32);
         
         // Add to grid
-        int row = 0;
+        row = 0;
         helper.addToGrid(advOpPage, abLabel, 0, row++, 3, 1);
         
         GtkWidget* abButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 20);
@@ -407,10 +780,10 @@ int gtk_kmain(int argc, char** argv) {
         gtk_box_pack_start(GTK_BOX(dmvButtonBox), dmvDisable, FALSE, FALSE, 0);
         gtk_box_pack_start(GTK_BOX(dmvButtonBox), dmvEnable, FALSE, FALSE, 0);
         helper.addToGrid(advOpPage, dmvButtonBox, 0, row++, 3, 1);
-    }
+    
     
     // ========== Advanced Settings Page ==========
-    {
+    
         GtkWidget* advSetPage = helper.createGrid("adv_set_page", 5, 5);
         helper.addNotebookPage(notebook, advSetPage, "Advanced Settings  高级设置");
         
@@ -421,6 +794,7 @@ int gtk_kmain(int argc, char** argv) {
         gtk_scale_set_draw_value(GTK_SCALE(blkSlider), TRUE);
         gtk_scale_set_value_pos(GTK_SCALE(blkSlider), GTK_POS_RIGHT);
         gtk_widget_set_name(blkSlider, "blk_size");
+		helper.addWidget("blk_size",blkSlider);
         gtk_widget_set_size_request(blkSlider, 1036, 30);
         
         GtkWidget* sizeCon = helper.createLabel("60000", "size_con", 0, 0, 60, 20);
@@ -432,10 +806,10 @@ int gtk_kmain(int argc, char** argv) {
         gtk_box_pack_start(GTK_BOX(sliderBox), blkSlider, TRUE, TRUE, 0);
         gtk_box_pack_start(GTK_BOX(sliderBox), sizeCon, FALSE, FALSE, 0);
         helper.addToGrid(advSetPage, sliderBox, 0, 1, 2, 1);
-    }
+    
     
     // ========== About Page ==========
-    {
+    
         GtkWidget* aboutPage = helper.createGrid("about_page", 5, 5);
         helper.addNotebookPage(notebook, aboutPage, "About  关于");
         
@@ -448,17 +822,17 @@ int gtk_kmain(int argc, char** argv) {
         gtk_text_view_set_editable(GTK_TEXT_VIEW(aboutTextView), FALSE);
         gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(aboutTextView), GTK_WRAP_WORD);
         gtk_widget_set_name(aboutTextView, "about_text");
-        
+        helper.addWidget("about_text",aboutTextView);
         GtkTextBuffer* buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(aboutTextView));
         gtk_text_buffer_set_text(buffer, 
             "SFD Tool GUI\n\nVersion 1.7.1.0\n\nBy Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version", -1);
         
         gtk_container_add(GTK_CONTAINER(scrolledAbout), aboutTextView);
         helper.addToGrid(aboutPage, scrolledAbout, 0, 0, 1, 1);
-    }
+    
     
     // ========== Log Page ==========
-    {
+    
         GtkWidget* logPage = helper.createGrid("log_page", 5, 5);
         helper.addNotebookPage(notebook, logPage, "Log  日志");
         
@@ -470,7 +844,7 @@ int gtk_kmain(int argc, char** argv) {
         GtkWidget* logTextView = gtk_text_view_new();
         gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(logTextView), GTK_WRAP_WORD);
         gtk_widget_set_name(logTextView, "txtOutput");
-        
+        helper.addWidget("txtOutput",logTextView);
         gtk_container_add(GTK_CONTAINER(scrolledLog), logTextView);
         
         GtkWidget* expLogBtn = helper.createButton("Export  导出", "exp_log", nullptr, 0, 0, 120, 32);
@@ -483,14 +857,15 @@ int gtk_kmain(int argc, char** argv) {
         gtk_box_pack_start(GTK_BOX(logButtonBox), expLogBtn, FALSE, FALSE, 0);
         gtk_box_pack_start(GTK_BOX(logButtonBox), logClearBtn, FALSE, FALSE, 0);
         helper.addToGrid(logPage, logButtonBox, 0, 9, 4, 1);
-    }
+    
     
     // ========== Bottom Controls ==========
-    {
+    
         // Progress section
         GtkWidget* progressLabel = helper.createLabel("Progress  进度:", "progress_label", 0, 0, 100, 20);
         GtkWidget* progressBar = gtk_progress_bar_new();
         gtk_widget_set_name(progressBar, "progressBar_1");
+		helper.addWidget("progressBar_1",progressBar);
         gtk_widget_set_size_request(progressBar, 345, 9);
         
         GtkWidget* percentLabel = helper.createLabel("0%", "percent", 0, 0, 30, 20);
@@ -524,7 +899,7 @@ int gtk_kmain(int argc, char** argv) {
         // Add notebook and bottom grid to main grid
         gtk_grid_attach(GTK_GRID(mainGrid), notebook, 0, 0, 10, 1);
         gtk_grid_attach(GTK_GRID(mainGrid), bottomGrid, 0, 1, 10, 1);
-    }
+    
     
     // 创建CSS样式
     GtkCssProvider* provider = gtk_css_provider_new();
@@ -541,9 +916,13 @@ int gtk_kmain(int argc, char** argv) {
     // 显示所有组件
     gtk_widget_show_all(window);
     // Bind signals
-	{
-
-	}
+	
+	helper.bindClick(connectBtn, [helper]() {
+		std::thread([helper]() {
+            on_button_clicked_connect(helper);
+        }).detach();
+	});
+}
     // 启动GTK主循环
     gtk_main();
     return 0;
