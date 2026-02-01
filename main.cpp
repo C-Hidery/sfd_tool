@@ -70,11 +70,13 @@ int gtk_kmain(int argc, char** argv){
 	}
 	// Logcat Page
 	{
-		
+
 	}
 	// ========== 设置Notebook属性 ==========
 	gtk_notebook_set_tab_pos(GTK_NOTEBOOK(notebook), GTK_POS_TOP);
 	gtk_notebook_set_scrollable(GTK_NOTEBOOK(notebook), TRUE);
+	// 将Notebook添加到主网格布局
+	helper.addToGrid(mainGrid, notebook, 0, 0, 1, 1);
 	gtk_container_add(GTK_CONTAINER(window), mainGrid);
 	// 显示所有组件
 	gtk_widget_show_all(window);
