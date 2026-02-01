@@ -80,7 +80,7 @@ endif
 all: $(APPNAME)
 
 # 主目标
-$(APPNAME): main.cpp common.cpp GtkWindowManager.cpp
+$(APPNAME): main.cpp common.cpp GtkWidgetHelper.cpp
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 # 调试版本

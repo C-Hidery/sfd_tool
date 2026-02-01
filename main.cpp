@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstring>
 #include "main_console.cpp"
+#include "GtkWidgetHelper.hpp"
 #include <thread>
 #include <chrono>
 #include <gtk/gtk.h>
