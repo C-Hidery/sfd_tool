@@ -1,6 +1,8 @@
 #include <iostream>
 #include <cstring>
 #include "main_console.cpp"
+#include <thread>
+#include <chrono>
 #include <gtk/gtk.h>
 int gtk_kmain(int argc, char** argv){
     DEG_LOG(I, "Starting GUI mode...");
@@ -29,6 +31,6 @@ int main(int argc, char** argv) {
         return main_console(argc-1, argv+1); // Skip the first argument
     }
     else {
-        return gtk_kmain(argc-1, argv+1); // Skip the first argument
+        return gtk_kmain(argc, argv);
     }
 }
