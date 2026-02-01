@@ -3,16 +3,84 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "/usr/include/gtk-3.0",
+                "/usr/include/glib-2.0",
+                "/usr/include/pango-1.0",
+                "/usr/include/cairo",
+                "/usr/include/gdk-pixbuf-2.0",
+                "/usr/lib/x86_64-linux-gnu/glib-2.0/include"
             ],
             "defines": [
-                "USE_LIBUSB=1", //Linux=1, Windows=0
+                "USE_LIBUSB=1",
                 "_DEBUG=1"
             ],
-            "compilerPath": "/usr/bin/gcc",
+            "compilerPath": "/usr/bin/g++",
             "cStandard": "c17",
             "cppStandard": "gnu++17",
-            "intelliSenseMode": "linux-gcc-x64"
+            "intelliSenseMode": "linux-gcc-x64",
+            "configurationProvider": "ms-vscode.cmake-tools"
+        },
+        {
+            "name": "Windows-MSVC",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${env:VCPKG_ROOT}/installed/x64-windows/include",
+                "${env:VCPKG_ROOT}/installed/x86-windows/include"
+            ],
+            "defines": [
+                "USE_LIBUSB=0",
+                "_WINDOWS",
+                "_DEBUG",
+                "_CONSOLE"
+            ],
+            "compilerPath": "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.39.33519/bin/Hostx64/x64/cl.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-msvc-x64",
+            "windowsSdkVersion": "10.0.22621.0"
+        },
+        {
+            "name": "Windows-MinGW",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "C:/msys64/mingw64/include/gtk-4.0",
+                "C:/msys64/mingw64/include/glib-2.0",
+                "C:/msys64/mingw64/include/pango-1.0",
+                "C:/msys64/mingw64/include/cairo",
+                "C:/msys64/mingw64/lib/glib-2.0/include"
+            ],
+            "defines": [
+                "USE_LIBUSB=1",
+                "USE_GTK=1",
+                "__MINGW32__",
+                "__MINGW64__"
+            ],
+            "compilerPath": "C:/msys64/mingw64/bin/g++.exe",
+            "cStandard": "c17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "windows-gcc-x64"
+        },
+        {
+            "name": "macOS",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/usr/local/include/gtk-4.0",
+                "/usr/local/include/glib-2.0",
+                "/usr/local/include/pango-1.0",
+                "/usr/local/include/cairo",
+                "/usr/local/lib/glib-2.0/include"
+            ],
+            "defines": [
+                "USE_LIBUSB=1",
+                "USE_GTK=1",
+                "__APPLE__",
+                "__MACH__"
+            ],
+            "compilerPath": "/usr/bin/clang++",
+            "cStandard": "c17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "macos-clang-x64"
         }
     ],
     "version": 4

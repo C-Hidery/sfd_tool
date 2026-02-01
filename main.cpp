@@ -1581,12 +1581,8 @@ int main(int argc, char** argv) {
 		else if (!strcmp(str2[1], "blk_size") || !strcmp(str2[1], "bs")) {
 			if (argcount <= 2) { DEG_LOG(E,"blk_size byte\n\tmax is 65535"); argc = 1; continue; }
 			blk_size = strtol(str2[2], nullptr, 0);
-#ifndef _MYDEBUG
 			blk_size = blk_size < 0 ? 0 :
 				blk_size > 0xf800 ? 0xf800 : ((blk_size + 0x7FF) & ~0x7FF);
-#else
-			blk_size = blk_size < 0 ? 0 : blk_size;
-#endif
 			argc -= 2; argv += 2;
 
 			}
@@ -1660,49 +1656,43 @@ int main(int argc, char** argv) {
 			read_pactime(io);
 		}
 		else if (!strcmp(str2[1], "firstmode")) {
-				if (argcount <= 2) { DEG_LOG(W,"firstmode mode_id"); argc = 1; continue; }
-				uint8_t* modebuf = NEWN uint8_t[4];
-				if (!modebuf) ERR_EXIT("malloc failed\n");
-				uint32_t mode = strtol(str2[2], nullptr, 0) + 0x53464D00;
-				memcpy(modebuf, &mode, 4);
-				w_mem_to_part_offset(io, "miscdata", 0x2420, modebuf, 4, 0x1000);
-				delete[](modebuf);
-				argc -= 2; argv += 2;
-
-				}
+			if (argcount <= 2) { DEG_LOG(W,"firstmode mode_id"); argc = 1; continue; }
+			uint8_t* modebuf = NEWN uint8_t[4];
+			if (!modebuf) ERR_EXIT("malloc failed\n");
+			uint32_t mode = strtol(str2[2], nullptr, 0) + 0x53464D00;
+			memcpy(modebuf, &mode, 4);
+			w_mem_to_part_offset(io, "miscdata", 0x2420, modebuf, 4, 0x1000);
+			delete[](modebuf);
+			argc -= 2; argv += 2;
+		}
 		else if (!strcmp(str2[1], "skip_confirm")) {
-					if (argcount <= 2) { DEG_LOG(W,"skip_confirm {0,1}"); argc = 1; continue; }
-					skip_confirm = atoi(str2[2]);
-					argc -= 2; argv += 2;
-
-					}
+			if (argcount <= 2) { DEG_LOG(W,"skip_confirm {0,1}"); argc = 1; continue; }
+			skip_confirm = atoi(str2[2]);
+			argc -= 2; argv += 2;
+		}
 		else if (!strcmp(str2[1], "rawdata")) {
-						if (argcount <= 2) { DEG_LOG(W,"rawdata {0,1,2}"); argc = 1; continue; }
-						Da_Info.bSupportRawData = atoi(str2[2]);
-						argc -= 2; argv += 2;
-
-						}
+			if (argcount <= 2) { DEG_LOG(W,"rawdata {0,1,2}"); argc = 1; continue; }
+			Da_Info.bSupportRawData = atoi(str2[2]);
+			argc -= 2; argv += 2;
+		}
 		else if (!strcmp(str2[1], "slot")) {
-							if (argcount <= 2) { DEG_LOG(W,"slot {0,1,2}"); argc = 1; continue; }
-							selected_ab = atoi(str2[2]);
-							argc -= 2; argv += 2;
-
-							}
+			if (argcount <= 2) { DEG_LOG(W,"slot {0,1,2}"); argc = 1; continue; }
+			selected_ab = atoi(str2[2]);
+			argc -= 2; argv += 2;
+		}
 		else if (!strcmp(str2[1], "chip_uid")) {
-								encode_msg_nocpy(io, BSL_CMD_READ_CHIP_UID, 0);
-								send_msg(io);
-								ret = recv_msg(io);
-								if (!ret) ERR_EXIT("timeout reached\n");
-								if ((ret = recv_type(io)) != BSL_REP_READ_CHIP_UID) {
-									const char* name = get_bsl_enum_name(ret);
-									DEG_LOG(E,"excepted response (%s : 0x%04x)\n",name, ret); argc -= 1; argv += 1; continue;
-								}
-
-								DEG_LOG(I,"Response: chip_uid:");
-								print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
-								argc -= 1; argv += 1;
-
-								}
+			encode_msg_nocpy(io, BSL_CMD_READ_CHIP_UID, 0);
+			send_msg(io);
+			ret = recv_msg(io);
+			if (!ret) ERR_EXIT("timeout reached\n");
+				if ((ret = recv_type(io)) != BSL_REP_READ_CHIP_UID) {
+					const char* name = get_bsl_enum_name(ret);
+					DEG_LOG(E,"excepted response (%s : 0x%04x)\n",name, ret); argc -= 1; argv += 1; continue;
+				}
+				DEG_LOG(I,"Response: chip_uid:");
+				print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+				argc -= 1; argv += 1;
+			}
 		else if (!strcmp(str2[1], "transcode")) {
 			const char* se = str2[2];
 			if (se == "1") {
@@ -1711,8 +1701,7 @@ int main(int argc, char** argv) {
 				a = atoi(str2[2]);
 				if (a >> 1) { DEG_LOG(E,"transcode {0,1}"); argc -= 2; argv += 2; continue; }
 				f = (io->flags & ~FLAGS_TRANSCODE);
-				io->flags = f | (a ? FLAGS_TRANSCODE : 0);
-				
+				io->flags = f | (a ? FLAGS_TRANSCODE : 0);		
 			}
 			else if (se == "0") {
 				unsigned a;
@@ -1725,84 +1714,75 @@ int main(int argc, char** argv) {
 			}
 			argc -= 2; argv += 2;
 		}
-		
 		else if (!strcmp(str2[1], "keep_charge")) {
-											if (argcount <= 2) { DEG_LOG(W,"keep_charge {0,1}"); argc = 1; continue; }
-											keep_charge = atoi(str2[2]);
-											argc -= 2; argv += 2;
-
-											}
+			if (argcount <= 2) { DEG_LOG(W,"keep_charge {0,1}"); argc = 1; continue; }
+			keep_charge = atoi(str2[2]);
+			argc -= 2; argv += 2;
+		}
 		else if (!strcmp(str2[1], "timeout")) {
-												if (argcount <= 2) { DEG_LOG(W,"timeout [time]\n\ttime unit: ms"); argc = 1; continue; }
-												io->timeout = atoi(str2[2]);
-												argc -= 2; argv += 2;
-
-												}
+			if (argcount <= 2) { DEG_LOG(W,"timeout [time]\n\ttime unit: ms"); argc = 1; continue; }
+			io->timeout = atoi(str2[2]);
+			argc -= 2; argv += 2;
+		}
 		else if (!strcmp(str2[1], "send_end_data")) {
-													if (argcount <= 2) { DEG_LOG(E,"send_end_data {0,1}"); argc = 1; continue; }
-													end_data = atoi(str2[2]);
-													argc -= 2; argv += 2;
-
-													}
+			if (argcount <= 2) { DEG_LOG(E,"send_end_data {0,1}"); argc = 1; continue; }
+			end_data = atoi(str2[2]);
+			argc -= 2; argv += 2;
+		}
 		else if (!strcmp(str2[1], "reset")) {
-														if (!fdl1_loaded) {
-															DEG_LOG(W, "FDL does not executed.");
-															argc -= 1; argv += 1;
-															continue;
-														}
-														encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
-														if (!send_and_check(io)) break;
-
-														}
+			if (!fdl1_loaded) {
+				DEG_LOG(W, "FDL does not executed.");
+				argc -= 1; argv += 1;
+				continue;
+			}
+			encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
+			if (!send_and_check(io)) break;
+		}
 		else if (!strcmp(str2[1], "reboot-recovery")) {
-															if (!fdl1_loaded) {
-																DEG_LOG(W, "FDL does not executed.");
-																argc -= 1; argv += 1;
-																continue;
-															}
-															char* miscbuf = NEWN char[0x800];
-															if (!miscbuf) ERR_EXIT("malloc failed\n");
-															memset(miscbuf, 0, 0x800);
-															strcpy(miscbuf, "boot-recovery");
-															w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000);
-															delete[](miscbuf);
-															encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
-															if (!send_and_check(io)) break;
-
-															}
+			if (!fdl1_loaded) {
+				DEG_LOG(W, "FDL does not executed.");
+				argc -= 1; argv += 1;
+				continue;
+			}
+			char* miscbuf = NEWN char[0x800];
+			if (!miscbuf) ERR_EXIT("malloc failed\n");
+			memset(miscbuf, 0, 0x800);
+			strcpy(miscbuf, "boot-recovery");
+			w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000);
+			delete[](miscbuf);
+			encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
+			if (!send_and_check(io)) break;
+		}
 		else if (!strcmp(str2[1], "reboot-fastboot")) {
-																if (!fdl1_loaded) {
-																	DEG_LOG(W, "FDL does not executed.");
-																	argc -= 1; argv += 1;
-																	continue;
-																}
-																char* miscbuf = NEWN char[0x800];
-																if (!miscbuf) ERR_EXIT("malloc failed\n");
-																memset(miscbuf, 0, 0x800);
-																strcpy(miscbuf, "boot-recovery");
-																strcpy(miscbuf + 0x40, "recovery\n--fastboot\n");
-																w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000);
-																delete[](miscbuf);
-																encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
-																if (!send_and_check(io)) break;
-
-																}
+			if (!fdl1_loaded) {
+				DEG_LOG(W, "FDL does not executed.");
+				argc -= 1; argv += 1;
+				continue;
+			}
+			char* miscbuf = NEWN char[0x800];
+			if (!miscbuf) ERR_EXIT("malloc failed\n");
+			memset(miscbuf, 0, 0x800);
+			strcpy(miscbuf, "boot-recovery");
+			strcpy(miscbuf + 0x40, "recovery\n--fastboot\n");
+			w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000);
+			delete[](miscbuf);
+			encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
+			if (!send_and_check(io)) break;
+		}
 		else if (!strcmp(str2[1], "poweroff")) {
-																	if (!fdl1_loaded) {
-																		DEG_LOG(W, "FDL does not executed.");
-																		argc -= 1; argv += 1;
-																		continue;
-																	}
-																	encode_msg_nocpy(io, BSL_CMD_POWER_OFF, 0);
-																	if (!send_and_check(io)) break;
-
-																	}
+			if (!fdl1_loaded) {
+				DEG_LOG(W, "FDL does not executed.");
+				argc -= 1; argv += 1;
+				continue;
+			}
+			encode_msg_nocpy(io, BSL_CMD_POWER_OFF, 0);
+			if (!send_and_check(io)) break;
+		}
 		else if (!strcmp(str2[1], "verbose")) {
-																		if (argcount <= 2) { DEG_LOG(W,"verbose {0,1,2}"); argc = 1; continue; }
-																		io->verbose = atoi(str2[2]);
-																		argc -= 2; argv += 2;
-
-																		}
+			if (argcount <= 2) { DEG_LOG(W,"verbose {0,1,2}"); argc = 1; continue; }
+			io->verbose = atoi(str2[2]);
+			argc -= 2; argv += 2;
+		}
 		else if (strlen(str2[1])) {
 			print_help();
 			argc = 1;
