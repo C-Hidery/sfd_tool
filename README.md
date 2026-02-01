@@ -1,6 +1,6 @@
 # sfd_tool GUI Edition
 
-[**中文文档**](https://github.com/C-Hidery/sfd_tool/blob/master/README_ZH.md)
+[**中文文档**](https://github.com/C-Hidery/sfd_tool/blob/gtk_version/README_ZH.md)
 
 ![Logo](icon.png)
 
