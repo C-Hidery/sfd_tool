@@ -7,7 +7,7 @@
 #include <gtk/gtk.h>
 spdio_t* io = nullptr;
 int ret, wait = 30 * REOPEN_FREQ;
-int keep_charge = 1, end_data = 0, blk_size = 0, skip_confirm = 1, highspeed = 0, cve_v2 = 0;
+int keep_charge = 1, end_data = 0, blk_size = 60000, skip_confirm = 1, highspeed = 0, cve_v2 = 0;
 int nand_info[3];
 int argcount = 0, stage = -1, nand_id = DEFAULT_NAND_ID;
 unsigned exec_addr = 0, baudrate = 0;
@@ -137,6 +137,51 @@ bool showConfirmDialog(GtkWindow* parent, const char* title, const char* message
     
     return (result == GTK_RESPONSE_YES);
 }
+// 文件选择对话框函数
+std::string showSaveFileDialog(GtkWindow* parent, 
+                               const std::string& default_filename = "",
+                               const std::vector<std::pair<std::string, std::string>>& filters = {}) {
+    GtkWidget* dialog = gtk_file_chooser_dialog_new("保存文件",
+                                                   parent,
+                                                   GTK_FILE_CHOOSER_ACTION_SAVE,
+                                                   "_取消", GTK_RESPONSE_CANCEL,
+                                                   "_保存", GTK_RESPONSE_ACCEPT,
+                                                   NULL);
+    
+    // 设置默认文件名
+    if (!default_filename.empty()) {
+        gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), default_filename.c_str());
+    }
+    
+    // 添加文件过滤器
+    for (const auto& filter_pair : filters) {
+        GtkFileFilter* filter = gtk_file_filter_new();
+        gtk_file_filter_set_name(filter, filter_pair.first.c_str());
+        gtk_file_filter_add_pattern(filter, filter_pair.second.c_str());
+        gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+    }
+    
+    // 默认添加"所有文件"过滤器
+    GtkFileFilter* all_filter = gtk_file_filter_new();
+    gtk_file_filter_set_name(all_filter, "所有文件 (*.*)");
+    gtk_file_filter_add_pattern(all_filter, "*");
+    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), all_filter);
+    
+    std::string filename;
+    gint result = gtk_dialog_run(GTK_DIALOG(dialog));
+    
+    if (result == GTK_RESPONSE_ACCEPT) {
+        char* file = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+        if (file) {
+            filename = file;
+            g_free(file);
+        }
+    }
+    
+    gtk_widget_destroy(dialog);
+    return filename;
+}
+
 void EnableWidgets(GtkWidgetHelper helper){
     helper.enableWidget("poweroff");
     helper.enableWidget("reboot");
@@ -156,6 +201,8 @@ void EnableWidgets(GtkWidgetHelper helper){
     helper.enableWidget("dmv_enable");
     helper.enableWidget("dmv_disable");
     helper.enableWidget("backup_all");
+    helper.enableWidget("list_cancel");
+    helper.enableWidget("m_cancel");
 }
 void on_button_clicked_select_cve(GtkWidgetHelper helper) {
     GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
@@ -206,13 +253,73 @@ void on_button_clicked_list_write(GtkWidgetHelper helper){
 	else fclose(fi);
     get_partition_info(io, part_name.c_str(), 0);
 	if (!gPartInfo.size) { DEG_LOG(E,"Partition does not exist\n");return;}
-    load_partition_unify(io, gPartInfo.name, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);
+    std::thread([filename,parent](){load_partition_unify(io, gPartInfo.name, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);showInfoDialog(parent, "完成 Completed", "分区写入完成！\nPartition write completed!");}).detach();
+    
 }
 void on_button_clicked_list_read(GtkWidgetHelper helper){
-
+    GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+    std::string part_name = getSelectedPartitionName(helper);
+    std::string savePath = showSaveFileDialog(parent, part_name + ".img");
+    if (savePath.empty()) {
+        showErrorDialog(parent, "错误 Error", "未选择保存路径！\nNo save path selected!");
+        return;
+    }
+    if (io->part_count == 0 && io->part_count_c == 0) {
+        showErrorDialog(parent, "错误 Error", "当前未加载分区表，无法写入分区列表！\nNo partition table loaded, cannot write partition list!");
+        return;
+    }
+    //dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
+    get_partition_info(io, part_name.c_str(), 1);
+    if (!gPartInfo.size) {
+		DEG_LOG(E,"Partition not exist\n");
+		return;
+	}
+    std::thread([savePath,parent](){dump_partition(io, gPartInfo.name, 0, gPartInfo.size, savePath.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);showInfoDialog(parent, "完成 Completed", "分区读取完成！\nPartition read completed!");}).detach();
+    
 }
 void on_button_clicked_list_erase(GtkWidgetHelper helper){
-
+    GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+    std::string part_name = getSelectedPartitionName(helper);
+    get_partition_info(io, part_name.c_str(), 0);
+    if (!gPartInfo.size) {
+		DEG_LOG(E,"Partition not exist\n");
+		return;
+	}
+    std::thread([parent](){erase_partition(io, gPartInfo.name);showInfoDialog(parent, "完成 Completed", "分区擦除完成！\nPartition erase completed!");}).detach();
+    
+}
+void on_button_clicked_poweroff(GtkWidgetHelper helper){
+    encode_msg_nocpy(io, BSL_CMD_POWER_OFF, 0);
+    if(!send_and_check(io)){ spdio_free(io); exit(0);}
+}
+void on_button_clicked_reboot(GtkWidgetHelper helper){
+    encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
+    if (!send_and_check(io)) { spdio_free(io); exit(0); }
+}
+void on_button_clicked_recovery(GtkWidgetHelper helper){
+    char* miscbuf = NEWN char[0x800];
+	if (!miscbuf) ERR_EXIT("malloc failed\n");
+	memset(miscbuf, 0, 0x800);
+	strcpy(miscbuf, "boot-recovery");
+	w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000);
+	delete[](miscbuf);
+	encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
+	if (!send_and_check(io)) { spdio_free(io); exit(0); }
+}
+void on_button_clicked_fastboot(GtkWidgetHelper helper){
+    char* miscbuf = NEWN char[0x800];
+	if (!miscbuf) ERR_EXIT("malloc failed\n");
+	memset(miscbuf, 0, 0x800);
+	strcpy(miscbuf, "boot-recovery");
+	strcpy(miscbuf + 0x40, "recovery\n--fastboot\n");
+	w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000);
+	delete[](miscbuf);
+	encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
+	if (!send_and_check(io)) { spdio_free(io); exit(0); }
+}
+void on_button_clicked_list_cancel(GtkWidgetHelper helper){
+    signal_handler(0);
+    showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "已取消当前分区操作！\nCurrent partition operation cancelled!");
 }
 void populatePartitionList(GtkWidgetHelper& helper, const std::vector<partition_t>& partitions) {
     // 获取列表视图
@@ -848,6 +955,8 @@ void DisableWidgets(GtkWidgetHelper helper){
     helper.disableWidget("dmv_enable");
     helper.disableWidget("dmv_disable");
     helper.disableWidget("backup_all");
+    helper.disableWidget("list_cancel");
+    helper.disableWidget("m_cancel");
 }
 
 int gtk_kmain(int argc, char** argv) {
@@ -1063,7 +1172,7 @@ int gtk_kmain(int argc, char** argv) {
     GtkListStore* store = gtk_list_store_new(3, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
     GtkWidget* treeView = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
     gtk_widget_set_name(treeView, "part_list");
-    
+    helper.addWidget("part_list", treeView);
     GtkCellRenderer* renderer = gtk_cell_renderer_text_new();
     gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(treeView), -1,
                                                "Partition Name", renderer,
@@ -1083,98 +1192,122 @@ int gtk_kmain(int argc, char** argv) {
     GtkWidget* readBtn = helper.createButton("EXTRACT  读取分区", "list_read", nullptr, 0, 0, 162, 32);
     GtkWidget* eraseBtn = helper.createButton("ERASE  擦除分区", "list_erase", nullptr, 0, 0, 170, 32);
     GtkWidget* backupAllBtn = helper.createButton("Backup All  备份分区", "backup_all", nullptr, 0, 0, 180, 32);
+    GtkWidget* cancelBtn = helper.createButton("Cancel  取消", "list_cancel", nullptr, 0, 0, 117, 32);
     
-    // 设置按钮初始状态为禁用
+    // 设置按钮初始状态
     gtk_widget_set_sensitive(writeBtn, FALSE);
     gtk_widget_set_sensitive(readBtn, FALSE);
     gtk_widget_set_sensitive(eraseBtn, FALSE);
-    gtk_widget_set_sensitive(backupAllBtn, TRUE);  // 备份所有按钮始终可用
+    gtk_widget_set_sensitive(backupAllBtn, TRUE);
+    gtk_widget_set_sensitive(cancelBtn, TRUE);  // Cancel按钮始终可用
     
-    // Add to grid
+    // Add to grid - 主网格
     helper.addToGrid(partPage, instruction, 0, 0, 5, 1);
     helper.addToGrid(partPage, scrolledWindow, 0, 1, 5, 8);
     helper.addToGrid(partPage, opLabel, 0, 9, 5, 1);
     
-    // Button row - 使用水平盒子布局
-    GtkWidget* buttonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-    gtk_box_pack_start(GTK_BOX(buttonBox), writeBtn, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(buttonBox), readBtn, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(buttonBox), eraseBtn, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(buttonBox), backupAllBtn, FALSE, FALSE, 0);
-    helper.addToGrid(partPage, buttonBox, 0, 10, 5, 1);
+    // 第一行按钮 - 主要操作按钮
+    GtkWidget* mainButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+    gtk_box_pack_start(GTK_BOX(mainButtonBox), writeBtn, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(mainButtonBox), readBtn, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(mainButtonBox), eraseBtn, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(mainButtonBox), backupAllBtn, FALSE, FALSE, 0);
+    helper.addToGrid(partPage, mainButtonBox, 0, 10, 5, 1);
+    
+    // 第二行按钮 - Cancel按钮单独一行，在刷写按钮正下方
+    GtkWidget* cancelButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+    gtk_box_pack_start(GTK_BOX(cancelButtonBox), cancelBtn, FALSE, FALSE, 0);
+    // 添加占位空间使Cancel按钮对齐到刷写按钮下方
+    GtkWidget* placeholder1 = gtk_label_new("");
+    GtkWidget* placeholder2 = gtk_label_new("");
+    gtk_box_pack_start(GTK_BOX(cancelButtonBox), placeholder1, FALSE, FALSE, 117);
+    gtk_box_pack_start(GTK_BOX(cancelButtonBox), placeholder2, FALSE, FALSE, 0);
+    helper.addToGrid(partPage, cancelButtonBox, 0, 11, 5, 1);
+    
+
     
 
     
     
     // ========== Manually Operate Page ==========
+
+    GtkWidget* manualPage = helper.createGrid("manual_page", 5, 5);
+    helper.addNotebookPage(notebook, manualPage, "Manually Operate  手动操作");
     
-        GtkWidget* manualPage = helper.createGrid("manual_page", 5, 5);
-        helper.addNotebookPage(notebook, manualPage, "Manually Operate  手动操作");
-        
-        // Write partition section
-        GtkWidget* writeLabel = helper.createLabel("Write partition   刷写分区", "write_label", 0, 0, 200, 20);
-        GtkWidget* writePartLabel = helper.createLabel("Partition name  分区名：", "write_part_label", 0, 0, 150, 20);
-        GtkWidget* mPartFlash = helper.createEntry("m_part_flash", "", false, 0, 0, 155, 32);
-        
-        GtkWidget* filePathLabel = helper.createLabel("Image file path  镜像文件地址：", "file_path_label", 0, 0, 200, 20);
-        GtkWidget* mFilePath = helper.createEntry("m_file_path", "", false, 0, 0, 245, 32);
-        GtkWidget* mSelectBtn = helper.createButton("...", "m_select", nullptr, 0, 0, 40, 32);
-        
-        GtkWidget* mWriteBtn = helper.createButton("WRITE   刷写", "m_write", nullptr, 0, 0, 120, 32);
-        
-        // Separator
-        GtkWidget* sep1 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
-        
-        // Extract partition section
-        GtkWidget* extractLabel = helper.createLabel("Extract partition  读取分区", "extract_label", 0, 0, 200, 20);
-        GtkWidget* extractPartLabel = helper.createLabel("Partition name  分区名：", "extract_part_label", 0, 0, 150, 20);
-        GtkWidget* mPartRead = helper.createEntry("m_part_read", "", false, 0, 0, 145, 32);
-        
-        GtkWidget* mReadBtn = helper.createButton("EXTRACT  读取", "m_read", nullptr, 0, 0, 120, 32);
-        
-        // Separator
-        GtkWidget* sep2 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
-        
-        // Erase partition section
-        GtkWidget* eraseLabel = helper.createLabel("Erase partition  擦除分区", "erase_label", 0, 0, 200, 20);
-        GtkWidget* erasePartLabel = helper.createLabel("Partition name  分区名：", "erase_part_label", 0, 0, 150, 20);
-        GtkWidget* mPartErase = helper.createEntry("m_part_erase", "", false, 0, 0, 150, 32);
-        
-        GtkWidget* mEraseBtn = helper.createButton("ERASE  擦除", "m_erase", nullptr, 0, 0, 120, 32);
-        
-        // Add to grid
-        int row = 0;
-        helper.addToGrid(manualPage, writeLabel, 0, row++, 3, 1);
-        helper.addToGrid(manualPage, writePartLabel, 0, row, 1, 1);
-        helper.addToGrid(manualPage, mPartFlash, 1, row++, 2, 1);
-        
-        helper.addToGrid(manualPage, filePathLabel, 0, row, 1, 1);
-        helper.addToGrid(manualPage, mFilePath, 1, row, 2, 1);
-        helper.addToGrid(manualPage, mSelectBtn, 3, row++, 1, 1);
-        
-        helper.addToGrid(manualPage, mWriteBtn, 0, row++, 3, 1);
-        
-        // Add separator
-        row++;
-        helper.addToGrid(manualPage, sep1, 0, row++, 4, 1);
-        row++;
-        
-        helper.addToGrid(manualPage, extractLabel, 0, row++, 3, 1);
-        helper.addToGrid(manualPage, extractPartLabel, 0, row, 1, 1);
-        helper.addToGrid(manualPage, mPartRead, 1, row++, 2, 1);
-        
-        helper.addToGrid(manualPage, mReadBtn, 0, row++, 3, 1);
-        
-        // Add separator
-        row++;
-        helper.addToGrid(manualPage, sep2, 0, row++, 4, 1);
-        row++;
-        
-        helper.addToGrid(manualPage, eraseLabel, 0, row++, 3, 1);
-        helper.addToGrid(manualPage, erasePartLabel, 0, row, 1, 1);
-        helper.addToGrid(manualPage, mPartErase, 1, row++, 2, 1);
-        
-        helper.addToGrid(manualPage, mEraseBtn, 0, row++, 3, 1);
+    // Write partition section
+    GtkWidget* writeLabel = helper.createLabel("Write partition   刷写分区", "write_label", 0, 0, 200, 20);
+    GtkWidget* writePartLabel = helper.createLabel("Partition name  分区名：", "write_part_label", 0, 0, 150, 20);
+    GtkWidget* mPartFlash = helper.createEntry("m_part_flash", "", false, 0, 0, 155, 32);
+    
+    GtkWidget* filePathLabel = helper.createLabel("Image file path  镜像文件地址：", "file_path_label", 0, 0, 200, 20);
+    GtkWidget* mFilePath = helper.createEntry("m_file_path", "", false, 0, 0, 245, 32);
+    GtkWidget* mSelectBtn = helper.createButton("...", "m_select", nullptr, 0, 0, 40, 32);
+    
+    GtkWidget* mWriteBtn = helper.createButton("WRITE   刷写", "m_write", nullptr, 0, 0, 120, 32);
+    
+    // Separator
+    GtkWidget* sep1 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+    
+    // Extract partition section
+    GtkWidget* extractLabel = helper.createLabel("Extract partition  读取分区", "extract_label", 0, 0, 200, 20);
+    GtkWidget* extractPartLabel = helper.createLabel("Partition name  分区名：", "extract_part_label", 0, 0, 150, 20);
+    GtkWidget* mPartRead = helper.createEntry("m_part_read", "", false, 0, 0, 145, 32);
+    
+    GtkWidget* mReadBtn = helper.createButton("EXTRACT  读取", "m_read", nullptr, 0, 0, 120, 32);
+    
+    // Separator
+    GtkWidget* sep2 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+    
+    // Erase partition section
+    GtkWidget* eraseLabel = helper.createLabel("Erase partition  擦除分区", "erase_label", 0, 0, 200, 20);
+    GtkWidget* erasePartLabel = helper.createLabel("Partition name  分区名：", "erase_part_label", 0, 0, 150, 20);
+    GtkWidget* mPartErase = helper.createEntry("m_part_erase", "", false, 0, 0, 150, 32);
+    
+    GtkWidget* mEraseBtn = helper.createButton("ERASE  擦除", "m_erase", nullptr, 0, 0, 120, 32);
+    
+    // Cancel button - 在Erase按钮下方两行处
+    GtkWidget* mCancelBtn = helper.createButton("Cancel  取消", "m_cancel", nullptr, 0, 0, 120, 32);
+    
+    // Add to grid
+    int row = 0;
+    helper.addToGrid(manualPage, writeLabel, 0, row++, 3, 1);
+    helper.addToGrid(manualPage, writePartLabel, 0, row, 1, 1);
+    helper.addToGrid(manualPage, mPartFlash, 1, row++, 2, 1);
+    
+    helper.addToGrid(manualPage, filePathLabel, 0, row, 1, 1);
+    helper.addToGrid(manualPage, mFilePath, 1, row, 2, 1);
+    helper.addToGrid(manualPage, mSelectBtn, 3, row++, 1, 1);
+    
+    helper.addToGrid(manualPage, mWriteBtn, 0, row++, 3, 1);
+    
+    // Add separator
+    row++;
+    helper.addToGrid(manualPage, sep1, 0, row++, 4, 1);
+    row++;
+    
+    helper.addToGrid(manualPage, extractLabel, 0, row++, 3, 1);
+    helper.addToGrid(manualPage, extractPartLabel, 0, row, 1, 1);
+    helper.addToGrid(manualPage, mPartRead, 1, row++, 2, 1);
+    
+    helper.addToGrid(manualPage, mReadBtn, 0, row++, 3, 1);
+    
+    // Add separator
+    row++;
+    helper.addToGrid(manualPage, sep2, 0, row++, 4, 1);
+    row++;
+    
+    helper.addToGrid(manualPage, eraseLabel, 0, row++, 3, 1);
+    helper.addToGrid(manualPage, erasePartLabel, 0, row, 1, 1);
+    helper.addToGrid(manualPage, mPartErase, 1, row++, 2, 1);
+    
+    helper.addToGrid(manualPage, mEraseBtn, 0, row++, 3, 1);
+    
+    // Add Cancel button - 在Erase按钮下方两行处
+    row += 2;  // 空两行
+    helper.addToGrid(manualPage, mCancelBtn, 0, row++, 3, 1);
+    
+    
+
     
 
     // ========== Advanced Operation Page ==========
@@ -1386,22 +1519,40 @@ int gtk_kmain(int argc, char** argv) {
         on_button_clicked_select_cve(helper);
     });
     helper.bindClick(writeBtn, [helper]() {
-        std::thread([helper]() {
-            on_button_clicked_list_write(helper);
-        }).detach();
+        on_button_clicked_list_write(helper);
     });
     
     helper.bindClick(readBtn, [helper]() {
-        std::thread([helper]() {
-            on_button_clicked_list_read(helper);
-        }).detach();
+        
+        on_button_clicked_list_read(helper);
+    
     });
     helper.bindClick(eraseBtn, [helper]() {
-        std::thread([helper]() {
-            on_button_clicked_list_erase(helper);
-        }).detach();
-    });
+        
+        on_button_clicked_list_erase(helper);
     
+    });
+    helper.bindClick(poweroffBtn, [helper]() {
+        on_button_clicked_poweroff(helper);
+    });
+    helper.bindClick(rebootBtn, [helper]() {
+        on_button_clicked_reboot(helper);  
+    });
+    helper.bindClick(recoveryBtn, [helper]() {
+        on_button_clicked_recovery(helper);  
+    });
+    helper.bindClick(fastbootBtn, [helper]() {
+        on_button_clicked_fastboot(helper);  
+    });
+    helper.bindClick(cancelBtn, [helper]() {
+        on_button_clicked_list_cancel(helper);
+    });
+    helper.bindValueChanged(blkSlider, [helper, sizeCon]() {
+        double value = gtk_range_get_value(GTK_RANGE(helper.getWidget("blk_size")));
+        int intValue = static_cast<int>(value);
+        gtk_label_set_text(GTK_LABEL(sizeCon), std::to_string(intValue).c_str());
+        blk_size = intValue;
+    });
 }
     DisableWidgets(helper);
     // 启动GTK主循环
