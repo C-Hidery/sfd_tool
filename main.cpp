@@ -408,6 +408,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper) {
 		else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
 	}
 	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Successfully connected 连接成功", "Device already connected!\n设备已成功连接！");
+    helper.enableWidget("fdl_exec");
 }
 // select fdl
 void on_button_clicked_select_fdl(GtkWidgetHelper helper){
