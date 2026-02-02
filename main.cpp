@@ -334,6 +334,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper) {
 			if (!send_and_check(io)) {
 				io->flags &= ~FLAGS_TRANSCODE;
 				DEG_LOG(OP, "Try to disable transcode 0x7D.");
+                helper.disableWidget("fdl_exec");
 				fdl2_executed = 1;
 				device_stage = FDL2;
 				int o = io->verbose;
@@ -407,6 +408,242 @@ void on_button_clicked_connect(GtkWidgetHelper helper) {
 		else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
 	}
 	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Successfully connected 连接成功", "Device already connected!\n设备已成功连接！");
+}
+// select fdl
+void on_button_clicked_select_fdl(GtkWidgetHelper helper){
+    GtkWindow* parentWindow = GTK_WINDOW(helper.getWidget("main_window"));
+    std::string fdlPath = showFileChooser(parentWindow, true);
+    if (!fdlPath.empty()) {
+        helper.setEntryText(helper.getWidget("fdl_file_path"), fdlPath);
+        DEG_LOG(I, "Selected FDL file: %s", fdlPath.c_str());
+    } else {
+        DEG_LOG(W, "No FDL file selected.");
+    }
+}
+//fdl exec
+void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
+    const char* fdl_path = helper.getEntryText(helper.getWidget("fdl_file_path")).c_str(); 
+    const char* fdl_addr_str = helper.getEntryText(helper.getWidget("fdl_addr")).c_str();
+    uint32_t fdl_addr = strtoul(fdl_addr_str, nullptr, 0);
+    if (fdl1_loaded > 0){
+            //Send fdl2
+        if (device_mode == SPRD3){
+            FILE *fi = fopen(fdl_path, "r");
+            if (fi == nullptr) { DEG_LOG(W,"File does not exist."); return;}
+            else fclose(fi);
+            if(!isKickMode) send_file(io, fdl_path, fdl_addr, end_data, blk_size ? blk_size : 528, 0, 0);
+            else send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
+        }else{
+            if (fdl_path && strlen(fdl_path) > 0 && !fdl_addr && isKickMode) {
+                bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", "Device can be booted without FDL in SPRD4 mode, continue?\n设备在SPRD4模式下可以无需FDL启动，是否继续？");
+                if (i_is) {
+                    DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
+                    encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+                    if (send_and_check(io)) exit(1);
+                    return;
+                }
+                else{
+                    FILE *fi = fopen(fdl_path, "r");
+                    if (fi == nullptr) { DEG_LOG(W,"File does not exist."); return;}
+                    else fclose(fi);
+                    if(!isKickMode) send_file(io, fdl_path, fdl_addr, end_data, blk_size ? blk_size : 528, 0, 0);
+                    else send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
+                }
+            }
+        }
+        if (fdl1_loaded > 0) {
+				memset(&Da_Info, 0, sizeof(Da_Info));
+				encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+				send_msg(io);
+				// Feature phones respond immediately,
+				// but it may take a second for a smartphone to respond.
+				ret = recv_msg_timeout(io, 15000);
+				if (!ret) { ThrowExit();  ERR_EXIT("%s: timeout reached\n", o_exception); }
+				ret = recv_type(io);
+				// Is it always bullshit?
+				if (ret == BSL_REP_INCOMPATIBLE_PARTITION)
+					get_Da_Info(io);
+				else if (ret != BSL_REP_ACK) {
+					ThrowExit();
+					const char* name = get_bsl_enum_name(ret);
+					ERR_EXIT("%s: excepted response (%s : 0x%04x)\n",name, o_exception, ret);
+				}
+				DEG_LOG(OP, "Execute FDL2");
+				//remove 0d detection for nand device
+				//This is not supported on certain devices.
+				/*
+				encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
+				send_msg(io);
+				ret = recv_msg(io);
+				if (ret) {
+					ret = recv_type(io);
+					if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"excepted response (0x%04x)\n", ret);
+					else Da_Info.dwStorageType = 0x101;
+					// need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
+					// for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
+				}
+				*/
+				if (Da_Info.bDisableHDLC) {
+					encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
+					if (!send_and_check(io)) {
+						io->flags &= ~FLAGS_TRANSCODE;
+						DEG_LOG(OP, "Try to disable transcode 0x7D.");
+					}
+				}
+				int o = io->verbose;
+				io->verbose = -1;
+				g_spl_size = check_partition(io,"splloader",1);
+				io->verbose = o;
+				if (Da_Info.bSupportRawData) {
+					blk_size = 0xf800;
+					io->ptable = partition_list(io, fn_partlist, &io->part_count);
+					if (fdl2_executed) {
+						Da_Info.bSupportRawData = 0;
+						DEG_LOG(OP, "Raw data mode disabled for SPRD4.");
+					}
+					else {
+						encode_msg_nocpy(io, BSL_CMD_ENABLE_RAW_DATA, 0);
+						if (!send_and_check(io)) DEG_LOG(OP, "Raw data mode enabled.");
+					}
+				}
+
+				
+				else if (highspeed || Da_Info.dwStorageType == 0x103) {
+					blk_size = 0xf800;
+					io->ptable = partition_list(io, fn_partlist, &io->part_count);
+				}
+				else if (Da_Info.dwStorageType == 0x102) {
+					io->ptable = partition_list(io, fn_partlist, &io->part_count);
+				}
+				else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
+				if (gpt_failed != 1) {
+					if (selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
+					else if (selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
+					else {
+						DEG_LOG(I, "Device is not using VAB\n");
+						if (Da_Info.bSupportRawData) {
+							DEG_LOG(I, "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.", (unsigned)Da_Info.bSupportRawData);
+							Da_Info.bSupportRawData = 0;
+						}
+					}
+				}
+				else if(isUseCptable) {
+					io->Cptable = partition_list_d(io);
+					isCMethod = 1;
+				}
+				if (!isUseCptable && !io->part_count) {
+					DEG_LOG(W, "No partition table found on current device");
+					DEG_LOG(I, "You may get partition table through compatibility method.");
+					DEG_LOG(I, "(Use command `cptable` to do it.)");
+				}
+				if (nand_id == DEFAULT_NAND_ID) {
+					nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+					nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+					nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+				}
+				fdl2_executed = 1;
+        }
+    }
+    else {
+        DEG_LOG(I, "Executing FDL file: %s at address: 0x%X", fdl_path, fdl_addr);
+        std::thread([helper, fdl_path, fdl_addr,execfile]() {
+            FILE* fi = fopen(fdl_path, "r");
+            GtkWidget* cveSwitch = helper.getWidget("exec_addr");
+            GtkWidget* cveAddr = helper.getWidget("cve_addr");
+            GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
+            bool isCve = helper.getSwitchState(cveSwitch);
+            const char* cve_path = helper.getEntryText(cveAddr).c_str();
+            const char* cve_addr = helper.getEntryText(cveAddrC).c_str();
+            
+            if (device_mode == SPRD3){
+                if (fi == nullptr) { DEG_LOG(W,"File does not exist.\n"); return; }
+                else fclose(fi);
+                send_file(io, fdl_path, fdl_addr, end_data, 528, 0, 0);
+                if (cve_addr && strlen(cve_addr) > 0 && isCve) {
+                    DEG_LOG(I,"Using CVE binary: %s at address: %s", cve_path, cve_addr);
+                    uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
+                    send_file(io, cve_path, cve_addr_val, 0, 528, 0, 0);
+                    delete[](execfile);
+                }
+                else {
+                    encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+                    if (send_and_check(io)) exit(1);
+                }
+            }
+            else{
+                if (fdl_path && strlen(fdl_path) > 0 && !fdl_addr && isKickMode) {
+                    bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", "Device can be booted without FDL in SPRD4 mode, continue?\n设备在SPRD4模式下可以无需FDL启动，是否继续？");
+                    if (i_is) {
+                        DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
+                        fclose(fi);
+                        encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+                        if (send_and_check(io)) exit(1);
+                        delete[](execfile);
+                        return;
+                    }
+                    else{
+                        if (fi == nullptr) { DEG_LOG(W,"File does not exist.\n"); return; }
+                        else fclose(fi);
+                        send_file(io, fdl_path, fdl_addr, end_data, 528, 0, 0);
+                        if (cve_addr && strlen(cve_addr) > 0 && isCve) {
+                            DEG_LOG(I,"Using CVE binary: %s at address: %s", cve_path, cve_addr);
+                            uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
+                            send_file(io, cve_path, cve_addr_val, 0, 528, 0, 0);
+                            delete[](execfile);
+                        }
+                        else {
+                            encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+                            if (send_and_check(io)) exit(1);
+                        }
+                    }
+                }
+            }
+            DEG_LOG(OP,"Execute FDL1");
+			// Tiger 310(0x5500) and Tiger 616(0x65000800) need to change baudrate after FDL1
+	
+			if (fdl_addr == 0x5500 || fdl_addr == 0x65000800) {
+				highspeed = 1;
+				if (!baudrate) baudrate = 921600;
+			}
+
+			/* FDL1 (chk = sum) */
+			io->flags &= ~FLAGS_CRC16;
+
+			encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
+			for (int i = 0; ; i++) {
+				send_msg(io);
+				recv_msg(io);
+				if (recv_type(io) == BSL_REP_VER) break;
+				DEG_LOG(W,"Failed to check baud, retry...");
+				if (i == 4) { o_exception = "Failed to check baud FDL1"; ERR_EXIT("Can not execute FDL: %s,please reboot your phone by pressing POWER and VOL_UP for 7-10 seconds.\n",o_exception); }
+				usleep(500000);
+			}
+			DEG_LOG(I,"Check baud FDL1 done.");
+
+			DEG_LOG(I,"Device REP_Version: ");
+			print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+            encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+			if (send_and_check(io)) exit(1);
+			DEG_LOG(I,"FDL1 connected.");
+#if !USE_LIBUSB
+			if (baudrate) {
+				uint8_t* data = io->temp_buf;
+				WRITE32_BE(data, baudrate);
+				encode_msg_nocpy(io, BSL_CMD_CHANGE_BAUD, 4);
+				if (!send_and_check(io)) {
+					DEG_LOG(OP,"Change baud FDL1 to %d", baudrate);
+					call_SetProperty(io->handle, 0, 100, (LPCVOID)&baudrate);
+				}
+			}
+#endif
+            if (keep_charge) {
+					encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
+					if (!send_and_check(io)) DEG_LOG(OP,"Keep charge FDL1.");
+				}
+			fdl1_loaded = 1;
+        }).detach();
+    }
+    
 }
 int gtk_kmain(int argc, char** argv) {
     DEG_LOG(I, "Starting GUI mode...");
@@ -922,6 +1159,14 @@ int gtk_kmain(int argc, char** argv) {
             on_button_clicked_connect(helper);
         }).detach();
 	});
+    helper.bindClick(selectFdlBtn, [helper]() {
+        on_button_clicked_select_fdl(helper);
+    });
+    helper.bindClick(fdlExecBtn, [helper,execfile]() {
+        std::thread([helper,execfile]() {
+            on_button_clicked_fdl_exec(helper, execfile);
+        }).detach();
+    });
 }
     // 启动GTK主循环
     gtk_main();
