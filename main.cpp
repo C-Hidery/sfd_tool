@@ -1662,8 +1662,6 @@ int gtk_kmain(int argc, char** argv) {
         gtk_widget_set_size_request(progressBar, 345, 9);
         
         GtkWidget* percentLabel = helper.createLabel("0%", "percent", 0, 0, 30, 20);
-        GtkWidget* speedLabel = helper.createLabel("0 MB/s", "speedtext", 0, 0, 80, 20);
-        GtkWidget* timeLabel = helper.createLabel("Need 剩余: 0.00s", "timetext", 0, 0, 120, 20);
         
         // Control buttons
         GtkWidget* poweroffBtn = helper.createButton("POWEROFF  关机", "poweroff", nullptr, 0, 0, 130, 32);
@@ -1681,8 +1679,6 @@ int gtk_kmain(int argc, char** argv) {
         gtk_grid_attach(GTK_GRID(bottomGrid), progressBar, 0, 1, 1, 1);
         
         gtk_grid_attach(GTK_GRID(bottomGrid), percentLabel, 1, 0, 1, 1);
-        gtk_grid_attach(GTK_GRID(bottomGrid), speedLabel, 2, 0, 1, 1);
-        gtk_grid_attach(GTK_GRID(bottomGrid), timeLabel, 3, 0, 1, 1);
         
         gtk_grid_attach(GTK_GRID(bottomGrid), poweroffBtn, 4, 0, 1, 1);
         gtk_grid_attach(GTK_GRID(bottomGrid), rebootBtn, 5, 0, 1, 1);
