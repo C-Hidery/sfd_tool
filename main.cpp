@@ -912,6 +912,8 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
     uint32_t fdl_addr = strtoul(fdl_addr_str, nullptr, 0);
     if (fdl1_loaded > 0){
         DEG_LOG(I, "Executing FDL file: %s at address: 0x%X", fdl_path, fdl_addr);
+        std::string dtxt = helper.getLabelText(helper.getWidget("con"));
+        helper.setLabelText(helper.getWidget("con"), dtxt + " -> FDL Executing");
             //Send fdl2
         if (device_mode == SPRD3){
             FILE *fi = fopen(fdl_path, "r");
@@ -1036,9 +1038,12 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
             EnableWidgets(helper);
             helper.disableWidget("fdl_exec");
             helper.setLabelText(helper.getWidget("mode"), "FDL2");
+            helper.setLabelText(helper.getWidget("con"), "Connected");
     }
     else {
         DEG_LOG(I, "Executing FDL file: %s at address: 0x%X", fdl_path, fdl_addr);
+        std::string dtxt = helper.getLabelText(helper.getWidget("con"));
+        helper.setLabelText(helper.getWidget("con"), dtxt + " -> FDL Executing");
         std::thread([helper, fdl_path, fdl_addr,execfile]() mutable {
             FILE* fi = fopen(fdl_path, "r");
             GtkWidget* cveSwitch = helper.getWidget("exec_addr");
@@ -1137,6 +1142,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			fdl1_loaded = 1;
             showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "FDL1 Executed FDL1执行成功", "FDL1 executed successfully!\nFDL1已成功执行！");
             helper.setLabelText(helper.getWidget("mode"), "FDL1");
+            helper.setLabelText(helper.getWidget("con"), "Connected");
         }).detach();
         
     }
