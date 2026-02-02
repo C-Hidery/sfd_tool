@@ -651,6 +651,27 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
     }
     
 }
+//disable widget when init
+void DisableWidgets(GtkWidgetHelper helper){
+    helper.disableWidget("fdl_exec");
+    helper.disableWidget("poweroff");
+    helper.disableWidget("reboot");
+    helper.disableWidget("fastboot");
+    helper.disableWidget("fastboot");
+    helper.disableWidget("list_read");
+    helper.disableWidget("list_write");
+    helper.disableWidget("list_erase");
+    helper.disableWidget("m_write");
+    helper.disableWidget("m_read");
+    helper.disableWidget("m_erase");
+    helper.disableWidget("set_active_a");
+    helper.disableWidget("set_active_b");
+    helper.disableWidget("start_repart");
+    helper.disableWidget("blk_size");
+    helper.disableWidget("read_xml");
+    helper.disableWidget("dmv_enable");
+    helper.disableWidget("dmv_disable");
+}
 int gtk_kmain(int argc, char** argv) {
     DEG_LOG(I, "Starting GUI mode...");
     gtk_init(&argc, &argv);
@@ -1176,6 +1197,9 @@ int gtk_kmain(int argc, char** argv) {
 }
     // 启动GTK主循环
     gtk_main();
+    
+    //Disable
+    DisableWidgets(helper);
     return 0;
 }
 int main(int argc, char** argv) {
