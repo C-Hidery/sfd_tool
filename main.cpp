@@ -7,7 +7,7 @@
 #include <gtk/gtk.h>
 spdio_t* io = nullptr;
 int ret, wait = 30 * REOPEN_FREQ;
-int keep_charge = 1, end_data = 0, blk_size = 60000, skip_confirm = 1, highspeed = 0, cve_v2 = 0;
+int keep_charge = 1, end_data = 0, blk_size = 0, skip_confirm = 1, highspeed = 0, cve_v2 = 0;
 int nand_info[3];
 int argcount = 0, stage = -1, nand_id = DEFAULT_NAND_ID;
 unsigned exec_addr = 0, baudrate = 0;
@@ -203,6 +203,7 @@ void EnableWidgets(GtkWidgetHelper helper){
     helper.enableWidget("backup_all");
     helper.enableWidget("list_cancel");
     helper.enableWidget("m_cancel");
+    blk_size = 60000;
 }
 void on_button_clicked_select_cve(GtkWidgetHelper helper) {
     GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
