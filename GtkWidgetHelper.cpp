@@ -750,7 +750,7 @@ void GtkWidgetHelper::setLabelMarkup(GtkWidget* label, const std::string& markup
     }
 }
 
-std::string GtkWidgetHelper::getEntryText(GtkWidget* entry) const {
+const gchar* GtkWidgetHelper::getEntryText(GtkWidget* entry) const {
     if (GTK_IS_ENTRY(entry)) {
         const gchar* text = gtk_entry_get_text(GTK_ENTRY(entry));
         return text ? text : "";

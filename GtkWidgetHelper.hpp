@@ -319,7 +319,7 @@ public:
     void setLabelMarkup(GtkWidget* label, const std::string& markup);
     
     // 文本框操作
-    std::string getEntryText(GtkWidget* entry) const;
+    const gchar* getEntryText(GtkWidget* entry) const;
     void setEntryText(GtkWidget* entry, const std::string& text);
     void clearEntry(GtkWidget* entry);
     

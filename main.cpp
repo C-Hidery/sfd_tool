@@ -147,8 +147,8 @@ void on_button_clicked_connect(GtkWidgetHelper helper) {
     double wait_time = helper.getSpinValue(waitBox);
     bool isSprd4 = helper.getSwitchState(sprd4Switch);
     bool isCve = helper.getSwitchState(cveSwitch);
-    const char* cve_path = helper.getEntryText(cveAddr).c_str();
-    const char* cve_addr = helper.getEntryText(cveAddrC).c_str();
+    const char* cve_path = helper.getEntryText(cveAddr);
+    const char* cve_addr = helper.getEntryText(cveAddrC);
     DEG_LOG(I,"Begin to boot...(%fs)", wait_time);
 	wait = static_cast<int>(wait_time * REOPEN_FREQ);
     if (isSprd4){
@@ -422,10 +422,13 @@ void on_button_clicked_select_fdl(GtkWidgetHelper helper){
 }
 //fdl exec
 void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
-    const char* fdl_path = helper.getEntryText(helper.getWidget("fdl_file_path")).c_str(); 
-    const char* fdl_addr_str = helper.getEntryText(helper.getWidget("fdl_addr")).c_str();
+    GtkWidget *fdlEntry = helper.getWidget("fdl_file_path"); 
+    GtkWidget *addrEntry = helper.getWidget("fdl_addr");
+    const char* fdl_path = helper.getEntryText(fdlEntry); 
+    const char* fdl_addr_str = helper.getEntryText(addrEntry);
     uint32_t fdl_addr = strtoul(fdl_addr_str, nullptr, 0);
     if (fdl1_loaded > 0){
+        DEG_LOG(I, "Executing FDL file: %s at address: 0x%X", fdl_path, fdl_addr);
             //Send fdl2
         if (device_mode == SPRD3){
             FILE *fi = fopen(fdl_path, "r");
@@ -542,6 +545,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 					nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
 				}
 				fdl2_executed = 1;
+                showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "FDL2 Executed FDL2执行成功", "FDL2 executed successfully!\nFDL2已成功执行！"); 
         }
     }
     else {
@@ -552,8 +556,8 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
             GtkWidget* cveAddr = helper.getWidget("cve_addr");
             GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
             bool isCve = helper.getSwitchState(cveSwitch);
-            const char* cve_path = helper.getEntryText(cveAddr).c_str();
-            const char* cve_addr = helper.getEntryText(cveAddrC).c_str();
+            const char* cve_path = helper.getEntryText(cveAddr);
+            const char* cve_addr = helper.getEntryText(cveAddrC);
             
             if (device_mode == SPRD3){
                 if (fi == nullptr) { DEG_LOG(W,"File does not exist.\n"); return; }
@@ -641,7 +645,9 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 					if (!send_and_check(io)) DEG_LOG(OP,"Keep charge FDL1.");
 				}
 			fdl1_loaded = 1;
+            showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "FDL1 Executed FDL1执行成功", "FDL1 executed successfully!\nFDL1已成功执行！");
         }).detach();
+        
     }
     
 }
