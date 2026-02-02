@@ -203,7 +203,6 @@ void EnableWidgets(GtkWidgetHelper helper){
     helper.enableWidget("backup_all");
     helper.enableWidget("list_cancel");
     helper.enableWidget("m_cancel");
-    blk_size = 60000;
 }
 void on_button_clicked_select_cve(GtkWidgetHelper helper) {
     GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
@@ -891,6 +890,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			if (fdl_addr == 0x5500 || fdl_addr == 0x65000800) {
 				highspeed = 1;
 				if (!baudrate) baudrate = 921600;
+                showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "High Speed Mode Enabled 高速模式已启用", "Do not set block size manually in high speed mode!\n高速模式下请勿手动设置块大小！");
 			}
 
 			/* FDL1 (chk = sum) */
@@ -1375,14 +1375,14 @@ int gtk_kmain(int argc, char** argv) {
         GtkWidget* blkLabel = helper.createLabel("Data block size  数据块大小", "blk_label", 0, 0, 200, 20);
         
         GtkWidget* blkSlider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 10000, 60000, 10000);
-        gtk_range_set_value(GTK_RANGE(blkSlider), 60000);
+        gtk_range_set_value(GTK_RANGE(blkSlider), 10000);
         gtk_scale_set_draw_value(GTK_SCALE(blkSlider), TRUE);
         gtk_scale_set_value_pos(GTK_SCALE(blkSlider), GTK_POS_RIGHT);
         gtk_widget_set_name(blkSlider, "blk_size");
 		helper.addWidget("blk_size",blkSlider);
         gtk_widget_set_size_request(blkSlider, 1036, 30);
         
-        GtkWidget* sizeCon = helper.createLabel("60000", "size_con", 0, 0, 60, 20);
+        GtkWidget* sizeCon = helper.createLabel("10000", "size_con", 0, 0, 60, 20);
         
         // Add to grid
         helper.addToGrid(advSetPage, blkLabel, 0, 0, 2, 1);
