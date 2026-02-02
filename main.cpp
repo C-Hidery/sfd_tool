@@ -321,6 +321,201 @@ void on_button_clicked_list_cancel(GtkWidgetHelper helper){
     signal_handler(0);
     showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "已取消当前分区操作！\nCurrent partition operation cancelled!");
 }
+void on_button_clicked_backup_all(GtkWidgetHelper helper){
+    if (!isCMethod) {
+		if (gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+		if (!io->part_count) { DEG_LOG(E, "Partition table not available\n"); return; }
+		dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
+		for (int i = 0; i < io->part_count; i++) {
+			if (isCancel) break;
+			char dfile[40];
+			size_t namelen = strlen((*(io->ptable + i)).name);
+			if (!strncmp((*(io->ptable + i)).name, "blackbox", 8)) continue;
+		    else if (!strncmp((*(io->ptable + i)).name, "cache", 5)) continue;
+    		else if (!strncmp((*(io->ptable + i)).name, "userdata", 8)) continue;
+			if (selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_b")) continue;
+			else if (selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_a")) continue;
+			snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->ptable + i)).name);
+			dump_partition(io, (*(io->ptable + i)).name, 0, (*(io->ptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
+		}
+	}
+	else {
+		if(!io->part_count_c) { DEG_LOG(E, "Partition table not available\n"); return; }
+		dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
+		for (int i = 0; i < io->part_count_c; i++) {
+			if (isCancel) break;
+			char dfile[40];
+			size_t namelen = strlen((*(io->Cptable + i)).name);
+			if (!strncmp((*(io->Cptable + i)).name, "blackbox", 8)) continue;
+			else if (!strncmp((*(io->Cptable + i)).name, "cache", 5)) continue;
+			else if (!strncmp((*(io->Cptable + i)).name, "userdata", 8)) continue;
+			if (selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_b")) continue;
+			else if (selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_a")) continue;
+			snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->Cptable + i)).name);
+			dump_partition(io, (*(io->Cptable + i)).name, 0, (*(io->Cptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
+		}
+    }
+}
+void on_button_clicked_m_select(GtkWidgetHelper helper) {
+    GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+    std::string filename = showFileChooser(parent, true);
+    if (!filename.empty()) {
+        helper.setEntryText(helper.getWidget("m_file_path"), filename);
+    }
+}
+void on_button_clicked_m_write(GtkWidgetHelper helper){
+    GtkWidget *parent = helper.getWidget("main_window");
+    std::string filename = helper.getEntryText(helper.getWidget("m_file_path"));
+    std::string part_name = helper.getEntryText(helper.getWidget("m_part_flash"));
+    if (filename.empty()) {
+        showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未选择分区镜像文件！\nNo partition image file selected!");
+        return;
+    }
+    if (part_name.empty()) {
+        showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未指定分区名称！\nNo partition name specified!");
+        return; 
+    }
+    FILE* fi;
+    fi = fopen(filename.c_str(), "r");
+    if (fi == nullptr) { DEG_LOG(E,"File does not exist.\n"); return; }
+    else fclose(fi);
+    get_partition_info(io, part_name.c_str(), 0);
+    if (!gPartInfo.size) { DEG_LOG(E,"Partition does not exist\n");return;}
+    std::thread([parent,filename](){load_partition_unify(io, gPartInfo.name, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区写入完成！\nPartition write completed!");}).detach();
+}
+void on_button_clicked_m_read(GtkWidgetHelper helper){
+    GtkWidget *parent = helper.getWidget("main_window");
+    std::string part_name = helper.getEntryText(helper.getWidget("m_part_read"));
+    std::string savePath = showSaveFileDialog(GTK_WINDOW(parent), part_name + ".img");
+    if (part_name.empty()) {
+        showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未指定分区名称！\nNo partition name specified!");
+        return; 
+    }
+    get_partition_info(io, part_name.c_str(), 0);
+    if (!gPartInfo.size) { DEG_LOG(E,"Partition does not exist\n");return;}
+
+    std::thread([parent,savePath](){dump_partition(io, gPartInfo.name, 0, gPartInfo.size, savePath.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区读取完成！\nPartition read completed!");}).detach();   
+}
+void on_button_clicked_m_erase(GtkWidgetHelper helper){
+    GtkWidget *parent = helper.getWidget("main_window");
+    std::string part_name = helper.getEntryText(helper.getWidget("m_part_erase"));
+    if (part_name.empty()) {
+        showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未指定分区名称！\nNo partition name specified!");
+        return; 
+    }
+    get_partition_info(io, part_name.c_str(), 0);
+    if (!gPartInfo.size) { DEG_LOG(E,"Partition does not exist\n");return;}
+    std::thread([parent](){erase_partition(io, gPartInfo.name);showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区擦除完成！\nPartition erase completed!");}).detach();
+}
+void on_button_clicked_m_cancel(GtkWidgetHelper helper){
+    signal_handler(0);
+    showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "已取消当前分区操作！\nCurrent partition operation cancelled!");
+}
+void on_button_clicked_set_active_a(GtkWidgetHelper helper){
+    set_active(io,"a");
+    showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "已设置当前分区为A槽！\nCurrent active partition set to Slot A!");
+}
+void on_button_clicked_set_active_b(GtkWidgetHelper helper){
+    set_active(io,"b");
+    showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "已设置当前分区为B槽！\nCurrent active partition set to Slot B!");
+}
+void on_button_clicked_start_repart(GtkWidgetHelper helper){
+    GtkWidget *parent = helper.getWidget("main_window");
+    std::string filePath = helper.getEntryText(helper.getWidget("xml_path")); 
+    FILE *fi = fopen(filePath.c_str(), "r");
+	if (fi == nullptr) { DEG_LOG(E,"File does not exist."); return;}
+	else fclose(fi);
+    repartition(io, filePath.c_str());
+    showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "重新分区完成！\nRepartition completed!");
+}
+void on_button_clicked_read_xml(GtkWidgetHelper helper){
+    GtkWidget* parent = helper.getWidget("main_window");
+    if (!isCMethod) {
+		if (gpt_failed == 1) io->ptable = partition_list(io, str2[2], &io->part_count);
+		if (!io->part_count) { DEG_LOG(E, "Partition table not available"); return; }
+		else {
+			DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size / 1024);
+			FILE* fo = my_fopen(str2[2], "wb");
+			if (!fo) ERR_EXIT("Failed to open file\n");
+			fprintf(fo, "<Partitions>\n");
+			for (int i = 0; i < io->part_count; i++) {
+				DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->ptable + i)).name, ((*(io->ptable + i)).size >> 20));
+				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
+				if (i + 1 == io->part_count) fprintf(fo, "0x%x\"/>\n", ~0);
+				else fprintf(fo, "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
+			}
+			fprintf(fo, "</Partitions>");
+			fclose(fo);
+			DEG_LOG(I, "Partition table saved to %s", str2[2]);
+		}
+	}
+	else {
+		int c = io->part_count_c;
+		if (!c) { DEG_LOG(E, "Partition table not available"); return; }
+		else {
+			DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size / 1024);
+			FILE* fo = my_fopen(str2[2], "wb");
+			if (!fo) ERR_EXIT("Failed to open file\n");
+			fprintf(fo, "<Partitions>\n");
+			char* name;
+			int o = io->verbose;
+			io->verbose = -1;
+			for (int i = 0; i < c; i++) {
+				name = (*(io->Cptable + i)).name;
+				DBG_LOG("%3d %36s %7lldMB\n", i + 1, name, ((*(io->Cptable + i)).size >> 20));
+				fprintf(fo, "    <Partition id=\"%s\" size=\"", name);
+				if (check_partition(io,"userdata",0) != 0 && i + 1 == io->part_count_c) fprintf(fo, "0x%x\"/>\n", ~0);
+				else fprintf(fo, "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));			
+			}
+			fprintf(fo, "</Partitions>");
+			fclose(fo);
+			io->verbose = o;
+			DEG_LOG(I, "Partition table saved to %s", str2[2]);
+        }
+	}
+	showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区表导出完成！\nPartition table export completed!");
+			
+}
+void on_button_clicked_dmv_enable(GtkWidgetHelper helper){
+    GtkWidget *parent = helper.getWidget("main_window");
+    dm_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE);
+    showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "已启用DM-Verity保护！\nDM-Verity protection enabled!");
+}
+void on_button_clicked_dmv_disable(GtkWidgetHelper helper){
+    GtkWidget *parent = helper.getWidget("main_window");
+    dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE);
+    showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "已禁用DM-Verity保护！\nDM-Verity protection disabled!"); 
+}
+void on_button_clicked_select_xml(GtkWidgetHelper helper){
+    GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+    std::string filename = showFileChooser(parent, true);
+    if (!filename.empty()) {
+        helper.setEntryText(helper.getWidget("xml_path"), filename);
+    }
+}
+void on_button_clicked_exp_log(GtkWidgetHelper helper){
+    GtkWidget* parent = helper.getWidget("main_window");
+    GtkWidget *txtOutput = helper.getWidget("txtOutput");
+    std::string savePath = showSaveFileDialog(GTK_WINDOW(parent), "sfd_tool_log.txt", { {"文本文件 (*.txt)", "*.txt"} });
+    if (savePath.empty()) {
+        showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未选择保存路径！\nNo save path selected!");
+        return;
+    }
+    const char* txt = helper.getTextAreaText(txtOutput).c_str();
+    FILE* fo = my_fopen(savePath.c_str(), "wb");
+    if (!fo) {
+        showErrorDialog(GTK_WINDOW(parent), "错误 Error", "无法保存日志文件！\nFailed to save log file!");
+        return;
+    }
+    fprintf(fo, "%s", txt);
+    fclose(fo);
+    showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "日志导出完成！\nLog export completed!");
+}
+void on_button_clicked_log_clear(GtkWidgetHelper helper){
+    GtkWidget* txtOutput = helper.getWidget("txtOutput");
+    helper.setTextAreaText(txtOutput, "");
+}
+
 void populatePartitionList(GtkWidgetHelper& helper, const std::vector<partition_t>& partitions) {
     // 获取列表视图
     GtkWidget* part_list = helper.getWidget("part_list");
@@ -1558,6 +1753,48 @@ int gtk_kmain(int argc, char** argv) {
         int intValue = static_cast<int>(value);
         gtk_label_set_text(GTK_LABEL(sizeCon), std::to_string(intValue).c_str());
         blk_size = intValue;
+    });
+    helper.bindClick(mSelectBtn, [helper]() {
+        on_button_clicked_m_select(helper);
+    });
+    helper.bindClick(mWriteBtn, [helper]() {
+        on_button_clicked_m_write(helper);
+    });
+    helper.bindClick(mReadBtn, [helper]() {
+        on_button_clicked_m_read(helper);
+    });
+    helper.bindClick(mEraseBtn, [helper]() {
+        on_button_clicked_m_erase(helper); 
+    });
+    helper.bindClick(mCancelBtn, [helper]() {
+        on_button_clicked_m_cancel(helper);
+    });
+    helper.bindClick(setActiveA, [helper]() {
+        on_button_clicked_set_active_a(helper);
+    });
+    helper.bindClick(setActiveB, [helper]() {
+        on_button_clicked_set_active_b(helper);
+    });
+    helper.bindClick(selectXmlBtn, [helper]() {
+        on_button_clicked_select_xml(helper);
+    });
+    helper.bindClick(startRepartBtn, [helper]() {
+        on_button_clicked_start_repart(helper);
+    });
+    helper.bindClick(readXmlBtn, [helper]() {
+        on_button_clicked_read_xml(helper);
+    });
+    helper.bindClick(dmvDisable, [helper]() {
+        on_button_clicked_dmv_disable(helper);
+    });
+    helper.bindClick(dmvEnable, [helper]() {
+        on_button_clicked_dmv_enable(helper);
+    });
+    helper.bindClick(expLogBtn, [helper]() {
+        on_button_clicked_exp_log(helper);
+    });
+    helper.bindClick(logClearBtn, [helper]() {
+        on_button_clicked_log_clear(helper);
     });
 }
     DisableWidgets(helper);
