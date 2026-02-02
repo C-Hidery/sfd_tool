@@ -430,12 +430,18 @@ void on_button_clicked_start_repart(GtkWidgetHelper helper){
 }
 void on_button_clicked_read_xml(GtkWidgetHelper helper){
     GtkWidget* parent = helper.getWidget("main_window");
+    std::string savePath = showSaveFileDialog(GTK_WINDOW(parent), "partition_table.xml", { {"XML文件 (*.xml)", "*.xml"} });
+    if (savePath.empty()) {
+        showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未选择保存路径！\nNo save path selected!");
+        return;
+    }
     if (!isCMethod) {
-		if (gpt_failed == 1) io->ptable = partition_list(io, str2[2], &io->part_count);
+        printf("1\n");
+		if (gpt_failed == 1) io->ptable = partition_list(io, savePath.c_str(), &io->part_count);
 		if (!io->part_count) { DEG_LOG(E, "Partition table not available"); return; }
 		else {
 			DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size / 1024);
-			FILE* fo = my_fopen(str2[2], "wb");
+			FILE* fo = my_fopen(savePath.c_str(), "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");
 			fprintf(fo, "<Partitions>\n");
 			for (int i = 0; i < io->part_count; i++) {
@@ -446,15 +452,16 @@ void on_button_clicked_read_xml(GtkWidgetHelper helper){
 			}
 			fprintf(fo, "</Partitions>");
 			fclose(fo);
-			DEG_LOG(I, "Partition table saved to %s", str2[2]);
+			DEG_LOG(I, "Partition table saved to %s", savePath.c_str());
 		}
 	}
 	else {
+        printf("2\n");
 		int c = io->part_count_c;
 		if (!c) { DEG_LOG(E, "Partition table not available"); return; }
 		else {
 			DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size / 1024);
-			FILE* fo = my_fopen(str2[2], "wb");
+			FILE* fo = my_fopen(savePath.c_str(), "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");
 			fprintf(fo, "<Partitions>\n");
 			char* name;
@@ -470,7 +477,7 @@ void on_button_clicked_read_xml(GtkWidgetHelper helper){
 			fprintf(fo, "</Partitions>");
 			fclose(fo);
 			io->verbose = o;
-			DEG_LOG(I, "Partition table saved to %s", str2[2]);
+			DEG_LOG(I, "Partition table saved to %s", savePath.c_str());
         }
 	}
 	showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区表导出完成！\nPartition table export completed!");
