@@ -775,9 +775,7 @@ const char* GtkWidgetHelper::getTextAreaText(GtkWidget* textview) const {
         gtk_text_buffer_get_start_iter(buffer, &start);
         gtk_text_buffer_get_end_iter(buffer, &end);
         gchar* text = gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
-        const char* result(text ? text : "");
-        g_free(text);
-        return result;
+        return text;
     }
     return "";
 }
