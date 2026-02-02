@@ -727,8 +727,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
                     FILE *fi = fopen(fdl_path, "r");
                     if (fi == nullptr) { DEG_LOG(W,"File does not exist."); return;}
                     else fclose(fi);
-                    if(!isKickMode) send_file(io, fdl_path, fdl_addr, end_data, blk_size ? blk_size : 528, 0, 0);
-                    else send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
+                    send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
                 }
             }
         }
