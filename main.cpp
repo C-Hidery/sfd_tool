@@ -508,8 +508,8 @@ void on_button_clicked_exp_log(GtkWidgetHelper helper){
         showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未选择保存路径！\nNo save path selected!");
         return;
     }
-    const char* txt = helper.getTextAreaText(txtOutput).c_str();
-    FILE* fo = my_fopen(savePath.c_str(), "wb");
+    const char* txt = helper.getTextAreaText(txtOutput);
+    FILE* fo = fopen(savePath.c_str(), "w");
     if (!fo) {
         showErrorDialog(GTK_WINDOW(parent), "错误 Error", "无法保存日志文件！\nFailed to save log file!");
         return;

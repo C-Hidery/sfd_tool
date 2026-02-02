@@ -319,12 +319,12 @@ public:
     void setLabelMarkup(GtkWidget* label, const std::string& markup);
     
     // 文本框操作
-    const gchar* getEntryText(GtkWidget* entry) const;
+    const char* getEntryText(GtkWidget* entry) const;
     void setEntryText(GtkWidget* entry, const std::string& text);
     void clearEntry(GtkWidget* entry);
     
     // 多行文本框操作
-    std::string getTextAreaText(GtkWidget* textview) const;
+    const char* getTextAreaText(GtkWidget* textview) const;
     void setTextAreaText(GtkWidget* textview, const std::string& text);
     void appendTextAreaText(GtkWidget* textview, const std::string& text);
     

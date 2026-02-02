@@ -1,5 +1,7 @@
 #include "common.h"
 int isCancel = 0;
+bool isHelperInit = false;
+GtkWidgetHelper helper;
 #if !USE_LIBUSB
 
 DWORD curPort = 0;
@@ -87,7 +89,7 @@ libusb_device **FindPort(int pid) {
 			libusb_ref_device(dev);
 		}
 	}
-	libusb_free_device_list(devs, 1);
+	libusb_free_device_list(devs, 11);
 	if (count > 0) ports[count] = nullptr;
 	return ports;
 }
@@ -129,8 +131,10 @@ void DEG_LOG(int type, const char* format, ...) {
     
     // 输出到GUI日志框
     if (isHelperInit) {
+		printf("1\n");
         GtkWidget* txtOutput = helper.getWidget("txtOutput");
         if (txtOutput && GTK_IS_TEXT_VIEW(txtOutput)) {
+			printf("2\n");
             // 在主线程中更新GUI
             g_idle_add([](gpointer data) -> gboolean {
                 char* message = (char*)data;

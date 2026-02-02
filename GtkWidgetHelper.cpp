@@ -750,9 +750,9 @@ void GtkWidgetHelper::setLabelMarkup(GtkWidget* label, const std::string& markup
     }
 }
 
-const gchar* GtkWidgetHelper::getEntryText(GtkWidget* entry) const {
+const char* GtkWidgetHelper::getEntryText(GtkWidget* entry) const {
     if (GTK_IS_ENTRY(entry)) {
-        const gchar* text = gtk_entry_get_text(GTK_ENTRY(entry));
+        const char* text = gtk_entry_get_text(GTK_ENTRY(entry));
         return text ? text : "";
     }
     return "";
@@ -768,14 +768,14 @@ void GtkWidgetHelper::clearEntry(GtkWidget* entry) {
     setEntryText(entry, "");
 }
 
-std::string GtkWidgetHelper::getTextAreaText(GtkWidget* textview) const {
+const char* GtkWidgetHelper::getTextAreaText(GtkWidget* textview) const {
     if (GTK_IS_TEXT_VIEW(textview)) {
         GtkTextBuffer* buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(textview));
         GtkTextIter start, end;
         gtk_text_buffer_get_start_iter(buffer, &start);
         gtk_text_buffer_get_end_iter(buffer, &end);
         gchar* text = gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
-        std::string result(text ? text : "");
+        const char* result(text ? text : "");
         g_free(text);
         return result;
     }
