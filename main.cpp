@@ -137,12 +137,168 @@ bool showConfirmDialog(GtkWindow* parent, const char* title, const char* message
     
     return (result == GTK_RESPONSE_YES);
 }
-void on_button_clicked_connect(GtkWidgetHelper helper) {
+void EnableWidgets(GtkWidgetHelper helper){
+    helper.enableWidget("poweroff");
+    helper.enableWidget("reboot");
+    helper.enableWidget("recovery");
+    helper.enableWidget("fastboot");
+    helper.enableWidget("list_read");
+    helper.enableWidget("list_write");
+    helper.enableWidget("list_erase");
+    helper.enableWidget("m_write");
+    helper.enableWidget("m_read");
+    helper.enableWidget("m_erase");
+    helper.enableWidget("set_active_a");
+    helper.enableWidget("set_active_b");
+    helper.enableWidget("start_repart");
+    helper.enableWidget("blk_size");
+    helper.enableWidget("read_xml");
+    helper.enableWidget("dmv_enable");
+    helper.enableWidget("dmv_disable");
+    helper.enableWidget("backup_all");
+}
+void on_button_clicked_select_cve(GtkWidgetHelper helper) {
+    GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+    std::string filename = showFileChooser(parent, true);
+    if (!filename.empty()) {
+        helper.setEntryText(helper.getWidget("cve_addr"), filename);
+    }
+}
+std::string getSelectedPartitionName(GtkWidgetHelper& helper) {
+    GtkWidget* part_list = helper.getWidget("part_list");
+    if (!part_list || !GTK_IS_TREE_VIEW(part_list)) {
+        return "";
+    }
+    
+    GtkTreeSelection* selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(part_list));
+    GtkTreeModel* model;
+    GtkTreeIter iter;
+    
+    if (gtk_tree_selection_get_selected(selection, &model, &iter)) {
+        // 获取第2列（原始分区名，隐藏列）
+        gchar* original_name = nullptr;
+        gtk_tree_model_get(model, &iter, 2, &original_name, -1);
+        
+        if (original_name) {
+            std::string name = original_name;
+            g_free(original_name);
+            return name;
+        }
+    }
+    
+    return "";
+}
+void on_button_clicked_list_write(GtkWidgetHelper helper){
+    GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+    std::string filename = showFileChooser(parent, true);
+    std::string part_name = getSelectedPartitionName(helper);
+    if (filename.empty()) {
+        showErrorDialog(parent, "错误 Error", "未选择分区列表文件！\nNo partition list file selected!");
+        return;
+    }
+    if (io->part_count == 0 && io->part_count_c == 0) {
+        showErrorDialog(parent, "错误 Error", "当前未加载分区表，无法写入分区列表！\nNo partition table loaded, cannot write partition list!");
+        return;
+    }
+    
+}
+void populatePartitionList(GtkWidgetHelper& helper, const std::vector<partition_t>& partitions) {
+    // 获取列表视图
+    GtkWidget* part_list = helper.getWidget("part_list");
+    if (!part_list || !GTK_IS_TREE_VIEW(part_list)) {
+        std::cerr << "part_list not found or not a TreeView" << std::endl;
+        return;
+    }
+    
+    // 获取列表存储模型
+    GtkTreeModel* model = gtk_tree_view_get_model(GTK_TREE_VIEW(part_list));
+    if (!model) {
+        std::cerr << "TreeView model not found" << std::endl;
+        return;
+    }
+    
+    // 清空现有数据
+    GtkListStore* store = GTK_LIST_STORE(model);
+    gtk_list_store_clear(store);
+    
+    // 添加分区数据
+    int index = 1;
+    GtkTreeIter iter_spl;
+    gtk_list_store_append(store, &iter_spl);
+    long long spl_size = g_spl_size > 0 ? g_spl_size : 0;
+    std::string display_name = std::to_string(index) + ". splloader";
+    std::string size_str;
+    if (spl_size < 1024) {
+        size_str = std::to_string(spl_size) + " B";
+    } else {
+        size_str = std::to_string(spl_size / 1024) + " KB";
+    }
+    gtk_list_store_set(store, &iter_spl,
+                      0, display_name.c_str(),   // 显示名称（带序号）
+                      1, size_str.c_str(),       // 格式化的大小
+                      2, "splloader",            // 原始分区名
+                      -1);
+    
+    index++;  // 递增序号
+    for (const auto& partition : partitions) {
+        GtkTreeIter iter;
+        gtk_list_store_append(store, &iter);
+        
+        // 格式化显示文本
+        std::string display_name = std::to_string(index) + ". " + partition.name;
+        
+        // 格式化大小显示
+        std::string size_str;
+        if (partition.size < 1024) {
+            size_str = std::to_string(partition.size) + " B";
+        } else if (partition.size < 1024 * 1024) {
+            size_str = std::to_string(partition.size / 1024) + " KB";
+        } else if (partition.size < 1024 * 1024 * 1024) {
+            size_str = std::to_string(partition.size / (1024 * 1024)) + " MB";
+        } else {
+            size_str = std::to_string(partition.size / (1024 * 1024 * 1024.0)) + " GB";
+        }
+        
+        // 设置行数据
+        gtk_list_store_set(store, &iter,
+                          0, display_name.c_str(),  // 显示名称（带序号）
+                          1, size_str.c_str(),      // 格式化的大小
+                          2, partition.name,        // 原始分区名（隐藏列，可选）
+                          -1);
+        
+        index++;
+    }
+    
+    // 更新显示
+    gtk_widget_queue_draw(part_list);
+}
+void confirm_partition_c(GtkWidgetHelper helper){
+    bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", "No partition table found on current device, read partition list through compatibility method?\n当前设备未找到分区表，是否通过兼容方式读取分区列表？");
+    if (i_is) {
+        isUseCptable = 1;
+        io->Cptable = partition_list_d(io);
+        isCMethod = 1;
+        std::vector<partition_t> partitions;
+        partitions.reserve(io->part_count_c);
+        for (int i = 0; i < io->part_count_c; i++) {
+            partitions.push_back(io->Cptable[i]);
+        }
+        populatePartitionList(helper, partitions);
+    } else {
+        DEG_LOG(W, "Partition table not read.");
+    }
+}
+
+void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
     GtkWidget* waitBox = helper.getWidget("wait_con");
     GtkWidget* sprd4Switch = helper.getWidget("sprd4");
     GtkWidget* cveSwitch = helper.getWidget("exec_addr");
     GtkWidget* cveAddr = helper.getWidget("cve_addr");
     GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
+    if (argc > 1 && !strcmp(argv[1],"--reconnect")){
+        stage = 99;
+        showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "你已启动重连模式，重连模式下只能兼容获取分区列表！\nYou have entered Reconnect Mode, which only supports compatibility-method partition list retrieval!");
+    }
 	helper.disableWidget("connect_1");
     double wait_time = helper.getSpinValue(waitBox);
     bool isSprd4 = helper.getSwitchState(sprd4Switch);
@@ -335,6 +491,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper) {
 				io->flags &= ~FLAGS_TRANSCODE;
 				DEG_LOG(OP, "Try to disable transcode 0x7D.");
                 helper.disableWidget("fdl_exec");
+                EnableWidgets(helper);
 				fdl2_executed = 1;
 				device_stage = FDL2;
 				int o = io->verbose;
@@ -347,8 +504,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper) {
 				}
 				if (!isUseCptable && !io->part_count) { 
 					DEG_LOG(W, "No partition table found on current device");
-					DEG_LOG(I,"You may get partition table through compatibility method.");
-					DEG_LOG(I, "(Use command `cptable` to do it.)");
+                    confirm_partition_c(helper);
 				}
 				if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
 				if (nand_id == DEFAULT_NAND_ID) {
@@ -408,8 +564,9 @@ void on_button_clicked_connect(GtkWidgetHelper helper) {
 		else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
 	}
 	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Successfully connected 连接成功", "Device already connected!\n设备已成功连接！");
-    helper.enableWidget("fdl_exec");
+    if (!fdl2_executed) helper.enableWidget("fdl_exec");
 }
+
 // select fdl
 void on_button_clicked_select_fdl(GtkWidgetHelper helper){
     GtkWindow* parentWindow = GTK_WINDOW(helper.getWidget("main_window"));
@@ -455,99 +612,105 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
                 }
             }
         }
-        if (fdl1_loaded > 0) {
-				memset(&Da_Info, 0, sizeof(Da_Info));
-				encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-				send_msg(io);
-				// Feature phones respond immediately,
-				// but it may take a second for a smartphone to respond.
-				ret = recv_msg_timeout(io, 15000);
-				if (!ret) { ThrowExit();  ERR_EXIT("%s: timeout reached\n", o_exception); }
-				ret = recv_type(io);
-				// Is it always bullshit?
-				if (ret == BSL_REP_INCOMPATIBLE_PARTITION)
-					get_Da_Info(io);
-				else if (ret != BSL_REP_ACK) {
-					ThrowExit();
-					const char* name = get_bsl_enum_name(ret);
-					ERR_EXIT("%s: excepted response (%s : 0x%04x)\n",name, o_exception, ret);
-				}
-				DEG_LOG(OP, "Execute FDL2");
-				//remove 0d detection for nand device
-				//This is not supported on certain devices.
-				/*
-				encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
-				send_msg(io);
-				ret = recv_msg(io);
-				if (ret) {
-					ret = recv_type(io);
-					if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"excepted response (0x%04x)\n", ret);
-					else Da_Info.dwStorageType = 0x101;
-					// need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
-					// for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
-				}
-				*/
-				if (Da_Info.bDisableHDLC) {
-					encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
-					if (!send_and_check(io)) {
-						io->flags &= ~FLAGS_TRANSCODE;
-						DEG_LOG(OP, "Try to disable transcode 0x7D.");
-					}
-				}
-				int o = io->verbose;
-				io->verbose = -1;
-				g_spl_size = check_partition(io,"splloader",1);
-				io->verbose = o;
-				if (Da_Info.bSupportRawData) {
-					blk_size = 0xf800;
-					io->ptable = partition_list(io, fn_partlist, &io->part_count);
-					if (fdl2_executed) {
-						Da_Info.bSupportRawData = 0;
-						DEG_LOG(OP, "Raw data mode disabled for SPRD4.");
-					}
-					else {
-						encode_msg_nocpy(io, BSL_CMD_ENABLE_RAW_DATA, 0);
-						if (!send_and_check(io)) DEG_LOG(OP, "Raw data mode enabled.");
-					}
-				}
-
-				
-				else if (highspeed || Da_Info.dwStorageType == 0x103) {
-					blk_size = 0xf800;
-					io->ptable = partition_list(io, fn_partlist, &io->part_count);
-				}
-				else if (Da_Info.dwStorageType == 0x102) {
-					io->ptable = partition_list(io, fn_partlist, &io->part_count);
-				}
-				else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
-				if (gpt_failed != 1) {
-					if (selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
-					else if (selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
-					else {
-						DEG_LOG(I, "Device is not using VAB\n");
-						if (Da_Info.bSupportRawData) {
-							DEG_LOG(I, "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.", (unsigned)Da_Info.bSupportRawData);
-							Da_Info.bSupportRawData = 0;
-						}
-					}
-				}
-				else if(isUseCptable) {
-					io->Cptable = partition_list_d(io);
-					isCMethod = 1;
-				}
-				if (!isUseCptable && !io->part_count) {
-					DEG_LOG(W, "No partition table found on current device");
-					DEG_LOG(I, "You may get partition table through compatibility method.");
-					DEG_LOG(I, "(Use command `cptable` to do it.)");
-				}
-				if (nand_id == DEFAULT_NAND_ID) {
-					nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
-					nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
-					nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
-				}
-				fdl2_executed = 1;
-                showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "FDL2 Executed FDL2执行成功", "FDL2 executed successfully!\nFDL2已成功执行！"); 
-        }
+        
+            memset(&Da_Info, 0, sizeof(Da_Info));
+            encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+            send_msg(io);
+            // Feature phones respond immediately,
+            // but it may take a second for a smartphone to respond.
+            ret = recv_msg_timeout(io, 15000);
+            if (!ret) { ThrowExit();  ERR_EXIT("%s: timeout reached\n", o_exception); }
+            ret = recv_type(io);
+            // Is it always bullshit?
+            if (ret == BSL_REP_INCOMPATIBLE_PARTITION)
+                get_Da_Info(io);
+            else if (ret != BSL_REP_ACK) {
+                //ThrowExit();
+                const char* name = get_bsl_enum_name(ret);
+                ERR_EXIT("%s: excepted response (%s : 0x%04x)\n",name, o_exception, ret);
+            }
+            DEG_LOG(OP, "Execute FDL2");
+            //remove 0d detection for nand device
+            //This is not supported on certain devices.
+            /*
+            encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
+            send_msg(io);
+            ret = recv_msg(io);
+            if (ret) {
+                ret = recv_type(io);
+                if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"excepted response (0x%04x)\n", ret);
+                else Da_Info.dwStorageType = 0x101;
+                // need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
+                // for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
+            }
+            */
+            if (Da_Info.bDisableHDLC) {
+                encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
+                if (!send_and_check(io)) {
+                    io->flags &= ~FLAGS_TRANSCODE;
+                    DEG_LOG(OP, "Try to disable transcode 0x7D.");
+                }
+            }
+            int o = io->verbose;
+            io->verbose = -1;
+            g_spl_size = check_partition(io,"splloader",1);
+            io->verbose = o;
+            if (Da_Info.bSupportRawData) {
+                blk_size = 0xf800;
+                io->ptable = partition_list(io, fn_partlist, &io->part_count);
+                if (fdl2_executed) {
+                    Da_Info.bSupportRawData = 0;
+                    DEG_LOG(OP, "Raw data mode disabled for SPRD4.");
+                }
+                else {
+                    encode_msg_nocpy(io, BSL_CMD_ENABLE_RAW_DATA, 0);
+                    if (!send_and_check(io)) DEG_LOG(OP, "Raw data mode enabled.");
+                }
+            }			
+            else if (highspeed || Da_Info.dwStorageType == 0x103) {
+                blk_size = 0xf800;
+                io->ptable = partition_list(io, fn_partlist, &io->part_count);
+            }
+            else if (Da_Info.dwStorageType == 0x102) {
+                io->ptable = partition_list(io, fn_partlist, &io->part_count);
+            }
+            else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
+            if (gpt_failed != 1) {
+                if (selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
+                else if (selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
+                else {
+                    DEG_LOG(I, "Device is not using VAB\n");
+                    if (Da_Info.bSupportRawData) {
+                        DEG_LOG(I, "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.", (unsigned)Da_Info.bSupportRawData);
+                        Da_Info.bSupportRawData = 0;
+                    }
+                }
+            }
+            if(io->part_count){
+                std::vector<partition_t> partitions;
+                partitions.reserve(io->part_count);
+                for (int i = 0; i < io->part_count; i++) {
+                    partitions.push_back(io->ptable[i]);
+                }
+                populatePartitionList(helper, partitions);
+            }
+            else if(isUseCptable) {
+                io->Cptable = partition_list_d(io);
+                isCMethod = 1;
+            }
+            if (!io->part_count) {
+                DEG_LOG(W, "No partition table found on current device");
+                confirm_partition_c(helper);
+            }
+            if (nand_id == DEFAULT_NAND_ID) {
+                nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+                nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+                nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+            }
+            fdl2_executed = 1;
+            showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "FDL2 Executed FDL2执行成功", "FDL2 executed successfully!\nFDL2已成功执行！"); 
+            EnableWidgets(helper);
+            helper.disableWidget("fdl_exec");
     }
     else {
         DEG_LOG(I, "Executing FDL file: %s at address: 0x%X", fdl_path, fdl_addr);
@@ -672,7 +835,9 @@ void DisableWidgets(GtkWidgetHelper helper){
     helper.disableWidget("read_xml");
     helper.disableWidget("dmv_enable");
     helper.disableWidget("dmv_disable");
+    helper.disableWidget("backup_all");
 }
+
 int gtk_kmain(int argc, char** argv) {
     DEG_LOG(I, "Starting GUI mode...");
     gtk_init(&argc, &argv);
@@ -795,7 +960,7 @@ int gtk_kmain(int argc, char** argv) {
     // Wait connection time - 放在右边
     GtkWidget* waitBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     GtkWidget* waitLabel = helper.createLabel("Wait connection time  连接等待时间 (s):", "wait_label", 0, 0, 250, 20);
-    GtkWidget* waitCon = helper.createSpinButton(1, 120, 1, "wait_con", 30, 0, 0, 120, 32);
+    GtkWidget* waitCon = helper.createSpinButton(1, 65535, 1, "wait_con", 30, 0, 0, 120, 32);
     gtk_box_pack_start(GTK_BOX(waitBox), waitLabel, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(waitBox), waitCon, FALSE, FALSE, 0);
     
@@ -871,52 +1036,62 @@ int gtk_kmain(int argc, char** argv) {
     helper.addToGrid(connectPage, statusBox2, 0, 17, 2, 1);
     
     // ========== Partition Operation Page ==========
+
+    GtkWidget* partPage = helper.createGrid("part_page", 5, 5);
+    helper.addNotebookPage(notebook, partPage, "Partition Operation  分区操作");
     
-        GtkWidget* partPage = helper.createGrid("part_page", 5, 5);
-        helper.addNotebookPage(notebook, partPage, "Partition Operation  分区操作");
-        
-        GtkWidget* instruction = helper.createLabel("Please check a partition        请选择一个分区", "part_instruction", 0, 0, 300, 20);
-        
-        // ListView for partitions
-        GtkWidget* scrolledWindow = gtk_scrolled_window_new(NULL, NULL);
-        gtk_widget_set_size_request(scrolledWindow, 1000, 450);
-        gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolledWindow),
-                                      GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-        
-        GtkListStore* store = gtk_list_store_new(3, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
-        GtkWidget* treeView = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
-        gtk_widget_set_name(treeView, "part_list");
-        helper.addWidget("part_list",treeView);
-        GtkCellRenderer* renderer = gtk_cell_renderer_text_new();
-        gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(treeView), -1,
-                                                   "Partition Name", renderer,
-                                                   "text", 0, NULL);
-        gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(treeView), -1,
-                                                   "Size", renderer,
-                                                   "text", 1, NULL);
-        gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(treeView), -1,
-                                                   "Type", renderer,
-                                                   "text", 2, NULL);
-        
-        gtk_container_add(GTK_CONTAINER(scrolledWindow), treeView);
-        
-        // Operation buttons
-        GtkWidget* opLabel = helper.createLabel("Operation    操作：", "op_label", 0, 0, 150, 20);
-        GtkWidget* writeBtn = helper.createButton("WRITE  刷写", "list_write", nullptr, 0, 0, 117, 32);
-        GtkWidget* readBtn = helper.createButton("EXTRACT  读取分区", "list_read", nullptr, 0, 0, 162, 32);
-        GtkWidget* eraseBtn = helper.createButton("ERASE  擦除分区", "list_erase", nullptr, 0, 0, 170, 32);
-        
-        // Add to grid
-        helper.addToGrid(partPage, instruction, 0, 0, 4, 1);
-        helper.addToGrid(partPage, scrolledWindow, 0, 1, 4, 8);
-        helper.addToGrid(partPage, opLabel, 0, 9, 4, 1);
-        
-        // Button row
-        GtkWidget* buttonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-        gtk_box_pack_start(GTK_BOX(buttonBox), writeBtn, FALSE, FALSE, 0);
-        gtk_box_pack_start(GTK_BOX(buttonBox), readBtn, FALSE, FALSE, 0);
-        gtk_box_pack_start(GTK_BOX(buttonBox), eraseBtn, FALSE, FALSE, 0);
-        helper.addToGrid(partPage, buttonBox, 0, 10, 4, 1);
+    GtkWidget* instruction = helper.createLabel("Please check a partition        请选择一个分区", "part_instruction", 0, 0, 300, 20);
+    
+    // ListView for partitions
+    GtkWidget* scrolledWindow = gtk_scrolled_window_new(NULL, NULL);
+    gtk_widget_set_size_request(scrolledWindow, 1000, 450);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolledWindow),
+                                  GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    
+    GtkListStore* store = gtk_list_store_new(3, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
+    GtkWidget* treeView = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+    gtk_widget_set_name(treeView, "part_list");
+    
+    GtkCellRenderer* renderer = gtk_cell_renderer_text_new();
+    gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(treeView), -1,
+                                               "Partition Name", renderer,
+                                               "text", 0, NULL);
+    gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(treeView), -1,
+                                               "Size", renderer,
+                                               "text", 1, NULL);
+    gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(treeView), -1,
+                                               "Type", renderer,
+                                               "text", 2, NULL);
+    
+    gtk_container_add(GTK_CONTAINER(scrolledWindow), treeView);
+    
+    // Operation buttons
+    GtkWidget* opLabel = helper.createLabel("Operation    操作：", "op_label", 0, 0, 150, 20);
+    GtkWidget* writeBtn = helper.createButton("WRITE  刷写", "list_write", nullptr, 0, 0, 117, 32);
+    GtkWidget* readBtn = helper.createButton("EXTRACT  读取分区", "list_read", nullptr, 0, 0, 162, 32);
+    GtkWidget* eraseBtn = helper.createButton("ERASE  擦除分区", "list_erase", nullptr, 0, 0, 170, 32);
+    GtkWidget* backupAllBtn = helper.createButton("Backup All  备份分区", "backup_all", nullptr, 0, 0, 180, 32);
+    
+    // 设置按钮初始状态为禁用
+    gtk_widget_set_sensitive(writeBtn, FALSE);
+    gtk_widget_set_sensitive(readBtn, FALSE);
+    gtk_widget_set_sensitive(eraseBtn, FALSE);
+    gtk_widget_set_sensitive(backupAllBtn, TRUE);  // 备份所有按钮始终可用
+    
+    // Add to grid
+    helper.addToGrid(partPage, instruction, 0, 0, 5, 1);
+    helper.addToGrid(partPage, scrolledWindow, 0, 1, 5, 8);
+    helper.addToGrid(partPage, opLabel, 0, 9, 5, 1);
+    
+    // Button row - 使用水平盒子布局
+    GtkWidget* buttonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+    gtk_box_pack_start(GTK_BOX(buttonBox), writeBtn, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(buttonBox), readBtn, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(buttonBox), eraseBtn, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(buttonBox), backupAllBtn, FALSE, FALSE, 0);
+    helper.addToGrid(partPage, buttonBox, 0, 10, 5, 1);
+    
+
     
     
     // ========== Manually Operate Page ==========
@@ -1182,9 +1357,9 @@ int gtk_kmain(int argc, char** argv) {
     gtk_widget_show_all(window);
     // Bind signals
 	
-	helper.bindClick(connectBtn, [helper]() {
-		std::thread([helper]() {
-            on_button_clicked_connect(helper);
+	helper.bindClick(connectBtn, [helper,argc,argv]() {
+		std::thread([helper,argc,argv]() {
+            on_button_clicked_connect(helper, argc, argv);
         }).detach();
 	});
     helper.bindClick(selectFdlBtn, [helper]() {
@@ -1195,6 +1370,26 @@ int gtk_kmain(int argc, char** argv) {
             on_button_clicked_fdl_exec(helper, execfile);
         }).detach();
     });
+    helper.bindClick(selectCveBtn, [helper]() {
+        on_button_clicked_select_cve(helper);
+    });
+    helper.bindClick(writeBtn, [helper]() {
+        std::thread([helper]() {
+            on_button_clicked_list_write(helper);
+        }).detach();
+    });
+    /*
+    helper.bindClick(readBtn, [helper]() {
+        std::thread([helper]() {
+            on_button_clicked_list_read(helper);
+        }).detach();
+    });
+    helper.bindClick(eraseBtn, [helper]() {
+        std::thread([helper]() {
+            on_button_clicked_list_erase(helper);
+        }).detach();
+    });
+    */
 }
     DisableWidgets(helper);
     // 启动GTK主循环
