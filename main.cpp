@@ -656,7 +656,7 @@ void DisableWidgets(GtkWidgetHelper helper){
     helper.disableWidget("fdl_exec");
     helper.disableWidget("poweroff");
     helper.disableWidget("reboot");
-    helper.disableWidget("fastboot");
+    helper.disableWidget("recovery");
     helper.disableWidget("fastboot");
     helper.disableWidget("list_read");
     helper.disableWidget("list_write");
@@ -1195,11 +1195,12 @@ int gtk_kmain(int argc, char** argv) {
         }).detach();
     });
 }
+    DisableWidgets(helper);
     // 启动GTK主循环
     gtk_main();
     
     //Disable
-    DisableWidgets(helper);
+    
     return 0;
 }
 int main(int argc, char** argv) {
