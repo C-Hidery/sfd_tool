@@ -1202,7 +1202,8 @@ int gtk_kmain(int argc, char** argv) {
     GtkWidget* mainGrid = gtk_grid_new();
     
     // 创建 GtkWidgetHelper
-    GtkWidgetHelper helper(window);
+    helper = GtkWidgetHelper(window);
+    isHelperInit = true;
     helper.setParent(window, LayoutType::GRID);
     helper.addWidget("main_window", window);
     // 创建Notebook（标签页控件）
@@ -1712,97 +1713,97 @@ int gtk_kmain(int argc, char** argv) {
     gtk_widget_show_all(window);
     // Bind signals
 	
-	helper.bindClick(connectBtn, [helper,argc,argv]() {
-		std::thread([helper,argc,argv]() {
+	helper.bindClick(connectBtn, [argc,argv]() {
+		std::thread([argc,argv]() {
             on_button_clicked_connect(helper, argc, argv);
         }).detach();
 	});
-    helper.bindClick(selectFdlBtn, [helper]() {
+    helper.bindClick(selectFdlBtn, []() {
         on_button_clicked_select_fdl(helper);
     });
-    helper.bindClick(fdlExecBtn, [helper,execfile]() {
-        std::thread([helper,execfile]() {
+    helper.bindClick(fdlExecBtn, [execfile]() {
+        std::thread([execfile]() {
             on_button_clicked_fdl_exec(helper, execfile);
         }).detach();
     });
-    helper.bindClick(selectCveBtn, [helper]() {
+    helper.bindClick(selectCveBtn, []() {
         on_button_clicked_select_cve(helper);
     });
-    helper.bindClick(writeBtn, [helper]() {
+    helper.bindClick(writeBtn, []() {
         on_button_clicked_list_write(helper);
     });
     
-    helper.bindClick(readBtn, [helper]() {
+    helper.bindClick(readBtn, []() {
         
         on_button_clicked_list_read(helper);
     
     });
-    helper.bindClick(eraseBtn, [helper]() {
+    helper.bindClick(eraseBtn, []() {
         
         on_button_clicked_list_erase(helper);
     
     });
-    helper.bindClick(poweroffBtn, [helper]() {
+    helper.bindClick(poweroffBtn, []() {
         on_button_clicked_poweroff(helper);
     });
-    helper.bindClick(rebootBtn, [helper]() {
+    helper.bindClick(rebootBtn, []() {
         on_button_clicked_reboot(helper);  
     });
-    helper.bindClick(recoveryBtn, [helper]() {
+    helper.bindClick(recoveryBtn, []() {
         on_button_clicked_recovery(helper);  
     });
-    helper.bindClick(fastbootBtn, [helper]() {
+    helper.bindClick(fastbootBtn, []() {
         on_button_clicked_fastboot(helper);  
     });
-    helper.bindClick(cancelBtn, [helper]() {
+    helper.bindClick(cancelBtn, []() {
         on_button_clicked_list_cancel(helper);
     });
-    helper.bindValueChanged(blkSlider, [helper, sizeCon]() {
+    helper.bindValueChanged(blkSlider, [sizeCon]() {
         double value = gtk_range_get_value(GTK_RANGE(helper.getWidget("blk_size")));
         int intValue = static_cast<int>(value);
         gtk_label_set_text(GTK_LABEL(sizeCon), std::to_string(intValue).c_str());
         blk_size = intValue;
     });
-    helper.bindClick(mSelectBtn, [helper]() {
+    helper.bindClick(mSelectBtn, []() {
         on_button_clicked_m_select(helper);
     });
-    helper.bindClick(mWriteBtn, [helper]() {
+    helper.bindClick(mWriteBtn, []() {
         on_button_clicked_m_write(helper);
     });
-    helper.bindClick(mReadBtn, [helper]() {
+    helper.bindClick(mReadBtn, []() {
         on_button_clicked_m_read(helper);
     });
-    helper.bindClick(mEraseBtn, [helper]() {
+    helper.bindClick(mEraseBtn, []() {
         on_button_clicked_m_erase(helper); 
     });
-    helper.bindClick(mCancelBtn, [helper]() {
+    helper.bindClick(mCancelBtn, []() {
         on_button_clicked_m_cancel(helper);
     });
-    helper.bindClick(setActiveA, [helper]() {
+    helper.bindClick(setActiveA, []() {
         on_button_clicked_set_active_a(helper);
     });
-    helper.bindClick(setActiveB, [helper]() {
+    helper.bindClick(setActiveB, []() {
         on_button_clicked_set_active_b(helper);
     });
-    helper.bindClick(selectXmlBtn, [helper]() {
+    helper.bindClick(selectXmlBtn, []() {
         on_button_clicked_select_xml(helper);
     });
-    helper.bindClick(startRepartBtn, [helper]() {
+    helper.bindClick(startRepartBtn, []() {
         on_button_clicked_start_repart(helper);
     });
-    helper.bindClick(readXmlBtn, [helper]() {
+    helper.bindClick(readXmlBtn, []() {
         on_button_clicked_read_xml(helper);
     });
-    helper.bindClick(dmvDisable, [helper]() {
+    helper.bindClick(dmvDisable, []() {
         on_button_clicked_dmv_disable(helper);
     });
-    helper.bindClick(dmvEnable, [helper]() {
+    helper.bindClick(dmvEnable, []() {
         on_button_clicked_dmv_enable(helper);
     });
-    helper.bindClick(expLogBtn, [helper]() {
+    helper.bindClick(expLogBtn, []() {
         on_button_clicked_exp_log(helper);
     });
-    helper.bindClick(logClearBtn, [helper]() {
+    helper.bindClick(logClearBtn, []() {
         on_button_clicked_log_clear(helper);
     });
 }

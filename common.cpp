@@ -102,39 +102,69 @@ void usleep(unsigned int us) {
 
 //Print message
 void DEG_LOG(int type, const char* format, ...) {
-	va_list args;
-	va_start(args, format); // ��ʼ���ɱ�����б�
-
-	if (type == I) {
-		fprintf(stdout, "[INFO] ");
-		vfprintf(stdout, format, args); // ʹ��vfprintf������ʽ���ַ���
-	}
-	else if (type == W) {
-		fprintf(stdout, "[WARN] ");
-		vfprintf(stdout, format, args);
-	}
-	else if (type == E) {
-		fprintf(stderr, "[ERROR] ");
-		vfprintf(stderr, format, args);
-	}
-	else if (type == OP) {
-		fprintf(stdout, "[OPERATION] ");
-		vfprintf(stdout, format, args);
-	}
-	else if (type == DE) {
-		fprintf(stderr, "[DEBUG] ");
-		vfprintf(stderr, format, args);
-	}
-
-	va_end(args); // �����ɱ�����б�
-
-	// ���ӻ��з�ʹ��־���׶�
-	if (type == I || type == W || type == OP) {
-		fprintf(stdout, "\n");
-	}
-	else {
-		fprintf(stderr, "\n");
-	}
+    va_list args;
+    va_start(args, format);
+    // 首先格式化日志消息
+    char buffer[1024];
+    const char* prefix;
+    
+    switch(type) {
+        case I: prefix = "[INFO] "; break;
+        case W: prefix = "[WARN] "; break;
+        case E: prefix = "[ERROR] "; break;
+        case OP: prefix = "[OPERATION] "; break;
+        case DE: prefix = "[DEBUG] "; break;
+        default: prefix = "[UNKNOWN] "; break;
+    }
+    
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    
+    // 输出到控制台
+    if (type == I || type == W || type == OP) {
+        fprintf(stdout, "%s%s\n", prefix, buffer);
+    } else {
+        fprintf(stderr, "%s%s\n", prefix, buffer);
+    }
+    
+    // 输出到GUI日志框
+    if (isHelperInit) {
+        GtkWidget* txtOutput = helper.getWidget("txtOutput");
+        if (txtOutput && GTK_IS_TEXT_VIEW(txtOutput)) {
+            // 在主线程中更新GUI
+            g_idle_add([](gpointer data) -> gboolean {
+                char* message = (char*)data;
+                
+                // 获取文本缓冲区
+                GtkWidget* txtOutput = helper.getWidget("txtOutput");
+                if (txtOutput && GTK_IS_TEXT_VIEW(txtOutput)) {
+                    GtkTextBuffer* buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(txtOutput));
+                    
+                    // 获取当前文本
+                    GtkTextIter end;
+                    gtk_text_buffer_get_end_iter(buffer, &end);
+                    
+                    // 追加新日志（包含时间戳）
+                    time_t now = time(nullptr);
+                    struct tm* local_time = localtime(&now);
+                    char timestamp[64];
+                    strftime(timestamp, sizeof(timestamp), "[%H:%M:%S] ", local_time);
+                    
+                    gtk_text_buffer_insert(buffer, &end, timestamp, -1);
+                    gtk_text_buffer_insert(buffer, &end, message, -1);
+                    gtk_text_buffer_insert(buffer, &end, "\n", 1);
+                    
+                    // 自动滚动到底部
+                    GtkAdjustment* adj = gtk_scrolled_window_get_vadjustment(
+                        GTK_SCROLLED_WINDOW(gtk_widget_get_parent(txtOutput)));
+                    gtk_adjustment_set_value(adj, gtk_adjustment_get_upper(adj) - gtk_adjustment_get_page_size(adj));
+                }
+                
+                free(message);
+                return G_SOURCE_REMOVE;
+            }, strdup(buffer));
+        }
+    }
 }
 extern int bListenLibusb;
 extern int m_bOpened;
