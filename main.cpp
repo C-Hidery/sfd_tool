@@ -200,7 +200,19 @@ void on_button_clicked_list_write(GtkWidgetHelper helper){
         showErrorDialog(parent, "错误 Error", "当前未加载分区表，无法写入分区列表！\nNo partition table loaded, cannot write partition list!");
         return;
     }
-    
+    FILE* fi;
+    fi = fopen(filename.c_str(), "r");
+	if (fi == nullptr) { DEG_LOG(E,"File does not exist.\n"); return; }
+	else fclose(fi);
+    get_partition_info(io, part_name.c_str(), 0);
+	if (!gPartInfo.size) { DEG_LOG(E,"Partition does not exist\n");return;}
+    load_partition_unify(io, gPartInfo.name, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);
+}
+void on_button_clicked_list_read(GtkWidgetHelper helper){
+
+}
+void on_button_clicked_list_erase(GtkWidgetHelper helper){
+
 }
 void populatePartitionList(GtkWidgetHelper& helper, const std::vector<partition_t>& partitions) {
     // 获取列表视图
@@ -1378,7 +1390,7 @@ int gtk_kmain(int argc, char** argv) {
             on_button_clicked_list_write(helper);
         }).detach();
     });
-    /*
+    
     helper.bindClick(readBtn, [helper]() {
         std::thread([helper]() {
             on_button_clicked_list_read(helper);
@@ -1389,7 +1401,7 @@ int gtk_kmain(int argc, char** argv) {
             on_button_clicked_list_erase(helper);
         }).detach();
     });
-    */
+    
 }
     DisableWidgets(helper);
     // 启动GTK主循环
