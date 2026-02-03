@@ -639,7 +639,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	bListenLibusb = 0;
 	if (at || bootmode >= 0) {
 		io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
-		if (io->hThread == nullptr) return -1;
+		if (io->hThread == nullptr) return;
 		ChangeMode(io, wait / REOPEN_FREQ * 1000, bootmode, at);
 		wait = 30 * REOPEN_FREQ;
 		stage = -1;
@@ -657,7 +657,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	#if _WIN32
 	if (!bListenLibusb) {
 		if (io->hThread == nullptr) io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
-		if (io->hThread == nullptr) return -1;
+		if (io->hThread == nullptr) return;
 	}
 #if !USE_LIBUSB
 	if (!m_bOpened && async) {
