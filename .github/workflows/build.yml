@@ -25,15 +25,73 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
 
+      - name: Install GTK3 Runtime
+        run: |
+          # 根据架构选择对应的 GTK3 运行时
+          if ("${{ matrix.arch }}" -eq "x64") {
+            $gtkUrl = "https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases/download/2023-01-10/gtk3-runtime-3.24.34-2023-01-10-ts-win64.exe"
+            $installPath = "C:\Program Files\gtk3"
+          } else {
+            $gtkUrl = "https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases/download/2023-01-10/gtk3-runtime-3.24.34-2023-01-10-ts-win32.exe"
+            $installPath = "C:\Program Files (x86)\gtk3"
+          }
+          
+          Invoke-WebRequest -Uri $gtkUrl -OutFile gtk3-runtime.exe
+          Start-Process -Wait -FilePath .\gtk3-runtime.exe -ArgumentList "/S /D=$installPath"
+          
+          # 将 GTK3 bin 目录添加到 PATH
+          echo "$installPath\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.arch }}/${{ matrix.config }}/
 
       - name: Build sfd_tool (${{ matrix.arch }} - ${{ matrix.config }})
-        run: >
-          msbuild sfd_tool.vcxproj
-          /p:Configuration=${{ matrix.config }}
-          /p:Platform=${{ matrix.arch == 'x64' && 'x64' || 'win32' }}
-          /p:OutDir=./build/${{ matrix.arch }}/${{ matrix.config }}/
+        run: |
+          # 设置平台变量
+          $platform = if ("${{ matrix.arch }}" -eq "x64") { "x64" } else { "Win32" }
+          
+          # 构建项目
+          msbuild sfd_tool.vcxproj `
+            /p:Configuration=${{ matrix.config }} `
+            /p:Platform=$platform `
+            /p:OutDir=./build/${{ matrix.arch }}/${{ matrix.config }}/ `
+            /p:WindowsTargetPlatformVersion=10.0 `
+            /p:PlatformToolset=v143 `
+            /verbosity:minimal
+
+      - name: Copy GTK3 Runtime DLLs
+        run: |
+          $sourceDir = if ("${{ matrix.arch }}" -eq "x64") { "C:\Program Files\gtk3\bin" } else { "C:\Program Files (x86)\gtk3\bin" }
+          $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
+          
+          # 复制必要的 GTK3 DLL 文件
+          $gtkDlls = @(
+            "libgtk-3-0.dll",
+            "libgdk-3-0.dll",
+            "libglib-2.0-0.dll",
+            "libgobject-2.0-0.dll",
+            "libgmodule-2.0-0.dll",
+            "libgthread-2.0-0.dll",
+            "libgio-2.0-0.dll",
+            "libcairo-2.dll",
+            "libcairo-gobject-2.dll",
+            "libpango-1.0-0.dll",
+            "libpangocairo-1.0-0.dll",
+            "libpangoft2-1.0-0.dll",
+            "libpangowin32-1.0-0.dll",
+            "libgdk_pixbuf-2.0-0.dll",
+            "libepoxy-0.dll",
+            "libintl-8.dll",
+            "libfontconfig-1.dll",
+            "libfreetype-6.dll",
+            "libharfbuzz-0.dll"
+          )
+          
+          foreach ($dll in $gtkDlls) {
+            if (Test-Path "$sourceDir\$dll") {
+              Copy-Item "$sourceDir\$dll" -Destination $destDir -Force
+            }
+          }
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
@@ -83,6 +141,7 @@ jobs:
           prerelease: false
           body: |
             x86 ver work with SPRD driver, x64 ver work with libusb driver
+            GTK3-based GUI application
           files: |
             ${{ env.RELEASE_TAG }}.zip
         env:
