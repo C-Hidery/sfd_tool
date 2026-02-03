@@ -26,33 +26,39 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
 
-      - name: Install GTK3 via MSYS2
+      - name: Install MSYS2 with Chocolatey
         run: |
-          # 使用 Chocolatey 安装 MSYS2
-          choco install -y msys2 --params "/NoUpdate"
+          # 安装 MSYS2
+          choco install -y msys2
           
-          # 设置 MSYS2 路径
-          if ("${{ matrix.arch }}" -eq "x64") {
-            $msysPath = "C:\tools\msys64"
-            $mingwPath = "$msysPath\mingw64"
-          } else {
-            $msysPath = "C:\tools\msys32"
-            $mingwPath = "$msysPath\mingw32"
-          }
+          # 刷新环境变量
+          refreshenv
           
-          # 等待 MSYS2 安装完成
-          Start-Sleep -Seconds 10
+          # 等待安装完成
+          Start-Sleep -Seconds 5
+
+      - name: Install GTK3 in MSYS2
+        run: |
+          # 设置路径
+          $msysPath = "C:\tools\msys64"
+          $mingwPath = "$msysPath\mingw64"
           
-          # 使用 MSYS2 的 pacman 安装 GTK3
-          $pacman = "$msysPath\usr\bin\pacman.exe"
-          $bash = "$msysPath\usr\bin\bash.exe"
+          # 使用完整的 MSYS2 bash 路径
+          $bashPath = "$msysPath\usr\bin\bash.exe"
           
           # 更新包数据库
-          & $bash -c "pacman -Syu --noconfirm"
+          & $bashPath -lc "pacman -Syu --noconfirm"
           
           # 安装 GTK3 开发包
-          & $bash -c "pacman -S --noconfirm mingw-w64-${{ matrix.arch == 'x64' && 'x86_64' || 'i686' }}-gtk3"
-          & $bash -c "pacman -S --noconfirm mingw-w64-${{ matrix.arch == 'x64' && 'x86_64' || 'i686' }}-pkg-config"
+          if ("${{ matrix.arch }}" -eq "x64") {
+            & $bashPath -lc "pacman -S --noconfirm mingw-w64-x86_64-gtk3 mingw-w64-x86_64-pkg-config"
+          } else {
+            # 对于 x86，需要先进入 32 位环境
+            & $bashPath -lc "pacman -S --noconfirm mingw-w64-i686-gtk3 mingw-w64-i686-pkg-config"
+          }
+          
+          # 验证安装
+          & $bashPath -lc "pkg-config --modversion gtk+-3.0"
           
           # 设置环境变量
           echo "GTK3_PATH=$mingwPath" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -76,32 +82,22 @@ jobs:
 
       - name: Copy GTK3 Runtime DLLs
         run: |
-          $sourceDir = if ("${{ matrix.arch }}" -eq "x64") { "C:\tools\msys64\mingw64\bin" } else { "C:\tools\msys32\mingw32\bin" }
+          $sourceDir = "C:\tools\msys64\mingw64\bin"
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
           
-          # 复制必要的 GTK3 DLL 文件
-          $essentialDlls = @(
+          # 只复制最核心的 GTK3 DLL
+          $coreDlls = @(
             "libgtk-3-0.dll",
             "libgdk-3-0.dll",
             "libglib-2.0-0.dll",
-            "libgobject-2.0-0.dll",
-            "libgio-2.0-0.dll"
+            "libgobject-2.0-0.dll"
           )
           
-          foreach ($dll in $essentialDlls) {
+          foreach ($dll in $coreDlls) {
             $sourceFile = "$sourceDir\$dll"
             if (Test-Path $sourceFile) {
               Copy-Item $sourceFile -Destination $destDir -Force
               Write-Host "Copied: $dll"
-            } else {
-              # 尝试查找类似的 DLL
-              $similar = Get-ChildItem -Path $sourceDir -Filter "*$($dll.Split('-')[0])*" | Select-Object -First 1
-              if ($similar) {
-                Copy-Item $similar.FullName -Destination $destDir -Force
-                Write-Host "Copied similar: $($similar.Name) instead of $dll"
-              } else {
-                Write-Warning "File not found: $dll"
-              }
             }
           }
 
