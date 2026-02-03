@@ -241,6 +241,7 @@ enum Stages {
 	SPRD3 = 3,
 	SPRD4 = 4
 };
+#define REOPEN_FREQ 2
 extern int isCancel;
 extern uint64_t g_spl_size;
 spdio_t *spdio_init(int flags);

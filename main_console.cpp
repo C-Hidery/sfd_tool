@@ -1,28 +1,11 @@
+#ifndef MAIN_CONSOLE_IMPLEMENTATION
+#define MAIN_CONSOLE_IMPLEMENTATION
+
+
 #include <stdio.h>
 #include "common.h"
-const char* Version = "[1.2.0.0@_250726]";
-int bListenLibusb = -1;
-int gpt_failed = 1;
-int m_bOpened = 0;
-int fdl1_loaded = 0;
-int fdl2_executed = 0;
-int isKickMode = 0;
-int isCMethod = 0;
-int selected_ab = -1;
-int no_fdl_mode = 0;
-uint64_t fblk_size = 0;
-uint64_t g_spl_size;
-bool isUseCptable = false;
-const char* o_exception;
-int init_stage = -1;
-int device_stage = Nothing, device_mode = Nothing;
-//sfd_tool protocol
-char** str2;
-char mode_str[256];
-int in_quote;
-char* temp;
-char str1[(ARGC_MAX - 1) * ARGV_LEN];
-#define REOPEN_FREQ 2
+#include "main.h"
+
 void print_help() {
 	//TODO
 	DBG_LOG("Usage:\n"
@@ -1800,3 +1783,4 @@ int main_console(int argc, char** argv) {
 	spdio_free(io);
 	return 0;
 }
+#endif

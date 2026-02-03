@@ -1,10 +1,33 @@
 #include <iostream>
 #include <cstring>
-#include "main_console.cpp"
+#include "common.h"
+#include "main.h"
 #include "GtkWidgetHelper.hpp"
 #include <thread>
 #include <chrono>
 #include <gtk/gtk.h>
+const char* Version = "[1.2.0.0@_250726]";
+int bListenLibusb = -1;
+int gpt_failed = 1;
+int m_bOpened = 0;
+int fdl1_loaded = 0;
+int fdl2_executed = 0;
+int isKickMode = 0;
+int isCMethod = 0;
+int selected_ab = -1;
+int no_fdl_mode = 0;
+uint64_t fblk_size = 0;
+uint64_t g_spl_size;
+bool isUseCptable = false;
+const char* o_exception;
+int init_stage = -1;
+int device_stage = Nothing, device_mode = Nothing;
+//sfd_tool protocol
+char** str2;
+char mode_str[256];
+int in_quote;
+char* temp;
+char str1[(ARGC_MAX - 1) * ARGV_LEN];
 spdio_t* io = nullptr;
 int ret, wait = 30 * REOPEN_FREQ;
 int keep_charge = 1, end_data = 0, blk_size = 0, skip_confirm = 1, highspeed = 0, cve_v2 = 0;
@@ -671,7 +694,6 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	if (!m_bOpened) {
 		DBG_LOG("<waiting for connection,mode:dl,%ds>\n", wait / REOPEN_FREQ);
 		
-		ThrowExit();
 		for (int i = 0; ; i++) {
 #if USE_LIBUSB
 			if (bListenLibusb) {
@@ -717,7 +739,6 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 				}
 			}
 			if (i >= wait) {
-				ThrowExit();
 				ERR_EXIT("%s: Failed to find port.\n",o_exception);
 		}
 #endif
@@ -756,7 +777,6 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		}
 		//device can only recv BSL_REP_ACK or BSL_REP_VER or BSL_REP_VERIFY_ERROR
 		init_stage = 1;
-		ThrowExit();
 		if (ret == BSL_REP_ACK || ret == BSL_REP_VER || ret == BSL_REP_VERIFY_ERROR) {
 			//check stage
 			if (ret == BSL_REP_VER) {
@@ -838,7 +858,6 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		//fail
 		else if (i == 4) {
 			init_stage = 1;
-			ThrowExit();
 			if (stage != -1) { ERR_EXIT("Failed to connect: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n", o_exception); }
 			else { encode_msg_nocpy(io, BSL_CMD_CONNECT, 0); stage++; i = -1; }
 		}
@@ -943,7 +962,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
             // Feature phones respond immediately,
             // but it may take a second for a smartphone to respond.
             ret = recv_msg_timeout(io, 15000);
-            if (!ret) { ThrowExit();  ERR_EXIT("%s: timeout reached\n", o_exception); }
+            if (!ret) { ERR_EXIT("timeout reached\n"); }
             ret = recv_type(io);
             // Is it always bullshit?
             if (ret == BSL_REP_INCOMPATIBLE_PARTITION)
@@ -1177,7 +1196,7 @@ int gtk_kmain(int argc, char** argv) {
 
     // Initialization previously at file scope
     char* execfile = NEWN char[ARGV_LEN];
-    if (!execfile) { ThrowExit(); ERR_EXIT("%s: malloc failed\n",o_exception); }
+    if (!execfile) { ERR_EXIT("malloc failed\n"); }
     io = spdio_init(0);
 #if USE_LIBUSB
     ret = libusb_init(nullptr);

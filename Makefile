@@ -80,7 +80,7 @@ endif
 all: $(APPNAME)
 
 # 主目标
-$(APPNAME): main.cpp common.cpp GtkWidgetHelper.cpp
+$(APPNAME): main.cpp main_console.cpp common.cpp GtkWidgetHelper.cpp
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 # 调试版本
