@@ -166,7 +166,7 @@ void DEG_LOG(int type, const char* format, ...) {
                 
                 free(message);
                 return G_SOURCE_REMOVE;
-            }, strdup(buffer));
+            }, _strdup(buffer));
         }
     }
 }
