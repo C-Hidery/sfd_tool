@@ -1157,12 +1157,13 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
                     GtkWidget* progressBar = helper.getWidget("progressBar_1");
                     if (progressBar && GTK_IS_PROGRESS_BAR(progressBar)) {
                         gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(progressBar), percent);
-                        
+                        /*
                         // 可选：在进度条上显示文本
                         char progress_text[32];
                         snprintf(progress_text, sizeof(progress_text), "%.1f%%", percent * 100);
                         gtk_progress_bar_set_text(GTK_PROGRESS_BAR(progressBar), progress_text);
                         gtk_progress_bar_set_show_text(GTK_PROGRESS_BAR(progressBar), TRUE);
+						*/
                     }
                     
                     // 更新百分比标签

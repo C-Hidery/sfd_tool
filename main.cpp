@@ -436,7 +436,6 @@ void on_button_clicked_read_xml(GtkWidgetHelper helper){
         return;
     }
     if (!isCMethod) {
-        printf("1\n");
 		if (gpt_failed == 1) io->ptable = partition_list(io, savePath.c_str(), &io->part_count);
 		if (!io->part_count) { DEG_LOG(E, "Partition table not available"); return; }
 		else {
@@ -456,7 +455,6 @@ void on_button_clicked_read_xml(GtkWidgetHelper helper){
 		}
 	}
 	else {
-        printf("2\n");
 		int c = io->part_count_c;
 		if (!c) { DEG_LOG(E, "Partition table not available"); return; }
 		else {
