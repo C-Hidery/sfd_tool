@@ -12,6 +12,7 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 30  
     strategy:
       matrix:
         arch: [x64, x86]
@@ -25,33 +26,32 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
 
-      - name: Install GTK3 Runtime
+      - name: Download GTK3 Development Files
         run: |
-          # 使用 MSYS2 安装 GTK3
+          # 创建目录
+          New-Item -ItemType Directory -Force -Path "C:\gtk3" | Out-Null
+          
+          # 下载预编译的 GTK3 开发包
           if ("${{ matrix.arch }}" -eq "x64") {
-            $msys2Url = "https://github.com/msys2/msys2-installer/releases/download/2023-10-26/msys2-x86_64-20231026.exe"
-            $installPath = "C:\msys64"
-            $mingwPath = "$installPath\mingw64"
+            $gtkDevUrl = "https://github.com/wingtk/gvsbuild/releases/download/gtk3-3.24.41-1/gtk3-x64-dev-3.24.41-1.zip"
+            $targetPath = "C:\gtk3\x64"
           } else {
-            $msys2Url = "https://github.com/msys2/msys2-installer/releases/download/2023-10-26/msys2-i686-20231026.exe"
-            $installPath = "C:\msys32"
-            $mingwPath = "$installPath\mingw32"
+            $gtkDevUrl = "https://github.com/wingtk/gvsbuild/releases/download/gtk3-3.24.41-1/gtk3-x86-dev-3.24.41-1.zip"
+            $targetPath = "C:\gtk3\x86"
           }
           
-          # 下载并安装 MSYS2
-          Invoke-WebRequest -Uri $msys2Url -OutFile msys2-installer.exe
-          Start-Process -Wait -FilePath .\msys2-installer.exe -ArgumentList "install --root $installPath --confirm-command"
+          Write-Host "Downloading GTK3 development files from: $gtkDevUrl"
+          Invoke-WebRequest -Uri $gtkDevUrl -OutFile gtk3-dev.zip -MaximumRetryCount 3 -RetryIntervalSec 2
           
-          # 使用 pacman 安装 GTK3
-          $pacman = "$installPath\usr\bin\pacman.exe"
-          & $pacman -Syu --noconfirm
-          & $pacman -S --noconfirm mingw-w64-${{ matrix.arch == 'x64' && 'x86_64' || 'i686' }}-gtk3
-          & $pacman -S --noconfirm mingw-w64-${{ matrix.arch == 'x64' && 'x86_64' || 'i686' }}-pkg-config
+          Write-Host "Extracting to: $targetPath"
+          Expand-Archive -Path gtk3-dev.zip -DestinationPath $targetPath -Force
           
           # 设置环境变量
-          echo "GTK3_PATH=$mingwPath" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "$mingwPath\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-          echo "PKG_CONFIG_PATH=$mingwPath\lib\pkgconfig" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "GTK3_PATH=$targetPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "PKG_CONFIG_PATH=$targetPath\lib\pkgconfig" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "$targetPath\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          
+          Write-Host "GTK3 development files installed successfully"
 
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.arch }}/${{ matrix.config }}/
@@ -61,60 +61,31 @@ jobs:
           # 设置平台变量
           $platform = if ("${{ matrix.arch }}" -eq "x64") { "x64" } else { "Win32" }
           
-          # 使用 pkg-config 获取 GTK3 编译标志
-          $pkgConfig = if ("${{ matrix.arch }}" -eq "x64") { "C:\msys64\mingw64\bin\pkg-config.exe" } else { "C:\msys32\mingw32\bin\pkg-config.exe" }
-          
-          $gtkCflags = & $pkgConfig --cflags gtk+-3.0
-          $gtkLibs = & $pkgConfig --libs gtk+-3.0
-          
-          echo "GTK CFLAGS: $gtkCflags"
-          echo "GTK LIBS: $gtkLibs"
+          # 获取 GTK3 路径
+          $gtkPath = if ("${{ matrix.arch }}" -eq "x64") { "C:\gtk3\x64" } else { "C:\gtk3\x86" }
           
           # 构建项目
           msbuild sfd_tool.vcxproj `
             /p:Configuration=${{ matrix.config }} `
             /p:Platform=$platform `
             /p:OutDir=./build/${{ matrix.arch }}/${{ matrix.config }}/ `
-            /p:AdditionalIncludeDirectories="$gtkCflags" `
-            /p:AdditionalDependencies="$gtkLibs" `
             /verbosity:minimal
 
       - name: Copy GTK3 Runtime DLLs
         run: |
-          $sourceDir = if ("${{ matrix.arch }}" -eq "x64") { "C:\msys64\mingw64\bin" } else { "C:\msys32\mingw32\bin" }
+          $sourceDir = if ("${{ matrix.arch }}" -eq "x64") { "C:\gtk3\x64\bin" } else { "C:\gtk3\x86\bin" }
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
           
-          # 复制必要的 GTK3 DLL 文件
-          $gtkDlls = @(
-            "libgtk-3-0.dll",
-            "libgdk-3-0.dll",
-            "libglib-2.0-0.dll",
-            "libgobject-2.0-0.dll",
-            "libgmodule-2.0-0.dll",
-            "libgthread-2.0-0.dll",
-            "libgio-2.0-0.dll",
-            "libcairo-2.dll",
-            "libcairo-gobject-2.dll",
-            "libpango-1.0-0.dll",
-            "libpangocairo-1.0-0.dll",
-            "libpangoft2-1.0-0.dll",
-            "libpangowin32-1.0-0.dll",
-            "libgdk_pixbuf-2.0-0.dll",
-            "libepoxy-0.dll",
-            "libintl-8.dll",
-            "libfontconfig-1.dll",
-            "libfreetype-6.dll",
-            "libharfbuzz-0.dll"
-          )
-          
-          foreach ($dll in $gtkDlls) {
-            $sourceFile = "$sourceDir\$dll"
-            if (Test-Path $sourceFile) {
-              Copy-Item $sourceFile -Destination $destDir -Force
-              Write-Host "Copied: $dll"
-            } else {
-              Write-Warning "File not found: $sourceFile"
+          # 复制所有 DLL 文件
+          if (Test-Path $sourceDir) {
+            $dllFiles = Get-ChildItem -Path $sourceDir -Filter "*.dll"
+            foreach ($file in $dllFiles) {
+              Copy-Item $file.FullName -Destination $destDir -Force
+              Write-Host "Copied: $($file.Name)"
             }
+            Write-Host "Total copied: $($dllFiles.Count) DLL files"
+          } else {
+            Write-Error "Source directory not found: $sourceDir"
           }
 
       - name: Upload Build Artifacts
