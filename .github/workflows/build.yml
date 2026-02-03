@@ -26,44 +26,63 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
 
-      - name: Install MSYS2 with Chocolatey
+      - name: Install MSYS2 and GTK3
         run: |
           # 安装 MSYS2
           choco install -y msys2
-          
-          # 刷新环境变量
           refreshenv
           
           # 等待安装完成
           Start-Sleep -Seconds 5
-
-      - name: Install GTK3 in MSYS2
-        run: |
-          # 设置路径
+          
+          # 设置 MSYS2 路径
           $msysPath = "C:\tools\msys64"
           $mingwPath = "$msysPath\mingw64"
           
-          # 使用完整的 MSYS2 bash 路径
+          # 使用 MSYS2 bash 安装 GTK3
           $bashPath = "$msysPath\usr\bin\bash.exe"
           
-          # 更新包数据库
+          Write-Host "Updating MSYS2 package database..."
           & $bashPath -lc "pacman -Syu --noconfirm"
           
-          # 安装 GTK3 开发包
-          if ("${{ matrix.arch }}" -eq "x64") {
-            & $bashPath -lc "pacman -S --noconfirm mingw-w64-x86_64-gtk3 mingw-w64-x86_64-pkg-config"
-          } else {
-            # 对于 x86，需要先进入 32 位环境
-            & $bashPath -lc "pacman -S --noconfirm mingw-w64-i686-gtk3 mingw-w64-i686-pkg-config"
-          }
+          Write-Host "Installing GTK3 development packages..."
+          & $bashPath -lc "pacman -S --noconfirm mingw-w64-x86_64-gtk3 mingw-w64-x86_64-pkg-config"
           
-          # 验证安装
+          Write-Host "Verifying pkg-config installation..."
+          # 在 bash 环境中验证
+          & $bashPath -lc "which pkg-config && pkg-config --version"
+          
+          Write-Host "Verifying GTK3 installation..."
           & $bashPath -lc "pkg-config --modversion gtk+-3.0"
           
-          # 设置环境变量
+          # 找到 pkg-config 的实际路径
+          $pkgConfigPath = & $bashPath -lc "cygpath -w `$(which pkg-config)"
+          Write-Host "pkg-config path: $pkgConfigPath"
+          
+          # 将 MinGW bin 目录添加到系统 PATH
+          $mingwBinPath = "$mingwPath\bin"
+          echo "MinGW bin path: $mingwBinPath"
+          echo "$mingwBinPath" | Out-File -FilePath $env:GITHUB_PATH -Append
+          
+          # 设置其他环境变量
           echo "GTK3_PATH=$mingwPath" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "$mingwPath\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
           echo "PKG_CONFIG_PATH=$mingwPath\lib\pkgconfig" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Verify Windows PATH
+        run: |
+          Write-Host "Current PATH:"
+          $env:PATH -split ';' | Where-Object { $_ -like "*msys*" -or $_ -like "*mingw*" } | ForEach-Object { Write-Host "  $_" }
+          
+          # 直接测试 pkg-config
+          Write-Host "Testing pkg-config directly..."
+          $pkgConfig = "C:\tools\msys64\mingw64\bin\pkg-config.exe"
+          if (Test-Path $pkgConfig) {
+            & $pkgConfig --version
+            & $pkgConfig --modversion gtk+-3.0
+            & $pkgConfig --cflags gtk+-3.0
+          } else {
+            Write-Error "pkg-config not found at: $pkgConfig"
+          }
 
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.arch }}/${{ matrix.config }}/
@@ -73,33 +92,45 @@ jobs:
           # 设置平台变量
           $platform = if ("${{ matrix.arch }}" -eq "x64") { "x64" } else { "Win32" }
           
+          # 直接使用 pkg-config.exe 的完整路径
+          $pkgConfig = "C:\tools\msys64\mingw64\bin\pkg-config.exe"
+          
+          # 获取 GTK3 编译标志
+          $gtkCflags = & $pkgConfig --cflags gtk+-3.0
+          $gtkLibs = & $pkgConfig --libs gtk+-3.0
+          
+          Write-Host "GTK CFLAGS: $gtkCflags"
+          Write-Host "GTK LIBS: $gtkLibs"
+          
           # 构建项目
           msbuild sfd_tool.vcxproj `
             /p:Configuration=${{ matrix.config }} `
             /p:Platform=$platform `
             /p:OutDir=./build/${{ matrix.arch }}/${{ matrix.config }}/ `
-            /verbosity:minimal
+            /verbosity:minimal `
+            /p:AdditionalIncludeDirectories="$gtkCflags" `
+            /p:AdditionalDependencies="$gtkLibs"
 
       - name: Copy GTK3 Runtime DLLs
         run: |
           $sourceDir = "C:\tools\msys64\mingw64\bin"
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
           
-          # 只复制最核心的 GTK3 DLL
-          $coreDlls = @(
-            "libgtk-3-0.dll",
-            "libgdk-3-0.dll",
-            "libglib-2.0-0.dll",
-            "libgobject-2.0-0.dll"
-          )
+          Write-Host "Copying DLLs from: $sourceDir"
+          Write-Host "To: $destDir"
           
-          foreach ($dll in $coreDlls) {
-            $sourceFile = "$sourceDir\$dll"
-            if (Test-Path $sourceFile) {
-              Copy-Item $sourceFile -Destination $destDir -Force
-              Write-Host "Copied: $dll"
-            }
+          # 查找并复制所有 GTK 相关的 DLL
+          $gtkDlls = Get-ChildItem -Path $sourceDir -Filter "*gtk*" | ForEach-Object { $_.Name }
+          $glibDlls = Get-ChildItem -Path $sourceDir -Filter "*glib*" | ForEach-Object { $_.Name }
+          $gdkDlls = Get-ChildItem -Path $sourceDir -Filter "*gdk*" | ForEach-Object { $_.Name }
+          
+          $allDlls = $gtkDlls + $glibDlls + $gdkDlls | Select-Object -Unique
+          
+          foreach ($dll in $allDlls) {
+            Copy-Item "$sourceDir\$dll" -Destination $destDir -Force -ErrorAction SilentlyContinue
           }
+          
+          Write-Host "Copied $(($allDlls | Measure-Object).Count) DLL files"
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
