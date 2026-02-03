@@ -17,6 +17,7 @@
 #include <ctype.h> // tolower
 #include <math.h>
 #include <time.h>
+#include "GtkWidgetHelper.hpp"
 #define NEWN new (std::nothrow)
 #ifndef LIBUSB_DETACH
 /* detach the device from crappy kernel drivers */
@@ -220,7 +221,8 @@ DWORD *FindPort(const char *USB_DL);
 BOOL CreateRecvThread(spdio_t *io);
 void DestroyRecvThread(spdio_t *io);
 #endif
-
+extern GtkWidgetHelper helper;
+extern bool isHelperInit;
 void print_string(FILE *f, const void *src, size_t n);
 void ChangeMode(spdio_t *io, int ms, int bootmode, int at);
 

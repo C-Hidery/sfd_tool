@@ -1,4 +1,4 @@
-# sfd_tool
+# sfd_tool GUI版本
 
 ![Logo](icon.png)
 
@@ -12,12 +12,16 @@ sfd_tool是它的一个维护版本（原仓库已存档）
 
 ---
 
-在Linux上执行make时请先运行这个：
+执行make时请先运行这个：
 
 ``` bash
 sudo apt update
 # Ubuntu/Debian
-sudo apt install libusb-1.0-0-dev gcc g++
+sudo apt install libusb-1.0-0-dev gcc g++ libgtk-3-dev pkg-config
+# Fedora/RHEL
+sudo dnf install libusb-devel gtk3-devel pkg-config
+# macOS
+brew install libusb gtk+3 pkg-config
 # Android(Termux)
 pkg install termux-api libusb clang git g++
 ```

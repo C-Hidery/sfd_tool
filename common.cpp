@@ -1,5 +1,7 @@
 #include "common.h"
 int isCancel = 0;
+bool isHelperInit = false;
+GtkWidgetHelper helper;
 #if !USE_LIBUSB
 
 DWORD curPort = 0;
@@ -87,7 +89,7 @@ libusb_device **FindPort(int pid) {
 			libusb_ref_device(dev);
 		}
 	}
-	libusb_free_device_list(devs, 1);
+	libusb_free_device_list(devs, 11);
 	if (count > 0) ports[count] = nullptr;
 	return ports;
 }
@@ -102,39 +104,71 @@ void usleep(unsigned int us) {
 
 //Print message
 void DEG_LOG(int type, const char* format, ...) {
-	va_list args;
-	va_start(args, format); // ��ʼ���ɱ�����б�
-
-	if (type == I) {
-		fprintf(stdout, "[INFO] ");
-		vfprintf(stdout, format, args); // ʹ��vfprintf������ʽ���ַ���
-	}
-	else if (type == W) {
-		fprintf(stdout, "[WARN] ");
-		vfprintf(stdout, format, args);
-	}
-	else if (type == E) {
-		fprintf(stderr, "[ERROR] ");
-		vfprintf(stderr, format, args);
-	}
-	else if (type == OP) {
-		fprintf(stdout, "[OPERATION] ");
-		vfprintf(stdout, format, args);
-	}
-	else if (type == DE) {
-		fprintf(stderr, "[DEBUG] ");
-		vfprintf(stderr, format, args);
-	}
-
-	va_end(args); // �����ɱ�����б�
-
-	// ���ӻ��з�ʹ��־���׶�
-	if (type == I || type == W || type == OP) {
-		fprintf(stdout, "\n");
-	}
-	else {
-		fprintf(stderr, "\n");
-	}
+    va_list args;
+    va_start(args, format);
+    // 首先格式化日志消息
+    char buffer[1024];
+    const char* prefix;
+    
+    switch(type) {
+        case I: prefix = "[INFO] "; break;
+        case W: prefix = "[WARN] "; break;
+        case E: prefix = "[ERROR] "; break;
+        case OP: prefix = "[OPERATION] "; break;
+        case DE: prefix = "[DEBUG] "; break;
+        default: prefix = "[UNKNOWN] "; break;
+    }
+    
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    
+    // 输出到控制台
+    if (type == I || type == W || type == OP) {
+        fprintf(stdout, "%s%s\n", prefix, buffer);
+    } else {
+        fprintf(stderr, "%s%s\n", prefix, buffer);
+    }
+    
+    // 输出到GUI日志框
+    if (isHelperInit) {
+		printf("1\n");
+        GtkWidget* txtOutput = helper.getWidget("txtOutput");
+        if (txtOutput && GTK_IS_TEXT_VIEW(txtOutput)) {
+			printf("2\n");
+            // 在主线程中更新GUI
+            g_idle_add([](gpointer data) -> gboolean {
+                char* message = (char*)data;
+                
+                // 获取文本缓冲区
+                GtkWidget* txtOutput = helper.getWidget("txtOutput");
+                if (txtOutput && GTK_IS_TEXT_VIEW(txtOutput)) {
+                    GtkTextBuffer* buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(txtOutput));
+                    
+                    // 获取当前文本
+                    GtkTextIter end;
+                    gtk_text_buffer_get_end_iter(buffer, &end);
+                    
+                    // 追加新日志（包含时间戳）
+                    time_t now = time(nullptr);
+                    struct tm* local_time = localtime(&now);
+                    char timestamp[64];
+                    strftime(timestamp, sizeof(timestamp), "[%H:%M:%S] ", local_time);
+                    
+                    gtk_text_buffer_insert(buffer, &end, timestamp, -1);
+                    gtk_text_buffer_insert(buffer, &end, message, -1);
+                    gtk_text_buffer_insert(buffer, &end, "\n", 1);
+                    
+                    // 自动滚动到底部
+                    GtkAdjustment* adj = gtk_scrolled_window_get_vadjustment(
+                        GTK_SCROLLED_WINDOW(gtk_widget_get_parent(txtOutput)));
+                    gtk_adjustment_set_value(adj, gtk_adjustment_get_upper(adj) - gtk_adjustment_get_page_size(adj));
+                }
+                
+                free(message);
+                return G_SOURCE_REMOVE;
+            }, strdup(buffer));
+        }
+    }
 }
 extern int bListenLibusb;
 extern int m_bOpened;
@@ -1082,27 +1116,70 @@ unsigned long long GetTickCount64() {
 
 #define PROGRESS_BAR_WIDTH 40
 
-void print_progress_bar(spdio_t* io,uint64_t done, uint64_t total, unsigned long long time0) {
-	static int completed0 = 0;
-	static uint64_t done0 = 0;
-	
-	unsigned long long time = GetTickCount64();
-	if (completed0 == PROGRESS_BAR_WIDTH) { completed0 = 0; done0 = 0; }
-	int completed = (int)(PROGRESS_BAR_WIDTH * done / (double)total);
-	if (completed != completed0 && isCancel == 0) {
-		int remaining = PROGRESS_BAR_WIDTH - completed;
-		DBG_LOG("[");
-		for (int i = 0; i < completed; i++) {
-			DBG_LOG("=");
-		}
-		for (int i = 0; i < remaining; i++) {
-			DBG_LOG(" ");
-		}
-		DBG_LOG("]%6.1f%% Speed:%6.2fMb/s\r", 100 * done / (double)total, (double)1000 * done / (time - time0) / 1024 / 1024);
-		if(io->nor_bar) DBG_LOG("\n");
-		completed0 = completed;
-		done0 = done;
-	}
+void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned long long time0) {
+    static int completed0 = 0;
+    static uint64_t done0 = 0;
+    
+    unsigned long long time = GetTickCount64();
+    if (completed0 == PROGRESS_BAR_WIDTH) { 
+        completed0 = 0; 
+        done0 = 0; 
+    }
+    
+    int completed = (int)(PROGRESS_BAR_WIDTH * done / (double)total);
+    if (completed != completed0 && isCancel == 0) {
+        int remaining = PROGRESS_BAR_WIDTH - completed;
+        DBG_LOG("[");
+        for (int i = 0; i < completed; i++) {
+            DBG_LOG("=");
+        }
+        for (int i = 0; i < remaining; i++) {
+            DBG_LOG(" ");
+        }
+        DBG_LOG("]%6.1f%% Speed:%6.2fMb/s\r", 100 * done / (double)total, (double)1000 * done / (time - time0) / 1024 / 1024);
+        if(io->nor_bar) DBG_LOG("\n");
+        completed0 = completed;
+        done0 = done;
+        
+        // 更新UI进度条和百分比标签
+        if (isHelperInit) {
+            // 计算进度百分比
+            double progress_percent = done / (double)total;
+            
+            // 在主线程中更新UI
+            g_idle_add([](gpointer data) -> gboolean {
+                auto* progress_data = static_cast<std::pair<double, uint64_t>*>(data);
+                double percent = progress_data->first;
+                uint64_t done_value = progress_data->second;
+                
+                if (isHelperInit) {
+                    // 更新进度条
+                    GtkWidget* progressBar = helper.getWidget("progressBar_1");
+                    if (progressBar && GTK_IS_PROGRESS_BAR(progressBar)) {
+                        gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(progressBar), percent);
+                        /*
+                        // 可选：在进度条上显示文本
+                        char progress_text[32];
+                        snprintf(progress_text, sizeof(progress_text), "%.1f%%", percent * 100);
+                        gtk_progress_bar_set_text(GTK_PROGRESS_BAR(progressBar), progress_text);
+                        gtk_progress_bar_set_show_text(GTK_PROGRESS_BAR(progressBar), TRUE);
+						*/
+                    }
+                    
+                    // 更新百分比标签
+                    GtkWidget* percentLabel = helper.getWidget("percent");
+                    if (percentLabel && GTK_IS_LABEL(percentLabel)) {
+                        char percent_text[16];
+                        snprintf(percent_text, sizeof(percent_text), "%.1f%%", percent * 100);
+                        gtk_label_set_text(GTK_LABEL(percentLabel), percent_text);
+                    }
+                }
+                
+                delete progress_data;
+                return G_SOURCE_REMOVE;
+            }, new std::pair<double, uint64_t>(progress_percent, done));
+        }
+    }
 }
 
 extern uint64_t fblk_size;
