@@ -138,7 +138,7 @@
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>setupapi.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -167,7 +167,7 @@
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>setupapi.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -196,7 +196,7 @@
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>Lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libusb-1.0.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
@@ -226,7 +226,7 @@
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>Lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libusb-1.0.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
