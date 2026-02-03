@@ -27,20 +27,31 @@ jobs:
 
       - name: Install GTK3 Runtime
         run: |
-          # 根据架构选择对应的 GTK3 运行时
+          # 使用 MSYS2 安装 GTK3
           if ("${{ matrix.arch }}" -eq "x64") {
-            $gtkUrl = "https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases/download/2023-01-10/gtk3-runtime-3.24.34-2023-01-10-ts-win64.exe"
-            $installPath = "C:\Program Files\gtk3"
+            $msys2Url = "https://github.com/msys2/msys2-installer/releases/download/2023-10-26/msys2-x86_64-20231026.exe"
+            $installPath = "C:\msys64"
+            $mingwPath = "$installPath\mingw64"
           } else {
-            $gtkUrl = "https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases/download/2023-01-10/gtk3-runtime-3.24.34-2023-01-10-ts-win32.exe"
-            $installPath = "C:\Program Files (x86)\gtk3"
+            $msys2Url = "https://github.com/msys2/msys2-installer/releases/download/2023-10-26/msys2-i686-20231026.exe"
+            $installPath = "C:\msys32"
+            $mingwPath = "$installPath\mingw32"
           }
           
-          Invoke-WebRequest -Uri $gtkUrl -OutFile gtk3-runtime.exe
-          Start-Process -Wait -FilePath .\gtk3-runtime.exe -ArgumentList "/S /D=$installPath"
+          # 下载并安装 MSYS2
+          Invoke-WebRequest -Uri $msys2Url -OutFile msys2-installer.exe
+          Start-Process -Wait -FilePath .\msys2-installer.exe -ArgumentList "install --root $installPath --confirm-command"
           
-          # 将 GTK3 bin 目录添加到 PATH
-          echo "$installPath\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          # 使用 pacman 安装 GTK3
+          $pacman = "$installPath\usr\bin\pacman.exe"
+          & $pacman -Syu --noconfirm
+          & $pacman -S --noconfirm mingw-w64-${{ matrix.arch == 'x64' && 'x86_64' || 'i686' }}-gtk3
+          & $pacman -S --noconfirm mingw-w64-${{ matrix.arch == 'x64' && 'x86_64' || 'i686' }}-pkg-config
+          
+          # 设置环境变量
+          echo "GTK3_PATH=$mingwPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "$mingwPath\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          echo "PKG_CONFIG_PATH=$mingwPath\lib\pkgconfig" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.arch }}/${{ matrix.config }}/
@@ -50,18 +61,27 @@ jobs:
           # 设置平台变量
           $platform = if ("${{ matrix.arch }}" -eq "x64") { "x64" } else { "Win32" }
           
+          # 使用 pkg-config 获取 GTK3 编译标志
+          $pkgConfig = if ("${{ matrix.arch }}" -eq "x64") { "C:\msys64\mingw64\bin\pkg-config.exe" } else { "C:\msys32\mingw32\bin\pkg-config.exe" }
+          
+          $gtkCflags = & $pkgConfig --cflags gtk+-3.0
+          $gtkLibs = & $pkgConfig --libs gtk+-3.0
+          
+          echo "GTK CFLAGS: $gtkCflags"
+          echo "GTK LIBS: $gtkLibs"
+          
           # 构建项目
           msbuild sfd_tool.vcxproj `
             /p:Configuration=${{ matrix.config }} `
             /p:Platform=$platform `
             /p:OutDir=./build/${{ matrix.arch }}/${{ matrix.config }}/ `
-            /p:WindowsTargetPlatformVersion=10.0 `
-            /p:PlatformToolset=v143 `
+            /p:AdditionalIncludeDirectories="$gtkCflags" `
+            /p:AdditionalDependencies="$gtkLibs" `
             /verbosity:minimal
 
       - name: Copy GTK3 Runtime DLLs
         run: |
-          $sourceDir = if ("${{ matrix.arch }}" -eq "x64") { "C:\Program Files\gtk3\bin" } else { "C:\Program Files (x86)\gtk3\bin" }
+          $sourceDir = if ("${{ matrix.arch }}" -eq "x64") { "C:\msys64\mingw64\bin" } else { "C:\msys32\mingw32\bin" }
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
           
           # 复制必要的 GTK3 DLL 文件
@@ -88,8 +108,12 @@ jobs:
           )
           
           foreach ($dll in $gtkDlls) {
-            if (Test-Path "$sourceDir\$dll") {
-              Copy-Item "$sourceDir\$dll" -Destination $destDir -Force
+            $sourceFile = "$sourceDir\$dll"
+            if (Test-Path $sourceFile) {
+              Copy-Item $sourceFile -Destination $destDir -Force
+              Write-Host "Copied: $dll"
+            } else {
+              Write-Warning "File not found: $sourceFile"
             }
           }
 
