@@ -12,7 +12,7 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 30  
+    timeout-minutes: 30
     strategy:
       matrix:
         arch: [x64, x86]
@@ -26,32 +26,38 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
 
-      - name: Download GTK3 Development Files
+      - name: Install GTK3 via MSYS2
         run: |
-          # 创建目录
-          New-Item -ItemType Directory -Force -Path "C:\gtk3" | Out-Null
+          # 使用 Chocolatey 安装 MSYS2
+          choco install -y msys2 --params "/NoUpdate"
           
-          # 下载预编译的 GTK3 开发包
+          # 设置 MSYS2 路径
           if ("${{ matrix.arch }}" -eq "x64") {
-            $gtkDevUrl = "https://github.com/wingtk/gvsbuild/releases/download/gtk3-3.24.41-1/gtk3-x64-dev-3.24.41-1.zip"
-            $targetPath = "C:\gtk3\x64"
+            $msysPath = "C:\tools\msys64"
+            $mingwPath = "$msysPath\mingw64"
           } else {
-            $gtkDevUrl = "https://github.com/wingtk/gvsbuild/releases/download/gtk3-3.24.41-1/gtk3-x86-dev-3.24.41-1.zip"
-            $targetPath = "C:\gtk3\x86"
+            $msysPath = "C:\tools\msys32"
+            $mingwPath = "$msysPath\mingw32"
           }
           
-          Write-Host "Downloading GTK3 development files from: $gtkDevUrl"
-          Invoke-WebRequest -Uri $gtkDevUrl -OutFile gtk3-dev.zip -MaximumRetryCount 3 -RetryIntervalSec 2
+          # 等待 MSYS2 安装完成
+          Start-Sleep -Seconds 10
           
-          Write-Host "Extracting to: $targetPath"
-          Expand-Archive -Path gtk3-dev.zip -DestinationPath $targetPath -Force
+          # 使用 MSYS2 的 pacman 安装 GTK3
+          $pacman = "$msysPath\usr\bin\pacman.exe"
+          $bash = "$msysPath\usr\bin\bash.exe"
+          
+          # 更新包数据库
+          & $bash -c "pacman -Syu --noconfirm"
+          
+          # 安装 GTK3 开发包
+          & $bash -c "pacman -S --noconfirm mingw-w64-${{ matrix.arch == 'x64' && 'x86_64' || 'i686' }}-gtk3"
+          & $bash -c "pacman -S --noconfirm mingw-w64-${{ matrix.arch == 'x64' && 'x86_64' || 'i686' }}-pkg-config"
           
           # 设置环境变量
-          echo "GTK3_PATH=$targetPath" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "PKG_CONFIG_PATH=$targetPath\lib\pkgconfig" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "$targetPath\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-          
-          Write-Host "GTK3 development files installed successfully"
+          echo "GTK3_PATH=$mingwPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "$mingwPath\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          echo "PKG_CONFIG_PATH=$mingwPath\lib\pkgconfig" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.arch }}/${{ matrix.config }}/
@@ -60,9 +66,6 @@ jobs:
         run: |
           # 设置平台变量
           $platform = if ("${{ matrix.arch }}" -eq "x64") { "x64" } else { "Win32" }
-          
-          # 获取 GTK3 路径
-          $gtkPath = if ("${{ matrix.arch }}" -eq "x64") { "C:\gtk3\x64" } else { "C:\gtk3\x86" }
           
           # 构建项目
           msbuild sfd_tool.vcxproj `
@@ -73,19 +76,33 @@ jobs:
 
       - name: Copy GTK3 Runtime DLLs
         run: |
-          $sourceDir = if ("${{ matrix.arch }}" -eq "x64") { "C:\gtk3\x64\bin" } else { "C:\gtk3\x86\bin" }
+          $sourceDir = if ("${{ matrix.arch }}" -eq "x64") { "C:\tools\msys64\mingw64\bin" } else { "C:\tools\msys32\mingw32\bin" }
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
           
-          # 复制所有 DLL 文件
-          if (Test-Path $sourceDir) {
-            $dllFiles = Get-ChildItem -Path $sourceDir -Filter "*.dll"
-            foreach ($file in $dllFiles) {
-              Copy-Item $file.FullName -Destination $destDir -Force
-              Write-Host "Copied: $($file.Name)"
+          # 复制必要的 GTK3 DLL 文件
+          $essentialDlls = @(
+            "libgtk-3-0.dll",
+            "libgdk-3-0.dll",
+            "libglib-2.0-0.dll",
+            "libgobject-2.0-0.dll",
+            "libgio-2.0-0.dll"
+          )
+          
+          foreach ($dll in $essentialDlls) {
+            $sourceFile = "$sourceDir\$dll"
+            if (Test-Path $sourceFile) {
+              Copy-Item $sourceFile -Destination $destDir -Force
+              Write-Host "Copied: $dll"
+            } else {
+              # 尝试查找类似的 DLL
+              $similar = Get-ChildItem -Path $sourceDir -Filter "*$($dll.Split('-')[0])*" | Select-Object -First 1
+              if ($similar) {
+                Copy-Item $similar.FullName -Destination $destDir -Force
+                Write-Host "Copied similar: $($similar.Name) instead of $dll"
+              } else {
+                Write-Warning "File not found: $dll"
+              }
             }
-            Write-Host "Total copied: $($dllFiles.Count) DLL files"
-          } else {
-            Write-Error "Source directory not found: $sourceDir"
           }
 
       - name: Upload Build Artifacts
