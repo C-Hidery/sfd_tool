@@ -32,16 +32,12 @@ jobs:
           $msysPath = "C:\msys64"
           $mingwPath = "$msysPath\mingw64"
           
-          Write-Host "Installing GTK3 via MSYS2..."
-          
-          # 更新 MSYS2 并安装 GTK3
+          Write-Host "更新 MSYS2 包数据库..."
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -Syu --noconfirm"
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm mingw-w64-x86_64-gtk3 mingw-w64-x86_64-pkg-config"
           
-          # 获取 GTK3 的编译标志
-          & "$mingwPath\bin\pkg-config.exe" --version
+          Write-Host "安装 GTK3 开发包..."
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm mingw-w64-x86_64-gtk3"
           
-          # 设置环境变量
           echo "$mingwPath\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
           echo "GTK3_PATH=$mingwPath" | Out-File -FilePath $env:GITHUB_ENV -Append
 
@@ -53,42 +49,87 @@ jobs:
           $platform = if ("${{ matrix.arch }}" -eq "x64") { "x64" } else { "Win32" }
           $mingwPath = "C:\msys64\mingw64"
           
-          # 使用 pkg-config 获取 GTK3 编译标志
-          $pkgConfig = "$mingwPath\bin\pkg-config.exe"
-          $gtkInclude = & $pkgConfig --cflags-only-I gtk+-3.0
-          $gtkLibs = & $pkgConfig --libs gtk+-3.0
+          # 设置 GTK3 包含路径
+          $winIncludes = @(
+            "/I`"$mingwPath\include\gtk-3.0`"",
+            "/I`"$mingwPath\include\glib-2.0`"",
+            "/I`"$mingwPath\lib\glib-2.0\include`"",
+            "/I`"$mingwPath\include\pango-1.0`"",
+            "/I`"$mingwPath\include\cairo`"",
+            "/I`"$mingwPath\include\gdk-pixbuf-2.0`"",
+            "/I`"$mingwPath\include\atk-1.0`""
+          ) -join ' '
           
-          Write-Host "GTK Include: $gtkInclude"
-          Write-Host "GTK Libs: $gtkLibs"
+          # GTK3 库文件
+          $gtkLibs = "gtk-3.lib gdk-3.lib glib-2.0.lib gobject-2.0.lib gio-2.0.lib"
           
-          # 构建项目，传递 GTK3 路径
+          # 根据架构设置不同的驱动
+          if ("${{ matrix.arch }}" -eq "x64") {
+            # x64: 使用 libusb
+            $driverLibs = "libusb-1.0.lib"
+            $libDirs = "/LIBPATH:Lib /LIBPATH:`"$mingwPath\lib`""
+            $preprocessor = "USE_LIBUSB;_CRT_SECURE_NO_WARNINGS;NDEBUG;_WINDOWS;USE_GTK"
+          } else {
+            # x86: 使用 SPRD 驱动
+            $driverLibs = "setupapi.lib"
+            $libDirs = "/LIBPATH:`"$mingwPath\lib`""
+            $preprocessor = "WIN32;_CRT_SECURE_NO_WARNINGS;NDEBUG;_WINDOWS;USE_GTK"
+          }
+          
+          Write-Host "构建 ${{ matrix.arch }} (${{ matrix.config }})"
+          Write-Host "平台: $platform"
+          Write-Host "预处理器定义: $preprocessor"
+          Write-Host "驱动库: $driverLibs"
+          
           msbuild sfd_tool.vcxproj `
             /p:Configuration=${{ matrix.config }} `
             /p:Platform=$platform `
             /p:OutDir=./build/${{ matrix.arch }}/${{ matrix.config }}/ `
-            /p:GTK3_INCLUDE_DIRS="$gtkInclude" `
-            /p:GTK3_LIBRARIES="$gtkLibs" `
+            /p:AdditionalIncludeDirectories="$winIncludes" `
+            /p:AdditionalDependencies="$gtkLibs $driverLibs" `
+            /p:AdditionalLibraryDirectories="$libDirs" `
+            /p:PreprocessorDefinitions="$preprocessor" `
+            /p:SubSystem=Windows `
             /verbosity:minimal
 
-      - name: Copy GTK3 Runtime DLLs
+      - name: Copy Required DLLs
         run: |
-          $sourceDir = "C:\msys64\mingw64\bin"
+          $mingwBin = "C:\msys64\mingw64\bin"
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
           
-          # 复制 GTK3 DLL
-          $dlls = @(
+          # 复制 GTK3 DLLs
+          $gtkDlls = @(
             "libgtk-3-0.dll",
-            "libgdk-3-0.dll",
+            "libgdk-3-0.dll", 
             "libglib-2.0-0.dll",
             "libgobject-2.0-0.dll",
             "libgio-2.0-0.dll"
           )
           
-          foreach ($dll in $dlls) {
-            $source = "$sourceDir\$dll"
+          foreach ($dll in $gtkDlls) {
+            $source = "$mingwBin\$dll"
             if (Test-Path $source) {
               Copy-Item $source -Destination $destDir -Force
               Write-Host "✓ $dll"
+            }
+          }
+          
+          # 根据架构复制驱动 DLL
+          if ("${{ matrix.arch }}" -eq "x64") {
+            # x64: 复制 libusb DLL
+            if (Test-Path "Lib/libusb-1.0.dll") {
+              Copy-Item "Lib/libusb-1.0.dll" -Destination $destDir -Force
+              Write-Host "✓ libusb-1.0.dll"
+            }
+          } else {
+            # x86: 复制 SPRD 驱动 DLL
+            if (Test-Path "Lib/Channel9.dll") {
+              Copy-Item "Lib/Channel9.dll" -Destination $destDir -Force
+              Write-Host "✓ Channel9.dll"
+            }
+            if (Test-Path "Lib/Channel.ini") {
+              Copy-Item "Lib/Channel.ini" -Destination $destDir -Force
+              Write-Host "✓ Channel.ini"
             }
           }
 
@@ -139,8 +180,22 @@ jobs:
           draft: false
           prerelease: false
           body: |
-            x86 ver work with SPRD driver, x64 ver work with libusb driver
-            GTK3-based GUI application
+            ## sfd_tool Release
+            
+            ### 版本说明:
+            - **sfd_tool_SPRD_Release**: x86 版本，使用 SPRD 驱动
+            - **sfd_tool_LibUSB_Release**: x64 版本，使用 libusb 驱动
+            
+            ### 使用说明:
+            1. x86 版本需要安装 SPRD 驱动
+            2. x64 版本需要 libusb 驱动
+            3. 两个版本都是 GTK3 GUI 应用程序
+            
+            ### 文件列表:
+            - sfd_tool.exe - 主程序
+            - *.dll - 运行时依赖库
+            - *.ini - 配置文件
+            - README.md - 说明文档
           files: |
             ${{ env.RELEASE_TAG }}.zip
         env:
