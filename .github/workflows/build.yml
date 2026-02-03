@@ -68,20 +68,17 @@ jobs:
             # x64: 使用 libusb
             $driverLibs = "libusb-1.0.lib"
             $libDirs = "/LIBPATH:Lib /LIBPATH:`"$mingwPath\lib`""
-            $preprocessor = "USE_LIBUSB;_CRT_SECURE_NO_WARNINGS;NDEBUG;_WINDOWS;USE_GTK"
           } else {
             # x86: 使用 SPRD 驱动
             $driverLibs = "setupapi.lib"
             $libDirs = "/LIBPATH:`"$mingwPath\lib`""
-            $preprocessor = "WIN32;_CRT_SECURE_NO_WARNINGS;NDEBUG;_WINDOWS;USE_GTK"
           }
           
           Write-Host "构建 ${{ matrix.arch }} (${{ matrix.config }})"
           Write-Host "平台: $platform"
-          Write-Host "预处理器定义: $preprocessor"
           Write-Host "驱动库: $driverLibs"
           
-          # 正确的构建命令
+          # 构建命令 - 不传递 PreprocessorDefinitions
           msbuild sfd_tool.vcxproj `
             /p:Configuration=${{ matrix.config }} `
             /p:Platform=$platform `
@@ -89,7 +86,6 @@ jobs:
             /p:AdditionalIncludeDirectories="$winIncludes" `
             /p:AdditionalDependencies="$gtkLibs $driverLibs" `
             /p:AdditionalLibraryDirectories="$libDirs" `
-            "/p:PreprocessorDefinitions=$preprocessor" `
             /p:SubSystem=Windows `
             /verbosity:minimal
 
