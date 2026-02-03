@@ -24,27 +24,11 @@ sudo apt install libusb-1.0-0-dev gcc g++ libgtk-3-dev pkg-config
 sudo dnf install libusb-devel gtk3-devel pkg-config
 # macOS
 brew install libusb gtk+3 pkg-config
-# Android(Termux)
-pkg install termux-api libusb clang git g++
 ```
 
 然后make:
 ``` bash
 make
-```
-
-在Termux上使用:
-
-``` bash
-# 搜索OTG设备
-termux-usb -l
-[
-  "/dev/bus/usb/xxx/xxx"
-]
-# 授权OTG设备
-termux-usb -r /dev/bus/usb/xxx/xxx
-# 运行
-termux-usb -e './sfd_tool --usb-fd' /dev/bus/usb/xxx/xxx
 ```
 
 **警告：您可能必须以 root 用户运行该工具才能正确连接设备!**
