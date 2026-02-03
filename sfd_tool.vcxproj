@@ -23,16 +23,16 @@
     <ClInclude Include="common.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="spd_cmd.h" />
-    <ClInclude Include="GtkWidgetHelper.hpp" />
     <ClInclude Include="Wrapper.h" />
+    <ClInclude Include="GtkWidgetHelper.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BMPlatform.cpp" />
     <ClCompile Include="common.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="main_console.cpp" />
-    <ClCompile Include="GtkWidgetHelper.cpp" />
     <ClCompile Include="Wrapper.cpp" />
+    <ClCompile Include="GtkWidgetHelper.cpp" />
+    <ClCompile Include="main_console.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="app.rc" />
@@ -48,6 +48,8 @@
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  
+  <!-- 恢复原来的配置 -->
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
@@ -74,11 +76,12 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
+  
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <ImportGroup Label="ExtensionSettings">
-  </ImportGroup>
-  <ImportGroup Label="Shared">
-  </ImportGroup>
+  
+  <!-- 在构建步骤中添加 GTK3 路径，而不是硬编码 -->
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
@@ -92,30 +95,24 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   
-  <!-- GTK3 路径设置 -->
-  <PropertyGroup Condition="'$(Platform)'=='Win32'">
-    <GTK3_PATH>C:\Program Files (x86)\gtk3</GTK3_PATH>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Platform)'=='x64'">
-    <GTK3_PATH>C:\Program Files\gtk3</GTK3_PATH>
-  </PropertyGroup>
-  
   <PropertyGroup Label="UserMacros" />
+  
+  <!-- x86 配置 (SPRD 驱动) -->
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_WINDOWS;USE_GTK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(GTK3_PATH)\include\gtk-3.0;$(GTK3_PATH)\include\glib-2.0;$(GTK3_PATH)\lib\glib-2.0\include;$(GTK3_PATH)\include\pango-1.0;$(GTK3_PATH)\include\cairo;$(GTK3_PATH)\include\gdk-pixbuf-2.0;$(GTK3_PATH)\include\atk-1.0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(GTK3_INCLUDE_DIRS);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>gtk-3.lib;gdk-3.lib;glib-2.0.lib;gobject-2.0.lib;gio-2.0.lib;setupapi.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>setupapi.lib;$(GTK3_LIBRARIES);$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
+  
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -124,30 +121,32 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;USE_GTK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(GTK3_PATH)\include\gtk-3.0;$(GTK3_PATH)\include\glib-2.0;$(GTK3_PATH)\lib\glib-2.0\include;$(GTK3_PATH)\include\pango-1.0;$(GTK3_PATH)\include\cairo;$(GTK3_PATH)\include\gdk-pixbuf-2.0;$(GTK3_PATH)\include\atk-1.0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(GTK3_INCLUDE_DIRS);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>gtk-3.lib;gdk-3.lib;glib-2.0.lib;gobject-2.0.lib;gio-2.0.lib;setupapi.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>setupapi.lib;$(GTK3_LIBRARIES);$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
+  
+  <!-- x64 配置 (libusb 驱动) -->
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>USE_LIBUSB;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;USE_GTK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>Lib;$(GTK3_PATH)\include\gtk-3.0;$(GTK3_PATH)\include\glib-2.0;$(GTK3_PATH)\lib\glib-2.0\include;$(GTK3_PATH)\include\pango-1.0;$(GTK3_PATH)\include\cairo;$(GTK3_PATH)\include\gdk-pixbuf-2.0;$(GTK3_PATH)\include\atk-1.0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Lib;$(GTK3_INCLUDE_DIRS);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>Lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libusb-1.0.lib;gtk-3.lib;gdk-3.lib;glib-2.0.lib;gobject-2.0.lib;gio-2.0.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libusb-1.0.lib;$(GTK3_LIBRARIES);$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
+  
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -156,16 +155,16 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>USE_LIBUSB;_CRT_SECURE_NO_WARNINGS;NDEBUG;_WINDOWS;USE_GTK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>Lib;$(GTK3_PATH)\include\gtk-3.0;$(GTK3_PATH)\include\glib-2.0;$(GTK3_PATH)\lib\glib-2.0\include;$(GTK3_PATH)\include\pango-1.0;$(GTK3_PATH)\include\cairo;$(GTK3_PATH)\include\gdk-pixbuf-2.0;$(GTK3_PATH)\include\atk-1.0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Lib;$(GTK3_INCLUDE_DIRS);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>Lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libusb-1.0.lib;gtk-3.lib;gdk-3.lib;glib-2.0.lib;gobject-2.0.lib;gio-2.0.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libusb-1.0.lib;$(GTK3_LIBRARIES);$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
+  
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets">
-  </ImportGroup>
+  <ImportGroup Label="ExtensionTargets" />
 </Project>

@@ -12,7 +12,7 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 100
+    timeout-minutes: 25
     strategy:
       matrix:
         arch: [x64, x86]
@@ -26,28 +26,23 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
 
-      - name: Configure MSYS2 and Install GTK3
+      - name: Install GTK3 via MSYS2
         run: |
-          # GitHub Actions Windows 镜像已经安装了 MSYS2
+          # 使用预装的 MSYS2
           $msysPath = "C:\msys64"
           $mingwPath = "$msysPath\mingw64"
-          $mingwBinPath = "$mingwPath\bin"
           
-          Write-Host "MSYS2 installed at: $msysPath"
-          Write-Host "MinGW path: $mingwPath"
+          Write-Host "Installing GTK3 via MSYS2..."
           
-          # 关键：使用正确的 MSYS2 环境
-          $msysBash = "$msysPath\usr\bin\bash.exe"
+          # 更新 MSYS2 并安装 GTK3
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Syu --noconfirm"
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm mingw-w64-x86_64-gtk3 mingw-w64-x86_64-pkg-config"
           
-          # 方法1：直接使用 MSYS2 的 pacman
-          Write-Host "Updating MSYS2 package database..."
-          & $msysBash -lc "pacman --needed --noconfirm -Sy bash pacman pacman-mirrors msys2-runtime"
+          # 获取 GTK3 的编译标志
+          & "$mingwPath\bin\pkg-config.exe" --version
           
-          Write-Host "Installing GTK3 development packages..."
-          & $msysBash -lc "pacman -S --noconfirm mingw-w64-x86_64-gtk3 mingw-w64-x86_64-pkg-config"
-          
-          # 将 MinGW bin 目录添加到 PATH
-          echo "$mingwBinPath" | Out-File -FilePath $env:GITHUB_PATH -Append
+          # 设置环境变量
+          echo "$mingwPath\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
           echo "GTK3_PATH=$mingwPath" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Create Build Directory
@@ -56,12 +51,23 @@ jobs:
       - name: Build sfd_tool (${{ matrix.arch }} - ${{ matrix.config }})
         run: |
           $platform = if ("${{ matrix.arch }}" -eq "x64") { "x64" } else { "Win32" }
+          $mingwPath = "C:\msys64\mingw64"
           
-          # 构建项目（项目文件已经配置了 GTK3 路径）
+          # 使用 pkg-config 获取 GTK3 编译标志
+          $pkgConfig = "$mingwPath\bin\pkg-config.exe"
+          $gtkInclude = & $pkgConfig --cflags-only-I gtk+-3.0
+          $gtkLibs = & $pkgConfig --libs gtk+-3.0
+          
+          Write-Host "GTK Include: $gtkInclude"
+          Write-Host "GTK Libs: $gtkLibs"
+          
+          # 构建项目，传递 GTK3 路径
           msbuild sfd_tool.vcxproj `
             /p:Configuration=${{ matrix.config }} `
             /p:Platform=$platform `
             /p:OutDir=./build/${{ matrix.arch }}/${{ matrix.config }}/ `
+            /p:GTK3_INCLUDE_DIRS="$gtkInclude" `
+            /p:GTK3_LIBRARIES="$gtkLibs" `
             /verbosity:minimal
 
       - name: Copy GTK3 Runtime DLLs
@@ -69,15 +75,13 @@ jobs:
           $sourceDir = "C:\msys64\mingw64\bin"
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
           
-          # 复制必要的 DLL
+          # 复制 GTK3 DLL
           $dlls = @(
             "libgtk-3-0.dll",
             "libgdk-3-0.dll",
             "libglib-2.0-0.dll",
             "libgobject-2.0-0.dll",
-            "libgio-2.0-0.dll",
-            "libcairo-2.dll",
-            "libgdk_pixbuf-2.0-0.dll"
+            "libgio-2.0-0.dll"
           )
           
           foreach ($dll in $dlls) {
@@ -85,8 +89,6 @@ jobs:
             if (Test-Path $source) {
               Copy-Item $source -Destination $destDir -Force
               Write-Host "✓ $dll"
-            } else {
-              Write-Host "✗ $dll (not found)"
             }
           }
 
