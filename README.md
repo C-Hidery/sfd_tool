@@ -26,8 +26,6 @@ sudo apt install libusb-1.0-0-dev gcc g++ libgtk-3-dev pkg-config
 sudo dnf install libusb-devel gtk3-devel pkg-config
 # macOS
 brew install libusb gtk+3 pkg-config
-# Android(Termux)
-pkg install termux-api libusb clang git g++
 ```
 
 Then make:
@@ -35,19 +33,6 @@ Then make:
 make
 ```
 
-Use on Termux:
-
-``` bash
-# Search OTG device
-termux-usb -l
-[
-  "/dev/bus/usb/xxx/xxx"
-]
-# Authorize OTG device
-termux-usb -r /dev/bus/usb/xxx/xxx
-# Run
-termux-usb -e './sfd_tool --usb-fd' /dev/bus/usb/xxx/xxx
-```
 
 **WARN : You may must run tool as root to connect to device correctly!**
 
