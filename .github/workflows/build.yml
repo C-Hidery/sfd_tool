@@ -26,40 +26,29 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
 
-      - name: Use Pre-installed MSYS2
+      - name: Configure MSYS2 and Install GTK3
         run: |
-          # 检查是否已安装 MSYS2
+          # GitHub Actions Windows 镜像已经安装了 MSYS2
           $msysPath = "C:\msys64"
-          if (Test-Path $msysPath) {
-            Write-Host "MSYS2 already installed at: $msysPath"
-          } else {
-            # 如果没有，使用 chocolatey 安装
-            choco install -y msys2
-            refreshenv
-          }
-          
-          # 使用 MSYS2 安装 GTK3
           $mingwPath = "$msysPath\mingw64"
           $mingwBinPath = "$mingwPath\bin"
           
-          # 更新并安装
-          & "$msysPath\usr\bin\bash.exe" -c "pacman -Syu --noconfirm"
-          & "$msysPath\usr\bin\bash.exe" -c "pacman -S --noconfirm mingw-w64-x86_64-gtk3"
+          Write-Host "MSYS2 installed at: $msysPath"
+          Write-Host "MinGW path: $mingwPath"
           
-          # 设置环境变量
+          # 关键：使用正确的 MSYS2 环境
+          $msysBash = "$msysPath\usr\bin\bash.exe"
+          
+          # 方法1：直接使用 MSYS2 的 pacman
+          Write-Host "Updating MSYS2 package database..."
+          & $msysBash -lc "pacman --needed --noconfirm -Sy bash pacman pacman-mirrors msys2-runtime"
+          
+          Write-Host "Installing GTK3 development packages..."
+          & $msysBash -lc "pacman -S --noconfirm mingw-w64-x86_64-gtk3 mingw-w64-x86_64-pkg-config"
+          
+          # 将 MinGW bin 目录添加到 PATH
           echo "$mingwBinPath" | Out-File -FilePath $env:GITHUB_PATH -Append
-      - name: Verify Installation
-        run: |
-          # 直接测试 pkg-config
-          $pkgConfig = "C:\tools\msys64\mingw64\bin\pkg-config.exe"
-          if (Test-Path $pkgConfig) {
-            Write-Host "pkg-config found at: $pkgConfig"
-            & $pkgConfig --version
-            & $pkgConfig --modversion gtk+-3.0
-            & $pkgConfig --cflags gtk+-3.0
-          } else {
-            Write-Error "pkg-config not found!"
-          }
+          echo "GTK3_PATH=$mingwPath" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.arch }}/${{ matrix.config }}/
@@ -68,41 +57,36 @@ jobs:
         run: |
           $platform = if ("${{ matrix.arch }}" -eq "x64") { "x64" } else { "Win32" }
           
-          # 获取 GTK3 编译标志
-          $pkgConfig = "C:\tools\msys64\mingw64\bin\pkg-config.exe"
-          $gtkCflags = & $pkgConfig --cflags gtk+-3.0
-          $gtkLibs = & $pkgConfig --libs gtk+-3.0
-          
-          Write-Host "Building with GTK3 flags..."
-          Write-Host "CFLAGS: $gtkCflags"
-          Write-Host "LIBS: $gtkLibs"
-          
+          # 构建项目（项目文件已经配置了 GTK3 路径）
           msbuild sfd_tool.vcxproj `
             /p:Configuration=${{ matrix.config }} `
             /p:Platform=$platform `
             /p:OutDir=./build/${{ matrix.arch }}/${{ matrix.config }}/ `
-            /p:AdditionalIncludeDirectories="$gtkCflags" `
-            /p:AdditionalDependencies="$gtkLibs" `
             /verbosity:minimal
 
-      - name: Copy GTK3 DLLs
+      - name: Copy GTK3 Runtime DLLs
         run: |
-          $sourceDir = "C:\tools\msys64\mingw64\bin"
+          $sourceDir = "C:\msys64\mingw64\bin"
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
           
-          # 复制最核心的 DLL
-          $essentialDlls = @(
+          # 复制必要的 DLL
+          $dlls = @(
             "libgtk-3-0.dll",
-            "libgdk-3-0.dll", 
+            "libgdk-3-0.dll",
             "libglib-2.0-0.dll",
             "libgobject-2.0-0.dll",
-            "libgio-2.0-0.dll"
+            "libgio-2.0-0.dll",
+            "libcairo-2.dll",
+            "libgdk_pixbuf-2.0-0.dll"
           )
           
-          foreach ($dll in $essentialDlls) {
-            if (Test-Path "$sourceDir\$dll") {
-              Copy-Item "$sourceDir\$dll" -Destination $destDir -Force
-              Write-Host "Copied: $dll"
+          foreach ($dll in $dlls) {
+            $source = "$sourceDir\$dll"
+            if (Test-Path $source) {
+              Copy-Item $source -Destination $destDir -Force
+              Write-Host "✓ $dll"
+            } else {
+              Write-Host "✗ $dll (not found)"
             }
           }
 
