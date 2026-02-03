@@ -81,6 +81,7 @@ jobs:
           Write-Host "预处理器定义: $preprocessor"
           Write-Host "驱动库: $driverLibs"
           
+          # 正确的构建命令
           msbuild sfd_tool.vcxproj `
             /p:Configuration=${{ matrix.config }} `
             /p:Platform=$platform `
@@ -88,7 +89,7 @@ jobs:
             /p:AdditionalIncludeDirectories="$winIncludes" `
             /p:AdditionalDependencies="$gtkLibs $driverLibs" `
             /p:AdditionalLibraryDirectories="$libDirs" `
-            /p:PreprocessorDefinitions="$preprocessor" `
+            "/p:PreprocessorDefinitions=$preprocessor" `
             /p:SubSystem=Windows `
             /verbosity:minimal
 
