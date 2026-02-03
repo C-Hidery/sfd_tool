@@ -85,61 +85,69 @@ jobs:
             Write-Error "GTK3 bin 目录不存在: $gtkBinPath"
           }
 
-      - name: Copy Required Files
+      - name: Copy Required DLLs with Dependencies
         run: |
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
           
-          # 根据架构复制 GTK3 DLLs
           if ("${{ matrix.arch }}" -eq "x64") {
             $gtkBinPath = "C:\msys64\mingw64\bin"
           } else {
             $gtkBinPath = "C:\msys64\mingw32\bin"
           }
           
-          # 必须的 GTK3 DLL
-          $essentialDlls = @(
+          # 核心 GTK3 DLLs（必须的）
+          $coreGtkDlls = @(
             "libgtk-3-0.dll",
             "libgdk-3-0.dll",
             "libglib-2.0-0.dll",
             "libgobject-2.0-0.dll",
             "libgio-2.0-0.dll",
             "libcairo-2.dll",
-            "libgdk_pixbuf-2.0-0.dll"
+            "libgdk_pixbuf-2.0-0.dll",
+            "libharfbuzz-0.dll",
+            "libpango-1.0-0.dll",
+            "libpangocairo-1.0-0.dll",
+            "libpangowin32-1.0-0.dll"
           )
           
-          foreach ($dll in $essentialDlls) {
+          # 依赖 DLLs（从错误信息中收集）
+          $dependencyDlls = @(
+            "libatk-1.0-0.dll",
+            "libcairo-gobject-2.dll",
+            "libgcc_s_dw2-1.dll",
+            "libstdc++-6.dll",
+            "libfontconfig-1.dll",
+            "libfreetype-6.dll",
+            "libpixman-1-0.dll",
+            "libpng16-16.dll",
+            "libepoxy-0.dll",
+            "libfribidi-0.dll",
+            "libintl-8.dll",
+            "libpcre2-8-0.dll",
+            "libgmodule-2.0-0.dll",
+            "libffi-8.dll",
+            "libjpeg-8.dll",
+            "libtiff-6.dll",
+            "libwebp.dll"
+          )
+          
+          $allDlls = $coreGtkDlls + $dependencyDlls | Select-Object -Unique
+          
+          foreach ($dll in $allDlls) {
             $source = "$gtkBinPath\$dll"
             if (Test-Path $source) {
               Copy-Item $source -Destination $destDir -Force
               Write-Host "✓ $dll"
             } else {
               # 尝试查找变体
-              $found = Get-ChildItem -Path $gtkBinPath -Filter "*$($dll.Split('-')[0])*" | Select-Object -First 1
+              $baseName = $dll.Split('-')[0]
+              $found = Get-ChildItem -Path $gtkBinPath -Filter "$baseName*.dll" | Select-Object -First 1
               if ($found) {
                 Copy-Item $found.FullName -Destination $destDir -Force
                 Write-Host "⚠ 使用 $($found.Name) 替代 $dll"
               } else {
                 Write-Warning "✗ 未找到 $dll"
               }
-            }
-          }
-          
-          # 复制驱动相关文件
-          if ("${{ matrix.arch }}" -eq "x64") {
-            # libusb
-            if (Test-Path "Lib/libusb-1.0.dll") {
-              Copy-Item "Lib/libusb-1.0.dll" -Destination $destDir -Force
-              Write-Host "✓ libusb-1.0.dll"
-            }
-          } else {
-            # SPRD 驱动
-            if (Test-Path "Lib/Channel9.dll") {
-              Copy-Item "Lib/Channel9.dll" -Destination $destDir -Force
-              Write-Host "✓ Channel9.dll"
-            }
-            if (Test-Path "Lib/Channel.ini") {
-              Copy-Item "Lib/Channel.ini" -Destination $destDir -Force
-              Write-Host "✓ Channel.ini"
             }
           }
 
