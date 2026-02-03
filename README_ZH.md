@@ -24,6 +24,11 @@ sudo apt install libusb-1.0-0-dev gcc g++ libgtk-3-dev pkg-config
 sudo dnf install libusb-devel gtk3-devel pkg-config
 # macOS
 brew install libusb gtk+3 pkg-config
+<<<<<<< HEAD
+=======
+# Android(Termux)
+pkg install termux-api libusb clang git g++ pkg-config gtk3 glib pango cairo gtk-pixbuf atk
+>>>>>>> 776e587 (update)
 ```
 
 然后make:
@@ -31,6 +36,23 @@ brew install libusb gtk+3 pkg-config
 make
 ```
 
+<<<<<<< HEAD
+=======
+在Termux上使用(No GUI):
+
+``` bash
+# 搜索OTG设备
+termux-usb -l
+[
+  "/dev/bus/usb/xxx/xxx"
+]
+# 授权OTG设备
+termux-usb -r /dev/bus/usb/xxx/xxx
+# 运行
+termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
+```
+
+>>>>>>> 776e587 (update)
 **警告：您可能必须以 root 用户运行该工具才能正确连接设备!**
 
 ---
