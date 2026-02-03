@@ -85,71 +85,73 @@ jobs:
             Write-Error "GTK3 bin 目录不存在: $gtkBinPath"
           }
 
-      - name: Copy Required DLLs with Dependencies
+      - name: Copy ALL DLLs from GTK3 bin directory
         run: |
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
           
+          # 确定 GTK3 bin 目录
           if ("${{ matrix.arch }}" -eq "x64") {
             $gtkBinPath = "C:\msys64\mingw64\bin"
           } else {
             $gtkBinPath = "C:\msys64\mingw32\bin"
           }
           
-          # 核心 GTK3 DLLs（必须的）
-          $coreGtkDlls = @(
-            "libgtk-3-0.dll",
-            "libgdk-3-0.dll",
-            "libglib-2.0-0.dll",
-            "libgobject-2.0-0.dll",
-            "libgio-2.0-0.dll",
-            "libcairo-2.dll",
-            "libgdk_pixbuf-2.0-0.dll",
-            "libharfbuzz-0.dll",
-            "libpango-1.0-0.dll",
-            "libpangocairo-1.0-0.dll",
-            "libpangowin32-1.0-0.dll"
-          )
+          Write-Host "复制所有 DLL 从: $gtkBinPath"
+          Write-Host "复制到: $destDir"
           
-          # 依赖 DLLs（从错误信息中收集）
-          $dependencyDlls = @(
-            "libatk-1.0-0.dll",
-            "libcairo-gobject-2.dll",
-            "libgcc_s_dw2-1.dll",
-            "libstdc++-6.dll",
-            "libfontconfig-1.dll",
-            "libfreetype-6.dll",
-            "libpixman-1-0.dll",
-            "libpng16-16.dll",
-            "libepoxy-0.dll",
-            "libfribidi-0.dll",
-            "libintl-8.dll",
-            "libpcre2-8-0.dll",
-            "libgmodule-2.0-0.dll",
-            "libffi-8.dll",
-            "libjpeg-8.dll",
-            "libtiff-6.dll",
-            "libwebp.dll"
-          )
-          
-          $allDlls = $coreGtkDlls + $dependencyDlls | Select-Object -Unique
-          
-          foreach ($dll in $allDlls) {
-            $source = "$gtkBinPath\$dll"
-            if (Test-Path $source) {
-              Copy-Item $source -Destination $destDir -Force
-              Write-Host "✓ $dll"
-            } else {
-              # 尝试查找变体
-              $baseName = $dll.Split('-')[0]
-              $found = Get-ChildItem -Path $gtkBinPath -Filter "$baseName*.dll" | Select-Object -First 1
-              if ($found) {
-                Copy-Item $found.FullName -Destination $destDir -Force
-                Write-Host "⚠ 使用 $($found.Name) 替代 $dll"
-              } else {
-                Write-Warning "✗ 未找到 $dll"
-              }
-            }
+          # 检查源目录是否存在
+          if (-not (Test-Path $gtkBinPath)) {
+            Write-Error "GTK3 bin 目录不存在: $gtkBinPath"
+            exit 1
           }
+          
+          # 复制所有 DLL 文件
+          $dllFiles = Get-ChildItem -Path $gtkBinPath -Filter "*.dll"
+          
+          if ($dllFiles.Count -eq 0) {
+            Write-Warning "没有找到 DLL 文件！"
+            Write-Host "目录内容:"
+            Get-ChildItem -Path $gtkBinPath | Select-Object -First 20
+          } else {
+            foreach ($dll in $dllFiles) {
+              Copy-Item $dll.FullName -Destination $destDir -Force
+            }
+            Write-Host "已复制 $($dllFiles.Count) 个 DLL 文件"
+            
+            # 显示前10个复制的文件
+            Write-Host "前10个 DLL 文件:"
+            $dllFiles | Select-Object -First 10 Name | ForEach-Object { Write-Host "  - $($_.Name)" }
+          }
+          
+
+      - name: Cleanup Build Directory (Optional)
+        run: |
+          $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
+          
+          # 删除不需要的大文件（可选）
+          $unwantedExtensions = @(
+            ".exe",    # 可执行文件（除了我们的）
+            ".a",      # 静态库
+            ".la",     # libtool 文件
+            ".def",    # 导出定义
+            ".sh",     # shell 脚本
+            ".py",     # python 脚本
+            ".pl"      # perl 脚本
+          )
+          
+          # 保留我们的可执行文件
+          $keepFiles = @("sfd_tool.exe", "sfd_tool.pdb")
+          
+          foreach ($ext in $unwantedExtensions) {
+            Get-ChildItem -Path $destDir -Filter "*$ext" -Exclude $keepFiles | Remove-Item -Force -ErrorAction SilentlyContinue
+          }
+          
+          Write-Host "清理后文件统计:"
+          $totalFiles = (Get-ChildItem -Path $destDir).Count
+          $totalSize = (Get-ChildItem -Path $destDir | Measure-Object -Property Length -Sum).Sum / 1MB
+          Write-Host "  文件数量: $totalFiles"
+          Write-Host "  总大小: $([math]::Round($totalSize, 2)) MB"
+
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
