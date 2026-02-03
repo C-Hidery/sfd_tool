@@ -1,4 +1,4 @@
-# sfd_tool GUI Edition
+# sfd_tool
 
 [**中文文档**](https://github.com/C-Hidery/sfd_tool/blob/gtk_version/README_ZH.md)
 
@@ -9,6 +9,8 @@
 The modified version of tool 'spreadtrum_flash'
 
 sfd_tool is a maintenance release for spreadtrum_flash
+
+**(This version adds GTK3 graphical interface)**
 
 [spreadtrum_flash](https://github.com/TomKing062/spreadtrum_flash)
 
