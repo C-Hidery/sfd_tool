@@ -38,12 +38,11 @@ jobs:
           
           # 根据架构安装对应的 GTK3
           if ("${{ matrix.arch }}" -eq "x64") {
-            Write-Host "安装 x64 GTK3..."
-            & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm mingw-w64-x86_64-gtk3"
+            Write-Host "安装 x64 GTK3 完整开发包..."
+            & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
           } else {
-            Write-Host "安装 x86 GTK3..."
-            # 先确保 mingw32 环境存在
-            & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm mingw-w64-i686-gtk3"
+            Write-Host "安装 x86 GTK3 完整开发包..."
+            & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm mingw-w64-i686-gtk3 mingw-w64-i686-harfbuzz mingw-w64-i686-pango mingw-w64-i686-cairo mingw-w64-i686-glib2"
           }
 
       - name: Create Build Directory

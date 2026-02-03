@@ -117,19 +117,28 @@
   
   <PropertyGroup Label="UserMacros" />
   
-  <!-- x86 配置 (SPRD 驱动) - 修复 GTK3 路径 -->
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_WINDOWS;USE_GTK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(GTK3_PATH)\include\gtk-3.0;$(GTK3_PATH)\include\glib-2.0;$(GTK3_PATH)\lib\glib-2.0\include;$(GTK3_PATH)\include\pango-1.0;$(GTK3_PATH)\include\cairo;$(GTK3_PATH)\include\gdk-pixbuf-2.0;$(GTK3_PATH)\include\atk-1.0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>
+        $(GTK3_PATH)\include\gtk-3.0;
+        $(GTK3_PATH)\include\glib-2.0;
+        $(GTK3_PATH)\lib\glib-2.0\include;
+        $(GTK3_PATH)\include\pango-1.0;
+        $(GTK3_PATH)\include\cairo;
+        $(GTK3_PATH)\include\gdk-pixbuf-2.0;
+        $(GTK3_PATH)\include\atk-1.0;
+        $(GTK3_PATH)\include\harfbuzz;
+        %(AdditionalIncludeDirectories)
+      </AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>setupapi.lib;gtk-3.lib;gdk-3.lib;glib-2.0.lib;gobject-2.0.lib;gio-2.0.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>setupapi.lib;gtk-3.lib;gdk-3.lib;glib-2.0.lib;gobject-2.0.lib;gio-2.0.lib;harfbuzz.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -142,30 +151,51 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;USE_GTK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(GTK3_PATH)\include\gtk-3.0;$(GTK3_PATH)\include\glib-2.0;$(GTK3_PATH)\lib\glib-2.0\include;$(GTK3_PATH)\include\pango-1.0;$(GTK3_PATH)\include\cairo;$(GTK3_PATH)\include\gdk-pixbuf-2.0;$(GTK3_PATH)\include\atk-1.0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>
+        $(GTK3_PATH)\include\gtk-3.0;
+        $(GTK3_PATH)\include\glib-2.0;
+        $(GTK3_PATH)\lib\glib-2.0\include;
+        $(GTK3_PATH)\include\pango-1.0;
+        $(GTK3_PATH)\include\cairo;
+        $(GTK3_PATH)\include\gdk-pixbuf-2.0;
+        $(GTK3_PATH)\include\atk-1.0;
+        $(GTK3_PATH)\include\harfbuzz;
+        %(AdditionalIncludeDirectories)
+      </AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>setupapi.lib;gtk-3.lib;gdk-3.lib;glib-2.0.lib;gobject-2.0.lib;gio-2.0.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>setupapi.lib;gtk-3.lib;gdk-3.lib;glib-2.0.lib;gobject-2.0.lib;gio-2.0.lib;harfbuzz.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   
-  <!-- x64 配置 (libusb 驱动) - 修复 GTK3 路径 -->
+  <!-- x64 配置 (libusb 驱动) -->
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>USE_LIBUSB;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;USE_GTK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>Lib;$(GTK3_PATH)\include\gtk-3.0;$(GTK3_PATH)\include\glib-2.0;$(GTK3_PATH)\lib\glib-2.0\include;$(GTK3_PATH)\include\pango-1.0;$(GTK3_PATH)\include\cairo;$(GTK3_PATH)\include\gdk-pixbuf-2.0;$(GTK3_PATH)\include\atk-1.0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>
+        Lib;
+        $(GTK3_PATH)\include\gtk-3.0;
+        $(GTK3_PATH)\include\glib-2.0;
+        $(GTK3_PATH)\lib\glib-2.0\include;
+        $(GTK3_PATH)\include\pango-1.0;
+        $(GTK3_PATH)\include\cairo;
+        $(GTK3_PATH)\include\gdk-pixbuf-2.0;
+        $(GTK3_PATH)\include\atk-1.0;
+        $(GTK3_PATH)\include\harfbuzz;
+        %(AdditionalIncludeDirectories)
+      </AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>Lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libusb-1.0.lib;gtk-3.lib;gdk-3.lib;glib-2.0.lib;gobject-2.0.lib;gio-2.0.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libusb-1.0.lib;gtk-3.lib;gdk-3.lib;glib-2.0.lib;gobject-2.0.lib;gio-2.0.lib;harfbuzz.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   
@@ -177,13 +207,24 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>USE_LIBUSB;_CRT_SECURE_NO_WARNINGS;NDEBUG;_WINDOWS;USE_GTK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>Lib;$(GTK3_PATH)\include\gtk-3.0;$(GTK3_PATH)\include\glib-2.0;$(GTK3_PATH)\lib\glib-2.0\include;$(GTK3_PATH)\include\pango-1.0;$(GTK3_PATH)\include\cairo;$(GTK3_PATH)\include\gdk-pixbuf-2.0;$(GTK3_PATH)\include\atk-1.0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>
+        Lib;
+        $(GTK3_PATH)\include\gtk-3.0;
+        $(GTK3_PATH)\include\glib-2.0;
+        $(GTK3_PATH)\lib\glib-2.0\include;
+        $(GTK3_PATH)\include\pango-1.0;
+        $(GTK3_PATH)\include\cairo;
+        $(GTK3_PATH)\include\gdk-pixbuf-2.0;
+        $(GTK3_PATH)\include\atk-1.0;
+        $(GTK3_PATH)\include\harfbuzz;
+        %(AdditionalIncludeDirectories)
+      </AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>Lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libusb-1.0.lib;gtk-3.lib;gdk-3.lib;glib-2.0.lib;gobject-2.0.lib;gio-2.0.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libusb-1.0.lib;gtk-3.lib;gdk-3.lib;glib-2.0.lib;gobject-2.0.lib;gio-2.0.lib;harfbuzz.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   
