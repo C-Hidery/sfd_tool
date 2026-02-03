@@ -12,7 +12,7 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     strategy:
       matrix:
         arch: [x64, x86]
@@ -26,20 +26,25 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
 
-      - name: Install GTK3 via MSYS2
+      - name: Install MSYS2 and GTK3
         run: |
-          # 使用预装的 MSYS2
+          # GitHub Actions Windows 镜像已预装 MSYS2
           $msysPath = "C:\msys64"
-          $mingwPath = "$msysPath\mingw64"
-          
-          Write-Host "更新 MSYS2 包数据库..."
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Syu --noconfirm"
           
           Write-Host "安装 GTK3 开发包..."
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm mingw-w64-x86_64-gtk3"
           
-          echo "$mingwPath\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-          echo "GTK3_PATH=$mingwPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+          # 更新 MSYS2
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Syu --noconfirm"
+          
+          # 根据架构安装对应的 GTK3
+          if ("${{ matrix.arch }}" -eq "x64") {
+            Write-Host "安装 x64 GTK3..."
+            & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm mingw-w64-x86_64-gtk3"
+          } else {
+            Write-Host "安装 x86 GTK3..."
+            # 先确保 mingw32 环境存在
+            & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm mingw-w64-i686-gtk3"
+          }
 
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.arch }}/${{ matrix.config }}/
@@ -47,79 +52,88 @@ jobs:
       - name: Build sfd_tool (${{ matrix.arch }} - ${{ matrix.config }})
         run: |
           $platform = if ("${{ matrix.arch }}" -eq "x64") { "x64" } else { "Win32" }
-          $mingwPath = "C:\msys64\mingw64"
           
-          # 设置 GTK3 包含路径
-          $winIncludes = @(
-            "/I`"$mingwPath\include\gtk-3.0`"",
-            "/I`"$mingwPath\include\glib-2.0`"",
-            "/I`"$mingwPath\lib\glib-2.0\include`"",
-            "/I`"$mingwPath\include\pango-1.0`"",
-            "/I`"$mingwPath\include\cairo`"",
-            "/I`"$mingwPath\include\gdk-pixbuf-2.0`"",
-            "/I`"$mingwPath\include\atk-1.0`""
-          ) -join ' '
-          
-          # GTK3 库文件
-          $gtkLibs = "gtk-3.lib gdk-3.lib glib-2.0.lib gobject-2.0.lib gio-2.0.lib"
-          
-          # 根据架构设置不同的驱动
-          if ("${{ matrix.arch }}" -eq "x64") {
-            # x64: 使用 libusb
-            $driverLibs = "libusb-1.0.lib"
-            $libDirs = "/LIBPATH:Lib /LIBPATH:`"$mingwPath\lib`""
-          } else {
-            # x86: 使用 SPRD 驱动
-            $driverLibs = "setupapi.lib"
-            $libDirs = "/LIBPATH:`"$mingwPath\lib`""
-          }
-          
-          Write-Host "构建 ${{ matrix.arch }} (${{ matrix.config }})"
+          Write-Host "=== 构建配置 ==="
+          Write-Host "架构: ${{ matrix.arch }}"
+          Write-Host "配置: ${{ matrix.config }}"
           Write-Host "平台: $platform"
-          Write-Host "驱动库: $driverLibs"
+          Write-Host "================"
           
-          # 构建命令 - 不传递 PreprocessorDefinitions
+          # 简单构建 - 所有配置已在 vcxproj 中
           msbuild sfd_tool.vcxproj `
             /p:Configuration=${{ matrix.config }} `
             /p:Platform=$platform `
             /p:OutDir=./build/${{ matrix.arch }}/${{ matrix.config }}/ `
-            /p:AdditionalIncludeDirectories="$winIncludes" `
-            /p:AdditionalDependencies="$gtkLibs $driverLibs" `
-            /p:AdditionalLibraryDirectories="$libDirs" `
-            /p:SubSystem=Windows `
             /verbosity:minimal
 
-      - name: Copy Required DLLs
+      - name: Verify GTK3 DLLs Exist
         run: |
-          $mingwBin = "C:\msys64\mingw64\bin"
+          if ("${{ matrix.arch }}" -eq "x64") {
+            $gtkBinPath = "C:\msys64\mingw64\bin"
+          } else {
+            $gtkBinPath = "C:\msys64\mingw32\bin"
+          }
+          
+          Write-Host "检查 GTK3 DLL 路径: $gtkBinPath"
+          
+          if (Test-Path $gtkBinPath) {
+            $dlls = Get-ChildItem -Path $gtkBinPath -Filter "*.dll" | Select-Object -First 10
+            Write-Host "找到 $(@($dlls).Count) 个 DLL 文件"
+            foreach ($dll in $dlls) {
+              Write-Host "  - $($dll.Name)"
+            }
+          } else {
+            Write-Error "GTK3 bin 目录不存在: $gtkBinPath"
+          }
+
+      - name: Copy Required Files
+        run: |
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
           
-          # 复制 GTK3 DLLs
-          $gtkDlls = @(
+          # 根据架构复制 GTK3 DLLs
+          if ("${{ matrix.arch }}" -eq "x64") {
+            $gtkBinPath = "C:\msys64\mingw64\bin"
+          } else {
+            $gtkBinPath = "C:\msys64\mingw32\bin"
+          }
+          
+          # 必须的 GTK3 DLL
+          $essentialDlls = @(
             "libgtk-3-0.dll",
-            "libgdk-3-0.dll", 
+            "libgdk-3-0.dll",
             "libglib-2.0-0.dll",
             "libgobject-2.0-0.dll",
-            "libgio-2.0-0.dll"
+            "libgio-2.0-0.dll",
+            "libcairo-2.dll",
+            "libgdk_pixbuf-2.0-0.dll"
           )
           
-          foreach ($dll in $gtkDlls) {
-            $source = "$mingwBin\$dll"
+          foreach ($dll in $essentialDlls) {
+            $source = "$gtkBinPath\$dll"
             if (Test-Path $source) {
               Copy-Item $source -Destination $destDir -Force
               Write-Host "✓ $dll"
+            } else {
+              # 尝试查找变体
+              $found = Get-ChildItem -Path $gtkBinPath -Filter "*$($dll.Split('-')[0])*" | Select-Object -First 1
+              if ($found) {
+                Copy-Item $found.FullName -Destination $destDir -Force
+                Write-Host "⚠ 使用 $($found.Name) 替代 $dll"
+              } else {
+                Write-Warning "✗ 未找到 $dll"
+              }
             }
           }
           
-          # 根据架构复制驱动 DLL
+          # 复制驱动相关文件
           if ("${{ matrix.arch }}" -eq "x64") {
-            # x64: 复制 libusb DLL
+            # libusb
             if (Test-Path "Lib/libusb-1.0.dll") {
               Copy-Item "Lib/libusb-1.0.dll" -Destination $destDir -Force
               Write-Host "✓ libusb-1.0.dll"
             }
           } else {
-            # x86: 复制 SPRD 驱动 DLL
+            # SPRD 驱动
             if (Test-Path "Lib/Channel9.dll") {
               Copy-Item "Lib/Channel9.dll" -Destination $destDir -Force
               Write-Host "✓ Channel9.dll"
