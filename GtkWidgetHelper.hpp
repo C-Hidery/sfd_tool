@@ -235,12 +235,6 @@ public:
                                 int x = -1, int y = -1,
                                 int width = -1, int height = -1);
     
-    // 创建字体选择按钮
-    GtkWidget* createFontButton(const std::string& name = "",
-                               const std::string& initialFont = "Sans 12",
-                               int x = -1, int y = -1,
-                               int width = -1, int height = -1);
-    
     // 创建文件选择按钮
     GtkWidget* createFileChooserButton(const std::string& title,
                                       GtkFileChooserAction action,
@@ -308,8 +302,6 @@ public:
     // 设置组件填充
     void setWidgetPadding(GtkWidget* widget, int padding = 0);
     
-    // 重新布局所有组件
-    void relayout();
     
     // === 属性和内容控制 ===
     

@@ -562,19 +562,6 @@ GtkWidget* GtkWidgetHelper::createColorButton(const std::string& name,
     return createAndPlace(colorBtn, x, y, width, height);
 }
 
-GtkWidget* GtkWidgetHelper::createFontButton(const std::string& name,
-                                            const std::string& initialFont,
-                                            int x, int y,
-                                            int width, int height) {
-    GtkWidget* fontBtn = gtk_font_button_new();
-    
-    if (!initialFont.empty()) {
-        gtk_font_button_set_font_name(GTK_FONT_BUTTON(fontBtn), initialFont.c_str());
-    }
-    
-    setupWidget(name, fontBtn, "fontbutton", x, y, width, height);
-    return createAndPlace(fontBtn, x, y, width, height);
-}
 
 GtkWidget* GtkWidgetHelper::createFileChooserButton(const std::string& title,
                                                    GtkFileChooserAction action,
@@ -692,12 +679,27 @@ void GtkWidgetHelper::setWidgetAlignment(GtkWidget* widget,
                                         float xalign, float yalign) {
     if (!widget) return;
     
-    if (GTK_IS_MISC(widget)) {
-        gtk_misc_set_alignment(GTK_MISC(widget), xalign, yalign);
-    } else if (GTK_IS_LABEL(widget)) {
+    // 修复：GTK3 移除了 Misc 小部件，需要改用其他方式
+    if (GTK_IS_LABEL(widget)) {
+        // 对于标签，使用新的对齐方法
         gtk_label_set_xalign(GTK_LABEL(widget), xalign);
         gtk_label_set_yalign(GTK_LABEL(widget), yalign);
+    } else if (GTK_IS_CONTAINER(widget)) {
+        // 对于容器小部件，可以设置其子部件的对齐方式
+        // 使用 CSS 或布局容器来控制对齐
+        GtkStyleContext* context = gtk_widget_get_style_context(widget);
+        GtkCssProvider* provider = gtk_css_provider_new();
+        
+        std::stringstream css;
+        css << "* { xalign: " << xalign << "; yalign: " << yalign << "; }";
+        
+        gtk_css_provider_load_from_data(provider, css.str().c_str(), -1, nullptr);
+        gtk_style_context_add_provider(context, 
+                                      GTK_STYLE_PROVIDER(provider),
+                                      GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+        g_object_unref(provider);
     }
+    // 注意：不是所有小部件都支持直接设置对齐，有些需要通过布局容器来实现
 }
 
 void GtkWidgetHelper::setWidgetMargin(GtkWidget* widget, 
@@ -723,10 +725,6 @@ void GtkWidgetHelper::setWidgetPadding(GtkWidget* widget, int padding) {
     setWidgetMargin(widget, padding, padding, padding, padding);
 }
 
-void GtkWidgetHelper::relayout() {
-    // 重新布局逻辑可以根据需要实现
-    // 例如重新计算所有组件的位置等
-}
 
 // === 属性和内容控制 ===
 
