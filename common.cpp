@@ -845,6 +845,7 @@ int send_and_check(spdio_t *io) {
 }
 
 int check_confirm(const char *name) {
+	if (isHelperInit) return 1;
 	char c;
 	DEG_LOG(OP,"Answer \"y\" to confirm the \"%s\" command: ", name);
 	fflush(stdout);

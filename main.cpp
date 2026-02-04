@@ -1642,7 +1642,7 @@ int gtk_kmain(int argc, char** argv) {
         helper.addWidget("about_text",aboutTextView);
         GtkTextBuffer* buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(aboutTextView));
         gtk_text_buffer_set_text(buffer, 
-            "SFD Tool GUI\n\nVersion 1.7.1.0\n\nBy Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version", -1);
+            "SFD Tool GUI\n\nVersion 1.7.1.0\n\nBy Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue", -1);
         
         gtk_container_add(GTK_CONTAINER(scrolledAbout), aboutTextView);
         helper.addToGrid(aboutPage, scrolledAbout, 0, 0, 1, 1);
