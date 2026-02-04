@@ -27,7 +27,8 @@ sudo dnf install libusb-devel gtk3-devel pkg-config
 # macOS
 brew install libusb gtk+3 pkg-config
 # Android(Termux)
-pkg install termux-api libusb clang git g++ pkg-config gtk3 glib pango cairo gtk-pixbuf atk
+pkg install x11-repo
+pkg install termux-api libusb clang git pkg-config gtk3 glib pango libcairo gdk-pixbuf at-spi2-core
 ```
 
 Then make:
@@ -78,3 +79,7 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
     cptable
     
 **New command, use it to get partition table through compatibility method(FDL2 only)**
+
+    --no-gui
+
+**New parameter, open sfd_tool without GUI**
