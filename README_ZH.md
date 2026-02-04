@@ -26,7 +26,7 @@ sudo dnf install libusb-devel gtk3-devel pkg-config
 brew install libusb gtk+3 pkg-config
 # Android(Termux)
 pkg install x11-repo
-pkg install termux-api libusb clang git pkg-config gtk3 glib pango libcairo gdk-pixbuf at-spi2-core
+pkg install termux-api libusb clang git pkg-config gtk3 glib pango libcairo gdk-pixbuf at-spi2-core xorgproto xorg-util-macros
 ```
 
 然后make:
