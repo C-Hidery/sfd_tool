@@ -131,10 +131,8 @@ void DEG_LOG(int type, const char* format, ...) {
     
     // 输出到GUI日志框
     if (isHelperInit) {
-		printf("1\n");
         GtkWidget* txtOutput = helper.getWidget("txtOutput");
         if (txtOutput && GTK_IS_TEXT_VIEW(txtOutput)) {
-			printf("2\n");
             // 在主线程中更新GUI
             g_idle_add([](gpointer data) -> gboolean {
                 char* message = (char*)data;
