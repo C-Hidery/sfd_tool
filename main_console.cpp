@@ -223,7 +223,7 @@ int main_console(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(nullptr));
-	printf("sfd_tool version 1.7.1.1\n");
+	printf("sfd_tool version 1.7.1.2 Console mode\n");
 #if _DEBUG  
 	DBG_LOG("version:debug, core version:%s\n", Version);
 #else
@@ -1440,7 +1440,7 @@ int main_console(int argc, char** argv) {
 				get_partition_info(io, name, 0);
 			}
 			if (!gPartInfo.size) { DBG_LOG("part not exist\n"); argc -= 2; argv += 2; continue; }
-			erase_partition(io, gPartInfo.name);
+			erase_partition(io, gPartInfo.name, isCMethod);
 			argc -= 2; argv += 2;
 
 		}
@@ -1449,7 +1449,7 @@ int main_console(int argc, char** argv) {
 				argc -= 1; argv += 1;
 				continue;
 			}
-			erase_partition(io, "all");
+			erase_partition(io, "all", isCMethod);
 			argc -= 1; argv += 1;
 
 		}
@@ -1494,7 +1494,7 @@ int main_console(int argc, char** argv) {
 			get_partition_info(io, name, 0);
 			if (!gPartInfo.size) { DEG_LOG(E,"Partition does not exist\n"); argc -= 3; argv += 3; continue; }
 
-			load_partition_unify(io, gPartInfo.name, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE);
+			load_partition_unify(io, gPartInfo.name, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 			argc -= 3; argv += 3;
 
 		}
@@ -1503,7 +1503,7 @@ int main_console(int argc, char** argv) {
 			int force_ab = 0;
 			if (!strcmp(str2[1], "write_parts_a")) force_ab = 1;
 			else if (!strcmp(str2[1], "write_parts_b")) force_ab = 2;
-			if (skip_confirm || check_confirm("write partitions")) load_partitions(io, str2[2], blk_size ? blk_size : DEFAULT_BLK_SIZE, force_ab);
+			if (skip_confirm || check_confirm("write partitions")) load_partitions(io, str2[2], blk_size ? blk_size : DEFAULT_BLK_SIZE, force_ab, isCMethod);
 			argc -= 2; argv += 2;
 
 		}
@@ -1512,22 +1512,50 @@ int main_console(int argc, char** argv) {
 			const char* name = str2[2];
 			if (argcount <= 3) { DEG_LOG(W,"w_force part_name/part_id FILE"); argc = 1; continue; }
 			if (Da_Info.dwStorageType == 0x101) { DEG_LOG(E,"w_force is not allowed on NAND(UBI) devices"); argc -= 3; argv += 3; continue; }
-			if (!io->part_count) { DEG_LOG(E,"Partition table not available or compatibility-method mode detected\n(compatibility-method mode not support w_force for security)"); argc -= 3; argv += 3; continue; }
-			fn = str2[3];
-			fi = fopen(fn, "r");
-			if (fi == nullptr) { DEG_LOG(E,"File does not exist."); argc -= 3; argv += 3; continue; }
-			else fclose(fi);
-			get_partition_info(io, name, 0);
-			if (!gPartInfo.size) { DEG_LOG(E,"Partition does not exist"); argc -= 3; argv += 3; continue; }
+			if(!isCMethod){
+				if (!io->part_count) { DEG_LOG(E,"Partition table not available"); argc -= 3; argv += 3; continue; }
+				fn = str2[3];
+				fi = fopen(fn, "r");
+				if (fi == nullptr) { DEG_LOG(E,"File does not exist."); argc -= 3; argv += 3; continue; }
+				else fclose(fi);
+				get_partition_info(io, name, 0);
+				if (!gPartInfo.size) { DEG_LOG(E,"Partition does not exist"); argc -= 3; argv += 3; continue; }
 
-			if (!strncmp(gPartInfo.name, "splloader", 9)) { DEG_LOG(E,"Partition 'splloader' can not be force-written!"); argc -= 3; argv += 3; continue; }
-			else if (isdigit(str2[2][0])) load_partition_force(io, atoi(str2[2]) - 1, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE);
+				if (!strncmp(gPartInfo.name, "splloader", 9)) { DEG_LOG(E,"Partition 'splloader' can not be force-written!"); argc -= 3; argv += 3; continue; }
+				else if (isdigit(str2[2][0])) load_partition_force(io, atoi(str2[2]) - 1, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE,0);
+				else {
+					for (i = 0; i < io->part_count; i++)
+						if (!strcmp(gPartInfo.name, (*(io->ptable + i)).name)) {
+							load_partition_force(io, i, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE,0);
+							break;
+						}
+				}
+			}
+			else if(io->part_count_c){
+				DEG_LOG(W,"compatibility-method mode detected,for security,recommanded not to force write!");
+				if(check_confirm("Force write partition") == 0){
+					argc -= 3; argv += 3; 
+					continue;
+				}
+				fn = str2[3];
+				fi = fopen(fn, "r");
+				if (fi == nullptr) { DEG_LOG(E,"File does not exist."); argc -= 3; argv += 3; continue; }
+				else fclose(fi);
+				get_partition_info(io, name, 0);
+				if (!gPartInfo.size) { DEG_LOG(E,"Partition does not exist"); argc -= 3; argv += 3; continue; }
+
+				if (!strncmp(gPartInfo.name, "splloader", 9)) { DEG_LOG(E,"Partition 'splloader' can not be force-written!"); argc -= 3; argv += 3; continue; }
+				else if (isdigit(str2[2][0])) load_partition_force(io, atoi(str2[2]) - 1, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE,1);
+				else {
+					for (i = 0; i < io->part_count_c; i++)
+						if (!strcmp(gPartInfo.name, (*(io->Cptable + i)).name)) {
+							load_partition_force(io, i, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE,1);
+							break;
+						}
+				}
+			}
 			else {
-				for (i = 0; i < io->part_count; i++)
-					if (!strcmp(gPartInfo.name, (*(io->ptable + i)).name)) {
-						load_partition_force(io, i, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE);
-						break;
-					}
+				DEG_LOG(E,"Partition table not available");
 			}
 			argc -= 3; argv += 3;
 
@@ -1556,7 +1584,7 @@ int main_console(int argc, char** argv) {
 				src = loadfile(fn, &length, 0);
 				if (!src) { DEG_LOG(E,"Open %s failed", fn); argc -= 4; argv += 4; continue; }
 			}
-			w_mem_to_part_offset(io, name, offset, src, length, blk_size ? blk_size : DEFAULT_BLK_SIZE);
+			w_mem_to_part_offset(io, name, offset, src, length, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 			delete[](src);
 			argc -= 4; argv += 4;
 
@@ -1577,7 +1605,7 @@ int main_console(int argc, char** argv) {
 		}
 		else if (!strcmp(str2[1], "verity")) {
 			if (argcount <= 2) { DEG_LOG(W,"verity {0,1}"); argc = 1; continue; }
-			if (atoi(str2[2])) dm_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE);
+			if (atoi(str2[2])) dm_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 			else {
 				if (!io->part_count) {
 					DEG_LOG(W,"Disable dm-verity needs a valid partition table or a write-verification-disabled FDL2");
@@ -1587,14 +1615,14 @@ int main_console(int argc, char** argv) {
 							continue;
 						}
 				}
-				dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE);
+				dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 			}
 			argc -= 2; argv += 2;
 
 		}
 		else if (!strcmp(str2[1], "set_active")) {
 			if (argcount <= 2) { DEG_LOG(W,"set_active {a,b}"); argc = 1; continue; }
-			set_active(io, str2[2]);
+			set_active(io, str2[2], isCMethod);
 			argc -= 2; argv += 2;
 
 		}
@@ -1644,7 +1672,7 @@ int main_console(int argc, char** argv) {
 			if (!modebuf) ERR_EXIT("malloc failed\n");
 			uint32_t mode = strtol(str2[2], nullptr, 0) + 0x53464D00;
 			memcpy(modebuf, &mode, 4);
-			w_mem_to_part_offset(io, "miscdata", 0x2420, modebuf, 4, 0x1000);
+			w_mem_to_part_offset(io, "miscdata", 0x2420, modebuf, 4, 0x1000, isCMethod);
 			delete[](modebuf);
 			argc -= 2; argv += 2;
 		}
@@ -1731,7 +1759,7 @@ int main_console(int argc, char** argv) {
 			if (!miscbuf) ERR_EXIT("malloc failed\n");
 			memset(miscbuf, 0, 0x800);
 			strcpy(miscbuf, "boot-recovery");
-			w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000);
+			w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000, isCMethod);
 			delete[](miscbuf);
 			encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
 			if (!send_and_check(io)) break;
@@ -1747,7 +1775,7 @@ int main_console(int argc, char** argv) {
 			memset(miscbuf, 0, 0x800);
 			strcpy(miscbuf, "boot-recovery");
 			strcpy(miscbuf + 0x40, "recovery\n--fastboot\n");
-			w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000);
+			w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000, isCMethod);
 			delete[](miscbuf);
 			encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
 			if (!send_and_check(io)) break;

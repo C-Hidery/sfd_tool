@@ -1914,7 +1914,7 @@ void repartition(spdio_t *io, const char *fn) {
 	if (!send_and_check(io)) gpt_failed = 0;
 }
 
-void erase_partition(spdio_t *io, const char *name) {
+void erase_partition(spdio_t *io, const char *name, int CMethod) {
 	double rtime = get_time();
 	int timeout0 = io->timeout;
 	char name0[36];
@@ -1924,7 +1924,7 @@ void erase_partition(spdio_t *io, const char *name) {
 		memset(miscbuf, 0, 0x800);
 		strcpy(miscbuf, "boot-recovery");
 		strcpy(miscbuf + 0x40, "recovery\n--wipe_data\n");
-		w_mem_to_part_offset(io, "misc", 0, (uint8_t *)miscbuf, 0x800, 0x1000);
+		w_mem_to_part_offset(io, "misc", 0, (uint8_t *)miscbuf, 0x800, 0x1000, CMethod);
 		delete[](miscbuf);
 		select_partition(io, "persist", 0, 0, BSL_CMD_ERASE_FLASH);
 		strcpy(name0, "persist");
@@ -1949,12 +1949,12 @@ void erase_partition(spdio_t *io, const char *name) {
 }
 
 void load_partition(spdio_t *io, const char *name,
-	const char *fn, unsigned step) {
+	const char *fn, unsigned step, int CMethod) {
 	uint64_t offset, len, n64;
 	unsigned mode64, n, step0 = step; int ret;
 	FILE *fi;
 	double rtime = get_time();
-	if (strstr(name, "runtimenv")) { erase_partition(io, name); return; }
+	if (strstr(name, "runtimenv")) { erase_partition(io, name, CMethod); return; }
 	if (!strcmp(name, "calinv")) { return; } //skip calinv
 	DEG_LOG(OP, "Start to write partition %s", name);
 	DEG_LOG(I, "Type CTRL + C to cancel...");
@@ -2069,46 +2069,83 @@ fallback_load:
 	}
 }
 
-void load_partition_force(spdio_t *io, const int id, const char *fn, unsigned step) {
+void load_partition_force(spdio_t *io, const int id, const char *fn, unsigned step, int CMethod) {
 	int i, j; char a;
 	uint8_t *buf = io->temp_buf;
 	double rtime = get_time();
 	char name[] = "w_force";
-	for (i = 0; i < io->part_count; i++) {
-		memset(buf, 0, 36 * 2);
-		if (i == id)
-			for (j = 0; (a = name[j]); j++)
-				buf[j * 2] = a;
-		else
+	if(CMethod){
+		for (i = 0; i < io->part_count; i++) {
+			memset(buf, 0, 36 * 2);
+			if (i == id)
+				for (j = 0; (a = name[j]); j++)
+					buf[j * 2] = a;
+			else
+				for (j = 0; (a = (*(io->ptable + i)).name[j]); j++)
+					buf[j * 2] = a;
+			if (!j) ERR_EXIT("Empty partition name\n");
+			if (i + 1 == io->part_count) WRITE32_LE(buf + 0x48, ~0);
+			else WRITE32_LE(buf + 0x48, (*(io->ptable + i)).size >> 20);
+			buf += 0x4c;
+		}
+		encode_msg_nocpy(io, BSL_CMD_REPARTITION, io->part_count * 0x4c);
+		if (send_and_check(io)) return; //repart failed
+		load_partition(io, name, fn, step, CMethod);
+		buf = io->temp_buf;
+		for (i = 0; i < io->part_count; i++) {
+			memset(buf, 0, 36 * 2);
 			for (j = 0; (a = (*(io->ptable + i)).name[j]); j++)
 				buf[j * 2] = a;
-		if (!j) ERR_EXIT("Empty partition name\n");
-		if (i + 1 == io->part_count) WRITE32_LE(buf + 0x48, ~0);
-		else WRITE32_LE(buf + 0x48, (*(io->ptable + i)).size >> 20);
-		buf += 0x4c;
+			if (!j) ERR_EXIT("Empty partition name\n");
+			if (i + 1 == io->part_count) WRITE32_LE(buf + 0x48, ~0);
+			else WRITE32_LE(buf + 0x48, (*(io->ptable + i)).size >> 20);
+			buf += 0x4c;
+		}
+		encode_msg_nocpy(io, BSL_CMD_REPARTITION, io->part_count * 0x4c);
+		if (!send_and_check(io)) { 
+			double etime = get_time();
+			double time_spent = etime - rtime;
+			
+			DEG_LOG(I, "Force write %s successfully", (*(io->ptable + id)).name); 
+			DEG_LOG(I, "Cost time %.6f seconds", time_spent);
+		}
 	}
-	encode_msg_nocpy(io, BSL_CMD_REPARTITION, io->part_count * 0x4c);
-	if (send_and_check(io)) return; //repart failed
-	load_partition(io, name, fn, step);
-	buf = io->temp_buf;
-	for (i = 0; i < io->part_count; i++) {
-		memset(buf, 0, 36 * 2);
-		for (j = 0; (a = (*(io->ptable + i)).name[j]); j++)
-			buf[j * 2] = a;
-		if (!j) ERR_EXIT("Empty partition name\n");
-		if (i + 1 == io->part_count) WRITE32_LE(buf + 0x48, ~0);
-		else WRITE32_LE(buf + 0x48, (*(io->ptable + i)).size >> 20);
-		buf += 0x4c;
+	else{
+		for (i = 0; i < io->part_count_c; i++) {
+			memset(buf, 0, 36 * 2);
+			if (i == id)
+				for (j = 0; (a = name[j]); j++)
+					buf[j * 2] = a;
+			else
+				for (j = 0; (a = (*(io->Cptable + i)).name[j]); j++)
+					buf[j * 2] = a;
+			if (!j) ERR_EXIT("Empty partition name\n");
+			if (i + 1 == io->part_count_c) WRITE32_LE(buf + 0x48, ~0);
+			else WRITE32_LE(buf + 0x48, (*(io->Cptable + i)).size >> 20);
+			buf += 0x4c;
+		}
+		encode_msg_nocpy(io, BSL_CMD_REPARTITION, io->part_count_c * 0x4c);
+		if (send_and_check(io)) return; //repart failed
+		load_partition(io, name, fn, step, CMethod);
+		buf = io->temp_buf;
+		for (i = 0; i < io->part_count_c; i++) {
+			memset(buf, 0, 36 * 2);
+			for (j = 0; (a = (*(io->Cptable + i)).name[j]); j++)
+				buf[j * 2] = a;
+			if (!j) ERR_EXIT("Empty partition name\n");
+			if (i + 1 == io->part_count_c) WRITE32_LE(buf + 0x48, ~0);
+			else WRITE32_LE(buf + 0x48, (*(io->Cptable + i)).size >> 20);
+			buf += 0x4c;
+		}
+		encode_msg_nocpy(io, BSL_CMD_REPARTITION, io->part_count_c * 0x4c);
+		if (!send_and_check(io)) { 
+			double etime = get_time();
+			double time_spent = etime - rtime;
+			
+			DEG_LOG(I, "Force write %s successfully", (*(io->Cptable + id)).name); 
+			DEG_LOG(I, "Cost time %.6f seconds", time_spent);
+		}
 	}
-	encode_msg_nocpy(io, BSL_CMD_REPARTITION, io->part_count * 0x4c);
-	if (!send_and_check(io)) { 
-		double etime = get_time();
-		double time_spent = etime - rtime;
-		
-		DEG_LOG(I, "Force write %s successfully", (*(io->ptable + id)).name); 
-		DEG_LOG(I, "Cost time %.6f seconds", time_spent);
-	}
-
 }
 
 unsigned short const crc16_table[256] = {
@@ -2617,7 +2654,7 @@ void dump_partitions(spdio_t *io, const char *fn, int *nand_info, unsigned step)
 }
 
 int ab_compare_slots(const slot_metadata *a, const slot_metadata *b);
-void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab) {
+void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab, int CMethod) {
 	DEG_LOG(OP,"Start to write partitions");
 	DEG_LOG(I,"Type CTRL + C to cancel...");
 	start_signal();
@@ -2749,7 +2786,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab)
 			!strcmp(fn, "uboot_b") ||
 			!strcmp(fn, "vbmeta_a") ||
 			!strcmp(fn, "vbmeta_b")) {
-			load_partition(io, fn, partitions[i].file_path, step);
+			load_partition(io, fn, partitions[i].file_path, step, CMethod);
 			partitions[i].written_flag = 1;
 			continue;
 		}
@@ -2757,7 +2794,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab)
 			get_partition_info(io, fn, 0);
 			if (!gPartInfo.size) continue;
 
-			load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step);
+			load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
 			partitions[i].written_flag = 1;
 			continue;
 		}
@@ -2765,7 +2802,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab)
 			get_partition_info(io, fn, 0);
 			if (!gPartInfo.size) continue;
 
-			load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step);
+			load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
 			partitions[i].written_flag = 1;
 			continue;
 		}
@@ -2779,17 +2816,17 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab)
 			if (!gPartInfo.size) continue;
 			if (!strcmp(gPartInfo.name, "metadata")) { metadata_in_dump = 1; metadata_id = i; continue; }
 			if (!strcmp(gPartInfo.name, "super")) { super_in_dump = 1; super_id = i; continue; }
-			load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step);
+			load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
 		}
 	}
 	if (super_in_dump) {
-		load_partition(io, "super", partitions[super_id].file_path, step);
-		if (metadata_in_dump) load_partition(io, "metadata", partitions[metadata_id].file_path, step);
-		else erase_partition(io, "metadata");
+		load_partition(io, "super", partitions[super_id].file_path, step, CMethod);
+		if (metadata_in_dump) load_partition(io, "metadata", partitions[metadata_id].file_path, step, CMethod);
+		else erase_partition(io, "metadata", CMethod);
 	}
 	delete[](partitions);
-	if (selected_ab == 1) set_active(io, "a");
-	else if (selected_ab == 2) set_active(io, "b");
+	if (selected_ab == 1) set_active(io, "a", CMethod);
+	else if (selected_ab == 2) set_active(io, "b", CMethod);
 	selected_ab = selected_ab_bak;
 }
 
@@ -2858,15 +2895,15 @@ void select_ab(spdio_t *io) {
 	if (selected_ab > 0 && check_partition(io, "uboot_a", 0) == 0) selected_ab = 0;
 }
 
-void dm_disable(spdio_t *io, unsigned step) {
+void dm_disable(spdio_t *io, unsigned step, int CMethod) {
 	char ch = '\1';
-	w_mem_to_part_offset(io, "vbmeta", 0x7B, (uint8_t *)&ch, 1, step);
+	w_mem_to_part_offset(io, "vbmeta", 0x7B, (uint8_t *)&ch, 1, step, CMethod);
 }
 
-void dm_enable(spdio_t *io, unsigned step) {
+void dm_enable(spdio_t *io, unsigned step, int CMethod) {
 	const char *list[] = { "vbmeta", "vbmeta_system", "vbmeta_vendor", "vbmeta_system_ext", "vbmeta_product", "vbmeta_odm", nullptr };
 	char ch = '\0';
-	for (int i = 0; list[i] != nullptr; i++) w_mem_to_part_offset(io, list[i], 0x7B, (uint8_t *)&ch, 1, step);
+	for (int i = 0; list[i] != nullptr; i++) w_mem_to_part_offset(io, list[i], 0x7B, (uint8_t *)&ch, 1, step, CMethod);
 }
 
 uint32_t const crc32_tab[] = {
@@ -2914,7 +2951,7 @@ uint32_t crc32(uint32_t crc_in, const uint8_t *buf, int size) {
 	return crc ^ ~0U;
 }
 
-void w_mem_to_part_offset(spdio_t *io, const char *name, size_t offset, uint8_t *mem, size_t length, unsigned step) {
+void w_mem_to_part_offset(spdio_t *io, const char *name, size_t offset, uint8_t *mem, size_t length, unsigned step, int CMethod) {
 	get_partition_info(io, name, 1);
 	if (!gPartInfo.size) { DEG_LOG(E,"part not exist"); return; }
 	else if (gPartInfo.size > 0xffffffff) { DEG_LOG(E,"part too large"); return; }
@@ -2939,11 +2976,11 @@ void w_mem_to_part_offset(spdio_t *io, const char *name, size_t offset, uint8_t 
 	if (fseek(fi, offset, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
 	if (fwrite(mem, 1, length, fi) != length) ERR_EXIT("fwrite failed\n");
 	fclose(fi);
-	load_partition_unify(io, gPartInfo.name, fix_fn, step);
+	load_partition_unify(io, gPartInfo.name, fix_fn, step, CMethod);
 }
 
 // 1 main written and _bak not written, 2 both written
-int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned step) {
+int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned step, int CMethod) {
 	char name0[36], name1[40];
 	unsigned size0, size1;
 	if (strstr(name, "fixnv1")) { load_nv_partition(io, name, fn, 4096); return 1; }
@@ -2951,21 +2988,21 @@ int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned
 		Da_Info.dwStorageType == 0x101 ||
 		io->part_count == 0 ||
 		strncmp(name, "splloader", 9) == 0) {
-		load_partition(io, name, fn, step);
+		load_partition(io, name, fn, step, CMethod);
 		return 1;
 	}
 
 	strcpy(name0, name);
-	if (strlen(name0) >= sizeof(name0) - 4) { load_partition(io, name0, fn, step); return 1; }
+	if (strlen(name0) >= sizeof(name0) - 4) { load_partition(io, name0, fn, step, CMethod); return 1; }
 	snprintf(name1, sizeof(name1), "%s_bak", name0);
 	get_partition_info(io, name1, 1);
-	if (!gPartInfo.size) { load_partition(io, name0, fn, step); return 1; }
+	if (!gPartInfo.size) { load_partition(io, name0, fn, step, CMethod); return 1; }
 	size1 = gPartInfo.size;
 	size0 = check_partition(io, name0, 1);
 
 	for (int i = 0; i < io->part_count; i++)
 		if (!strcmp(name0, (*(io->ptable + i)).name)) {
-			load_partition_force(io, i, fn, step);
+			load_partition_force(io, i, fn, step, CMethod);
 			break;
 		}
 	if (size0 == size1) {
@@ -2977,13 +3014,13 @@ int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned
 			if (fwrite(&ch, 1, 1, fi) != 1) { DEG_LOG(E,"fwrite failed\n"); fclose(fi); return 1; }
 			fclose(fi);
 		}
-		load_partition(io, name1, fn, step);
+		load_partition(io, name1, fn, step, CMethod);
 		return 2;
 	}
 	return 1;
 }
 
-void set_active(spdio_t *io, const char *arg) {
+void set_active(spdio_t *io, const char *arg, int CMethod) {
 	uint32_t tmp[8] = { 0x5F, 0x42414342, 0x201, 0, 0, 0, 0, 0 };
 	bootloader_control *abc = (bootloader_control *)tmp;
 	int slot = *arg - 'a';
@@ -2996,7 +3033,7 @@ void set_active(spdio_t *io, const char *arg) {
 	abc->slot_suffix[1] = *arg;
 	abc->crc32_le = crc32(0, (const uint8_t*)abc, 0x1C);
 
-	w_mem_to_part_offset(io, "misc", 0x800, (uint8_t *)abc, sizeof(bootloader_control), 0x1000);
+	w_mem_to_part_offset(io, "misc", 0x800, (uint8_t *)abc, sizeof(bootloader_control), 0x1000, CMethod);
 }
 
 

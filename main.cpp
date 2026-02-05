@@ -226,6 +226,7 @@ void EnableWidgets(GtkWidgetHelper helper){
     helper.enableWidget("backup_all");
     helper.enableWidget("list_cancel");
     helper.enableWidget("m_cancel");
+    helper.enableWidget("list_force_write");
 }
 void on_button_clicked_select_cve(GtkWidgetHelper helper) {
     GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
@@ -276,8 +277,58 @@ void on_button_clicked_list_write(GtkWidgetHelper helper){
 	else fclose(fi);
     get_partition_info(io, part_name.c_str(), 0);
 	if (!gPartInfo.size) { DEG_LOG(E,"Partition does not exist\n");return;}
-    std::thread([filename,parent](){load_partition_unify(io, gPartInfo.name, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);showInfoDialog(parent, "完成 Completed", "分区写入完成！\nPartition write completed!");}).detach();
+    std::thread([filename,parent](){load_partition_unify(io, gPartInfo.name, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);showInfoDialog(parent, "完成 Completed", "分区写入完成！\nPartition write completed!");}).detach();
     
+}
+void on_button_clicked_list_force_write(GtkWidgetHelper helper){
+    GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+    std::string filename = showFileChooser(parent, true);
+    std::string part_name = getSelectedPartitionName(helper);
+    if (filename.empty()) {
+        showErrorDialog(parent, "错误 Error", "未选择分区列表文件！\nNo partition list file selected!");
+        return;
+    }
+    if (io->part_count == 0 && io->part_count_c == 0) {
+        showErrorDialog(parent, "错误 Error", "当前未加载分区表，无法写入分区列表！\nNo partition table loaded, cannot write partition list!");
+        return;
+    }
+    FILE* fi;
+    fi = fopen(filename.c_str(), "r");
+    if (fi == nullptr) { DEG_LOG(E,"File does not exist.\n"); return; }
+    else fclose(fi);
+    get_partition_info(io, part_name.c_str(), 0);
+    if (!gPartInfo.size) { DEG_LOG(E,"Partition does not exist\n");return;}
+    bool i_op = showConfirmDialog(parent, "确认 Confirm", "强制写入分区可能会导致设备变砖，是否继续？\nForce writing partitions may brick the device, do you want to continue?");
+    if (!i_op) return;
+    if (!strncmp(gPartInfo.name, "splloader", 9)) {
+        showErrorDialog(parent, "错误 Error", "强制写入模式下不允许写入splloader分区！\nForce write mode does not allow writing to splloader partition!");
+        return;
+    }
+    if(isCMethod){
+        bool i_is = showConfirmDialog(parent, "警告 Warning", "当前处于兼容分区表模式，强制写入可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, force writing may brick the device!");
+        if (!i_is) return;
+        if(io->part_count_c){
+            std::thread([filename,parent](){
+                for (int i = 0; i < io->part_count_c; i++)
+					if (!strcmp(gPartInfo.name, (*(io->Cptable + i)).name)) {
+						load_partition_force(io, i, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE,1);
+						break;
+					}
+                showInfoDialog(parent, "完成 Completed", "分区强制写入完成！\nPartition force write completed!");
+            }).detach();
+        }
+    }
+    else{
+        std::thread([filename,parent](){
+            for (int i = 0; i < io->part_count; i++)
+                if (!strcmp(gPartInfo.name, (*(io->ptable + i)).name)) {
+                    load_partition_force(io, i, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE,0);
+                    break;
+                }
+            showInfoDialog(parent, "完成 Completed", "分区强制写入完成！\nPartition force write completed!");
+        }).detach();
+    }
+
 }
 void on_button_clicked_list_read(GtkWidgetHelper helper){
     GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
@@ -308,7 +359,7 @@ void on_button_clicked_list_erase(GtkWidgetHelper helper){
 		DEG_LOG(E,"Partition not exist\n");
 		return;
 	}
-    std::thread([parent](){erase_partition(io, gPartInfo.name);showInfoDialog(parent, "完成 Completed", "分区擦除完成！\nPartition erase completed!");}).detach();
+    std::thread([parent](){erase_partition(io, gPartInfo.name, isCMethod);showInfoDialog(parent, "完成 Completed", "分区擦除完成！\nPartition erase completed!");}).detach();
     
 }
 void on_button_clicked_poweroff(GtkWidgetHelper helper){
@@ -324,7 +375,7 @@ void on_button_clicked_recovery(GtkWidgetHelper helper){
 	if (!miscbuf) ERR_EXIT("malloc failed\n");
 	memset(miscbuf, 0, 0x800);
 	strcpy(miscbuf, "boot-recovery");
-	w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000);
+	w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000, isCMethod);
 	delete[](miscbuf);
 	encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
 	if (!send_and_check(io)) { spdio_free(io); exit(0); }
@@ -335,7 +386,7 @@ void on_button_clicked_fastboot(GtkWidgetHelper helper){
 	memset(miscbuf, 0, 0x800);
 	strcpy(miscbuf, "boot-recovery");
 	strcpy(miscbuf + 0x40, "recovery\n--fastboot\n");
-	w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000);
+	w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000, isCMethod);
 	delete[](miscbuf);
 	encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
 	if (!send_and_check(io)) { spdio_free(io); exit(0); }
@@ -404,7 +455,7 @@ void on_button_clicked_m_write(GtkWidgetHelper helper){
     else fclose(fi);
     get_partition_info(io, part_name.c_str(), 0);
     if (!gPartInfo.size) { DEG_LOG(E,"Partition does not exist\n");return;}
-    std::thread([parent,filename](){load_partition_unify(io, gPartInfo.name, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区写入完成！\nPartition write completed!");}).detach();
+    std::thread([parent,filename](){load_partition_unify(io, gPartInfo.name, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区写入完成！\nPartition write completed!");}).detach();
 }
 void on_button_clicked_m_read(GtkWidgetHelper helper){
     GtkWidget *parent = helper.getWidget("main_window");
@@ -428,18 +479,18 @@ void on_button_clicked_m_erase(GtkWidgetHelper helper){
     }
     get_partition_info(io, part_name.c_str(), 0);
     if (!gPartInfo.size) { DEG_LOG(E,"Partition does not exist\n");return;}
-    std::thread([parent](){erase_partition(io, gPartInfo.name);showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区擦除完成！\nPartition erase completed!");}).detach();
+    std::thread([parent](){erase_partition(io, gPartInfo.name, isCMethod);showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区擦除完成！\nPartition erase completed!");}).detach();
 }
 void on_button_clicked_m_cancel(GtkWidgetHelper helper){
     signal_handler(0);
     showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "已取消当前分区操作！\nCurrent partition operation cancelled!");
 }
 void on_button_clicked_set_active_a(GtkWidgetHelper helper){
-    set_active(io,"a");
+    set_active(io,"a", isCMethod);
     showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "已设置当前分区为A槽！\nCurrent active partition set to Slot A!");
 }
 void on_button_clicked_set_active_b(GtkWidgetHelper helper){
-    set_active(io,"b");
+    set_active(io,"b", isCMethod);
     showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "已设置当前分区为B槽！\nCurrent active partition set to Slot B!");
 }
 void on_button_clicked_start_repart(GtkWidgetHelper helper){
@@ -506,12 +557,12 @@ void on_button_clicked_read_xml(GtkWidgetHelper helper){
 }
 void on_button_clicked_dmv_enable(GtkWidgetHelper helper){
     GtkWidget *parent = helper.getWidget("main_window");
-    dm_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE);
+    dm_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
     showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "已启用DM-Verity保护！\nDM-Verity protection enabled!");
 }
 void on_button_clicked_dmv_disable(GtkWidgetHelper helper){
     GtkWidget *parent = helper.getWidget("main_window");
-    dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE);
+    dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
     showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "已禁用DM-Verity保护！\nDM-Verity protection disabled!"); 
 }
 void on_button_clicked_select_xml(GtkWidgetHelper helper){
@@ -615,7 +666,7 @@ void populatePartitionList(GtkWidgetHelper& helper, const std::vector<partition_
     gtk_widget_queue_draw(part_list);
 }
 void confirm_partition_c(GtkWidgetHelper helper){
-    bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", "No partition table found on current device, read partition list through compatibility method?\n当前设备未找到分区表，是否通过兼容方式读取分区列表？");
+    bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", "No partition table found on current device, read partition list through compatibility method?\nWarn: This mode may not find all partitions on your device, use caution with force write!\n当前设备未找到分区表，是否通过兼容方式读取分区列表？\n警告：此模式可能无法找到设备上的所有分区，强制写入时请谨慎使用！");
     if (i_is) {
         isUseCptable = 1;
         io->Cptable = partition_list_d(io);
@@ -1188,6 +1239,7 @@ void DisableWidgets(GtkWidgetHelper helper){
     helper.disableWidget("backup_all");
     helper.disableWidget("list_cancel");
     helper.disableWidget("m_cancel");
+    helper.disableWidget("list_force_write");
 }
 
 int gtk_kmain(int argc, char** argv) {
@@ -1421,6 +1473,7 @@ int gtk_kmain(int argc, char** argv) {
     // Operation buttons
     GtkWidget* opLabel = helper.createLabel("Operation    操作：", "op_label", 0, 0, 150, 20);
     GtkWidget* writeBtn = helper.createButton("WRITE  刷写", "list_write", nullptr, 0, 0, 117, 32);
+    GtkWidget* writeFBtn = helper.createButton("FORCE WRITE 强制刷写", "list_force_write", nullptr, 0, 0, 162, 32);
     GtkWidget* readBtn = helper.createButton("EXTRACT  读取分区", "list_read", nullptr, 0, 0, 162, 32);
     GtkWidget* eraseBtn = helper.createButton("ERASE  擦除分区", "list_erase", nullptr, 0, 0, 170, 32);
     GtkWidget* backupAllBtn = helper.createButton("Backup All  备份分区", "backup_all", nullptr, 0, 0, 180, 32);
@@ -1441,6 +1494,7 @@ int gtk_kmain(int argc, char** argv) {
     // 第一行按钮 - 主要操作按钮
     GtkWidget* mainButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     gtk_box_pack_start(GTK_BOX(mainButtonBox), writeBtn, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(mainButtonBox), writeFBtn, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(mainButtonBox), readBtn, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(mainButtonBox), eraseBtn, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(mainButtonBox), backupAllBtn, FALSE, FALSE, 0);
@@ -1822,6 +1876,9 @@ int gtk_kmain(int argc, char** argv) {
     });
     helper.bindClick(logClearBtn, []() {
         on_button_clicked_log_clear(helper);
+    });
+    helper.bindClick(writeFBtn, []() {
+        on_button_clicked_list_force_write(helper);
     });
 }
     DisableWidgets(helper);
