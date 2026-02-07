@@ -215,74 +215,109 @@ void print_string(FILE *f, const void *src, size_t n) {
 	fprintf(f, "\"\n");
 	
 }
-int print_to_string(char* dest, size_t dest_size, const void* src, size_t n,int o) {
-	size_t i; int a, b = 0;
-	const uint8_t* buf = (const uint8_t*)src;
-	int offset = 0; // ��¼��ǰд��λ��
+int print_to_string(char* dest, size_t dest_size, 
+                   const void* src, size_t n, int mode) {
+    if (!dest || dest_size == 0 || (!src && n > 0)) {
+        return -1;
+    }
 
-	// д�뿪ͷ��˫����
-	if (offset + 1 < dest_size) {
-		//dest[offset++] = '"';
-	}
-	else {
-		return -1; // ����������
-	}
+    const uint8_t* buf = (const uint8_t*)src;
+    size_t offset = 0;
+    
+    // 保留一个字节给结尾的\0
+    size_t remaining = dest_size - 1;
 
-	for (i = 0; i < n; i++) {
-		a = buf[i]; b = 0;
-		switch (a) {
-		case '"': case '\\': b = a; break;
-		case 0: b = '0'; break;
-		case '\b': b = 'b'; break;
-		case '\t': b = 't'; break;
-		case '\n': b = 'n'; break;
-		case '\f': b = 'f'; break;
-		case '\r': b = 'r'; break;
-		}
+    for (size_t i = 0; i < n && remaining > 0; i++) {
+        uint8_t c = buf[i];
+        int needed = 0;
+        
+        // 检查需要多少空间
+        if (c == '"' || c == '\\') {
+            needed = 2;  // \ + 字符
+        } else if (c >= 32 && c < 127) {
+            needed = 1;  // 可打印字符
+        } else {
+            switch (c) {
+                case 0: case '\b': case '\t': 
+                case '\n': case '\f': case '\r':
+                    needed = 2;  // 转义序列
+                    break;
+                default:
+                    // 非打印字符
+                    switch (mode) {
+                        case 0:  // 跳过
+                            continue;
+                        case 1:  // 十六进制
+                            needed = 4;  // \xHH
+                            break;
+                        case 2:  // 八进制
+                            needed = 4;  // \ooo
+                            break;
+                        default:
+                            needed = 1;  // 默认用点号
+                            break;
+                    }
+            }
+        }
 
-		if (b) {
-			// д��ת�����У��� \\��\n �ȣ�
-			if (offset + 2 < dest_size) {
-				dest[offset++] = '\\';
-				dest[offset++] = b;
-			}
-			else {
-				return -1;
-			}
-		}
-		else if (a >= 32 && a < 127) {
-			// ֱ��д��ɴ�ӡ�ַ�
-			if (offset + 1 < dest_size) {
-				dest[offset++] = a;
-			}
-			else {
-				return -1;
-			}
-		}
-		else {
-			// д��ʮ������ת�����У��� \x0a��
-			if (offset + 4 < dest_size) {
-				if(o) offset += snprintf(dest + offset, dest_size - offset, "\\x%02x", a);
-			}
-			else {
-				return -1;
-			}
-		}
-	}
+        // 检查空间是否足够
+        if (needed > remaining) {
+            // 空间不足，部分写入
+            dest[offset] = '\0';
+            return offset;
+        }
 
-	// д���β��˫���źͻ��з�
-	if (offset + 2 < dest_size) {
-		dest[offset++] = '\n';
-		dest[offset] = '\0'; // ȷ���ַ����� null ��β
-	}
-	else {
-		return -1;
-	}
+        // 写入字符
+        if (c == '"' || c == '\\') {
+            dest[offset++] = '\\';
+            dest[offset++] = c;
+            remaining -= 2;
+        } else if (c >= 32 && c < 127) {
+            dest[offset++] = c;
+            remaining--;
+        } else {
+            switch (c) {
+                case 0:   dest[offset++] = '\\'; dest[offset++] = '0'; break;
+                case '\b': dest[offset++] = '\\'; dest[offset++] = 'b'; break;
+                case '\t': dest[offset++] = '\\'; dest[offset++] = 't'; break;
+                case '\n': dest[offset++] = '\\'; dest[offset++] = 'n'; break;
+                case '\f': dest[offset++] = '\\'; dest[offset++] = 'f'; break;
+                case '\r': dest[offset++] = '\\'; dest[offset++] = 'r'; break;
+                default:
+                    if (mode == 1) {
+                        // 十六进制格式
+                        int written = snprintf(dest + offset, remaining, "\\x%02x", c);
+                        if (written > 0) {
+                            offset += written;
+                            remaining -= written;
+                        }
+                    } else if (mode == 2) {
+                        // 八进制格式
+                        int written = snprintf(dest + offset, remaining, "\\%03o", c);
+                        if (written > 0) {
+                            offset += written;
+                            remaining -= written;
+                        }
+                    } else {
+                        // 用点号代替
+                        dest[offset++] = '.';
+                        remaining--;
+                    }
+                    break;
+            }
+        }
+    }
 
-	return offset; // ����д����ַ����������� null ��ֹ����
+    // 添加换行和结束符
+    if (remaining >= 2) {
+        dest[offset++] = '\n';
+        dest[offset] = '\0';
+    } else if (remaining == 1) {
+        dest[offset] = '\0';
+    }
+    
+    return offset;
 }
-
-int part_count_c = 0;
 #if USE_LIBUSB
 void find_endpoints(libusb_device_handle *dev_handle, int result[4]) {
 	int endp_in = -1, endp_out = -1, endp_in_blk = 0, endp_out_blk = 0;

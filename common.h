@@ -297,3 +297,5 @@ const char* get_bsl_enum_name(unsigned int value);
 void print_all_bsl_commands();
 void signal_handler(int sig);
 void start_signal();
+void select_partition(spdio_t *io, const char *name,
+	uint64_t size, int mode64, int cmd);

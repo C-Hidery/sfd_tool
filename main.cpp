@@ -6,7 +6,7 @@
 #include <thread>
 #include <chrono>
 #include <gtk/gtk.h>
-const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.1.0\n\nBy Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available";
+const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.2.0\n\nBy Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options";
 const char* Version = "[1.2.0.0@_250726]";
 int bListenLibusb = -1;
 int gpt_failed = 1;
@@ -117,7 +117,7 @@ void showInfoDialog(GtkWindow* parent, const char* title, const char* message) {
                                               GTK_DIALOG_MODAL,
                                               GTK_MESSAGE_INFO,
                                               GTK_BUTTONS_OK,
-                                              "%s", message);
+                                              "%s",message);
     gtk_window_set_title(GTK_WINDOW(dialog), title);
     gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
@@ -228,6 +228,9 @@ void EnableWidgets(GtkWidgetHelper helper){
     helper.enableWidget("list_cancel");
     helper.enableWidget("m_cancel");
     helper.enableWidget("list_force_write");
+    helper.enableWidget("chip_uid");
+    helper.enableWidget("pac_time");
+    helper.enableWidget("check_nand");
 }
 void on_button_clicked_select_cve(GtkWidgetHelper helper) {
     GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
@@ -595,7 +598,82 @@ void on_button_clicked_log_clear(GtkWidgetHelper helper){
     GtkWidget* txtOutput = helper.getWidget("txtOutput");
     helper.setTextAreaText(txtOutput, "");
 }
+void on_button_clicked_chip_uid(GtkWidgetHelper helper){
+    encode_msg_nocpy(io, BSL_CMD_READ_CHIP_UID, 0);
+    send_msg(io);
+	ret = recv_msg(io);
+	if (!ret) ERR_EXIT("timeout reached\n");
+	if ((ret = recv_type(io)) != BSL_REP_READ_CHIP_UID) {
+		const char* name = get_bsl_enum_name(ret);
+		DEG_LOG(E,"excepted response (%s : 0x%04x)\n",name, ret); return;
+	}
+	DEG_LOG(I,"Response: chip_uid:");
+	print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+    char* str = NEWN char[1024];
+    if (!str) ERR_EXIT("malloc failed");
+    print_to_string(str,1024,io->raw_buf + 4, READ16_BE(io->raw_buf + 2),0);
+    showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),"Info 信息", str);
+    delete[] str;
+}
 
+void on_button_clicked_pac_time(GtkWidgetHelper helper){
+    uint32_t n, offset = 0x81400, len = 8;
+	int ret; uint32_t *data = (uint32_t *)io->temp_buf;
+	unsigned long long time, unix1;
+
+	select_partition(io, "miscdata", offset + len, 0, BSL_CMD_READ_START);
+	if (send_and_check(io)) {
+		encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
+		send_and_check(io);
+		return;
+	}
+
+	WRITE32_LE(data, len);
+	WRITE32_LE(data + 1, offset);
+	encode_msg_nocpy(io, BSL_CMD_READ_MIDST, 8);
+	send_msg(io);
+	ret = recv_msg(io);
+	if (!ret) ERR_EXIT("timeout reached\n");
+	if ((ret = recv_type(io)) != BSL_REP_READ_FLASH) {
+		const char* name = get_bsl_enum_name(ret);
+		DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
+		encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
+		send_and_check(io);
+        return;
+	}
+	n = READ16_BE(io->raw_buf + 2);
+	if (n != len) ERR_EXIT("excepted length\n");
+
+	time = (uint32_t)READ32_LE(io->raw_buf + 4);
+	time |= (uint64_t)READ32_LE(io->raw_buf + 8) << 32;
+
+	unix1 = time ? time / 10000000 - 11644473600 : 0;
+	// $ date -d @unixtime
+	DEG_LOG(I,"pactime = 0x%llx (unix = %llu)", time, unix1);
+    int need = snprintf(nullptr,0,"pactime = 0x%llx (unix = %llu)", time, unix1);
+    char* text = NEWN char[need + 1];
+    if (!text) ERR_EXIT("malloc failed");
+    snprintf(text, need + 1,"pactime = 0x%llx (unix = %llu)", time, unix1);
+	encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
+	send_and_check(io);
+    showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),"Info 信息", text);
+    delete[] text;
+}
+void on_button_clicked_check_nand(GtkWidgetHelper helper){
+    encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
+	send_msg(io);
+	ret = recv_msg(io);
+    if (ret) {
+		ret = recv_type(io);
+		const char* name = get_bsl_enum_name(ret);
+		if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"excepted response (%s : 0x%04x)\n",name, ret);
+		else Da_Info.dwStorageType = 0x101;
+		// need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
+		// for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
+	}
+	if (Da_Info.dwStorageType == 0x101) {DEG_LOG(I, "Device storage is nand");showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),"Info 信息","Storage is nand.");}
+	else {DEG_LOG(I, "Device storage is not nand");showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),"Info 信息","Storage is not nand.");}
+}
 void populatePartitionList(GtkWidgetHelper& helper, const std::vector<partition_t>& partitions) {
     // 获取列表视图
     GtkWidget* part_list = helper.getWidget("part_list");
@@ -1241,6 +1319,9 @@ void DisableWidgets(GtkWidgetHelper helper){
     helper.disableWidget("list_cancel");
     helper.disableWidget("m_cancel");
     helper.disableWidget("list_force_write");
+    helper.disableWidget("check_nand");
+    helper.disableWidget("pac_time");
+    helper.disableWidget("chip_uid");
 }
 
 int gtk_kmain(int argc, char** argv) {
@@ -1679,7 +1760,60 @@ int gtk_kmain(int argc, char** argv) {
         gtk_box_pack_start(GTK_BOX(sliderBox), sizeCon, FALSE, FALSE, 0);
         helper.addToGrid(advSetPage, sliderBox, 0, 1, 2, 1);
     
-    
+    // ========== Debug Options Page ==========
+
+        GtkWidget* dbgOptPage = helper.createGrid("dbg_opt_page", 5, 5);
+        helper.addNotebookPage(notebook, dbgOptPage, "Debug Options 调试设置");
+        
+        // 创建三个按钮
+        GtkWidget* pactime = helper.createButton("Get pactime 获取PAC烧录时间", "pac_time", nullptr, 0, 0, 400, 32);
+        GtkWidget* chipuid = helper.createButton("Get chip UID  获取芯片UID", "chip_uid", nullptr, 0, 0, 400, 32);
+        GtkWidget* ReadNand = helper.createButton("Check if NAND Storage 检查是否为NAND机型", "check_nand", nullptr, 0, 0, 400, 32);
+        
+        // 创建垂直盒子布局
+        GtkWidget* mainBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 20);
+        gtk_box_set_homogeneous(GTK_BOX(mainBox), FALSE);
+        
+        // 添加第一个按钮行
+        GtkWidget* row1Box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+        gtk_box_pack_start(GTK_BOX(row1Box), pactime, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(row1Box), gtk_label_new(""), TRUE, TRUE, 0); // 弹性空间
+        
+        // 添加第二个按钮行
+        GtkWidget* row2Box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+        gtk_box_pack_start(GTK_BOX(row2Box), gtk_label_new(""), TRUE, TRUE, 0); // 弹性空间
+        gtk_box_pack_start(GTK_BOX(row2Box), chipuid, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(row2Box), gtk_label_new(""), TRUE, TRUE, 0); // 弹性空间
+        
+        // 添加第三个按钮行
+        GtkWidget* row3Box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+        gtk_box_pack_start(GTK_BOX(row3Box), gtk_label_new(""), TRUE, TRUE, 0); // 弹性空间
+        gtk_box_pack_start(GTK_BOX(row3Box), ReadNand, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(row3Box), gtk_label_new(""), TRUE, TRUE, 0); // 弹性空间
+        
+        // 将各行添加到主盒子
+        gtk_box_pack_start(GTK_BOX(mainBox), gtk_label_new(""), TRUE, TRUE, 0); // 顶部弹性空间
+        gtk_box_pack_start(GTK_BOX(mainBox), row1Box, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(mainBox), gtk_label_new(""), FALSE, FALSE, 20); // 间距
+        gtk_box_pack_start(GTK_BOX(mainBox), row2Box, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(mainBox), gtk_label_new(""), FALSE, FALSE, 20); // 间距
+        gtk_box_pack_start(GTK_BOX(mainBox), row3Box, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(mainBox), gtk_label_new(""), TRUE, TRUE, 0); // 底部弹性空间
+        
+        // 添加到网格布局
+        helper.addToGrid(dbgOptPage, mainBox, 0, 0, 4, 6);
+        
+        // 添加说明标签
+        GtkWidget* infoLabel = gtk_label_new("调试选项页面\n"
+                                            "此页面包含设备调试功能\n"
+                                            "Debug Options Page\n"
+                                            "This page contains device debugging functions");
+        gtk_label_set_justify(GTK_LABEL(infoLabel), GTK_JUSTIFY_CENTER);
+        gtk_widget_set_margin_top(infoLabel, 50);
+        gtk_widget_set_margin_bottom(infoLabel, 20);
+        
+        helper.addToGrid(dbgOptPage, infoLabel, 0, 6, 4, 1);
+
     // ========== About Page ==========
     
         GtkWidget* aboutPage = helper.createGrid("about_page", 5, 5);
@@ -1879,6 +2013,15 @@ int gtk_kmain(int argc, char** argv) {
     });
     helper.bindClick(writeFBtn, []() {
         on_button_clicked_list_force_write(helper);
+    });
+    helper.bindClick(pactime,[](){
+        on_button_clicked_pac_time(helper);
+    });
+    helper.bindClick(chipuid,[](){
+        on_button_clicked_chip_uid(helper);
+    });
+    helper.bindClick(ReadNand,[](){
+        on_button_clicked_check_nand(helper);
     });
 }
     DisableWidgets(helper);
