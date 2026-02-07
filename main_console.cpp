@@ -5,7 +5,9 @@
 #include <stdio.h>
 #include "common.h"
 #include "main.h"
-
+#ifdef __linux__
+#include <unistd.h>
+#endif
 void print_help() {
 	//TODO
 	DBG_LOG("Usage:\n"
@@ -223,11 +225,18 @@ int main_console(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(nullptr));
-	printf("sfd_tool version 1.7.2.0 Console mode\n");
+	printf("sfd_tool version 1.7.2.1 Console mode\n");
 #if _DEBUG  
 	DBG_LOG("version:debug, core version:%s\n", Version);
 #else
 	DBG_LOG("version:stable, core version:%s\n", Version);
+#endif
+#ifdef __linux__
+	if(geteuid() != 0){
+		DEG_LOG(W,"You are running this tool without root permission!");
+		DEG_LOG(W,"It may cause device connecting issue");
+		DEG_LOG(W,"Recommanded to open this tool with root permission!");
+	}
 #endif
 	int i = 1;
 	while (argc > 1) {

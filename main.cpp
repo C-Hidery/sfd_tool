@@ -6,7 +6,10 @@
 #include <thread>
 #include <chrono>
 #include <gtk/gtk.h>
-const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.2.0\n\nBy Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options";
+#ifdef __linux__
+#include <unistd.h>
+#endif
+const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.2.1\n\nBy Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n--- v1.7.2.1---\nAdd root permission check for Linux";
 const char* Version = "[1.2.0.0@_250726]";
 int bListenLibusb = -1;
 int gpt_failed = 1;
@@ -47,6 +50,7 @@ int bootmode = -1, at = 0, async = 1;
 	libusb_device** ports;
 #endif
 // Moved initialization into gtk_kmain()
+
 // 选择文件
 std::string showFileChooser(GtkWindow* parent, bool open = true) {
     GtkWidget* dialog;
@@ -205,7 +209,14 @@ std::string showSaveFileDialog(GtkWindow* parent,
     gtk_widget_destroy(dialog);
     return filename;
 }
-
+#ifdef __linux__
+void check_root_permission(GtkWidgetHelper helper){
+    if(geteuid() != 0){
+        // not root
+        showWarningDialog(GTK_WINDOW(helper.getWidget("main_window")),"Warn 警告","You are running this tool without root permission!\nIt may cause device connecting issue\nRecommanded to open this tool with root permission!\n检测到未使用ROOT权限运行此工具\n可能会引起设备连接问题\n建议在ROOT环境下运行此工具\nsudo -E /path/to/sfd_tool");
+    }
+}
+#endif
 void EnableWidgets(GtkWidgetHelper helper){
     helper.enableWidget("poweroff");
     helper.enableWidget("reboot");
@@ -771,6 +782,9 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
         stage = 99;
         showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "你已启动重连模式，重连模式下只能兼容获取分区列表！\nYou have entered Reconnect Mode, which only supports compatibility-method partition list retrieval!");
     }
+#ifdef __linux__
+    check_root_permission(helper);
+#endif
 	helper.disableWidget("connect_1");
     double wait_time = helper.getSpinValue(waitBox);
     bool isSprd4 = helper.getSwitchState(sprd4Switch);
