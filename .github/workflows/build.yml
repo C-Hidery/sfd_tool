@@ -63,7 +63,7 @@ jobs:
             /p:Configuration=${{ matrix.config }} `
             /p:Platform=$platform `
             /p:OutDir=./build/${{ matrix.arch }}/${{ matrix.config }}/ `
-            /p:AdditionalOptions="/std:c++17" ` 
+            /p:LanguageStandard="/std:c++17" ` 
             /verbosity:minimal
 
       - name: Verify GTK3 DLLs Exist
