@@ -179,40 +179,40 @@ jobs:
             New-Item -ItemType Directory -Force -Path $themesDest
             Copy-Item -Path "$themesSrc\Default" -Destination $themesDest -Recurse -Force -ErrorAction SilentlyContinue
           }
-            - name: Cleanup Build Directory (Optional)
-              run: |
-                $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
+      - name: Cleanup Build Directory (Optional)
+        run: |
+          $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
                 
-                # 删除不需要的大文件（可选）
-                $unwantedExtensions = @(
-                  ".exe",    # 可执行文件（除了我们的）
-                  ".a",      # 静态库
-                  ".la",     # libtool 文件
-                  ".def",    # 导出定义
-                  ".sh",     # shell 脚本
-                  ".py",     # python 脚本
-                  ".pl"      # perl 脚本
-                )
+           # 删除不需要的大文件（可选）
+          $unwantedExtensions = @(
+            ".exe",    # 可执行文件（除了我们的）
+            ".a",      # 静态库
+            ".la",     # libtool 文件
+            ".def",    # 导出定义
+            ".sh",     # shell 脚本
+            ".py",     # python 脚本
+            ".pl"      # perl 脚本
+           )
                 
-                # 保留我们的可执行文件
-                $keepFiles = @("sfd_tool.exe", "sfd_tool.pdb")
+          # 保留我们的可执行文件
+          $keepFiles = @("sfd_tool.exe", "sfd_tool.pdb")
                 
-                foreach ($ext in $unwantedExtensions) {
-                  Get-ChildItem -Path $destDir -Filter "*$ext" -Exclude $keepFiles | Remove-Item -Force -ErrorAction SilentlyContinue
-                }
+          foreach ($ext in $unwantedExtensions) {
+            Get-ChildItem -Path $destDir -Filter "*$ext" -Exclude $keepFiles | Remove-Item -Force -ErrorAction SilentlyContinue
+          }
                 
-                Write-Host "清理后文件统计:"
-                $totalFiles = (Get-ChildItem -Path $destDir).Count
-                $totalSize = (Get-ChildItem -Path $destDir | Measure-Object -Property Length -Sum).Sum / 1MB
-                Write-Host "  文件数量: $totalFiles"
-                Write-Host "  总大小: $([math]::Round($totalSize, 2)) MB"
+          Write-Host "清理后文件统计:"
+          $totalFiles = (Get-ChildItem -Path $destDir).Count
+          $totalSize = (Get-ChildItem -Path $destDir | Measure-Object -Property Length -Sum).Sum / 1MB
+          Write-Host "  文件数量: $totalFiles"
+          Write-Host "  总大小: $([math]::Round($totalSize, 2)) MB"
 
 
-            - name: Upload Build Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                name: sfd_tool_${{ matrix.arch }}_${{ matrix.config }}
-                path: ./build/${{ matrix.arch }}/${{ matrix.config }}/
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sfd_tool_${{ matrix.arch }}_${{ matrix.config }}
+          path: ./build/${{ matrix.arch }}/${{ matrix.config }}/
 
   release:
     if: github.ref == 'refs/heads/master'
