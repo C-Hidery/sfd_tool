@@ -62,6 +62,8 @@ jobs:
           msbuild sfd_tool.vcxproj `
             /p:Configuration=${{ matrix.config }} `
             /p:Platform=$platform `
+            /p:PlatformToolset=v143 `
+            /std:c++17 `
             /p:OutDir=./build/${{ matrix.arch }}/${{ matrix.config }}/ `
             /verbosity:minimal
 
