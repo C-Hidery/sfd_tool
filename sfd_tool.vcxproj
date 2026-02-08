@@ -68,7 +68,7 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
-    <CppLanguageStandard>stdcpp17</CppLanguageStandard>
+    <LanguageStandard>stdcpp17</LanguageStandard>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   
@@ -76,7 +76,7 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
-    <CppLanguageStandard>stdcpp17</CppLanguageStandard>
+    <LanguageStandard>stdcpp17</LanguageStandard>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -85,7 +85,7 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
-    <CppLanguageStandard>stdcpp17</CppLanguageStandard>
+    <LanguageStandard>stdcpp17</LanguageStandard>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   
@@ -93,7 +93,7 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
-    <CppLanguageStandard>stdcpp17</CppLanguageStandard>
+    <LanguageStandard>stdcpp17</LanguageStandard>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -128,6 +128,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;WIN32;_DEBUG;_WINDOWS;USE_GTK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>
         $(GTK3_PATH)\include\gtk-3.0;
         $(GTK3_PATH)\include\glib-2.0;
@@ -157,6 +158,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;WIN32;NDEBUG;_WINDOWS;USE_GTK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>
         $(GTK3_PATH)\include\gtk-3.0;
         $(GTK3_PATH)\include\glib-2.0;
@@ -185,6 +187,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>USE_LIBUSB;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;_DEBUG;_WINDOWS;USE_GTK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>
         Lib;
         $(GTK3_PATH)\include\gtk-3.0;
@@ -215,6 +218,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>USE_LIBUSB;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;NDEBUG;_WINDOWS;USE_GTK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>
         Lib;
         $(GTK3_PATH)\include\gtk-3.0;
