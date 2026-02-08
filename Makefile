@@ -6,7 +6,7 @@ GTK = 1
 UNAME_S := $(shell uname -s)
 
 # 基础编译选项
-CFLAGS = -O2 -Wall -Wextra -std=c++14 -pedantic -Wno-unused
+CFLAGS = -O2 -Wall -Wextra -std=c++17 -pedantic -Wno-unused
 CFLAGS += -DUSE_LIBUSB=$(LIBUSB)
 CFLAGS += -DUSE_GTK=$(GTK)
 

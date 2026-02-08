@@ -50,7 +50,41 @@ int bootmode = -1, at = 0, async = 1;
 	libusb_device** ports;
 #endif
 // Moved initialization into gtk_kmain()
-
+template<typename Func>
+void gui_idle_call(Func&& func) {
+    using FuncType = typename std::decay<Func>::type;
+    
+    // 动态分配func的副本
+    auto* func_ptr = new FuncType(std::forward<Func>(func));
+    
+    g_idle_add([](gpointer data) -> gboolean {
+        auto* f = static_cast<FuncType*>(data);
+        (*f)();
+        delete f;
+        return G_SOURCE_REMOVE;
+    }, func_ptr);
+}
+template<typename Func, typename Callback>
+void gui_idle_call_with_callback(Func&& func, Callback&& callback) {
+    using FuncType = typename std::decay<Func>::type;
+    using CallbackType = typename std::decay<Callback>::type;
+    
+    auto* func_ptr = new FuncType(std::forward<Func>(func));
+    auto* callback_ptr = new CallbackType(std::forward<Callback>(callback));
+    
+    g_idle_add([](gpointer data) -> gboolean {
+        auto* pair = static_cast<std::pair<FuncType*, CallbackType*>*>(data);
+        auto& [func, callback] = *pair;
+        
+        bool result = (*func)();
+        (*callback)(result);
+        
+        delete func;
+        delete callback;
+        delete pair;
+        return G_SOURCE_REMOVE;
+    }, new std::pair<FuncType*, CallbackType*>(func_ptr, callback_ptr));
+}
 // 选择文件
 std::string showFileChooser(GtkWindow* parent, bool open = true) {
     GtkWidget* dialog;
@@ -780,7 +814,10 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
     GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
     if (argc > 1 && !strcmp(argv[1],"--reconnect")){
         stage = 99;
-        showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "你已启动重连模式，重连模式下只能兼容获取分区列表！\nYou have entered Reconnect Mode, which only supports compatibility-method partition list retrieval!");
+        gui_idle_call([helper](){
+            showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "你已启动重连模式，重连模式下只能兼容获取分区列表！\nYou have entered Reconnect Mode, which only supports compatibility-method partition list retrieval!");
+        });
+        
     }
 #ifdef __linux__
     check_root_permission(helper);
@@ -1045,12 +1082,15 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		if(device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
 		else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
 	}
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Successfully connected 连接成功", "Device already connected!\n设备已成功连接！");
-    if (!fdl2_executed) helper.enableWidget("fdl_exec");
-    helper.setLabelText(helper.getWidget("con"), "Connected");
-    if (device_stage == BROM) helper.setLabelText(helper.getWidget("mode"), "BROM");
-    else if (device_stage == FDL1) helper.setLabelText(helper.getWidget("mode"), "FDL1");
-    else if (device_stage == FDL2) helper.setLabelText(helper.getWidget("mode"), "FDL2");
+    gui_idle_call([helper]() mutable {
+        showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Successfully connected 连接成功", "Device already connected!\n设备已成功连接！");
+        if (!fdl2_executed) helper.enableWidget("fdl_exec");
+        helper.setLabelText(helper.getWidget("con"), "Connected");
+        if (device_stage == BROM) helper.setLabelText(helper.getWidget("mode"), "BROM");
+        else if (device_stage == FDL1) helper.setLabelText(helper.getWidget("mode"), "FDL1");
+        else if (device_stage == FDL2) helper.setLabelText(helper.getWidget("mode"), "FDL2");
+    });
+    
 }
 
 // select fdl
@@ -1084,8 +1124,16 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
             else send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
         }else{
             if (fdl_path && strlen(fdl_path) > 0 && !fdl_addr && isKickMode) {
-                bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", "Device can be booted without FDL in SPRD4 mode, continue?\n设备在SPRD4模式下可以无需FDL启动，是否继续？");
-                if (i_is) {
+                auto i_is_ptr = std::make_shared<bool>(false);
+                gui_idle_call_with_callback(
+                    [helper]() -> bool {
+                        return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", "Device can be booted without FDL in SPRD4 mode, continue?\n设备在SPRD4模式下可以无需FDL启动，是否继续？");
+                    },
+                    [i_is_ptr](bool result){
+                        *i_is_ptr = result;
+                    }
+                );
+                if (*i_is_ptr) {
                     DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
                     encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
                     if (send_and_check(io)) exit(1);
@@ -1179,7 +1227,10 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
                 for (int i = 0; i < io->part_count; i++) {
                     partitions.push_back(io->ptable[i]);
                 }
-                populatePartitionList(helper, partitions);
+                gui_idle_call([helper,partitions]() mutable {
+                    populatePartitionList(helper, partitions);
+                });
+                
             }
             else if(isUseCptable) {
                 io->Cptable = partition_list_d(io);
@@ -1195,11 +1246,14 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
                 nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
             }
             fdl2_executed = 1;
-            showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "FDL2 Executed FDL2执行成功", "FDL2 executed successfully!\nFDL2已成功执行！"); 
-            EnableWidgets(helper);
-            helper.disableWidget("fdl_exec");
-            helper.setLabelText(helper.getWidget("mode"), "FDL2");
-            helper.setLabelText(helper.getWidget("con"), "Connected");
+            gui_idle_call([helper]() mutable {
+                showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "FDL2 Executed FDL2执行成功", "FDL2 executed successfully!\nFDL2已成功执行！"); 
+                EnableWidgets(helper);
+                helper.disableWidget("fdl_exec");
+                helper.setLabelText(helper.getWidget("mode"), "FDL2");
+                helper.setLabelText(helper.getWidget("con"), "Connected");
+            });
+           
     }
     else {
         DEG_LOG(I, "Executing FDL file: %s at address: 0x%X", fdl_path, fdl_addr);
@@ -1231,8 +1285,16 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
             }
             else{
                 if (fdl_path && strlen(fdl_path) > 0 && !fdl_addr && isKickMode) {
-                    bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", "Device can be booted without FDL in SPRD4 mode, continue?\n设备在SPRD4模式下可以无需FDL启动，是否继续？");
-                    if (i_is) {
+                    auto i_is_ptr = std::make_shared<bool>(false);
+                    gui_idle_call_with_callback(
+                        [helper]() -> bool {
+                            return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", "Device can be booted without FDL in SPRD4 mode, continue?\n设备在SPRD4模式下可以无需FDL启动，是否继续？");
+                        },
+                        [i_is_ptr](bool result){
+                            *i_is_ptr = result;
+                        }
+                    );
+                    if (*i_is_ptr) {
                         DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
                         fclose(fi);
                         encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
@@ -1263,7 +1325,9 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			if (fdl_addr == 0x5500 || fdl_addr == 0x65000800) {
 				highspeed = 1;
 				if (!baudrate) baudrate = 921600;
-                showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "High Speed Mode Enabled 高速模式已启用", "Do not set block size manually in high speed mode!\n高速模式下请勿手动设置块大小！");
+                gui_idle_call([helper](){
+                    showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "High Speed Mode Enabled 高速模式已启用", "Do not set block size manually in high speed mode!\n高速模式下请勿手动设置块大小！");
+                });
 			}
 
 			/* FDL1 (chk = sum) */
@@ -1301,9 +1365,12 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 					if (!send_and_check(io)) DEG_LOG(OP,"Keep charge FDL1.");
 				}
 			fdl1_loaded = 1;
-            showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "FDL1 Executed FDL1执行成功", "FDL1 executed successfully!\nFDL1已成功执行！");
-            helper.setLabelText(helper.getWidget("mode"), "FDL1");
-            helper.setLabelText(helper.getWidget("con"), "Connected");
+            gui_idle_call([helper]() mutable {
+                showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "FDL1 Executed FDL1执行成功", "FDL1 executed successfully!\nFDL1已成功执行！");
+                helper.setLabelText(helper.getWidget("mode"), "FDL1");
+                helper.setLabelText(helper.getWidget("con"), "Connected");
+            });
+            
         }).detach();
         
     }
