@@ -68,6 +68,7 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
+    <CppLanguageStandard>stdcpp17</CppLanguageStandard>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   
@@ -75,6 +76,7 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
+    <CppLanguageStandard>stdcpp17</CppLanguageStandard>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -83,6 +85,7 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
+    <CppLanguageStandard>stdcpp17</CppLanguageStandard>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   
@@ -90,6 +93,7 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
+    <CppLanguageStandard>stdcpp17</CppLanguageStandard>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
