@@ -87,7 +87,7 @@ void gui_idle_call_with_callback(Func&& func, Callback&& callback) {
     }, new std::pair<FuncType*, CallbackType*>(func_ptr, callback_ptr));
 }
 // 选择文件
-const char* showFileChooser(GtkWindow* parent, bool open = true) {
+std::string showFileChooser(GtkWindow* parent, bool open = true) {
     GtkWidget* dialog;
     
     if (open) {
@@ -113,7 +113,7 @@ const char* showFileChooser(GtkWindow* parent, bool open = true) {
     gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
     
     gint result = gtk_dialog_run(GTK_DIALOG(dialog));
-    const char* filename = nullptr;
+    std::string filename;
     
     if (result == GTK_RESPONSE_ACCEPT) {
         char* file = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
@@ -201,7 +201,7 @@ bool showConfirmDialog(GtkWindow* parent, const char* title, const char* message
     return (result == GTK_RESPONSE_YES);
 }
 // 文件选择对话框函数
-const char* showSaveFileDialog(GtkWindow* parent, 
+std::string showSaveFileDialog(GtkWindow* parent, 
                                const std::string& default_filename = "",
                                const std::vector<std::pair<std::string, std::string>>& filters = {}) {
     GtkWidget* dialog = gtk_file_chooser_dialog_new("保存文件",
@@ -230,7 +230,7 @@ const char* showSaveFileDialog(GtkWindow* parent,
     gtk_file_filter_add_pattern(all_filter, "*");
     gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), all_filter);
     
-    const char* filename = nullptr;
+    std::string filename;
     gint result = gtk_dialog_run(GTK_DIALOG(dialog));
     
     if (result == GTK_RESPONSE_ACCEPT) {
@@ -391,7 +391,7 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper){
 void on_button_clicked_list_read(GtkWidgetHelper helper){
     GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
     std::string part_name = getSelectedPartitionName(helper);
-    const char* savePath = showSaveFileDialog(parent, part_name + ".img");
+    std::string savePath = showSaveFileDialog(parent, part_name + ".img");
     if (m_bOpened == -1) {
 		DEG_LOG(E,"device unattached, exiting...");
 		gui_idle_call([helper](){
@@ -399,7 +399,7 @@ void on_button_clicked_list_read(GtkWidgetHelper helper){
         });
         exit(1);
 	}
-    if (savePath == nullptr) {
+    if (savePath.empty()) {
         showErrorDialog(parent, "错误 Error", "未选择保存路径！\nNo save path selected!");
         return;
     }
@@ -413,7 +413,7 @@ void on_button_clicked_list_read(GtkWidgetHelper helper){
 		DEG_LOG(E,"Partition not exist\n");
 		return;
 	}
-    std::thread([savePath,parent](){dump_partition(io, gPartInfo.name, 0, gPartInfo.size, savePath, blk_size ? blk_size : DEFAULT_BLK_SIZE);showInfoDialog(parent, "完成 Completed", "分区读取完成！\nPartition read completed!");}).detach();
+    std::thread([savePath,parent](){dump_partition(io, gPartInfo.name, 0, gPartInfo.size, savePath.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);showInfoDialog(parent, "完成 Completed", "分区读取完成！\nPartition read completed!");}).detach();
     
 }
 void on_button_clicked_list_erase(GtkWidgetHelper helper){
@@ -581,12 +581,10 @@ void on_button_clicked_m_read(GtkWidgetHelper helper){
 	}
     GtkWidget *parent = helper.getWidget("main_window");
     std::string part_name = helper.getEntryText(helper.getWidget("m_part_read"));
-    const char* savePath = showSaveFileDialog(GTK_WINDOW(parent), part_name + ".img");
-    
-    if (savePath == nullptr) {
+    std::string savePath = showSaveFileDialog(GTK_WINDOW(parent), part_name + ".img");
+    if (savePath.empty()) {
         showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未选择保存路径！\nNo save path selected!");
         return;
-    
     }
     if (part_name.empty()) {
         showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未指定分区名称！\nNo partition name specified!");
@@ -595,7 +593,7 @@ void on_button_clicked_m_read(GtkWidgetHelper helper){
     get_partition_info(io, part_name.c_str(), 0);
     if (!gPartInfo.size) { DEG_LOG(E,"Partition does not exist\n");return;}
 
-    std::thread([parent,savePath](){dump_partition(io, gPartInfo.name, 0, gPartInfo.size, savePath, blk_size ? blk_size : DEFAULT_BLK_SIZE);showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区读取完成！\nPartition read completed!");}).detach();   
+    std::thread([parent,savePath](){dump_partition(io, gPartInfo.name, 0, gPartInfo.size, savePath.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区读取完成！\nPartition read completed!");}).detach();   
 }
 void on_button_clicked_m_erase(GtkWidgetHelper helper){
     if (m_bOpened == -1) {
@@ -673,17 +671,17 @@ void on_button_clicked_read_xml(GtkWidgetHelper helper){
         exit(1);
 	}
     GtkWidget* parent = helper.getWidget("main_window");
-    const char* savePath = showSaveFileDialog(GTK_WINDOW(parent), "partition_table.xml", { {"XML文件 (*.xml)", "*.xml"} });
-    if (savePath == nullptr) {
+    std::string savePath = showSaveFileDialog(GTK_WINDOW(parent), "partition_table.xml", { {"XML文件 (*.xml)", "*.xml"} });
+    if (savePath.empty()) {
         showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未选择保存路径！\nNo save path selected!");
         return;
     }
     if (!isCMethod) {
-		if (gpt_failed == 1) io->ptable = partition_list(io, savePath, &io->part_count);
+		if (gpt_failed == 1) io->ptable = partition_list(io, savePath.c_str(), &io->part_count);
 		if (!io->part_count) { DEG_LOG(E, "Partition table not available"); return; }
 		else {
 			DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size / 1024);
-			FILE* fo = my_fopen(savePath, "wb");
+			FILE* fo = my_fopen(savePath.c_str(), "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");
 			fprintf(fo, "<Partitions>\n");
 			for (int i = 0; i < io->part_count; i++) {
@@ -694,7 +692,7 @@ void on_button_clicked_read_xml(GtkWidgetHelper helper){
 			}
 			fprintf(fo, "</Partitions>");
 			fclose(fo);
-			DEG_LOG(I, "Partition table saved to %s", savePath);
+			DEG_LOG(I, "Partition table saved to %s", savePath.c_str());
 		}
 	}
 	else {
@@ -702,7 +700,7 @@ void on_button_clicked_read_xml(GtkWidgetHelper helper){
 		if (!c) { DEG_LOG(E, "Partition table not available"); return; }
 		else {
 			DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size / 1024);
-			FILE* fo = my_fopen(savePath, "wb");
+			FILE* fo = my_fopen(savePath.c_str(), "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");
 			fprintf(fo, "<Partitions>\n");
 			char* name;
@@ -718,7 +716,7 @@ void on_button_clicked_read_xml(GtkWidgetHelper helper){
 			fprintf(fo, "</Partitions>");
 			fclose(fo);
 			io->verbose = o;
-			DEG_LOG(I, "Partition table saved to %s", savePath);
+			DEG_LOG(I, "Partition table saved to %s", savePath.c_str());
         }
 	}
 	showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区表导出完成！\nPartition table export completed!");
@@ -758,13 +756,13 @@ void on_button_clicked_select_xml(GtkWidgetHelper helper){
 void on_button_clicked_exp_log(GtkWidgetHelper helper){
     GtkWidget* parent = helper.getWidget("main_window");
     GtkWidget *txtOutput = helper.getWidget("txtOutput");
-    const char* savePath = showSaveFileDialog(GTK_WINDOW(parent), "sfd_tool_log.txt", { {"文本文件 (*.txt)", "*.txt"} });
-    if (savePath == nullptr) {
+    std::string savePath = showSaveFileDialog(GTK_WINDOW(parent), "sfd_tool_log.txt", { {"文本文件 (*.txt)", "*.txt"} });
+    if (savePath.empty()) {
         showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未选择保存路径！\nNo save path selected!");
         return;
     }
     const char* txt = helper.getTextAreaText(txtOutput);
-    FILE* fo = fopen(savePath, "w");
+    FILE* fo = fopen(savePath.c_str(), "w");
     if (!fo) {
         showErrorDialog(GTK_WINDOW(parent), "错误 Error", "无法保存日志文件！\nFailed to save log file!");
         return;
