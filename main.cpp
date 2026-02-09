@@ -6,10 +6,11 @@
 #include <thread>
 #include <chrono>
 #include <gtk/gtk.h>
+#include "GenTosNoAvb.h"
 #ifdef __linux__
 #include <unistd.h>
 #endif
-const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.2.1\n\nBy Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n--- v1.7.2.1---\nAdd root permission check for Linux";
+const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.2.2\n\nBy Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n--- v1.7.2.1---\nAdd root permission check for Linux\n--- v1.7.2.2---\nAdd dis_avb function";
 const char* Version = "[1.2.0.0@_250726]";
 int bListenLibusb = -1;
 int gpt_failed = 1;
@@ -86,7 +87,7 @@ void gui_idle_call_with_callback(Func&& func, Callback&& callback) {
     }, new std::pair<FuncType*, CallbackType*>(func_ptr, callback_ptr));
 }
 // 选择文件
-std::string showFileChooser(GtkWindow* parent, bool open = true) {
+const char* showFileChooser(GtkWindow* parent, bool open = true) {
     GtkWidget* dialog;
     
     if (open) {
@@ -112,7 +113,7 @@ std::string showFileChooser(GtkWindow* parent, bool open = true) {
     gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
     
     gint result = gtk_dialog_run(GTK_DIALOG(dialog));
-    std::string filename;
+    const char* filename;
     
     if (result == GTK_RESPONSE_ACCEPT) {
         char* file = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
@@ -276,6 +277,7 @@ void EnableWidgets(GtkWidgetHelper helper){
     helper.enableWidget("chip_uid");
     helper.enableWidget("pac_time");
     helper.enableWidget("check_nand");
+    helper.enableWidget("dis_avb");
 }
 void on_button_clicked_select_cve(GtkWidgetHelper helper) {
     GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
@@ -865,6 +867,28 @@ void on_button_clicked_check_nand(GtkWidgetHelper helper){
 	}
 	if (Da_Info.dwStorageType == 0x101) {DEG_LOG(I, "Device storage is nand");showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),"Info 信息","Storage is nand.");}
 	else {DEG_LOG(I, "Device storage is not nand");showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),"Info 信息","Storage is not nand.");}
+}
+void on_button_clicked_dis_avb(GtkWidgetHelper helper){
+    TosPatcher patcher;
+    bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")),"Warn 警告","This operation may brick your device, continue?\n此操作可能会使你的设备变砖，是否继续？");
+    if (i_is){
+        std::thread([helper,patcher]() mutable {
+            dump_partition(io,"trustos",0,check_partition(io,"trustos",1),"trustos-orig.bin",0);
+            int o = patcher.patcher("trustos-orig.bin");
+            if(!o) load_partition_unify(io,"trustos","tos-noavb.bin",0,0);
+            if(!o){
+                gui_idle_call([helper](){
+                    showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),"Info 信息","Disabled AVB successfully, the backup trustos is trustos-orig.bin\n禁用AVB成功，原版trustos是trustos-orig.bin");
+                });
+            }
+            else{
+                gui_idle_call([helper](){
+                    showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")),"Error 错误","Disabled AVB failed, go to log window to see why\n禁用AVB失败，请检查日志窗口");
+                });
+            }
+        }).detach();
+    }
+
 }
 void populatePartitionList(GtkWidgetHelper& helper, const std::vector<partition_t>& partitions) {
     // 获取列表视图
@@ -1564,6 +1588,7 @@ void DisableWidgets(GtkWidgetHelper helper){
     helper.disableWidget("check_nand");
     helper.disableWidget("pac_time");
     helper.disableWidget("chip_uid");
+    helper.disableWidget("dis_avb");
 }
 
 int gtk_kmain(int argc, char** argv) {
@@ -1944,7 +1969,11 @@ int gtk_kmain(int argc, char** argv) {
         GtkWidget* dmvLabel = helper.createLabel("DM-verify Settings (if support)  DM-verify设置（如果支持）", "dmv_label", 0, 0, 400, 20);
         GtkWidget* dmvDisable = helper.createButton("Disable DM-verify  禁用DM-verify", "dmv_disable", nullptr, 0, 0, 200, 32);
         GtkWidget* dmvEnable = helper.createButton("Enable DM-verify  启用DM-verify", "dmv_enable", nullptr, 0, 0, 200, 32);
+        // No AVB
         
+        GtkWidget* disavbLabel = helper.createLabel("AVB Settings AVB设置", "avb_label", 0, 0, 400, 20);
+        GtkWidget* dis_avb = helper.createButton("Disable AVB verification 禁用AVB效验","dis_avb",nullptr,0,0,200,32);
+
         // Add to grid
         row = 0;
         helper.addToGrid(advOpPage, abLabel, 0, row++, 3, 1);
@@ -1975,6 +2004,11 @@ int gtk_kmain(int argc, char** argv) {
         gtk_box_pack_start(GTK_BOX(dmvButtonBox), dmvDisable, FALSE, FALSE, 0);
         gtk_box_pack_start(GTK_BOX(dmvButtonBox), dmvEnable, FALSE, FALSE, 0);
         helper.addToGrid(advOpPage, dmvButtonBox, 0, row++, 3, 1);
+        
+        row += 2; // Add some spacing
+        
+        helper.addToGrid(advOpPage, disavbLabel, 0, row++, 3, 1);
+        helper.addToGrid(advOpPage, dis_avb, 0, row++, 3, 1);
     
     
     // ========== Advanced Settings Page ==========
@@ -2264,6 +2298,9 @@ int gtk_kmain(int argc, char** argv) {
     });
     helper.bindClick(ReadNand,[](){
         on_button_clicked_check_nand(helper);
+    });
+    helper.bindClick(dis_avb, [](){
+        on_button_clicked_dis_avb(helper);
     });
 }
     DisableWidgets(helper);

@@ -225,7 +225,7 @@ int main_console(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(nullptr));
-	printf("sfd_tool version 1.7.2.1 Console mode\n");
+	printf("sfd_tool version 1.7.2.2 Console mode\n");
 #if _DEBUG  
 	DBG_LOG("version:debug, core version:%s\n", Version);
 #else
