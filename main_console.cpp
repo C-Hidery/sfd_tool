@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include "common.h"
 #include "main.h"
+#include "GenTosNoAvb.h"
 #ifdef __linux__
 #include <unistd.h>
 #endif
@@ -131,6 +132,8 @@ void print_help() {
 		"\t\tFind BSL command by hex number\n"
 		"\t->cptable\n"
 		"\t\tRead the partition table in compatibility mode\n"
+		"\t->dis_avb\n"
+		"\t\tDisable AVB verification by patching trustos(FDL2 only)\n"
 		"Debug commands:\n"
 		"\t->skip_confirm {0,1}\n"
 		"\t\tSkips all confirmation prompts(use with caution!)\n"
@@ -1607,10 +1610,26 @@ int main_console(int argc, char** argv) {
 
 			}
 		else if (!strcmp(str2[1], "fblk_size") || !strcmp(str2[1], "fbs")) {
-				if (argcount <= 2) { DEG_LOG(E,"fblk_size [value]\n\tvalue unit: MB"); argc = 1; continue; }
-				fblk_size = strtoull(str2[2], nullptr, 0) * 1024 * 1024;
-				argc -= 2; argv += 2;
+			if (argcount <= 2) { DEG_LOG(E,"fblk_size [value]\n\tvalue unit: MB"); argc = 1; continue; }
+			fblk_size = strtoull(str2[2], nullptr, 0) * 1024 * 1024;
+			argc -= 2; argv += 2;
 
+		}
+		else if (!strcmp(str2[2],"dis_avb")){
+			DEG_LOG(W,"This operation may brick your device!");
+			if(check_confirm("Disable AVB")){
+				TosPatcher patcher;
+				dump_partition(io,"trustos",0,check_partition(io,"trustos",1),"trustos-orig.bin",0);
+				int o = patcher.patcher("trustos-orig.bin");
+				if(!o){
+					load_partition_unify(io,"trustos","tos-noavb.bin",0,isCMethod);
+					DEG_LOG(I,"Done, backup trustos image is trustos-orig.bin");
+				}
+				else{
+					DEG_LOG(E,"Failed.");
+				}
+			}
+			argc -= 1; argv += 1;
 		}
 		else if (!strcmp(str2[1], "verity")) {
 			if (argcount <= 2) { DEG_LOG(W,"verity {0,1}"); argc = 1; continue; }

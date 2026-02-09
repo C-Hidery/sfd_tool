@@ -886,7 +886,7 @@ void on_button_clicked_dis_avb(GtkWidgetHelper helper){
         std::thread([helper,patcher]() mutable {
             dump_partition(io,"trustos",0,check_partition(io,"trustos",1),"trustos-orig.bin",0);
             int o = patcher.patcher("trustos-orig.bin");
-            if(!o) load_partition_unify(io,"trustos","tos-noavb.bin",0,0);
+            if(!o) load_partition_unify(io,"trustos","tos-noavb.bin",0,isCMethod);
             if(!o){
                 gui_idle_call([helper](){
                     showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),"Info 信息","Disabled AVB successfully, the backup trustos is trustos-orig.bin\n禁用AVB成功，原版trustos是trustos-orig.bin");
