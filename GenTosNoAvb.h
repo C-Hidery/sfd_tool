@@ -154,7 +154,7 @@ public:
         {
             printf("[TosPatcher] [ERROR] patch failed (mov_count < 2), skip saving!!!\n");
             free(mem);
-            return 0;
+            return 1;
         }
         if (mov_count > 2)
             mov_count = (pmov[2] - 2 * pmov[1] + pmov[0] > 0) ? 1 : 2;

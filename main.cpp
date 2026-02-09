@@ -66,14 +66,16 @@ void gui_idle_call(Func&& func) {
     }, func_ptr);
 }
 template<typename Func, typename Callback>
-void gui_idle_call_with_callback(Func&& func, Callback&& callback) {
+void gui_idle_call_with_callback(Func&& func, Callback&& callback) 
+{
     using FuncType = typename std::decay<Func>::type;
     using CallbackType = typename std::decay<Callback>::type;
     
     auto* func_ptr = new FuncType(std::forward<Func>(func));
     auto* callback_ptr = new CallbackType(std::forward<Callback>(callback));
     
-    g_idle_add([](gpointer data) -> gboolean {
+    g_idle_add([](gpointer data) -> gboolean 
+    {
         auto* pair = static_cast<std::pair<FuncType*, CallbackType*>*>(data);
         auto& [func, callback] = *pair;
         
@@ -87,7 +89,8 @@ void gui_idle_call_with_callback(Func&& func, Callback&& callback) {
     }, new std::pair<FuncType*, CallbackType*>(func_ptr, callback_ptr));
 }
 // 选择文件
-std::string showFileChooser(GtkWindow* parent, bool open = true) {
+std::string showFileChooser(GtkWindow* parent, bool open = true) 
+{
     GtkWidget* dialog;
     
     if (open) {
@@ -503,39 +506,47 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper){
         });
         exit(1);
 	}
-    if (!isCMethod) {
-		if (gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
-		if (!io->part_count) { DEG_LOG(E, "Partition table not available\n"); return; }
-		dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
-		for (int i = 0; i < io->part_count; i++) {
-			if (isCancel) break;
-			char dfile[40];
-			size_t namelen = strlen((*(io->ptable + i)).name);
-			if (!strncmp((*(io->ptable + i)).name, "blackbox", 8)) continue;
-		    else if (!strncmp((*(io->ptable + i)).name, "cache", 5)) continue;
-    		else if (!strncmp((*(io->ptable + i)).name, "userdata", 8)) continue;
-			if (selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_b")) continue;
-			else if (selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_a")) continue;
-			snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->ptable + i)).name);
-			dump_partition(io, (*(io->ptable + i)).name, 0, (*(io->ptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
-		}
-	}
-	else {
-		if(!io->part_count_c) { DEG_LOG(E, "Partition table not available\n"); return; }
-		dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
-		for (int i = 0; i < io->part_count_c; i++) {
-			if (isCancel) break;
-			char dfile[40];
-			size_t namelen = strlen((*(io->Cptable + i)).name);
-			if (!strncmp((*(io->Cptable + i)).name, "blackbox", 8)) continue;
-			else if (!strncmp((*(io->Cptable + i)).name, "cache", 5)) continue;
-			else if (!strncmp((*(io->Cptable + i)).name, "userdata", 8)) continue;
-			if (selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_b")) continue;
-			else if (selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_a")) continue;
-			snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->Cptable + i)).name);
-			dump_partition(io, (*(io->Cptable + i)).name, 0, (*(io->Cptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
-		}
-    }
+    std::thread([]()
+    {
+        if (!isCMethod) 
+        {
+            if (gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+            if (!io->part_count) { DEG_LOG(E, "Partition table not available\n"); return; }
+            dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
+            for (int i = 0; i < io->part_count; i++) 
+            {
+                if (isCancel) break;
+                char dfile[40];
+                size_t namelen = strlen((*(io->ptable + i)).name);
+                if (!strncmp((*(io->ptable + i)).name, "blackbox", 8)) continue;
+                else if (!strncmp((*(io->ptable + i)).name, "cache", 5)) continue;
+                else if (!strncmp((*(io->ptable + i)).name, "userdata", 8)) continue;
+                if (selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_b")) continue;
+                else if (selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_a")) continue;
+                snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->ptable + i)).name);
+                dump_partition(io, (*(io->ptable + i)).name, 0, (*(io->ptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
+            }
+        }
+        else 
+        {
+            if(!io->part_count_c) { DEG_LOG(E, "Partition table not available\n"); return; }
+            dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
+            for (int i = 0; i < io->part_count_c; i++)
+            {
+                if (isCancel) break;
+                char dfile[40];
+                size_t namelen = strlen((*(io->Cptable + i)).name);
+                if (!strncmp((*(io->Cptable + i)).name, "blackbox", 8)) continue;
+                else if (!strncmp((*(io->Cptable + i)).name, "cache", 5)) continue;
+                else if (!strncmp((*(io->Cptable + i)).name, "userdata", 8)) continue;
+                if (selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_b")) continue;
+                else if (selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_a")) continue;
+                snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->Cptable + i)).name);
+                dump_partition(io, (*(io->Cptable + i)).name, 0, (*(io->Cptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
+            }
+        }
+    }).detach();
+    
 }
 void on_button_clicked_m_select(GtkWidgetHelper helper) {
     GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
