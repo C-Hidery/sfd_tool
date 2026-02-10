@@ -1,3 +1,8 @@
+# 禁用 debug 包
+%global debug_package %{nil}
+%global _enable_debug_package 0
+
+
 Name:           sfd-tool
 Version:        1.7.2.3
 Release:        1%{?dist}
