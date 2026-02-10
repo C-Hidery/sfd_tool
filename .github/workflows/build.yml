@@ -184,15 +184,14 @@ jobs:
           
           # 运行构建脚本
           ./build-deb.sh
-          ls
-          DEB_FILE=$(find ./ -name '*.deb')
+          DEB_FILE=$(find /tmp/build-sfd-tool/ -name '*.deb')
           echo found deb file in $DEB_FILE
           if [ -f "$DEB_FILE" ]; then
             echo "Converting $DEB_FILE to RPM..."
             # 使用 alien 转换
             sudo alien --to-rpm --keep-version "$DEB_FILE"
           fi
-      - name: Upload Linux DEB Artifacts
+      - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: sfd_tool_linux_deb
