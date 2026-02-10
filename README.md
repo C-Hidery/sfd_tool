@@ -23,7 +23,7 @@ sudo apt update
 # Ubuntu/Debian
 sudo apt install libusb-1.0-0-dev gcc g++ libgtk-3-dev pkg-config
 # Fedora/RHEL
-sudo dnf install libusb-devel gtk3-devel pkg-config
+sudo dnf install  gcc-c++ gtk3-devel libusb1-devel libusb1 pkgconf-pkg-config make 
 # macOS
 brew install libusb gtk+3 pkg-config
 # Android(Termux)
