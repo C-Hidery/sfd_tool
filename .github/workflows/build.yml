@@ -183,13 +183,16 @@ jobs:
           
           # 运行构建脚本
           ./build-deb.sh
-
+          
       - name: Upload Linux DEB Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: sfd_tool_linux_deb
           path: |
-            ../*.deb
+            /tmp/build-sfd-tool/*.deb
+            /tmp/build-sfd-tool/*.changes
+            /tmp/build-sfd-tool/*.buildinfo
+            /tmp/build-sfd-tool/*.dsc
   release:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
