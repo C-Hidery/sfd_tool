@@ -224,14 +224,14 @@ jobs:
         run: |
           # 处理 Windows 文件
           cp master/*.md output/
-          cp master/Lib/Channel9.dll output/sfd_tool_windows_x86/Release/
-          cp master/Lib/Channel.ini output/sfd_tool_windows_x86/Release/
-          cp master/Lib/libusb-1.0.dll output/sfd_tool_windows_x64/Release/
+          cp master/Lib/Channel9.dll output/sfd_tool_windows_x86
+          cp master/Lib/Channel.ini output/sfd_tool_windows_x86
+          cp master/Lib/libusb-1.0.dll output/sfd_tool_windows_x64
           
           # 重命名 Windows 目录
           cd output
-          mv sfd_tool_windows_x86/Release sfd_tool_SPRD_Release
-          mv sfd_tool_windows_x64/Release sfd_tool_LibUSB_Release
+          mv sfd_tool_windows_x86 sfd_tool_SPRD_Release
+          mv sfd_tool_windows_x64 sfd_tool_LibUSB_Release
           
           # 复制 Linux DEB 包
           cp -r sfd_tool_linux_deb/*.deb .
