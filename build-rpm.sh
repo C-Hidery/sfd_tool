@@ -12,7 +12,7 @@ make clean 2>/dev/null || true
 rm -rf ~/rpmbuild
 
 # 设置 RPM 构建环境
-rpmdev-setuptree
+mkdir -p ~/rpmbuild/{SOURCES,SPECS,RPMS,SRPMS,BUILD}
 
 # 创建源码包
 mkdir -p /tmp/$PKGNAME-$VERSION
@@ -29,7 +29,7 @@ fi
 
 # 创建 tarball
 cd /tmp
-tar czf ~/rpmbuild/SOURCES/$PKGNAME-$VERSION.tar.gz $PKGNAME-$VERSION
+tar -czf ~/rpmbuild/SOURCES/$PKGNAME-$VERSION.tar.gz $PKGNAME-$VERSION
 cd -
 
 # 构建 RPM
