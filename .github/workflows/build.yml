@@ -1,1 +1,309 @@
+name: Build sfd_tool
 
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        arch: [x64, x86]
+        config: [Release]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup MSVS
+        uses: TheMrMilchmann/setup-msvc-dev@v3
+        with:
+          arch: ${{ matrix.arch }}
+
+      - name: Install MSYS2 and GTK3
+        run: |
+          # GitHub Actions Windows 镜像已预装 MSYS2
+          $msysPath = "C:\msys64"
+          
+          Write-Host "安装 GTK3 开发包..."
+          
+          # 更新 MSYS2
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Syu --noconfirm"
+          
+          # 根据架构安装对应的 GTK3
+          if ("${{ matrix.arch }}" -eq "x64") {
+            Write-Host "安装 x64 GTK3 完整开发包..."
+            & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
+          } else {
+            Write-Host "安装 x86 GTK3 完整开发包..."
+            & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm mingw-w64-i686-gtk3 mingw-w64-i686-harfbuzz mingw-w64-i686-pango mingw-w64-i686-cairo mingw-w64-i686-glib2"
+          }
+
+      - name: Create Build Directory
+        run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.arch }}/${{ matrix.config }}/
+
+      - name: Build sfd_tool (${{ matrix.arch }} - ${{ matrix.config }})
+        run: |
+          $platform = if ("${{ matrix.arch }}" -eq "x64") { "x64" } else { "Win32" }
+          
+          Write-Host "=== 构建配置 ==="
+          Write-Host "架构: ${{ matrix.arch }}"
+          Write-Host "配置: ${{ matrix.config }}"
+          Write-Host "平台: $platform"
+          Write-Host "================"
+          
+          # 简单构建 - 所有配置已在 vcxproj 中
+          msbuild sfd_tool.vcxproj `
+            /p:Configuration=${{ matrix.config }} `
+            /p:Platform=$platform `
+            /p:PlatformToolset=v143 `
+            /p:OutDir=./build/${{ matrix.arch }}/${{ matrix.config }}/ `
+            /verbosity:minimal
+
+      - name: Verify GTK3 DLLs Exist
+        run: |
+          if ("${{ matrix.arch }}" -eq "x64") {
+            $gtkBinPath = "C:\msys64\mingw64\bin"
+          } else {
+            $gtkBinPath = "C:\msys64\mingw32\bin"
+          }
+          
+          Write-Host "检查 GTK3 DLL 路径: $gtkBinPath"
+          
+          if (Test-Path $gtkBinPath) {
+            $dlls = Get-ChildItem -Path $gtkBinPath -Filter "*.dll" | Select-Object -First 10
+            Write-Host "找到 $(@($dlls).Count) 个 DLL 文件"
+            foreach ($dll in $dlls) {
+              Write-Host "  - $($dll.Name)"
+            }
+          } else {
+            Write-Error "GTK3 bin 目录不存在: $gtkBinPath"
+          }
+
+      - name: Copy ALL DLLs from GTK3 bin directory
+        run: |
+          $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
+          
+          # 确定 GTK3 bin 目录
+          if ("${{ matrix.arch }}" -eq "x64") {
+            $gtkBinPath = "C:\msys64\mingw64\bin"
+          } else {
+            $gtkBinPath = "C:\msys64\mingw32\bin"
+          }
+          
+          Write-Host "复制所有 DLL 从: $gtkBinPath"
+          Write-Host "复制到: $destDir"
+          
+          # 检查源目录是否存在
+          if (-not (Test-Path $gtkBinPath)) {
+            Write-Error "GTK3 bin 目录不存在: $gtkBinPath"
+            exit 1
+          }
+          
+          # 复制所有 DLL 文件
+          $dllFiles = Get-ChildItem -Path $gtkBinPath -Filter "*.dll"
+          
+          if ($dllFiles.Count -eq 0) {
+            Write-Warning "没有找到 DLL 文件！"
+            Write-Host "目录内容:"
+            Get-ChildItem -Path $gtkBinPath | Select-Object -First 20
+          } else {
+            foreach ($dll in $dllFiles) {
+              Copy-Item $dll.FullName -Destination $destDir -Force
+            }
+            Write-Host "已复制 $($dllFiles.Count) 个 DLL 文件"
+            
+            # 显示前10个复制的文件
+            Write-Host "前10个 DLL 文件:"
+            $dllFiles | Select-Object -First 10 Name | ForEach-Object { Write-Host "  - $($_.Name)" }
+          }
+          
+      - name: Cleanup Build Directory (Optional)
+        run: |
+          $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
+                
+           # 删除不需要的大文件（可选）
+          $unwantedExtensions = @(
+            ".exe",    # 可执行文件（除了我们的）
+            ".a",      # 静态库
+            ".la",     # libtool 文件
+            ".def",    # 导出定义
+            ".sh",     # shell 脚本
+            ".py",     # python 脚本
+            ".pl"      # perl 脚本
+           )
+                
+          # 保留我们的可执行文件
+          $keepFiles = @("sfd_tool.exe", "sfd_tool.pdb")
+                
+          foreach ($ext in $unwantedExtensions) {
+            Get-ChildItem -Path $destDir -Filter "*$ext" -Exclude $keepFiles | Remove-Item -Force -ErrorAction SilentlyContinue
+          }
+                
+          Write-Host "清理后文件统计:"
+          $totalFiles = (Get-ChildItem -Path $destDir).Count
+          $totalSize = (Get-ChildItem -Path $destDir | Measure-Object -Property Length -Sum).Sum / 1MB
+          Write-Host "  文件数量: $totalFiles"
+          Write-Host "  总大小: $([math]::Round($totalSize, 2)) MB"
+
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sfd_tool_${{ matrix.arch }}_${{ matrix.config }}
+          path: ./build/${{ matrix.arch }}/${{ matrix.config }}/
+  build-linux-deb:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential debhelper devscripts \
+            libgtk-3-dev libusb-1.0-0-dev pkg-config g++ \
+            imagemagick desktop-file-utils
+
+      - name: Make build-deb.sh executable
+        run: chmod +x build-deb.sh
+
+      - name: Build Linux Package
+        run: |
+          # 设置环境变量以避免警告
+          export DEBFULLNAME="RyanCrepa"
+          export DEBEMAIL="Ryan110413@outlook.com"
+          
+          # 运行构建脚本
+          ./build-deb.sh
+          DEB_FILE=$(find /tmp/build-sfd-tool/ -name '*.deb' | head -1)
+          
+      - name: Upload Linux Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sfd_tool_linux_deb
+          path: |
+            /tmp/build-sfd-tool/*.deb
+            /tmp/build-sfd-tool/*.rpm
+            /tmp/build-sfd-tool/*.changes
+            /tmp/build-sfd-tool/*.buildinfo
+            /tmp/build-sfd-tool/*.dsc
+  build-linux-rpm:
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install RPM Build Dependencies
+        run: |
+          dnf update -y
+          dnf install -y rpm-build gcc-c++ gtk3-devel libusb-devel \
+            pkgconf-pkg-config make ImageMagick desktop-file-utils \
+            gtk-update-icon-cache which
+
+
+      - name: Build Rpm
+        run: |
+          chmod +x build-rpm.sh
+          ./build-rpm.sh
+      - name: Upload RPM Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sfd_tool_rpm_package
+          path: |
+            ~/rpmbuild/RPMS/*/*.rpm
+            ~/rpmbuild/SRPMS/*.rpm
+  release:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    needs: [build-windows, build-linux-deb, build-linux-rpm]
+    steps:
+      - name: Set Release Timestamp
+        run: echo "RELEASE_TAG=sfd_tool_master_$(TZ='Asia/Shanghai' date +'%Y%m%d_%H%M')" >> $GITHUB_ENV
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          path: master
+
+      - name: Download Windows Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: output
+          pattern: sfd_tool_*_Release
+
+      - name: Download Deb Linux Artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: output
+          pattern: sfd_tool_linux_deb
+      - name: Download Rpm Linux Package
+        uses: actions/download-artifact@v4
+        with:
+          path: output
+          pattern: sfd_tool_rpm_package
+      - name: Prepare Release Files
+        run: |
+          # 处理 Windows 文件
+          cp master/*.md output/
+          cp master/Lib/Channel9.dll output/sfd_tool_x86_Release/
+          cp master/Lib/Channel.ini output/sfd_tool_x86_Release/
+          cp master/Lib/libusb-1.0.dll output/sfd_tool_x64_Release/
+          
+          # 重命名 Windows 目录
+          cd output
+          mv sfd_tool_x86_Release sfd_tool_SPRD_Release
+          mv sfd_tool_x64_Release sfd_tool_LibUSB_Release
+          
+          # 创建 ZIP 包
+          zip -r -v ../${{ env.RELEASE_TAG }}.zip .
+
+          # 复制 Linux 包
+          cp -r sfd_tool_linux_deb/*.deb .
+          cp -r sfd_tool_rpm_package/*.rpm .
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ env.RELEASE_TAG }}
+          draft: false
+          prerelease: false
+          body: |
+            ## sfd_tool Release
+            
+            ### 版本说明:
+            - **sfd_tool_SPRD_Release**: Windows x86 版本，使用 SPRD 驱动
+            - **sfd_tool_LibUSB_Release**: Windows x64 版本，使用 libusb 驱动
+            - **Linux DEB 包**: Ubuntu/Debian 系统安装包
+            - **Linux RPM 包**: Fedora/RPM-Based 系统安装包
+            
+            ### 使用说明:
+            1. Windows x86 版本需要安装 SPRD 驱动
+            2. Windows x64 版本需要 libusb 驱动
+            
+            ### 文件列表:
+            - sfd_tool.exe - Windows 主程序
+            - sfd_tool - Linux 主程序
+            - *.dll - Windows 运行时依赖库
+            - *.deb/*.rpm - Linux 安装包
+            - README.md - 说明文档
+          files: |
+            ${{ env.RELEASE_TAG }}.zip
+            output/*.deb
+            output/*.rpm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
