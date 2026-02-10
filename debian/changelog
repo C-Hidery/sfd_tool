@@ -1,0 +1,13 @@
+sfd-tool (1.7.2.2-1) unstable; urgency=medium
+
+  * Initial Debian package release
+  * SFD Tool GUI - Spreadtrum Firmware Dumper
+  * Version 1.7.2.2 features:
+    - Add dis_avb function
+    - Add root permission check for Linux
+    - Add debug options
+    - Add Force write function when partition list is available
+    - Fix check_confirm issue
+    - First GUI Version
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sat, 10 Feb 2024 14:24:00 +0800

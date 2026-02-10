@@ -10,7 +10,7 @@ on:
       - master
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
     timeout-minutes: 30
     strategy:
@@ -124,62 +124,6 @@ jobs:
             $dllFiles | Select-Object -First 10 Name | ForEach-Object { Write-Host "  - $($_.Name)" }
           }
           
-      - name: Copy GTK Runtime Data Files
-        run: |
-          $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
-          
-          # 确定 MSYS2 目录
-          if ("${{ matrix.arch }}" -eq "x64") {
-            $msysPrefix = "C:\msys64\mingw64"
-          } else {
-            $msysPrefix = "C:\msys64\mingw32"
-          }
-          
-          Write-Host "复制 GTK 运行时数据文件..."
-          
-          # 1. 复制图标主题
-          $iconsSrc = "$msysPrefix\share\icons"
-          $iconsDest = "$destDir\share\icons"
-          
-          if (Test-Path $iconsSrc) {
-            New-Item -ItemType Directory -Force -Path $iconsDest
-            
-            # 复制 hicolor 主题（必需）
-            if (Test-Path "$iconsSrc\hicolor") {
-              Write-Host "复制 hicolor 图标主题..."
-              Copy-Item -Path "$iconsSrc\hicolor" -Destination $iconsDest -Recurse -Force
-            }
-            
-            # 复制 Adwaita 主题（推荐）
-            if (Test-Path "$iconsSrc\Adwaita") {
-              Write-Host "复制 Adwaita 图标主题..."
-              Copy-Item -Path "$iconsSrc\Adwaita" -Destination $iconsDest -Recurse -Force
-            }
-          } else {
-            Write-Warning "图标主题目录不存在: $iconsSrc"
-          }
-          
-          # 2. 复制 GSettings schemas
-          $schemasSrc = "$msysPrefix\share\glib-2.0\schemas"
-          $schemasDest = "$destDir\share\glib-2.0\schemas"
-          
-          if (Test-Path $schemasSrc) {
-            Write-Host "复制 GSettings schemas..."
-            New-Item -ItemType Directory -Force -Path $schemasDest
-            Copy-Item -Path "$schemasSrc\*" -Destination $schemasDest -Recurse -Force
-          } else {
-            Write-Error "GSettings schemas 目录不存在: $schemasSrc"
-          }
-          
-          # 3. 复制主题
-          $themesSrc = "$msysPrefix\share\themes"
-          $themesDest = "$destDir\share\themes"
-          
-          if (Test-Path $themesSrc) {
-            Write-Host "复制 GTK 主题..."
-            New-Item -ItemType Directory -Force -Path $themesDest
-            Copy-Item -Path "$themesSrc\Default" -Destination $themesDest -Recurse -Force -ErrorAction SilentlyContinue
-          }
       - name: Cleanup Build Directory (Optional)
         run: |
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
@@ -214,13 +158,44 @@ jobs:
         with:
           name: sfd_tool_${{ matrix.arch }}_${{ matrix.config }}
           path: ./build/${{ matrix.arch }}/${{ matrix.config }}/
+  build-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
+      - name: Install Linux Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential debhelper devscripts \
+            libgtk-3-dev libusb-1.0-0-dev pkg-config g++ \
+            imagemagick desktop-file-utils
+
+      - name: Make build-deb.sh executable
+        run: chmod +x build-deb.sh
+
+      - name: Build DEB Package
+        run: |
+          # 设置环境变量以避免警告
+          export DEBFULLNAME="RyanCrepa"
+          export DEBEMAIL="Ryan110413@outlook.com"
+          
+          # 运行构建脚本
+          ./build-deb.sh
+
+      - name: Upload Linux DEB Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sfd_tool_linux_deb
+          path: |
+            ../*.deb
   release:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    needs: build
+    needs: [build-windows, build-linux]
     steps:
       - name: Set Release Timestamp
         run: echo "RELEASE_TAG=sfd_tool_master_$(TZ='Asia/Shanghai' date +'%Y%m%d_%H%M')" >> $GITHUB_ENV
@@ -230,21 +205,35 @@ jobs:
         with:
           path: master
 
-      - name: Download Artifacts
+      - name: Download Windows Artifacts
         uses: actions/download-artifact@v4
         with:
           path: output
-          pattern: sfd_tool_*_Release
+          pattern: sfd_tool_windows_*
 
-      - name: Misc
+      - name: Download Linux DEB Artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: output
+          pattern: sfd_tool_linux_deb
+
+      - name: Prepare Release Files
         run: |
+          # 处理 Windows 文件
           cp master/*.md output/
-          cp master/Lib/Channel9.dll output/sfd_tool_x86_Release/
-          cp master/Lib/Channel.ini output/sfd_tool_x86_Release/
-          cp master/Lib/libusb-1.0.dll output/sfd_tool_x64_Release/
+          cp master/Lib/Channel9.dll output/sfd_tool_windows_x86/Release/
+          cp master/Lib/Channel.ini output/sfd_tool_windows_x86/Release/
+          cp master/Lib/libusb-1.0.dll output/sfd_tool_windows_x64/Release/
+          
+          # 重命名 Windows 目录
           cd output
-          mv sfd_tool_x86_Release sfd_tool_SPRD_Release
-          mv sfd_tool_x64_Release sfd_tool_LibUSB_Release
+          mv sfd_tool_windows_x86/Release sfd_tool_SPRD_Release
+          mv sfd_tool_windows_x64/Release sfd_tool_LibUSB_Release
+          
+          # 复制 Linux DEB 包
+          cp -r sfd_tool_linux_deb/*.deb .
+          
+          # 创建 ZIP 包
           zip -r -v ../${{ env.RELEASE_TAG }}.zip .
 
       - name: Create GitHub Release
@@ -259,20 +248,23 @@ jobs:
             ## sfd_tool Release
             
             ### 版本说明:
-            - **sfd_tool_SPRD_Release**: x86 版本，使用 SPRD 驱动
-            - **sfd_tool_LibUSB_Release**: x64 版本，使用 libusb 驱动
+            - **sfd_tool_SPRD_Release**: Windows x86 版本，使用 SPRD 驱动
+            - **sfd_tool_LibUSB_Release**: Windows x64 版本，使用 libusb 驱动
+            - **Linux DEB 包**: Ubuntu/Debian 系统安装包
             
             ### 使用说明:
-            1. x86 版本需要安装 SPRD 驱动
-            2. x64 版本需要 libusb 驱动
-            3. 两个版本都是 GTK3 GUI 应用程序
+            1. Windows x86 版本需要安装 SPRD 驱动
+            2. Windows x64 版本需要 libusb 驱动
+            3. Linux 版本：`sudo apt install sfd_tool_*.deb`
             
             ### 文件列表:
-            - sfd_tool.exe - 主程序
-            - *.dll - 运行时依赖库
-            - *.ini - 配置文件
+            - sfd_tool.exe - Windows 主程序
+            - sfd_tool - Linux 主程序
+            - *.dll - Windows 运行时依赖库
+            - *.deb - Linux 安装包
             - README.md - 说明文档
           files: |
             ${{ env.RELEASE_TAG }}.zip
+            output/*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

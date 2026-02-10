@@ -1,0 +1,18 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@ --buildsystem=makefile --parallel
+
+override_dh_auto_configure:
+	# 在打包时总是启用 GTK 和 libusb
+	$(MAKE) GTK=1 LIBUSB=1
+
+override_dh_auto_build:
+	$(MAKE) GTK=1 LIBUSB=1 release
+
+override_dh_auto_install:
+	$(MAKE) GTK=1 LIBUSB=1 DESTDIR=$$(pwd)/debian/sfd-tool PREFIX=/usr install
+
+override_dh_missing:
+	dh_missing --fail-missing
+

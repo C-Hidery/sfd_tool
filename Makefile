@@ -75,6 +75,13 @@ ifeq ($(UNAME_S), Darwin)
     LIBS += -framework CoreFoundation -framework IOKit
 endif
 
+# 安装目录定义
+BINDIR ?= $(PREFIX)/bin
+DATADIR ?= $(PREFIX)/share
+APPDIR ?= $(DATADIR)/applications
+ICONDIR ?= $(DATADIR)/icons/hicolor
+DOCDIR ?= $(DATADIR)/doc/sfd-tool
+
 # 默认目标
 .PHONY: all
 all: $(APPNAME)
@@ -85,7 +92,7 @@ $(APPNAME): main.cpp main_console.cpp common.cpp GtkWidgetHelper.cpp
 
 # 调试版本
 .PHONY: debug
-debug: CFLAGS += -g -DDEBUG -O0
+debug: CFLAGS += -g -D_DEBUG -O0
 debug: $(APPNAME)
 
 # 发布版本
@@ -106,16 +113,46 @@ clean:
 # 安装目标
 .PHONY: install
 install: $(APPNAME)
-ifeq ($(UNAME_S), Darwin)
-	install -m 755 $(APPNAME) /usr/local/bin/
-else
-	install -m 755 $(APPNAME) /usr/local/bin/
-endif
+	install -d $(DESTDIR)$(BINDIR)
+	install -d $(DESTDIR)$(APPDIR)
+	install -d $(DESTDIR)$(DOCDIR)
+	install -d $(DESTDIR)$(ICONDIR)/256x256/apps
+	install -d $(DESTDIR)$(ICONDIR)/48x48/apps
+	install -d $(DESTDIR)$(ICONDIR)/32x32/apps
+	install -d $(DESTDIR)$(ICONDIR)/16x16/apps
+	
+	# 安装二进制
+	install -m 755 $(APPNAME) $(DESTDIR)$(BINDIR)/
+	
+	# 安装桌面文件
+	sed 's|Icon=sfd_tool|Icon=sfd-tool|' sfd_tool.desktop > $(DESTDIR)$(APPDIR)/sfd-tool.desktop
+	chmod 644 $(DESTDIR)$(APPDIR)/sfd-tool.desktop
+	
+	# 安装图标（从 icon.png 转换不同尺寸）
+	if [ -f icon.png ]; then \
+		convert icon.png -resize 16x16 $(DESTDIR)$(ICONDIR)/16x16/apps/sfd-tool.png; \
+		convert icon.png -resize 32x32 $(DESTDIR)$(ICONDIR)/32x32/apps/sfd-tool.png; \
+		convert icon.png -resize 48x48 $(DESTDIR)$(ICONDIR)/48x48/apps/sfd-tool.png; \
+		convert icon.png -resize 256x256 $(DESTDIR)$(ICONDIR)/256x256/apps/sfd-tool.png; \
+	fi
+	
+	# 安装文档
+	install -m 644 LICENSE.txt $(DESTDIR)$(DOCDIR)/copyright
+	install -m 644 README.md $(DESTDIR)$(DOCDIR)/
+	install -m 644 README_ZH.md $(DESTDIR)$(DOCDIR)/
+	
+	# 更新图标缓存
+	if [ -x /usr/bin/gtk-update-icon-cache ] && [ -z "$(DESTDIR)" ]; then \
+		gtk-update-icon-cache -q -t -f $(ICONDIR); \
+	fi
 
 # 卸载目标
 .PHONY: uninstall
 uninstall:
-	rm -f /usr/local/bin/$(APPNAME)
+	rm -f $(DESTDIR)$(BINDIR)/$(APPNAME)
+	rm -f $(DESTDIR)$(APPDIR)/sfd-tool.desktop
+	rm -rf $(DESTDIR)$(DOCDIR)
+	find $(DESTDIR)$(ICONDIR) -name "sfd-tool.png" -delete
 
 # 依赖检查
 .PHONY: check-deps

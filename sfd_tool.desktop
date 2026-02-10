@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=SFDTool
+Comment=Serial Flash Device Programming Tool
+GenericName=Flash Programming Tool
+Exec=sfd_tool
+Icon=sfd-tool
+Terminal=false
+Type=Application
+Categories=Development;Electronics;
+Keywords=flash;programming;usb;serial;
+StartupNotify=true
+MimeType=
+X-AppImage-Version=

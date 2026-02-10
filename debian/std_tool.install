@@ -1,0 +1,6 @@
+sfd_tool usr/bin/
+sfd_tool.desktop usr/share/applications/
+icon.png usr/share/icons/hicolor/256x256/apps/sfd-tool.png
+README.md usr/share/doc/sfd-tool/
+README_ZH.md usr/share/doc/sfd-tool/
+LICENSE.txt usr/share/doc/sfd-tool/copyright

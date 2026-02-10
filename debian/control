@@ -1,0 +1,32 @@
+Source: sfd-tool
+Section: electronics
+Priority: optional
+Maintainer: RyanCrepa <Ryan110413@outlook.com>
+Build-Depends: debhelper (>= 13),
+               debhelper-compat (= 13),
+               libgtk-3-dev,
+               libusb-1.0-0-dev,
+               pkg-config,
+               g++,
+               imagemagick
+Standards-Version: 4.6.0
+Homepage: https://github.com/C-Hidery/sfd_tool
+Vcs-Browser: https://github.com/C-Hidery/sfd_tool
+Vcs-Git: https://github.com/C-Hidery/sfd_tool.git
+
+Package: sfd-tool
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends},
+         libgtk-3-0,
+         libusb-1.0-0,
+         imagemagick
+Description: Serial Flash Device Programming Tool
+ A cross-platform GTK3 application for programming serial flash devices.
+ Features:
+  * Support for various flash chip types
+  * USB-based programming interface
+  * Both graphical (GTK) and command-line interfaces
+  * Cross-platform support (Linux, Windows, macOS)
+ .
+ This tool is useful for embedded developers and electronics hobbyists
+ who need to program SPI flash chips.
