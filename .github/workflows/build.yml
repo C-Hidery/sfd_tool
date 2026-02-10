@@ -223,7 +223,6 @@ jobs:
           name: sfd_tool_rpm_package
           path: |
             ~/rpmbuild/RPMS/*/*.rpm
-            ~/rpmbuild/SRPMS/*.rpm
   release:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
@@ -273,7 +272,7 @@ jobs:
 
           # 复制 Linux 包
           cp -r sfd_tool_linux_deb/*.deb .
-          cp -r sfd_tool_rpm_package/*.rpm .
+          cp -r sfd_tool_rpm_package/*/*.rpm .
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
