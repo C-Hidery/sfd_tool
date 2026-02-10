@@ -223,7 +223,7 @@ jobs:
           path: output
           pattern: sfd_tool_*_Release
 
-      - name: Download Linux DEB Artifact
+      - name: Download Linux Artifact
         uses: actions/download-artifact@v4
         with:
           path: output
@@ -242,12 +242,12 @@ jobs:
           mv sfd_tool_x86_Release sfd_tool_SPRD_Release
           mv sfd_tool_x64_Release sfd_tool_LibUSB_Release
           
-          # 复制 Linux DEB 包
-          cp -r sfd_tool_linux_deb/*.deb .
-          cp -r sfd_tool_linux_deb/*.rpm .
-          
           # 创建 ZIP 包
           zip -r -v ../${{ env.RELEASE_TAG }}.zip .
+
+          # 复制 Linux 包
+          cp -r sfd_tool_linux_deb/*.deb .
+          cp -r sfd_tool_linux_deb/*.rpm .
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -279,5 +279,6 @@ jobs:
           files: |
             ${{ env.RELEASE_TAG }}.zip
             output/*.deb
+            output/*.rpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
