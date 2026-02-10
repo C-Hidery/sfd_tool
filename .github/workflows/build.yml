@@ -170,12 +170,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential debhelper devscripts \
             libgtk-3-dev libusb-1.0-0-dev pkg-config g++ \
-            imagemagick desktop-file-utils
+            imagemagick desktop-file-utils \
+            rpm alien
 
       - name: Make build-deb.sh executable
         run: chmod +x build-deb.sh
 
-      - name: Build DEB Package
+      - name: Build Linux Package
         run: |
           # 设置环境变量以避免警告
           export DEBFULLNAME="RyanCrepa"
@@ -183,13 +184,18 @@ jobs:
           
           # 运行构建脚本
           ./build-deb.sh
-          
+          DEB_FILE=$(find /tmp/build-sfd-tool -name "*.deb" | head -1)
+          if [ -f "$DEB_FILE" ]; then
+            echo "Converting $DEB_FILE to RPM..."
+            # 使用 alien 转换
+            sudo alien --to-rpm --keep-version "$DEB_FILE"
       - name: Upload Linux DEB Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: sfd_tool_linux_deb
           path: |
             /tmp/build-sfd-tool/*.deb
+            /tmp/build-sfd-tool/*.rpm
             /tmp/build-sfd-tool/*.changes
             /tmp/build-sfd-tool/*.buildinfo
             /tmp/build-sfd-tool/*.dsc
@@ -235,6 +241,7 @@ jobs:
           
           # 复制 Linux DEB 包
           cp -r sfd_tool_linux_deb/*.deb .
+          cp -r sfd_tool_linux_deb/*.rpm .
           
           # 创建 ZIP 包
           zip -r -v ../${{ env.RELEASE_TAG }}.zip .
@@ -254,17 +261,17 @@ jobs:
             - **sfd_tool_SPRD_Release**: Windows x86 版本，使用 SPRD 驱动
             - **sfd_tool_LibUSB_Release**: Windows x64 版本，使用 libusb 驱动
             - **Linux DEB 包**: Ubuntu/Debian 系统安装包
+            - **Linux RPM 包**: Fedora/RPM-Based 系统安装包
             
             ### 使用说明:
             1. Windows x86 版本需要安装 SPRD 驱动
             2. Windows x64 版本需要 libusb 驱动
-            3. Linux 版本：`sudo apt install sfd_tool_*.deb`
             
             ### 文件列表:
             - sfd_tool.exe - Windows 主程序
             - sfd_tool - Linux 主程序
             - *.dll - Windows 运行时依赖库
-            - *.deb - Linux 安装包
+            - *.deb/*.rpm - Linux 安装包
             - README.md - 说明文档
           files: |
             ${{ env.RELEASE_TAG }}.zip
