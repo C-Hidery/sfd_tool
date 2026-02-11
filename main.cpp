@@ -10,7 +10,7 @@
 #ifdef __linux__
 #include <unistd.h>
 #endif
-const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.2.3\n\nBy Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n--- v1.7.2.1---\nAdd root permission check for Linux\n--- v1.7.2.2---\nAdd dis_avb function\n--- v1.7.2.3---\nFix some bugs";
+const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.3.0\n\nBy Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n--- v1.7.2.1---\nAdd root permission check for Linux\n--- v1.7.2.2---\nAdd dis_avb function\n--- v1.7.2.3---\nFix some bugs\n--- v1.7.3.0---\nAdd some advanced settings";
 const char* Version = "[1.2.0.0@_250726]";
 int bListenLibusb = -1;
 int gpt_failed = 1;
@@ -2560,6 +2560,9 @@ int gtk_kmain(int argc, char** argv) {
     });
     helper.bindClick(end_data_dis,[](){
         on_button_clicked_end_data_dis(helper);
+    });
+    helper.bindValueChanged(timeout_op,[timeout_op](){
+        io->timeout = helper.getSpinValue(timeout_op);
     });
 }
     DisableWidgets(helper);
