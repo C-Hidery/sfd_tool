@@ -282,6 +282,16 @@ void EnableWidgets(GtkWidgetHelper helper){
     helper.enableWidget("check_nand");
     helper.enableWidget("dis_avb");
 }
+void Enable_Startup(){
+    helper.enableWidget("transcode_en");
+    helper.enableWidget("transcode_dis");
+    helper.enableWidget("end_data_dis");
+    helper.enableWidget("end_data_en");
+    helper.enableWidget("charge_en");
+    helper.enableWidget("charge_dis");
+    helper.enableWidget("raw_data_en");
+    helper.enableWidget("raw_data_dis");
+}
 void on_button_clicked_select_cve(GtkWidgetHelper helper) {
     GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
     std::string filename = showFileChooser(parent, true);
@@ -912,6 +922,48 @@ void on_button_clicked_dis_avb(GtkWidgetHelper helper){
     }
 
 }
+void on_button_clicked_raw_data_en(GtkWidgetHelper helper){
+    int rawdatay = atoi(helper.getEntryText(helper.getWidget("raw_data_v")));
+    if(rawdatay)
+    {
+        Da_Info.bSupportRawData = rawdatay;
+    }
+    if (Da_Info.bSupportRawData) showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),"Info 信息","Successfully enabled raw data mode\n启用RawData模式成功");
+    else showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")),"Info 信息","Failed to enable raw data mode, please set value!\n启用RawData模式失败，请设置数值！");
+}
+void on_button_clicked_raw_data_dis(GtkWidgetHelper helper){
+    Da_Info.bSupportRawData = 0;
+    showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),"Info 信息","Successfully disabled raw data mode\n禁用RawData模式成功");
+}
+void on_button_clicked_transcode_en(GtkWidgetHelper helper){
+    unsigned a, f;
+    a = 1;
+    f = (io->flags & ~FLAGS_TRANSCODE);
+    io->flags = f | (a ? FLAGS_TRANSCODE : 0);
+    showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),"Info 信息","Enabled transcode successfully\n启用转码成功");
+}
+void on_button_clicked_transcode_dis(GtkWidgetHelper helper){
+    unsigned a = 0;
+    encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
+	if (!send_and_check(io)) io->flags &= ~FLAGS_TRANSCODE;
+    showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),"Info 信息","Disabled transcode successfully\n禁用转码成功");
+}
+void on_button_clicked_charge_en(GtkWidgetHelper helper){
+    keep_charge = 1;
+    showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),"Info 信息","Set successfully\n设置成功");
+}
+void on_button_clicked_charge_dis(GtkWidgetHelper helper){
+    keep_charge = 0;
+    showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),"Info 信息","Set successfully\n设置成功");
+}
+void on_button_clicked_end_data_en(GtkWidgetHelper helper){
+    end_data = 1;
+    showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),"Info 信息","Set successfully\n设置成功");
+}
+void on_button_clicked_end_data_dis(GtkWidgetHelper helper){
+    end_data = 0;
+    showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),"Info 信息","Set successfully\n设置成功");
+}
 void populatePartitionList(GtkWidgetHelper& helper, const std::vector<partition_t>& partitions) {
     // 获取列表视图
     GtkWidget* part_list = helper.getWidget("part_list");
@@ -1012,6 +1064,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
     GtkWidget* cveSwitch = helper.getWidget("exec_addr");
     GtkWidget* cveAddr = helper.getWidget("cve_addr");
     GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
+    helper.setLabelText(helper.getWidget("con"),"Waiting for connection...");
     if (argc > 1 && !strcmp(argv[1],"--reconnect")){
         stage = 99;
         gui_idle_call([helper](){
@@ -1283,8 +1336,9 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
 	}
     gui_idle_call([helper]() mutable {
-        showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Successfully connected 连接成功", "Device already connected!\n设备已成功连接！");
+        showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Successfully connected 连接成功", "Device already connected! Some advanced settings opened!\n设备已成功连接！部分高级设置已开放！");
         if (!fdl2_executed) helper.enableWidget("fdl_exec");
+        Enable_Startup();
         helper.setLabelText(helper.getWidget("con"), "Connected");
         if (device_stage == BROM) helper.setLabelText(helper.getWidget("mode"), "BROM");
         else if (device_stage == FDL1) helper.setLabelText(helper.getWidget("mode"), "FDL1");
@@ -1611,6 +1665,14 @@ void DisableWidgets(GtkWidgetHelper helper){
     helper.disableWidget("pac_time");
     helper.disableWidget("chip_uid");
     helper.disableWidget("dis_avb");
+    helper.disableWidget("transcode_en");
+    helper.disableWidget("transcode_dis");
+    helper.disableWidget("end_data_dis");
+    helper.disableWidget("end_data_en");
+    helper.disableWidget("charge_en");
+    helper.disableWidget("charge_dis");
+    helper.disableWidget("raw_data_en");
+    helper.disableWidget("raw_data_dis");
 }
 
 int gtk_kmain(int argc, char** argv) {
@@ -1743,7 +1805,7 @@ int gtk_kmain(int argc, char** argv) {
     // Status labels - 放在底部
     GtkWidget* statusLabel = helper.createLabel("Status : ", "status_label", 0, 0, 70, 24);
     GtkWidget* conStatus = helper.createLabel("Not connected", "con", 0, 0, 150, 23);
-    GtkWidget* modeLabel = helper.createLabel("  Mode : ", "mode_label", 0, 0, 50, 19);
+    GtkWidget* modeLabel = helper.createLabel("   Mode : ", "mode_label", 0, 0, 50, 19);
     GtkWidget* modeStatus = helper.createLabel("BROM Not connected!!!", "mode", 0, 0, 200, 19);
     
     // Add all widgets to connect page grid
@@ -2034,10 +2096,11 @@ int gtk_kmain(int argc, char** argv) {
     
     
     // ========== Advanced Settings Page ==========
-    
+
         GtkWidget* advSetPage = helper.createGrid("adv_set_page", 5, 5);
         helper.addNotebookPage(notebook, advSetPage, "Advanced Settings  高级设置");
         
+        // 数据块大小设置部分
         GtkWidget* blkLabel = helper.createLabel("Data block size  数据块大小", "blk_label", 0, 0, 200, 20);
         
         GtkWidget* blkSlider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 10000, 60000, 10000);
@@ -2045,19 +2108,169 @@ int gtk_kmain(int argc, char** argv) {
         gtk_scale_set_draw_value(GTK_SCALE(blkSlider), TRUE);
         gtk_scale_set_value_pos(GTK_SCALE(blkSlider), GTK_POS_RIGHT);
         gtk_widget_set_name(blkSlider, "blk_size");
-		helper.addWidget("blk_size",blkSlider);
+        helper.addWidget("blk_size", blkSlider);
         gtk_widget_set_size_request(blkSlider, 1036, 30);
         
         GtkWidget* sizeCon = helper.createLabel("10000", "size_con", 0, 0, 60, 20);
         
-        // Add to grid
-        helper.addToGrid(advSetPage, blkLabel, 0, 0, 2, 1);
+        // Rawdata模式设置部分
+        GtkWidget* rawDataEn = helper.createButton("Enable Rawdata mode 启用Rawdata模式", "raw_data_en", 
+                                                nullptr, 0, 0, 250, 32);
+        GtkWidget* rawDataDis = helper.createButton("Disable Rawdata mode 禁用Rawdata模式", "raw_data_dis", 
+                                                nullptr, 0, 0, 250, 32);
+        GtkWidget* rlabel = helper.createLabel("Value 数值:","rawLabel",0,0,80,30);
+        GtkWidget* rawDataMk = helper.createEntry("raw_data_v","",false,0,0,50,30);
+        
+        // 转码设置部分
+        GtkWidget* transcode_en = helper.createButton("Enable transcode 启用转码 --- FDL1", "transcode_en", 
+                                                    nullptr, 0, 0, 220, 32);
+        GtkWidget* transcode_dis = helper.createButton("Disable transcode 禁用转码 --- FDL2", "transcode_dis", 
+                                                    nullptr, 0, 0, 220, 32);
+        
+        // 充电模式设置部分
+        GtkWidget* charge_en = helper.createButton("Enable Charging mode 启用充电 --- BROM", "charge_en", 
+                                                nullptr, 0, 0, 240, 32);
+        GtkWidget* charge_dis = helper.createButton("Disable Charging mode 禁用充电 --- BROM", "charge_dis", 
+                                                nullptr, 0, 0, 240, 32);
+        
+        // 发送结束数据设置部分
+        GtkWidget* end_data_en = helper.createButton("Enable sending end data 启用send_end_data", 
+                                                    "end_data_en", nullptr, 0, 0, 280, 32);
+        GtkWidget* end_data_dis = helper.createButton("Disable sending end data 禁用send_end_data", 
+                                                    "end_data_dis", nullptr, 0, 0, 280, 32);
+        
+        // 操作超时时间设置部分
+        GtkWidget* timeout_label = helper.createLabel("Operation timeout 操作超时时间", 
+                                                    "timeout_label", 0, 0, 200, 20);
+        GtkWidget* timeout_op = helper.createSpinButton(3000, 300000, 1, "timeout", 3000, 0, 0, 120, 32);
+        
+        // 创建主垂直容器
+        GtkWidget* emainBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 20);
+        gtk_widget_set_margin_start(emainBox, 20);
+        gtk_widget_set_margin_end(emainBox, 20);
+        gtk_widget_set_margin_top(emainBox, 20);
+        gtk_widget_set_margin_bottom(emainBox, 20);
+        
+        // 1. 数据块大小部分
+        GtkWidget* blockSizeBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+        GtkWidget* blockLabelBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+        gtk_box_pack_start(GTK_BOX(blockLabelBox), blkLabel, FALSE, FALSE, 0);
+        gtk_box_pack_end(GTK_BOX(blockLabelBox), sizeCon, FALSE, FALSE, 0);
         
         GtkWidget* sliderBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
         gtk_box_pack_start(GTK_BOX(sliderBox), blkSlider, TRUE, TRUE, 0);
-        gtk_box_pack_start(GTK_BOX(sliderBox), sizeCon, FALSE, FALSE, 0);
-        helper.addToGrid(advSetPage, sliderBox, 0, 1, 2, 1);
-    
+        
+        gtk_box_pack_start(GTK_BOX(blockSizeBox), blockLabelBox, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(blockSizeBox), sliderBox, FALSE, FALSE, 0);
+        
+        // 2. Rawdata模式部分
+        GtkWidget* rawDataBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+        GtkWidget* rawDataLabel = gtk_label_new("Rawdata Mode  Rawdata模式 --- Value support 支持的数值: {1, 2}");
+        gtk_label_set_xalign(GTK_LABEL(rawDataLabel), 0.0);
+        
+        GtkWidget* rawDataButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+        gtk_box_pack_start(GTK_BOX(rawDataButtonBox), rawDataEn, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(rawDataButtonBox), rawDataDis, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(rawDataButtonBox), rlabel, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(rawDataButtonBox), rawDataMk, FALSE, FALSE, 0);
+        
+        gtk_box_pack_start(GTK_BOX(rawDataBox), rawDataLabel, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(rawDataBox), rawDataButtonBox, FALSE, FALSE, 0);
+        
+        // 3. 转码设置部分
+        GtkWidget* transcodeBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+        GtkWidget* transcodeLabel = gtk_label_new("Transcode 转码设置 --- FDL1/2");
+        gtk_label_set_xalign(GTK_LABEL(transcodeLabel), 0.0);
+        
+        GtkWidget* transcodeButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+        gtk_box_pack_start(GTK_BOX(transcodeButtonBox), transcode_en, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(transcodeButtonBox), transcode_dis, FALSE, FALSE, 0);
+        
+        gtk_box_pack_start(GTK_BOX(transcodeBox), transcodeLabel, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(transcodeBox), transcodeButtonBox, FALSE, FALSE, 0);
+        
+        // 4. 充电模式部分
+        GtkWidget* chargeBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+        GtkWidget* chargeLabel = gtk_label_new("Charging Mode 充电模式 --- BROM");
+        gtk_label_set_xalign(GTK_LABEL(chargeLabel), 0.0);
+        
+        GtkWidget* chargeButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+        gtk_box_pack_start(GTK_BOX(chargeButtonBox), charge_en, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(chargeButtonBox), charge_dis, FALSE, FALSE, 0);
+        
+        gtk_box_pack_start(GTK_BOX(chargeBox), chargeLabel, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(chargeBox), chargeButtonBox, FALSE, FALSE, 0);
+        
+        // 5. 发送结束数据部分
+        GtkWidget* endDataBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+        GtkWidget* endDataLabel = gtk_label_new("Send End Data 发送结束数据");
+        gtk_label_set_xalign(GTK_LABEL(endDataLabel), 0.0);
+        
+        GtkWidget* endDataButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+        gtk_box_pack_start(GTK_BOX(endDataButtonBox), end_data_en, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(endDataButtonBox), end_data_dis, FALSE, FALSE, 0);
+        
+        gtk_box_pack_start(GTK_BOX(endDataBox), endDataLabel, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(endDataBox), endDataButtonBox, FALSE, FALSE, 0);
+        
+        // 6. 操作超时时间部分
+        GtkWidget* timeoutBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+        GtkWidget* timeoutTopBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+        gtk_box_pack_start(GTK_BOX(timeoutTopBox), timeout_label, FALSE, FALSE, 0);
+        gtk_box_pack_end(GTK_BOX(timeoutTopBox), timeout_op, FALSE, FALSE, 0);
+        
+        gtk_box_pack_start(GTK_BOX(timeoutBox), timeoutTopBox, FALSE, FALSE, 0);
+        
+        // 将所有部分添加到主容器
+        gtk_box_pack_start(GTK_BOX(emainBox), blockSizeBox, FALSE, FALSE, 0);
+        
+        // 添加分隔线
+        GtkWidget* sep01 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+        gtk_widget_set_margin_top(sep01, 10);
+        gtk_widget_set_margin_bottom(sep01, 10);
+        gtk_box_pack_start(GTK_BOX(emainBox), sep01, FALSE, FALSE, 0);
+        
+        gtk_box_pack_start(GTK_BOX(emainBox), rawDataBox, FALSE, FALSE, 0);
+        
+        GtkWidget* sep02 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+        gtk_widget_set_margin_top(sep02, 10);
+        gtk_widget_set_margin_bottom(sep02, 10);
+        gtk_box_pack_start(GTK_BOX(emainBox), sep02, FALSE, FALSE, 0);
+        
+        gtk_box_pack_start(GTK_BOX(emainBox), transcodeBox, FALSE, FALSE, 0);
+        
+        GtkWidget* sep3 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+        gtk_widget_set_margin_top(sep3, 10);
+        gtk_widget_set_margin_bottom(sep3, 10);
+        gtk_box_pack_start(GTK_BOX(emainBox), sep3, FALSE, FALSE, 0);
+        
+        gtk_box_pack_start(GTK_BOX(emainBox), chargeBox, FALSE, FALSE, 0);
+        
+        GtkWidget* sep4 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+        gtk_widget_set_margin_top(sep4, 10);
+        gtk_widget_set_margin_bottom(sep4, 10);
+        gtk_box_pack_start(GTK_BOX(emainBox), sep4, FALSE, FALSE, 0);
+        
+        gtk_box_pack_start(GTK_BOX(emainBox), endDataBox, FALSE, FALSE, 0);
+        
+        GtkWidget* sep5 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+        gtk_widget_set_margin_top(sep5, 10);
+        gtk_widget_set_margin_bottom(sep5, 10);
+        gtk_box_pack_start(GTK_BOX(emainBox), sep5, FALSE, FALSE, 0);
+        
+        gtk_box_pack_start(GTK_BOX(emainBox), timeoutBox, FALSE, FALSE, 0);
+        
+        // 添加弹性空间使内容顶部对齐
+        GtkWidget* bottomSpacer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+        gtk_widget_set_vexpand(bottomSpacer, TRUE);
+        gtk_box_pack_end(GTK_BOX(emainBox), bottomSpacer, TRUE, TRUE, 0);
+        
+        // 添加到网格
+        helper.addToGrid(advSetPage, emainBox, 0, 0, 4, 6);
+        
+
+
+        
     // ========== Debug Options Page ==========
 
         GtkWidget* dbgOptPage = helper.createGrid("dbg_opt_page", 5, 5);
@@ -2323,6 +2536,30 @@ int gtk_kmain(int argc, char** argv) {
     });
     helper.bindClick(dis_avb, [](){
         on_button_clicked_dis_avb(helper);
+    });
+    helper.bindClick(rawDataEn,[](){
+        on_button_clicked_raw_data_en(helper);
+    });
+    helper.bindClick(rawDataDis,[](){
+        on_button_clicked_raw_data_dis(helper);
+    });
+    helper.bindClick(transcode_en,[](){
+        on_button_clicked_transcode_en(helper);
+    });
+    helper.bindClick(transcode_dis, [](){
+        on_button_clicked_transcode_dis(helper);
+    });
+    helper.bindClick(charge_en,[](){
+        on_button_clicked_charge_en(helper);
+    });
+    helper.bindClick(charge_dis,[](){
+        on_button_clicked_charge_dis(helper);
+    });
+    helper.bindClick(end_data_en,[](){
+        on_button_clicked_end_data_en(helper);
+    });
+    helper.bindClick(end_data_dis,[](){
+        on_button_clicked_end_data_dis(helper);
     });
 }
     DisableWidgets(helper);

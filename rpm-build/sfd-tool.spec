@@ -4,7 +4,7 @@
 
 
 Name:           sfd-tool
-Version:        1.7.2.3
+Version:        1.7.3.0
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
