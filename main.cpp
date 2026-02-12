@@ -10,7 +10,7 @@
 #ifdef __linux__
 #include <unistd.h>
 #endif
-const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.3.1\n\nBy Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n--- v1.7.2.1---\nAdd root permission check for Linux\n--- v1.7.2.2---\nAdd dis_avb function\n--- v1.7.2.3---\nFix some bugs\n--- v1.7.3.0---\nAdd some advanced settings\n--- v1.7.3.1---\nAdd SPRD4 one-time kick mode";
+const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.3.2\n\nCopyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n---v 1.7.2.1---\nAdd root permission check for Linux\n---v 1.7.2.2---\nAdd dis_avb function\n---v 1.7.2.3---\nFix some bugs\n---v 1.7.3.0---\nAdd some advanced settings\n---v 1.7.3.1---\nAdd SPRD4 one-time kick mode\n---v 1.7.3.2---\nFix some bugs\nUnder GPL v3 License\nGithub: C-Hidery/sfd_tool";
 const char* Version = "[1.2.0.0@_250726]";
 int bListenLibusb = -1;
 int gpt_failed = 1;
@@ -94,24 +94,24 @@ std::string showFileChooser(GtkWindow* parent, bool open = true)
     GtkWidget* dialog;
     
     if (open) {
-        dialog = gtk_file_chooser_dialog_new("选择文件",
+        dialog = gtk_file_chooser_dialog_new("Select file 选择文件",
                                            parent,
                                            GTK_FILE_CHOOSER_ACTION_OPEN,
-                                           "_取消", GTK_RESPONSE_CANCEL,
-                                           "_打开", GTK_RESPONSE_ACCEPT,
+                                           "_Cancel取消", GTK_RESPONSE_CANCEL,
+                                           "_Open打开", GTK_RESPONSE_ACCEPT,
                                            NULL);
     } else {
-        dialog = gtk_file_chooser_dialog_new("保存文件",
+        dialog = gtk_file_chooser_dialog_new("Save file 保存文件",
                                            parent,
                                            GTK_FILE_CHOOSER_ACTION_SAVE,
-                                           "_取消", GTK_RESPONSE_CANCEL,
-                                           "_保存", GTK_RESPONSE_ACCEPT,
+                                           "_Cancel取消", GTK_RESPONSE_CANCEL,
+                                           "_Save保存", GTK_RESPONSE_ACCEPT,
                                            NULL);
     }
     
     // 设置过滤器
     GtkFileFilter* filter = gtk_file_filter_new();
-    gtk_file_filter_set_name(filter, "所有文件 (*.*)");
+    gtk_file_filter_set_name(filter, "All files 所有文件 (*.*)");
     gtk_file_filter_add_pattern(filter, "*");
     gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
     
@@ -132,11 +132,11 @@ std::string showFileChooser(GtkWindow* parent, bool open = true)
 
 // 选择文件夹
 const char* showFolderChooser(GtkWindow* parent) {
-    GtkWidget* dialog = gtk_file_chooser_dialog_new("选择文件夹",
+    GtkWidget* dialog = gtk_file_chooser_dialog_new("Select folder 选择文件夹",
                                                    parent,
                                                    GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER,
-                                                   "_取消", GTK_RESPONSE_CANCEL,
-                                                   "_选择", GTK_RESPONSE_ACCEPT,
+                                                   "_Cancel取消", GTK_RESPONSE_CANCEL,
+                                                   "_Select选择", GTK_RESPONSE_ACCEPT,
                                                    NULL);
     
     gint result = gtk_dialog_run(GTK_DIALOG(dialog));
@@ -207,11 +207,11 @@ bool showConfirmDialog(GtkWindow* parent, const char* title, const char* message
 std::string showSaveFileDialog(GtkWindow* parent, 
                                const std::string& default_filename = "",
                                const std::vector<std::pair<std::string, std::string>>& filters = {}) {
-    GtkWidget* dialog = gtk_file_chooser_dialog_new("保存文件",
+    GtkWidget* dialog = gtk_file_chooser_dialog_new("Saving files 保存文件",
                                                    parent,
                                                    GTK_FILE_CHOOSER_ACTION_SAVE,
-                                                   "_取消", GTK_RESPONSE_CANCEL,
-                                                   "_保存", GTK_RESPONSE_ACCEPT,
+                                                   "_Cancel取消", GTK_RESPONSE_CANCEL,
+                                                   "_Save保存", GTK_RESPONSE_ACCEPT,
                                                    NULL);
     
     // 设置默认文件名
@@ -229,7 +229,7 @@ std::string showSaveFileDialog(GtkWindow* parent,
     
     // 默认添加"所有文件"过滤器
     GtkFileFilter* all_filter = gtk_file_filter_new();
-    gtk_file_filter_set_name(all_filter, "所有文件 (*.*)");
+    gtk_file_filter_set_name(all_filter, "All files 所有文件 (*.*)");
     gtk_file_filter_add_pattern(all_filter, "*");
     gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), all_filter);
     
@@ -902,7 +902,7 @@ void on_button_clicked_dis_avb(GtkWidgetHelper helper){
         exit(1);
 	}
     TosPatcher patcher;
-    bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")),"Warn 警告","This operation may brick your device, continue?\n此操作可能会使你的设备变砖，是否继续？");
+    bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")),"Warn 警告","This operation may break your device, continue?\n此操作可能会使你的设备损坏，是否继续？");
     if (i_is){
         std::thread([helper,patcher]() mutable {
             dump_partition(io,"trustos",0,check_partition(io,"trustos",1),"trustos-orig.bin",0);
@@ -1346,7 +1346,14 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	}
     gui_idle_call([helper]() mutable {
         showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Successfully connected 连接成功", "Device already connected! Some advanced settings opened!\n设备已成功连接！部分高级设置已开放！");
-        if (!fdl2_executed) helper.enableWidget("fdl_exec");
+        if (!fdl2_executed) 
+        {
+            helper.enableWidget("fdl_exec"); 
+            showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Tips 提示", "Please execute FDL file to continue! \n请执行FDL以继续！");
+            if (device_mode == SPRD4 && isKickMode) {
+                showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Tips 提示", "Since your device is in SPRD4 mode, you can choose to skip FDL setting and directly execute FDL, but not all devices support that, please proceed with caution!\n由于你的设备处于SPRD4模式，你可以选择跳过FDL设置直接执行FDL，但是不是所有设备都支持，请谨慎操作！");
+            }
+        }
         Enable_Startup();
         helper.setLabelText(helper.getWidget("con"), "Connected");
         if (device_stage == BROM) helper.setLabelText(helper.getWidget("mode"), "BROM");
@@ -1393,7 +1400,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
             if(!isKickMode) send_file(io, fdl_path, fdl_addr, end_data, blk_size ? blk_size : 528, 0, 0);
             else send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
         }else{
-            if (fdl_path && strlen(fdl_path) > 0 && !fdl_addr && isKickMode) {
+            if (device_mode == SPRD4 && isKickMode) {
                 auto i_is_ptr = std::make_shared<bool>(false);
                 gui_idle_call_with_callback(
                     [helper]() -> bool {
@@ -1554,7 +1561,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
                 }
             }
             else{
-                if (fdl_path && strlen(fdl_path) > 0 && !fdl_addr && isKickMode) {
+                if (device_mode == SPRD4 && isKickMode) {
                     auto i_is_ptr = std::make_shared<bool>(false);
                     gui_idle_call_with_callback(
                         [helper]() -> bool {
@@ -1682,6 +1689,7 @@ void DisableWidgets(GtkWidgetHelper helper){
     helper.disableWidget("charge_dis");
     helper.disableWidget("raw_data_en");
     helper.disableWidget("raw_data_dis");
+    helper.disableWidget("sprd4_one_mode");
 }
 
 int gtk_kmain(int argc, char** argv) {
@@ -1796,7 +1804,7 @@ int gtk_kmain(int argc, char** argv) {
     GtkWidget* sprd4OneMode = gtk_switch_new();
     gtk_widget_set_name(sprd4OneMode, "sprd4_one_mode");
     helper.addWidget("sprd4_one_mode",sprd4OneMode);
-    GtkWidget* sprd4OneLabel = helper.createLabel("One-time Mode 单次模式", 
+    GtkWidget* sprd4OneLabel = helper.createLabel("Kick One-time Mode Kick单次模式", 
                                                  "sprd4_one_label", 0, 0, 150, 20);
     gtk_box_pack_start(GTK_BOX(sprd4SwitchBox), sprd4OneMode, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(sprd4SwitchBox), sprd4OneLabel, FALSE, FALSE, 0);
@@ -2579,6 +2587,14 @@ int gtk_kmain(int argc, char** argv) {
     });
     helper.bindValueChanged(timeout_op,[timeout_op](){
         io->timeout = helper.getSpinValue(timeout_op);
+    });
+    helper.bindToggled(sprd4Switch,[sprd4Switch](){
+        if (helper.getSwitchState(sprd4Switch)) {
+            helper.enableWidget("sprd4_one_mode");
+        }
+        else {
+            helper.disableWidget("sprd4_one_mode");
+        }
     });
 }
     DisableWidgets(helper);

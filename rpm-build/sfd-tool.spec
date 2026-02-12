@@ -4,7 +4,7 @@
 
 
 Name:           sfd-tool
-Version:        1.7.3.1
+Version:        1.7.3.2
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -72,5 +72,5 @@ install -m 644 LICENSE.txt %{buildroot}%{_datadir}/doc/%{name}/
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
-* Tue Feb 10 2026 RyanCrepa <Ryan110413@outlook.com> - 1.7.2.3-1
+* Thur Feb 12 2026 RyanCrepa <Ryan110413@outlook.com> - 1.7.3.2-1
 - Initial RPM package
