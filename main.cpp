@@ -10,7 +10,7 @@
 #ifdef __linux__
 #include <unistd.h>
 #endif
-const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.3.0\n\nBy Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n--- v1.7.2.1---\nAdd root permission check for Linux\n--- v1.7.2.2---\nAdd dis_avb function\n--- v1.7.2.3---\nFix some bugs\n--- v1.7.3.0---\nAdd some advanced settings";
+const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.3.1\n\nBy Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n--- v1.7.2.1---\nAdd root permission check for Linux\n--- v1.7.2.2---\nAdd dis_avb function\n--- v1.7.2.3---\nFix some bugs\n--- v1.7.3.0---\nAdd some advanced settings\n--- v1.7.3.1---\nAdd SPRD4 one-time kick mode";
 const char* Version = "[1.2.0.0@_250726]";
 int bListenLibusb = -1;
 int gpt_failed = 1;
@@ -1064,6 +1064,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
     GtkWidget* cveSwitch = helper.getWidget("exec_addr");
     GtkWidget* cveAddr = helper.getWidget("cve_addr");
     GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
+    GtkWidget* sprd4OneMode = helper.getWidget("sprd4_one_mode");
     helper.setLabelText(helper.getWidget("con"),"Waiting for connection...");
     if (argc > 1 && !strcmp(argv[1],"--reconnect")){
         stage = 99;
@@ -1078,15 +1079,23 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	helper.disableWidget("connect_1");
     double wait_time = helper.getSpinValue(waitBox);
     bool isSprd4 = helper.getSwitchState(sprd4Switch);
+    bool isOneMode = helper.getSwitchState(sprd4OneMode);
     bool isCve = helper.getSwitchState(cveSwitch);
     const char* cve_path = helper.getEntryText(cveAddr);
     const char* cve_addr = helper.getEntryText(cveAddrC);
     DEG_LOG(I,"Begin to boot...(%fs)", wait_time);
 	wait = static_cast<int>(wait_time * REOPEN_FREQ);
     if (isSprd4){
-        DEG_LOG(I,"Using SPRD4 mode to kick device.");
-		isKickMode = 1;
-		bootmode = strtol("2", nullptr, 0); at = 0;
+        if (isOneMode){
+            DEG_LOG(I,"Using SPRD4 one-step mode to kick device.");
+            isKickMode = 1;
+            bootmode = strtol("2", nullptr, 0); at = 0;
+        }
+        else{
+            DEG_LOG(I,"Using SPRD4 mode to kick device.");
+            isKickMode = 1;
+            at = 1;
+        }
     }
     if (isCve){
         DEG_LOG(I,"Using CVE binary: %s at address: %s", cve_path, cve_addr);
@@ -1770,8 +1779,8 @@ int gtk_kmain(int argc, char** argv) {
     GtkWidget* cveAddrBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     GtkWidget* cveAddr = helper.createEntry("cve_addr", "", false, 0, 0, 295, 32);
     GtkWidget* cveLabel = helper.createLabel("CVE Binary File Address CVE可执行镜像", "cve_label", 0, 0, 270, 20);
-    gtk_box_pack_start(GTK_BOX(cveAddrBox), cveAddr, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(cveAddrBox), cveLabel, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(cveAddrBox), cveAddr, FALSE, FALSE, 0);
     GtkWidget* selectCveBtn = helper.createButton("...", "select_cve", nullptr, 0, 0, 40, 32);
     gtk_box_pack_start(GTK_BOX(cveAddrBox), selectCveBtn, FALSE, FALSE, 0);
     
@@ -1784,10 +1793,17 @@ int gtk_kmain(int argc, char** argv) {
     GtkWidget* sprd4Label = helper.createLabel("Kick device to SPRD4  使用SPRD4模式", 
                                                "sprd4_label", 0, 0, 250, 20);
     gtk_box_pack_start(GTK_BOX(sprd4SwitchBox), sprd4Label, FALSE, FALSE, 0);
-    
+    GtkWidget* sprd4OneMode = gtk_switch_new();
+    gtk_widget_set_name(sprd4OneMode, "sprd4_one_mode");
+    helper.addWidget("sprd4_one_mode",sprd4OneMode);
+    GtkWidget* sprd4OneLabel = helper.createLabel("One-time Mode 单次模式", 
+                                                 "sprd4_one_label", 0, 0, 150, 20);
+    gtk_box_pack_start(GTK_BOX(sprd4SwitchBox), sprd4OneMode, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(sprd4SwitchBox), sprd4OneLabel, FALSE, FALSE, 0);
+
     // Addr 地址 - 放在右边，在SPRD4开关下面
     GtkWidget* addrBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-    GtkWidget* cveAddrLabel2 = helper.createLabel("Addr  地址", "cve_addr_label2", 0, 0, 70, 20);
+    GtkWidget* cveAddrLabel2 = helper.createLabel("CVE Addr  CVE镜像地址", "cve_addr_label2", 0, 0, 100, 20);
     GtkWidget* cveAddrC = helper.createEntry("cve_addr_c", "", false, 0, 0, 120, 32);
     gtk_box_pack_start(GTK_BOX(addrBox), cveAddrLabel2, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(addrBox), cveAddrC, FALSE, FALSE, 0);

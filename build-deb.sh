@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-VERSION="1.7.3.0"
+VERSION="1.7.3.1"
 APPNAME="sfd_tool"
 PKGNAME="sfd-tool"
 ARCHIVE="${PKGNAME}-${VERSION}"
