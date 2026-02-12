@@ -10,7 +10,7 @@
 #ifdef __linux__
 #include <unistd.h>
 #endif
-const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.3.2\n\nCopyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n---v 1.7.2.1---\nAdd root permission check for Linux\n---v 1.7.2.2---\nAdd dis_avb function\n---v 1.7.2.3---\nFix some bugs\n---v 1.7.3.0---\nAdd some advanced settings\n---v 1.7.3.1---\nAdd SPRD4 one-time kick mode\n---v 1.7.3.2---\nFix some bugs\nUnder GPL v3 License\nGithub: C-Hidery/sfd_tool";
+const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.3.2\n\nCopyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n---v 1.7.2.1---\nAdd root permission check for Linux\n---v 1.7.2.2---\nAdd dis_avb function\n---v 1.7.2.3---\nFix some bugs\n---v 1.7.3.0---\nAdd some advanced settings\n---v 1.7.3.1---\nAdd SPRD4 one-time kick mode\n---v 1.7.3.2---\nFix some bugs\n\n\nUnder GPL v3 License\nGithub: C-Hidery/sfd_tool";
 const char* Version = "[1.2.0.0@_250726]";
 int bListenLibusb = -1;
 int gpt_failed = 1;
@@ -1689,7 +1689,6 @@ void DisableWidgets(GtkWidgetHelper helper){
     helper.disableWidget("charge_dis");
     helper.disableWidget("raw_data_en");
     helper.disableWidget("raw_data_dis");
-    helper.disableWidget("sprd4_one_mode");
 }
 
 int gtk_kmain(int argc, char** argv) {
@@ -2587,14 +2586,6 @@ int gtk_kmain(int argc, char** argv) {
     });
     helper.bindValueChanged(timeout_op,[timeout_op](){
         io->timeout = helper.getSpinValue(timeout_op);
-    });
-    helper.bindToggled(sprd4Switch,[sprd4Switch](){
-        if (helper.getSwitchState(sprd4Switch)) {
-            helper.enableWidget("sprd4_one_mode");
-        }
-        else {
-            helper.disableWidget("sprd4_one_mode");
-        }
     });
 }
     DisableWidgets(helper);
