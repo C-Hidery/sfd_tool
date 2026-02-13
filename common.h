@@ -11,8 +11,18 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
-#include <endian.h> // for be16toh, le32toh, etc.
-#include <stdint.h>
+#ifdef _MSC_VER
+    #include <stdlib.h>      // _byteswap_ulong
+    #define htole32(x) (x)   // Windows 为小端，无需转换
+#elif defined(__GNUC__) || defined(__clang__)
+    #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+        #define htole32(x) (x)
+    #else
+        #define htole32(x) __builtin_bswap32(x)
+    #endif
+#else
+    #error "Unsupported compiler or platform"
+#endif
 #include <stdarg.h>
 #include <string.h>
 #include <signal.h>
