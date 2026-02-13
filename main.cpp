@@ -10,7 +10,7 @@
 #ifdef __linux__
 #include <unistd.h>
 #endif
-const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.3.2\n\nCopyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n---v 1.7.2.1---\nAdd root permission check for Linux\n---v 1.7.2.2---\nAdd dis_avb function\n---v 1.7.2.3---\nFix some bugs\n---v 1.7.3.0---\nAdd some advanced settings\n---v 1.7.3.1---\nAdd SPRD4 one-time kick mode\n---v 1.7.3.2---\nFix some bugs\n\n\nUnder GPL v3 License\nGithub: C-Hidery/sfd_tool";
+const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.3.3\n\nCopyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n---v 1.7.2.1---\nAdd root permission check for Linux\n---v 1.7.2.2---\nAdd dis_avb function\n---v 1.7.2.3---\nFix some bugs\n---v 1.7.3.0---\nAdd some advanced settings\n---v 1.7.3.1---\nAdd SPRD4 one-time kick mode\n---v 1.7.3.2---\nFix some bugs---v 1.7.3.3---\nFix dis_avb func\n\n\nUnder GPL v3 License\nGithub: C-Hidery/sfd_tool";
 const char* Version = "[1.2.0.0@_250726]";
 int bListenLibusb = -1;
 int gpt_failed = 1;
@@ -902,15 +902,15 @@ void on_button_clicked_dis_avb(GtkWidgetHelper helper){
         exit(1);
 	}
     TosPatcher patcher;
-    bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")),"Warn 警告","This operation may break your device, continue?\n此操作可能会使你的设备损坏，是否继续？");
+    bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")),"Warn 警告","This operation may break your device, and not all devices support this, if your device is broken, flash backup in backup_tos, continue?\n此操作可能会使你的设备损坏，并且不是所有设备都支持此操作，如果设备损坏，请刷回backup_tos里的备份，是否继续？");
     if (i_is){
         std::thread([helper,patcher]() mutable {
-            dump_partition(io,"trustos",0,check_partition(io,"trustos",1),"trustos-orig.bin",0);
-            int o = patcher.patcher("trustos-orig.bin");
+            dump_partition(io,"trustos",0,check_partition(io,"trustos",1),"trustos.bin",0);
+            int o = patcher.patcher("trustos.bin");
             if(!o) load_partition_unify(io,"trustos","tos-noavb.bin",0,isCMethod);
             if(!o){
                 gui_idle_call([helper](){
-                    showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),"Info 信息","Disabled AVB successfully, the backup trustos is trustos-orig.bin\n禁用AVB成功，原版trustos是trustos-orig.bin");
+                    showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),"Info 信息","Disabled AVB successfully, the backup trustos is tos_bak.bin\n禁用AVB成功，原版trustos是tos_bak.bin");
                 });
             }
             else{

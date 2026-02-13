@@ -2,7 +2,7 @@
 # sfd_tool RPM build script
 set -e
 
-VERSION="1.7.3.2"
+VERSION="1.7.3.3"
 APPNAME="sfd_tool"
 PKGNAME="sfd-tool"
 

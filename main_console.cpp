@@ -228,7 +228,7 @@ int main_console(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(nullptr));
-	printf("sfd_tool version 1.7.3.2 Console mode\n");
+	printf("sfd_tool version 1.7.3.3 Console mode\n");
 	printf("Copyright 2026 Ryan Crepa\n");
 #if _DEBUG  
 	DBG_LOG("version:debug, core version:%s\n", Version);
@@ -1617,14 +1617,14 @@ int main_console(int argc, char** argv) {
 
 		}
 		else if (!strcmp(str2[2],"dis_avb")){
-			DEG_LOG(W,"This operation may brick your device!");
+			DEG_LOG(W,"This operation may brick your device, and not all devices support this, if your device is broken, flash backup in backup_tos");
 			if(check_confirm("Disable AVB")){
 				TosPatcher patcher;
 				dump_partition(io,"trustos",0,check_partition(io,"trustos",1),"trustos-orig.bin",0);
 				int o = patcher.patcher("trustos-orig.bin");
 				if(!o){
 					load_partition_unify(io,"trustos","tos-noavb.bin",0,isCMethod);
-					DEG_LOG(I,"Done, backup trustos image is trustos-orig.bin");
+					DEG_LOG(I,"Done, backup trustos image is backup_tos/tos_bak.bin");
 				}
 				else{
 					DEG_LOG(E,"Failed.");
