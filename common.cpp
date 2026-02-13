@@ -3054,20 +3054,14 @@ int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned
 	}
 	return 1;
 }
-#ifndef htole32
-# if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#  define htole32(x) (x)
-# else
-#  define htole32(x) __builtin_bswap32(x)   // GCC/Clang
-# endif
-#endif
+
 void set_active(spdio_t *io, const char *arg, int CMethod) {
     // 上层已保证 arg 为 "a" 或 "b"
     int slot = *arg - 'a';
     int other = 1 - slot;
 
     // 在栈上分配完整结构体，自动清零
-    bootloader_control abc = {0};
+    bootloader_control abc = {};
 
     // 1. 初始化所有多字节字段为小端格式（分区规范要求）
     abc.magic = htole32(0x42414342);         // "BCAB"
