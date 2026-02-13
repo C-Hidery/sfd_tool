@@ -47,7 +47,7 @@ FDL2:
  unknown: BSL_REP_INVALID_CMD, bootPanic
 */
 
-enum {
+enum SprdCommands : uint8_t {
 	/* Link Control */
 	BSL_CMD_CONNECT = 0x00,
 

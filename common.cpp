@@ -3056,7 +3056,6 @@ int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned
 }
 
 void set_active(spdio_t *io, const char *arg, int CMethod) {
-    // 上层已保证 arg 为 "a" 或 "b"
     int slot = *arg - 'a';
     int other = 1 - slot;
 
@@ -3092,7 +3091,7 @@ void set_active(spdio_t *io, const char *arg, int CMethod) {
     uint32_t crc_val = crc32(0, (const uint8_t*)&abc, crc_len);
     abc.crc32_le = htole32(crc_val);        // CRC 结果也转为小端存储
 
-    // 6. 写入 misc 分区（假设为同步操作）
+    // 6. 写入 misc 分区
     w_mem_to_part_offset(io, "misc", 0x800,
                          (uint8_t*)&abc, sizeof(abc), 0x1000, CMethod);
 }
