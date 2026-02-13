@@ -15,6 +15,8 @@ is a powerful tool for dumping, flashing, and manipulating Spreadtrum device fir
 
 The tool can operate in one-line mode or interactive mode for advanced operations.
 
+This man is written for console mode, for GUI mode, just start sfd_tool directly
+
 .SH OPTIONS
 .TP
 .B \-\-wait \fITIME\fR
@@ -59,6 +61,10 @@ Show original progress bar.
 .TP
 .B \-\-cptable
 Read partition table in compatibility mode.
+
+.TP
+.B \-\-no\-gui
+Run sfd_tool without GUI
 
 .TP
 .B \-\-no\-fdl

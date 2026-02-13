@@ -37,6 +37,8 @@ void print_help() {
 	        "\t\tShow original progress bar.\n"
 	        "\t--cptable\n"
 	        "\t\tRead the partition table in compatibility mode\n"
+	        "\t--no-gui\n"
+	        "\tRun sfd_tool without GUI"
 	       );
 #ifdef __ANDROID__
 	DBG_LOG(
