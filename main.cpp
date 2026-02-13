@@ -752,8 +752,8 @@ void on_button_clicked_dmv_enable(GtkWidgetHelper helper){
         exit(1);
 	}
     GtkWidget *parent = helper.getWidget("main_window");
-    dm_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-    showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "已启用DM-Verity保护！\nDM-Verity protection enabled!");
+    dm_avb_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
+    showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "已启用DM-Verity和AVB保护！\nDM-Verity and AVB protection enabled!");
 }
 void on_button_clicked_dmv_disable(GtkWidgetHelper helper){
     if (m_bOpened == -1) {
@@ -764,8 +764,8 @@ void on_button_clicked_dmv_disable(GtkWidgetHelper helper){
         exit(1);
 	}
     GtkWidget *parent = helper.getWidget("main_window");
-    dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-    showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "已禁用DM-Verity保护！\nDM-Verity protection disabled!"); 
+    avb_dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
+    showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "已禁用DM-Verity和AVB保护！\nDM-Verity and AVB protection disabled!"); 
 }
 void on_button_clicked_select_xml(GtkWidgetHelper helper){
     GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
@@ -2073,13 +2073,13 @@ int gtk_kmain(int argc, char** argv) {
                                                    "read_xml", nullptr, 0, 0, 500, 32);
         
         // DM-verify
-        GtkWidget* dmvLabel = helper.createLabel("DM-verify Settings (if support)  DM-verify设置（如果支持）", "dmv_label", 0, 0, 400, 20);
-        GtkWidget* dmvDisable = helper.createButton("Disable DM-verify  禁用DM-verify", "dmv_disable", nullptr, 0, 0, 200, 32);
-        GtkWidget* dmvEnable = helper.createButton("Enable DM-verify  启用DM-verify", "dmv_enable", nullptr, 0, 0, 200, 32);
+        GtkWidget* dmvLabel = helper.createLabel("DM-verify and AVB Settings (if support)  DM-verify和AVB设置（如果支持）", "dmv_label", 0, 0, 400, 20);
+        GtkWidget* dmvDisable = helper.createButton("Disable DM-verify and AVB  禁用DM-verify和AVB (Android 10+)", "dmv_disable", nullptr, 0, 0, 220, 32);
+        GtkWidget* dmvEnable = helper.createButton("Enable DM-verify and AVB  启用DM-verify和AVB (Android 10+)", "dmv_enable", nullptr, 0, 0, 220, 32);
         // No AVB
         
-        GtkWidget* disavbLabel = helper.createLabel("AVB Settings AVB设置", "avb_label", 0, 0, 400, 20);
-        GtkWidget* dis_avb = helper.createButton("Disable AVB verification 禁用AVB效验","dis_avb",nullptr,0,0,200,32);
+        GtkWidget* disavbLabel = helper.createLabel("Trustos AVB Settings Trustos AVB设置", "avb_label", 0, 0, 400, 20);
+        GtkWidget* dis_avb = helper.createButton("[CAUTION 谨慎] Disable AVB verification by patching trustos(Android 9 and lower) 修补trustos禁用AVB效验(Android9及以下)","dis_avb",nullptr,0,0,230,32);
 
         // Add to grid
         row = 0;

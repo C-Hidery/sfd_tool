@@ -15,7 +15,7 @@ namespace fs = std::filesystem;
 class TosPatcher {
 public:
     int patcher(const char* fn) {
-        printf("[TosPatcher] [INFO] GenTosPatcher v2.0 (C++17) by TomKing062\n");
+        printf("[TosPatcher] [INFO] GenTosPatcher v2.0 Core by TomKing062\n");
 
         // Load firmware once
         std::vector<uint8_t> fw;

@@ -116,7 +116,7 @@ void print_help() {
 		"\t26.cp|check_part part_name\n"
 		"\t\tChecks if the specified partition exists.\n"
 		"\t27.verity {0,1}\n"
-		"\t\tEnables or disables dm-verity on android 10(+).\n"
+		"\t\tEnables or disables dm-verity and AVB on android 10(+).\n"
 		"\t28.set_active {a,b}\n"
 		"\t\tSets the active slot on VAB devices.\n"
 		"\t29.firstmode [MODE ID]\n"
@@ -132,7 +132,7 @@ void print_help() {
 		"\t\tFind BSL command by hex number\n"
 		"\t34.cptable\n"
 		"\t\tRead the partition table in compatibility mode\n"
-		"\t35.dis_avb\n"
+		"\t35.dis_avb_tos\n"
 		"\t\tDisable AVB verification by patching trustos(FDL2 only)\n"
 		"Debug commands:\n"
 		"\t36.skip_confirm {0,1}\n"
@@ -1616,9 +1616,9 @@ int main_console(int argc, char** argv) {
 			argc -= 2; argv += 2;
 
 		}
-		else if (!strcmp(str2[2],"dis_avb")){
+		else if (!strcmp(str2[2],"dis_avb_tos")){
 			DEG_LOG(W,"This operation may brick your device, and not all devices support this, if your device is broken, flash backup in backup_tos");
-			if(check_confirm("Disable AVB")){
+			if(check_confirm("Disable AVB by patching trustos")){
 				TosPatcher patcher;
 				dump_partition(io,"trustos",0,check_partition(io,"trustos",1),"trustos-orig.bin",0);
 				int o = patcher.patcher("trustos-orig.bin");
@@ -1634,17 +1634,17 @@ int main_console(int argc, char** argv) {
 		}
 		else if (!strcmp(str2[1], "verity")) {
 			if (argcount <= 2) { DEG_LOG(W,"verity {0,1}"); argc = 1; continue; }
-			if (atoi(str2[2])) dm_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
+			if (atoi(str2[2])) dm_avb_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 			else {
 				if (!io->part_count) {
-					DEG_LOG(W,"Disable dm-verity needs a valid partition table or a write-verification-disabled FDL2");
+					DEG_LOG(W,"Disable dm-verity and AVB needs a valid partition table or a write-verification-disabled FDL2");
 					if (!skip_confirm)
-						if (!check_confirm("disable dm-verity")) {
+						if (!check_confirm("disable dm-verity and AVB")) {
 							argc -= 2; argv += 2;
 							continue;
 						}
 				}
-				dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
+				avb_dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 			}
 			argc -= 2; argv += 2;
 
