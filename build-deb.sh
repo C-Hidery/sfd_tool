@@ -31,7 +31,7 @@ cp -r *.cpp *.h *.hpp *.txt *.md *.desktop Makefile Lib /tmp/build-$PKGNAME/$ARC
 # 复制debian目录
 if [ -d debian ]; then
     cp -r debian /tmp/build-$PKGNAME/$ARCHIVE/
-    cp sfd-tool.man /tmp/build-$PKGNAME/$ARCHIVE/
+    cp man_sfd-tool.1 /tmp/build-$PKGNAME/$ARCHIVE/
 else
     echo "Error: No debian directory found"
     exit 1
