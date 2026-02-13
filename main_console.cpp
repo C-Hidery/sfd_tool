@@ -70,7 +70,7 @@ void print_help() {
 	    "\t\t(send_no_enddata will not send end_data command after file transfer.)\n"
 	    "\t8.exec <ADDR>\n"
 	    "\t\tExecutes a sent file. Typically used with sml or FDL2 (also known as uboot/lk).\n"
-	    "\t\t(When you execute FDL1, you need to provide FDL1 address)"
+	    "\t\t(When you execute FDL1, you need to provide FDL1 address)\n"
 	    "\t9.path [SAVE PATH]\n"
 	    "\t\tChanges the save directory for commands like r, read_part, read_spec, read_flash, and read_mem.\n"
 	    "\t10.nand_id [ID]\n"
