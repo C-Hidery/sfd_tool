@@ -39,6 +39,8 @@ mkdir -p %{buildroot}%{_datadir}/icons/hicolor/32x32/apps
 mkdir -p %{buildroot}%{_datadir}/icons/hicolor/48x48/apps
 mkdir -p %{buildroot}%{_datadir}/icons/hicolor/256x256/apps
 mkdir -p %{buildroot}%{_datadir}/doc/%{name}
+mkdir -p %{buildroot}%{_mandir}/man1
+install -m 644 sfd-tool.man %{buildroot}%{_mandir}/man1/
 
 # 安装二进制文件
 install -m 755 sfd_tool %{buildroot}%{_bindir}/
@@ -69,6 +71,7 @@ install -m 644 LICENSE.txt %{buildroot}%{_datadir}/doc/%{name}/
 %{_bindir}/sfd_tool
 %{_datadir}/applications/sfd_tool.desktop
 %{_datadir}/icons/hicolor/*/apps/sfd-tool.png
+%{_mandir}/man1/sfd-tool.man
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog

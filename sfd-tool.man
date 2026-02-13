@@ -1,0 +1,381 @@
+.\" Man page for sfd_tool - Spreadtrum Firmware Dumper Tool
+.\" Contact RyanCrepa <Ryan110413@outlook.com> for updates/corrections
+.TH SFD_TOOL 1 "February 2026" "sfd_tool 1.7.3.4" "User Commands"
+
+.SH NAME
+sfd_tool \- Spreadtrum Firmware Dumping and Programming Tool
+
+.SH SYNOPSIS
+.B sfd_tool
+[\fIOPTIONS\fR] [\fICOMMANDS\fR]
+
+.SH DESCRIPTION
+.B sfd_tool
+is a powerful tool for dumping, flashing, and manipulating Spreadtrum device firmware. It supports both GUI and console modes, with extensive commands for low-level device operations including BROM, FDL1, and FDL2 stages.
+
+The tool can operate in one-line mode or interactive mode for advanced operations.
+
+.SH OPTIONS
+.TP
+.B \-\-wait \fITIME\fR
+Specifies the time in seconds to wait for device connection.
+
+.TP
+.B \-\-stage \fINUMBER\fR, \-r, \-\-reconnect
+Try to reconnect device in BROM/FDL1/FDL2 stage. Any number works similarly.
+
+.TP
+.B \-\-verbose \fILEVEL\fR
+Sets verbosity level (0, 1, or 2).
+
+.TP
+.B \-\-kick
+Connects device using boot_diag -> cali_diag -> dl_diag route.
+
+.TP
+.B \-\-kickto \fIMODE\fR
+Connects device using boot_diag -> custom_diag route. Modes 0-127.
+.RS
+.IP \(bu 2
+mode 0: kickto 2 on ums9621
+.IP \(bu
+mode 1: cali_diag
+.IP \(bu
+mode 2: dl_diag (not all devices support)
+.RE
+
+.TP
+.B \-?, \-h, \-\-help
+Show this help message.
+
+.TP
+.B \-\-sync
+Sync flashing setting.
+
+.TP
+.B \-\-nor\-bar
+Show original progress bar.
+
+.TP
+.B \-\-cptable
+Read partition table in compatibility mode.
+
+.TP
+.B \-\-no\-fdl
+Skip sending FDL file (Sprd4 mode only).
+
+.SH RUNTIME COMMANDS
+
+.SS "Basic Commands"
+.TP
+.B verbose \fILEVEL\fR
+Sets verbosity level (0, 1, or 2).
+
+.TP
+.B timeout \fITIME(ms)\fR
+Sets command timeout in milliseconds.
+
+.TP
+.B baudrate \fIRATE\fR
+Sets baudrate (Windows SPRD driver only, BROM/FDL2 stages). Supported: 57600, 115200, 230400, 460800, 921600, 1000000, 2000000, 3250000, 4000000.
+
+.TP
+.B path \fISAVE_PATH\fR
+Changes save directory for read operations.
+
+.TP
+.B nand_id \fIID\fR
+Specifies 4th NAND ID for size calculation (default 0x15).
+
+.TP
+.B rawdata \fI{0,1,2}\fR
+Rawdata protocol for faster writes (FDL2 only).
+
+.TP
+.B blk_size \fIVALUE(byte)\fR
+Sets block size (max 65535) for faster operations.
+
+.SS "File Transfer Commands"
+.TP
+.B exec_addr \fIBINARY_FILE\fR \fIADDR\fR
+Send binary to memory address (BROM stage only). Used for CVE-2022-38694.
+
+.TP
+.B fdl \fIFILE_PATH\fR \fIADDR\fR
+Send splloader/FDL1/FDL2/sml/trustos/teecfg to specified address.
+
+.TP
+.B loadfdl \fIFILE_ADDR\fR
+Load FDL file using address encoded in filename.
+
+.TP
+.B send, send_no_enddata
+Send file without executing. Specify path and address first.
+
+.TP
+.B exec \fIADDR\fR
+Execute sent file (sml or FDL2/uboot/lk).
+
+.SS "Partition Operations"
+.TP
+.B r, read_part \fBall|part_name|part_id\fR
+Read partitions. Options:
+.RS
+.IP \(bu 2
+all: full backup (excludes blackbox, cache, userdata)
+.IP \(bu
+all_lite: full backup (excludes inactive slots, blackbox, cache, userdata)
+.RE
+
+.TP
+.B read_spec \fIpart_name|part_id offset size [FILE]\fR
+Read specific partition at offset with given size.
+Example: \fBread_spec system 0 ubi40m system.bin\fR
+
+.TP
+.B read_parts \fIPARTITION_TABLE_XML\fR
+Dump partitions from list file.
+
+.TP
+.B w, write_part \fIpart_name|part_id [FILE_PATH]\fR
+Write file to partition.
+
+.TP
+.B write_parts, write_parts_a, write_parts_b \fIsave_location\fR
+Write all partitions dumped by read_parts.
+
+.TP
+.B wof \fIpart_name offset FILE\fR
+Write file to partition at offset.
+
+.TP
+.B wov \fIpart_name offset VALUE\fR
+Write value (max 0xFFFFFFFF) to partition at offset.
+
+.TP
+.B e, erase_part \fIpart_name|part_id\fR
+Erase specified partition.
+
+.TP
+.B erase_all
+Erase all partitions (use with caution!).
+
+.SS "Partition Table Commands"
+.TP
+.B part_table \fI[FILE_PATH]\fR
+Read and save partition table XML (not all FDL2 supports).
+
+.TP
+.B repartition \fIPARTITION_TABLE_XML\fR
+Repartition based on XML list.
+
+.TP
+.B p, print
+Print partition table.
+
+.TP
+.B ps, part_size \fIpart_name\fR
+Display partition size.
+
+.TP
+.B cp, check_part \fIpart_name\fR
+Check if partition exists.
+
+.TP
+.B add_part \fIPARTITION_NAME\fR
+Add partition to table (FDL2 only, compatibility mode).
+
+.SS "Device Control Commands"
+.TP
+.B verity \fI{0,1}\fR
+Enable/disable dm-verity and AVB on Android 10+.
+
+.TP
+.B set_active \fI{a,b}\fR
+Set active slot on VAB devices.
+
+.TP
+.B firstmode \fIMODE_ID\fR
+Set device mode after reboot.
+
+.TP
+.B bootloader \fI{0,1}\fR
+Set bootloader status (FDL2 only).
+
+.TP
+.B dis_avb_tos
+Disable AVB by patching trustos (FDL2 only).
+
+.TP
+.B slot \fI{0,1,2}\fR
+Select slot (0:auto, 1:a, 2:b) on VAB devices.
+
+.TP
+.B chip_uid
+Read chip UID (FDL2 only).
+
+.TP
+.B transcode \fI{0,1}\fR
+Enable/disable transcode mode (FDL2 only).
+
+.SS "Debug Commands"
+.TP
+.B skip_confirm \fI{0,1}\fR
+Skip all confirmation prompts (use with caution!).
+
+.TP
+.B keep_charge
+Keep charging in FDL1/FDL2 stage.
+
+.TP
+.B send_end_data \fI{0,1}\fR
+Send end data after file transfer.
+
+.TP
+.B sendloop \fIADDR\fR
+Debug command: send zero packets in loop. Useful for device identification:
+.RS
+.IP \(bu 2
+sc98xx: \fBsendloop 0x5000\fR
+.IP \(bu
+ums312/512: \fBsendloop 0x4000\fR
+.IP \(bu
+ud710: \fBsendloop 0x4000\fR
+.IP \(bu
+ums9230: \fBsendloop 0x65016000\fR or \fB0x65013000\fR
+.RE
+
+.TP
+.B write_word
+Write hex word to specified address.
+
+.TP
+.B read_nand
+Check if device is NAND (not all devices supported).
+
+.TP
+.B sendcmd \fITYPE\fR \fI<FILE>\fR
+Send specified command with file.
+
+.TP
+.B pactime
+Read last PAC firmware flash time.
+
+.TP
+.B show_cmd
+Show BSL commands.
+
+.TP
+.B find_cmd \fITYPE\fR
+Find BSL command by hex number.
+
+.TP
+.B cptable
+Read partition table in compatibility mode.
+
+.SS "Exit Commands"
+.TP
+.B reboot-recovery
+Reboot to recovery (FDL2 only).
+
+.TP
+.B reboot-fastboot
+Reboot to fastboot (FDL2 only).
+
+.TP
+.B reset
+Reset device (FDL2 and new FDL1).
+
+.TP
+.B poweroff
+Power off device (FDL2 and new FDL1).
+
+.SH EXAMPLES
+
+.SS "One-line Mode Examples"
+.TP
+\fBsfd_tool --wait 300 fdl path/to/fdl 0x0000 fdl path/to/fdl 0x0000 exec read_part boot write_part boot boot.img reset\fR
+Complete flash operation with FDL transfer and partition write.
+
+.TP
+\fBsfd_tool --wait 300 fdl path/to/fdl 0x0000 fdl path/to/fdl 0x0000 exec\fR
+Start interactive mode after initial FDL transfer.
+
+.TP
+\fBsfd_tool --console --kick --verbose 2\fR
+Start console mode with kick connection and verbose output.
+
+.SS "Interactive Mode Examples"
+.TP
+\fBsfd_tool\fR
+Start GUI application.
+
+.TP
+\fBsfd_tool --console\fR
+Start interactive console mode.
+
+.TP
+\fBpath /home/user/firmware\fR
+Set save path.
+
+.TP
+\fBread_part all\fR
+Full firmware backup.
+
+.TP
+\fBwrite_part system new_system.img\fR
+Flash system partition.
+
+.TP
+\fBdis_avb_tos\fR
+Disable AVB verification.
+
+.SH NOTES
+
+.SS "Important Notices"
+.IP \(bu 2
+The compatibility method to get partition table sometimes cannot get all partitions on your device.
+.IP \(bu
+Command \fBbootloader\fR is only supported on special FDL2 and requires trustos and sml partition files.
+.IP \(bu
+Command \fBsendloop\fR is a debugging tool: it sends zeros to a starting address and then decrements by 8 until device becomes unresponsive.
+
+.SS "Root Permission"
+The tool requires root permission for proper device access. Running without root may cause connection issues.
+
+.SS "Rawdata Protocol"
+Rawdata helps speed up \fBw\fR and \fBwrite_part(s)\fR commands. It relies on u-boot/lk, so don't set it manually.
+
+.SH FILES
+.TP
+.I /usr/bin/sfd_tool
+Main executable.
+.TP
+.I /usr/share/applications/sfd-tool.desktop
+Desktop entry for GUI mode.
+.TP
+.I /usr/share/doc/sfd-tool/
+Documentation directory.
+
+.SH AUTHOR
+Written by \fBRyan Crepa\fR <Ryan110413@outlook.com>
+.br
+Bilibili: @RyanCrepa
+.br
+QQ: 3285087232
+
+.SH REPORTING BUGS
+Report bugs and issues at:
+.br
+https://github.com/ryan/sfd_tool/issues
+
+.SH COPYRIGHT
+Copyright \(co 2026 Ryan Crepa
+.br
+This is free software; see the source for copying conditions. There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+.SH SEE ALSO
+.BR fastboot (1),
+.BR adb (1),
+.BR spd\_cmd (1)

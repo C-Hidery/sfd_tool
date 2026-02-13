@@ -17,7 +17,7 @@ mkdir -p ~/rpmbuild/{SOURCES,SPECS,RPMS,SRPMS,BUILD}
 
 # 创建源码包
 mkdir -p /tmp/$PKGNAME-$VERSION
-cp -r *.cpp *.h *.hpp *.txt *.md *.desktop Makefile Lib /tmp/$PKGNAME-$VERSION/
+cp -r *.cpp *.h *.hpp *.txt *.md *.desktop *.man Makefile Lib /tmp/$PKGNAME-$VERSION/
 [ -f icon.png ] && cp icon.png /tmp/$PKGNAME-$VERSION/
 
 # 复制 spec 文件
