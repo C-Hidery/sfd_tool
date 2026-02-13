@@ -71,7 +71,7 @@ install -m 644 LICENSE.txt %{buildroot}%{_datadir}/doc/%{name}/
 %{_bindir}/sfd_tool
 %{_datadir}/applications/sfd_tool.desktop
 %{_datadir}/icons/hicolor/*/apps/sfd-tool.png
-%{_mandir}/man1/sfd-tool.man
+%{_mandir}/man1/sfd-tool.man*
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
