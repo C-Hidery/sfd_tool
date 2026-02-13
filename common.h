@@ -10,6 +10,8 @@
 #include <new>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stddef.h>
+#include <endian.h> // for be16toh, le32toh, etc.
 #include <stdint.h>
 #include <stdarg.h>
 #include <string.h>

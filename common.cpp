@@ -3054,23 +3054,54 @@ int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned
 	}
 	return 1;
 }
-
+#ifndef htole32
+# if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#  define htole32(x) (x)
+# else
+#  define htole32(x) __builtin_bswap32(x)   // GCC/Clang
+# endif
+#endif
 void set_active(spdio_t *io, const char *arg, int CMethod) {
-	uint32_t tmp[8] = { 0x5F, 0x42414342, 0x201, 0, 0, 0, 0, 0 };
-	bootloader_control *abc = (bootloader_control *)tmp;
-	int slot = *arg - 'a';
+    // 上层已保证 arg 为 "a" 或 "b"
+    int slot = *arg - 'a';
+    int other = 1 - slot;
 
-	abc->slot_info[slot].priority = 15;
-	abc->slot_info[slot].tries_remaining = 6;
-	abc->slot_info[slot].successful_boot = 0;
-	abc->slot_info[1 - slot].priority = 14;
-	abc->slot_info[1 - slot].tries_remaining = 1;
-	abc->slot_suffix[1] = *arg;
-	abc->crc32_le = crc32(0, (const uint8_t*)abc, 0x1C);
+    // 在栈上分配完整结构体，自动清零
+    bootloader_control abc = {0};
 
-	w_mem_to_part_offset(io, "misc", 0x800, (uint8_t *)abc, sizeof(bootloader_control), 0x1000, CMethod);
+    // 1. 初始化所有多字节字段为小端格式（分区规范要求）
+    abc.magic = htole32(0x42414342);         // "BCAB"
+    abc.version = 1;
+    abc.nb_slot = 2;                        // 共 2 个槽位
+    abc.recovery_tries_remaining = 0;
+    abc.merge_status = 0;
+
+    // 2. 完整初始化 slot_suffix（保证字符串格式）
+    abc.slot_suffix[0] = '_';
+    abc.slot_suffix[1] = *arg;
+    abc.slot_suffix[2] = '\0';             // slot_suffix[3] 保持 0
+
+    // 3. 设置主槽属性（与原逻辑完全一致）
+    abc.slot_info[slot].priority = 15;
+    abc.slot_info[slot].tries_remaining = 6;
+    abc.slot_info[slot].successful_boot = 0;
+
+    // 4. 设置备用槽属性（与原逻辑完全一致）
+    abc.slot_info[other].priority = 14;
+    abc.slot_info[other].tries_remaining = 1;
+    abc.slot_info[other].successful_boot = 0;
+
+    // 槽位 2、3 已通过 {0} 清零，表示不可用
+
+    // 5. 动态计算 CRC 校验范围（不含 crc32_le 字段）
+    size_t crc_len = offsetof(bootloader_control, crc32_le);
+    uint32_t crc_val = crc32(0, (const uint8_t*)&abc, crc_len);
+    abc.crc32_le = htole32(crc_val);        // CRC 结果也转为小端存储
+
+    // 6. 写入 misc 分区（假设为同步操作）
+    w_mem_to_part_offset(io, "misc", 0x800,
+                         (uint8_t*)&abc, sizeof(abc), 0x1000, CMethod);
 }
-
 
 #if _WIN32
 const _TCHAR CLASS_NAME[] = _T("Sample Window Class");
