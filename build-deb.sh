@@ -17,8 +17,6 @@ echo "=== Building $PKGNAME version $VERSION ==="
 rm -rf dist debian/$PKGNAME
 make clean 2>/dev/null || true
 
-# 构建应用
-make release
 
 # 创建临时构建目录
 rm -rf /tmp/build-$PKGNAME
@@ -44,7 +42,7 @@ cd /tmp/build-$PKGNAME/$ARCHIVE
 dpkg-buildpackage -us -uc
 
 # 复制生成的包回项目目录
-cp ../*.deb ~/Source/sfd_tool/ 2>/dev/null || true
+cp ../*.deb ~/ 2>/dev/null || true
 
 echo "=== Build complete ==="
 echo "Packages:"

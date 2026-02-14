@@ -10,6 +10,9 @@
 #include <memory>
 #include <algorithm>
 
+#ifndef G_CONNECT_DEFAULT
+#define G_CONNECT_DEFAULT ((GConnectFlags)0)
+#endif
 // 回调函数包装器
 struct CallbackData {
     std::function<void()> func;
