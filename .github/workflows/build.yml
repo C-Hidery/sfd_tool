@@ -123,7 +123,62 @@ jobs:
             Write-Host "前10个 DLL 文件:"
             $dllFiles | Select-Object -First 10 Name | ForEach-Object { Write-Host "  - $($_.Name)" }
           }
+      - name: Copy GTK Runtime Data Files
+        run: |
+          $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
           
+          # 确定 MSYS2 目录
+          if ("${{ matrix.arch }}" -eq "x64") {
+            $msysPrefix = "C:\msys64\mingw64"
+          } else {
+            $msysPrefix = "C:\msys64\mingw32"
+          }
+          
+          Write-Host "复制 GTK 运行时数据文件..."
+          
+          # 1. 复制图标主题
+          $iconsSrc = "$msysPrefix\share\icons"
+          $iconsDest = "$destDir\share\icons"
+          
+          if (Test-Path $iconsSrc) {
+            New-Item -ItemType Directory -Force -Path $iconsDest
+            
+            # 复制 hicolor 主题（必需）
+            if (Test-Path "$iconsSrc\hicolor") {
+              Write-Host "复制 hicolor 图标主题..."
+              Copy-Item -Path "$iconsSrc\hicolor" -Destination $iconsDest -Recurse -Force
+            }
+            
+            # 复制 Adwaita 主题（推荐）
+            if (Test-Path "$iconsSrc\Adwaita") {
+              Write-Host "复制 Adwaita 图标主题..."
+              Copy-Item -Path "$iconsSrc\Adwaita" -Destination $iconsDest -Recurse -Force
+            }
+          } else {
+            Write-Warning "图标主题目录不存在: $iconsSrc"
+          }
+          
+          # 2. 复制 GSettings schemas
+          $schemasSrc = "$msysPrefix\share\glib-2.0\schemas"
+          $schemasDest = "$destDir\share\glib-2.0\schemas"
+          
+          if (Test-Path $schemasSrc) {
+            Write-Host "复制 GSettings schemas..."
+            New-Item -ItemType Directory -Force -Path $schemasDest
+            Copy-Item -Path "$schemasSrc\*" -Destination $schemasDest -Recurse -Force
+          } else {
+            Write-Error "GSettings schemas 目录不存在: $schemasSrc"
+          }
+          
+          # 3. 复制主题
+          $themesSrc = "$msysPrefix\share\themes"
+          $themesDest = "$destDir\share\themes"
+          
+          if (Test-Path $themesSrc) {
+            Write-Host "复制 GTK 主题..."
+            New-Item -ItemType Directory -Force -Path $themesDest
+            Copy-Item -Path "$themesSrc\Default" -Destination $themesDest -Recurse -Force -ErrorAction SilentlyContinue
+          }
       - name: Cleanup Build Directory (Optional)
         run: |
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
