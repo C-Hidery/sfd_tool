@@ -2931,14 +2931,13 @@ void select_ab(spdio_t *io) {
 void avb_dm_disable(spdio_t *io, unsigned step, int CMethod) {
 	char ch = '\3'; // AVB_VBMETA_IMAGE_FLAGS_VERIFICATION_DISABLED + AVB_VBMETA_IMAGE_FLAGS_VERITY_DISABLED
 	w_mem_to_part_offset(io, "vbmeta", 0x7B, (uint8_t *)&ch, 1, step, CMethod); // DHTB
-	w_mem_to_part_offset(io, "vbmeta", 0x70, (uint8_t *)&ch, 1, step, CMethod);
 }
 
 
 void dm_avb_enable(spdio_t *io, unsigned step, int CMethod) {
 	const char *list[] = { "vbmeta", "vbmeta_system", "vbmeta_vendor", "vbmeta_system_ext", "vbmeta_product", "vbmeta_odm", nullptr };
 	char ch = '\0';
-	for (int i = 0; list[i] != nullptr; i++){ w_mem_to_part_offset(io, list[i], 0x7B, (uint8_t *)&ch, 1, step, CMethod); w_mem_to_part_offset(io, list[i], 0x70, (uint8_t *)&ch, 1, step, CMethod);}
+	for (int i = 0; list[i] != nullptr; i++){ w_mem_to_part_offset(io, list[i], 0x7B, (uint8_t *)&ch, 1, step, CMethod);}
 }
 
 uint32_t const crc32_tab[] = {

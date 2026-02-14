@@ -1116,8 +1116,16 @@ void confirm_partition_c(GtkWidgetHelper helper) {
 		});
 		exit(1);
 	}
-	bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", "No partition table found on current device, read partition list through compatibility method?\nWarn: This mode may not find all partitions on your device, use caution with force write!\n当前设备未找到分区表，是否通过兼容方式读取分区列表？\n警告：此模式可能无法找到设备上的所有分区，强制写入时请谨慎使用！");
-	if (i_is) {
+	auto i_is_ptr = std::make_shared<bool>(false);
+	gui_idle_call_with_callback(
+				[helper]() -> bool {
+					return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", "No partition table found on current device, read partition list through compatibility method?\nWarn: This mode may not find all partitions on your device, use caution with force write!\n当前设备未找到分区表，是否通过兼容方式读取分区列表？\n警告：此模式可能无法找到设备上的所有分区，强制写入时请谨慎使用！");
+				},
+				[i_is_ptr](bool result) {
+					*i_is_ptr = result;
+				}
+				);
+	if (*i_is_ptr) {
 		isUseCptable = 1;
 		io->Cptable = partition_list_d(io);
 		isCMethod = 1;
