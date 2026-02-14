@@ -352,7 +352,9 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 	}
 	std::thread([filename, parent]() {
 		load_partition_unify(io, gPartInfo.name, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-		showInfoDialog(parent, "完成 Completed", "分区写入完成！\nPartition write completed!");
+		gui_idle_call([parent]() {
+			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区写入完成！\nPartition write completed!");
+		});
 	}).detach();
 
 }
@@ -395,7 +397,10 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 						load_partition_force(io, i, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE, 1);
 						break;
 					}
-				showInfoDialog(parent, "完成 Completed", "分区强制写入完成！\nPartition force write completed!");
+				
+				gui_idle_call([parent]() {
+					showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区强制写入完成！\nPartition force write completed!");
+				});
 			}).detach();
 		}
 	} else {
@@ -405,7 +410,9 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 					load_partition_force(io, i, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
 					break;
 				}
-			showInfoDialog(parent, "完成 Completed", "分区强制写入完成！\nPartition force write completed!");
+			gui_idle_call([parent]() {
+				showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区强制写入完成！\nPartition force write completed!");
+			});
 		}).detach();
 	}
 
@@ -437,7 +444,9 @@ void on_button_clicked_list_read(GtkWidgetHelper helper) {
 	}
 	std::thread([savePath, parent]() {
 		dump_partition(io, gPartInfo.name, 0, gPartInfo.size, savePath.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);
-		showInfoDialog(parent, "完成 Completed", "分区读取完成！\nPartition read completed!");
+		gui_idle_call([parent]() {
+			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区读取完成！\nPartition read completed!");
+		});
 	}).detach();
 
 }
@@ -451,7 +460,9 @@ void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 	}
 	std::thread([parent]() {
 		erase_partition(io, gPartInfo.name, isCMethod);
-		showInfoDialog(parent, "完成 Completed", "分区擦除完成！\nPartition erase completed!");
+		gui_idle_call([parent]() {
+			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区擦除完成！\nPartition erase completed!");
+		});
 	}).detach();
 
 }
@@ -624,7 +635,9 @@ void on_button_clicked_m_write(GtkWidgetHelper helper) {
 	}
 	std::thread([parent, filename]() {
 		load_partition_unify(io, gPartInfo.name, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-		showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区写入完成！\nPartition write completed!");
+		gui_idle_call([parent]() {
+			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区写入完成！\nPartition write completed!");
+		});
 	}).detach();
 }
 void on_button_clicked_m_read(GtkWidgetHelper helper) {
@@ -654,7 +667,9 @@ void on_button_clicked_m_read(GtkWidgetHelper helper) {
 
 	std::thread([parent, savePath]() {
 		dump_partition(io, gPartInfo.name, 0, gPartInfo.size, savePath.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);
-		showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区读取完成！\nPartition read completed!");
+		gui_idle_call([parent]() {
+			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区读取完成！\nPartition read completed!");
+		});
 	}).detach();
 }
 void on_button_clicked_m_erase(GtkWidgetHelper helper) {
@@ -678,7 +693,9 @@ void on_button_clicked_m_erase(GtkWidgetHelper helper) {
 	}
 	std::thread([parent]() {
 		erase_partition(io, gPartInfo.name, isCMethod);
-		showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区擦除完成！\nPartition erase completed!");
+		gui_idle_call([parent]() {
+			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区擦除完成！\nPartition erase completed!");
+		});
 	}).detach();
 }
 void on_button_clicked_m_cancel(GtkWidgetHelper helper) {
