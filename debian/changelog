@@ -1,8 +1,9 @@
-sfd-tool (1.7.3.4-1) unstable; urgency=medium
+sfd-tool (1.7.3.5-1) unstable; urgency=medium
 
   * Initial Debian package release
   * SFD Tool GUI - Spreadtrum Firmware Dumper
-  * Version 1.7.3.4 features:
+  * Version 1.7.3.5 features:
+    - Fix some bugs
     - Fix some bugs, improved UI
     - Fix dis_avb func
     - Fix some bugs
