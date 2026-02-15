@@ -2595,16 +2595,14 @@ int gtk_kmain(int argc, char** argv) {
 		helper.bindClick(writeBtn, []() {
 			on_button_clicked_list_write(helper);
 		});
-
 		helper.bindClick(readBtn, []() {
-
 			on_button_clicked_list_read(helper);
-
 		});
 		helper.bindClick(eraseBtn, []() {
-
 			on_button_clicked_list_erase(helper);
-
+		});
+		helper.bindClick(backupAllBtn,[](){
+			on_button_clicked_backup_all(helper);
 		});
 		helper.bindClick(poweroffBtn, []() {
 			on_button_clicked_poweroff(helper);
