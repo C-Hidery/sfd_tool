@@ -2107,7 +2107,7 @@ void load_partition_force(spdio_t *io, const int id, const char *fn, unsigned st
 	uint8_t *buf = io->temp_buf;
 	double rtime = get_time();
 	char name[] = "w_force";
-	if(CMethod){
+	if(!CMethod){
 		for (i = 0; i < io->part_count; i++) {
 			memset(buf, 0, 36 * 2);
 			if (i == id)
