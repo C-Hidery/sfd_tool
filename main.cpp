@@ -685,7 +685,7 @@ void on_button_clicked_m_read(GtkWidgetHelper helper) {
 		showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未指定分区名称！\nNo partition name specified!");
 		return;
 	}
-	get_partition_info(io, part_name.c_str(), 0);
+	get_partition_info(io, part_name.c_str(), 1);
 	if (!gPartInfo.size) {
 		DEG_LOG(E, "Partition does not exist\n");
 		return;
