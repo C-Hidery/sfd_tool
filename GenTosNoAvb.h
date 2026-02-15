@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <filesystem>
+#include <iostream>
+namespace fs = std::filesystem;
 class TosPatcher {
 private:
     static uint8_t *loadfile(const char *fn, size_t *num, size_t extra){
@@ -30,20 +33,26 @@ public:
         uint8_t *mem;
         size_t size = 0;
         mem = loadfile(fn, &size, 0);
+		fs::create_directory("backup_tos");
+		fs::copy_file(fn, "backup_tos/" + fs::path(fn).filename().string(), fs::copy_options::overwrite_existing);
         if (!mem){
             printf("[TosPatcher] [ERROR] loadfile failed\n");
+			free(mem);
             return 1;
         }
         if ((uint64_t)size >> 32){
             printf("[TosPatcher] [ERROR] file too big\n");
+			free(mem);
             return 1;
         }
         if (*(uint32_t *)mem != 0x42544844){
             printf("[TosPatcher] [ERROR] The file is not sprd trusted firmware\n");
+			free(mem);
             return 1;
         }
         else if (!(*(uint32_t *)&mem[0x30])){
             printf("[TosPatcher] [ERROR] broken sprd trusted firmware\n");
+			free(mem);
             return 1;
         }
         if (*(uint32_t *)&mem[0x30] + 0x260 >= size){
