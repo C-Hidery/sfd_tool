@@ -6,36 +6,36 @@ GTK = 1
 UNAME_S := $(shell uname -s)
 
 # 基础编译选项
-CFLAGS = -O2 -Wall -Wextra -std=c++17 -pedantic -Wno-unused
-CFLAGS += -DUSE_LIBUSB=$(LIBUSB)
-CFLAGS += -DUSE_GTK=$(GTK)
+CXXFLAGS = -O2 -Wall -Wextra -std=c++17 -pedantic -Wno-unused
+CXXFLAGS += -DUSE_LIBUSB=$(LIBUSB)
+CXXFLAGS += -DUSE_GTK=$(GTK)
 
 LIBS = -lm -lpthread
-CC = g++
 APPNAME = sfd_tool
 
 # 操作系统特定的设置
 ifeq ($(UNAME_S), Darwin)  # macOS
     # macOS 特定配置
-    CFLAGS += -DMACOS
+    CXXFLAGS += -DMACOS
     # macOS 上的 libusb 包名
     LIBUSB_PKG = libusb-1.0
     # macOS 上可能需要 Homebrew 安装的 GTK
     GTK_PKG = gtk+-3.0
     # macOS 上的编译器通常是 clang++
-    CC = clang++
+    CXX = clang++
 else ifeq ($(UNAME_S), Linux)  # Linux
     # Linux 特定配置
-    CFLAGS += -DLINUX
+    CXXFLAGS += -DLINUX
     LIBUSB_PKG = libusb-1.0
     GTK_PKG = gtk+-3.0
+    CXX = g++
 else
     $(error Unsupported operating system: $(UNAME_S))
 endif
 
 # 条件编译设置
 ifeq ($(LIBUSB), 1)
-    CFLAGS += -DUSE_LIBUSB=1
+    CXXFLAGS += -DUSE_LIBUSB=1
     LIBS += `pkg-config --libs $(LIBUSB_PKG) 2>/dev/null || echo "-lusb-1.0"`
 endif
 
@@ -44,14 +44,14 @@ ifeq ($(GTK), 1)
     PKG_CONFIG_EXISTS := $(shell pkg-config --exists $(GTK_PKG) && echo 1 || echo 0)
     
     ifeq ($(PKG_CONFIG_EXISTS), 1)
-        CFLAGS += `pkg-config --cflags $(GTK_PKG)`
+        CXXFLAGS += `pkg-config --cflags $(GTK_PKG)`
         LIBS += `pkg-config --libs $(GTK_PKG)`
     else
         # pkg-config 不可用时的备选方案
         ifeq ($(UNAME_S), Darwin)
             # macOS 上 GTK 可能通过 Homebrew 安装在其他位置
             HOMEBREW_PREFIX := $(shell brew --prefix 2>/dev/null || echo "/usr/local")
-            CFLAGS += -I$(HOMEBREW_PREFIX)/include/gtk-3.0 \
+            CXXFLAGS += -I$(HOMEBREW_PREFIX)/include/gtk-3.0 \
                       -I$(HOMEBREW_PREFIX)/include/glib-2.0 \
                       -I$(HOMEBREW_PREFIX)/lib/glib-2.0/include \
                       -I$(HOMEBREW_PREFIX)/include/pango-1.0 \
@@ -63,7 +63,7 @@ ifeq ($(GTK), 1)
                     -lgio-2.0 -lgobject-2.0 -lglib-2.0 -lintl
         else
             # Linux 上的备选方案
-            CFLAGS += $(shell pkg-config --cflags gtk+-3.0 2>/dev/null || echo "")
+            CXXFLAGS += $(shell pkg-config --cflags gtk+-3.0 2>/dev/null || echo "")
             LIBS += $(shell pkg-config --libs gtk+-3.0 2>/dev/null || echo "-lgtk-3")
         endif
     endif
@@ -88,21 +88,21 @@ all: $(APPNAME)
 
 # 主目标
 $(APPNAME): main.cpp main_console.cpp common.cpp GtkWidgetHelper.cpp
-	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LIBS)
 
 # 调试版本
 .PHONY: debug
-debug: CFLAGS += -g -D_DEBUG -O0
+debug: CXXFLAGS += -g -D_DEBUG -O0
 debug: $(APPNAME)
 
 # 发布版本
 .PHONY: release
-release: CFLAGS += -O3 -DNDEBUG
+release: CXXFLAGS += -O3 -DNDEBUG
 release: $(APPNAME)
 
 # 静态分析
 .PHONY: analyze
-analyze: CFLAGS += -fanalyzer
+analyze: CXXFLAGS += -fanalyzer
 analyze: debug
 
 # 清理目标
@@ -165,7 +165,7 @@ endif
 ifeq ($(LIBUSB),1)
 	@pkg-config --exists $(LIBUSB_PKG) && echo "libusb: Found" || echo "libusb: Not found"
 endif
-	@echo "Compiler: $(CC)"
+	@echo "Compiler: $(CXX)"
 
 # 帮助信息
 .PHONY: help
@@ -177,10 +177,7 @@ help:
 	@echo "  clean     - Remove build artifacts"
 	@echo "  install   - Install to /usr/local/bin"
 	@echo "  uninstall - Uninstall from /usr/local/bin"
-	@echo "  check-deps- Check required dependencies"
+	@echo "  check-deps - Check required dependencies"
 	@echo "  help      - Show this help"
 	@echo ""
-	@echo "Configuration options:"
-	@echo "  make GTK=0     - Build without GTK support"
-	@echo "  make LIBUSB=0  - Build without libusb support"
-	@echo "  make CC=clang++- Use clang++ compiler (Linux)"
+	@echo "  make CXX=clang++ - Use clang++ compiler (macOS)"
