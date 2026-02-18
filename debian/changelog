@@ -1,8 +1,9 @@
-sfd-tool (1.7.4.0-1) unstable; urgency=medium
+sfd-tool (1.7.4.1-1) unstable; urgency=medium
 
   * Initial Debian package release
   * SFD Tool GUI - Spreadtrum Firmware Dumper
-  * Version 1.7.4.0 features:
+  * Version 1.7.4.1 features:
+    - Add CVE v2 function, fix some bugs
     - Add window dragging detection for Windows dialog-showing issue
     - Fix some bugs
     - Fix some bugs, improved UI

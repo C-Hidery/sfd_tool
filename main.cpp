@@ -10,7 +10,7 @@
 #ifdef __linux__
 #include <unistd.h>
 #endif
-const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.4.0\n\nCopyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n---v 1.7.2.1---\nAdd root permission check for Linux\n---v 1.7.2.2---\nAdd dis_avb function\n---v 1.7.2.3---\nFix some bugs\n---v 1.7.3.0---\nAdd some advanced settings\n---v 1.7.3.1---\nAdd SPRD4 one-time kick mode\n---v 1.7.3.2---\nFix some bugs---v 1.7.3.3---\nFix dis_avb func\n---v 1.7.3.4---\nFix some bugs, improved UI\n---v 1.7.3.5---\nFix some bugs\n---v 1.7.4.0---\nAdd window dragging detection for Windows dialog-showing issue\n\n\nUnder GPL v3 License\nGithub: C-Hidery/sfd_tool";
+const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.4.1\n\nCopyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n---v 1.7.2.1---\nAdd root permission check for Linux\n---v 1.7.2.2---\nAdd dis_avb function\n---v 1.7.2.3---\nFix some bugs\n---v 1.7.3.0---\nAdd some advanced settings\n---v 1.7.3.1---\nAdd SPRD4 one-time kick mode\n---v 1.7.3.2---\nFix some bugs\n---v 1.7.3.3---\nFix dis_avb func\n---v 1.7.3.4---\nFix some bugs, improved UI\n---v 1.7.3.5---\nFix some bugs\n---v 1.7.4.0---\nAdd window dragging detection for Windows dialog-showing issue\n---v 1.7.4.1---\nAdd CVE v2 function, fix some bugs\n\n\nUnder GPL v3 License\nGithub: C-Hidery/sfd_tool";
 const char* Version = "[1.2.1.0@_250726]";
 int bListenLibusb = -1;
 int gpt_failed = 1;
@@ -1860,7 +1860,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 						[helper]() -> bool {
 							return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", "Device can be booted without FDL in SPRD4 mode, continue?\n设备在SPRD4模式下可以无需FDL启动，是否继续？");
 						},
-						[i_is_ptr,execfile,fdl_path,fdl_addr,isCve,cve_addr,cve_path,fi](bool result) {
+						[i_is_ptr,execfile,fdl_path,fdl_addr,isCve,cve_addr,cve_path,fi, helper](bool result) {
 							*i_is_ptr = result;
 							if (*i_is_ptr) {
 								DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
@@ -1876,9 +1876,34 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 								} else fclose(fi);
 								send_file(io, fdl_path, fdl_addr, end_data, 528, 0, 0);
 								if (cve_addr && strlen(cve_addr) > 0 && isCve) {
-									DEG_LOG(I, "Using CVE binary: %s at address: %s", cve_path, cve_addr);
-									uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
-									send_file(io, cve_path, cve_addr_val, 0, 528, 0, 0);
+									bool isCVEv2 = helper.getSwitchState(helper.getWidget("cve_v2"));
+									if(!isCVEv2){
+										DEG_LOG(I, "Using CVE binary: %s at address: %s", cve_path, cve_addr);
+										uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
+										send_file(io, cve_path, cve_addr_val, 0, 528, 0, 0);
+									}
+									else{
+										DEG_LOG(I, "Using CVEv2 binary: %s at address: %s", cve_path, cve_addr);
+										uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
+										size_t execsize = send_file(io, cve_path, cve_addr_val, 0, 528, 0, 0);
+										int n, gapsize = exec_addr - cve_addr_val - execsize;
+										for (int i = 0; i < gapsize; i += n) {
+											n = gapsize - i;
+											if (n > 528) n = 528;
+											encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
+											if (send_and_check(io)) exit(1);
+										}
+										FILE* fi = fopen(execfile, "rb");
+										if (fi) {
+											fseek(fi, 0, SEEK_END);
+											n = ftell(fi);
+											fseek(fi, 0, SEEK_SET);
+											execsize = fread(io->temp_buf, 1, n, fi);
+											fclose(fi);
+										}
+										encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
+										if (send_and_check(io)) exit(1);
+									}
 									delete[](execfile);
 								} else {
 									encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
@@ -1892,8 +1917,8 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				}
 			}
 			DEG_LOG(OP, "Execute FDL1");
-			// Tiger 310(0x5500) and Tiger 616(0x65000800) need to change baudrate after FDL1
 
+			// Tiger 310(0x5500) and Tiger 616(0x65000800) need to change baudrate after FDL1
 			if (fdl_addr == 0x5500 || fdl_addr == 0x65000800) {
 				highspeed = 1;
 				if (!baudrate) baudrate = 921600;
@@ -2109,12 +2134,23 @@ int gtk_kmain(int argc, char** argv) {
 		gtk_box_pack_start(GTK_BOX(sprd4SwitchBox), sprd4OneMode, FALSE, FALSE, 0);
 		gtk_box_pack_start(GTK_BOX(sprd4SwitchBox), sprd4OneLabel, FALSE, FALSE, 0);
 
-		// Addr 地址 - 放在右边，在SPRD4开关下面
+		// Addr 地址
 		GtkWidget* addrBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
 		GtkWidget* cveAddrLabel2 = helper.createLabel("CVE Addr  CVE镜像地址", "cve_addr_label2", 0, 0, 100, 20);
-		GtkWidget* cveAddrC = helper.createEntry("cve_addr_c", "", false, 0, 0, 120, 32);
+		GtkWidget* cveAddrC = helper.createEntry("cve_addr_c", "", false, 0, 0, 120, 20);
+		GtkWidget* cveV2Label = helper.createLabel("Enable CVE v2 启用CVE v2","cve_v2_label", 0, 0, 150, 20);
+		GtkWidget* cveV2Switch = gtk_switch_new();
+		
 		gtk_box_pack_start(GTK_BOX(addrBox), cveAddrLabel2, FALSE, FALSE, 0);
 		gtk_box_pack_start(GTK_BOX(addrBox), cveAddrC, FALSE, FALSE, 0);
+		
+		// CVE V2 BOX
+		GtkWidget* CVEv2Box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+		gtk_widget_set_name(cveV2Switch, "cve_v2");
+		helper.addWidget("cve_v2", cveV2Switch);
+		
+		gtk_box_pack_start(GTK_BOX(CVEv2Box), cveV2Switch, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(CVEv2Box), cveV2Label, FALSE, FALSE, 0);
 
 		// Connect Button - 放在右边
 		GtkWidget* connectBtn = helper.createButton("CONNECT  连接", "connect_1", nullptr, 0, 0, 143, 52);
@@ -2171,6 +2207,9 @@ int gtk_kmain(int argc, char** argv) {
 		// CVE文件地址 - 注意：输入框在标签左边
 		helper.addToGrid(connectPage, cveAddrBox, 0, 13, 3, 1);
 
+		// CVE V2 开关 - 放在CVE开关下面
+		helper.addToGrid(connectPage, CVEv2Box, 0, 14, 3, 1);
+
 		// ========== 右边区域 ==========
 		// SPRD4开关
 		helper.addToGrid(connectPage, sprd4SwitchBox, 3, 12, 1, 1);
@@ -2179,10 +2218,10 @@ int gtk_kmain(int argc, char** argv) {
 		helper.addToGrid(connectPage, addrBox, 3, 13, 1, 1);
 
 		// 连接按钮
-		helper.addToGrid(connectPage, connectBtn, 3, 14, 1, 1);
+		helper.addToGrid(connectPage, connectBtn, 3, 15, 1, 1);
 
 		// 等待时间
-		helper.addToGrid(connectPage, waitBox, 3, 15, 1, 1);
+		helper.addToGrid(connectPage, waitBox, 3, 16, 1, 1);
 
 
 

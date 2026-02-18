@@ -20,7 +20,7 @@ Depends: ${shlibs:Depends}, ${misc:Depends},
          libgtk-3-0,
          libusb-1.0-0,
          imagemagick
-Description: Serial Flash Device Programming Tool
+Description: Serial Flash Device Programming Tool for Spreadtrum (UNISOC) devices
  A cross-platform GTK3 application for programming serial flash devices.
  Features:
   * Support for various flash chip types
