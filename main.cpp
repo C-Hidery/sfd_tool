@@ -513,7 +513,7 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 		return;
 	}
 	FILE* fi;
-	fi = fopen(filename.c_str(), "r");
+	fi = oxfopen(filename.c_str(), "r");
 	if (fi == nullptr) {
 		DEG_LOG(E, "File does not exist.\n");
 		return;
@@ -552,7 +552,7 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 		return;
 	}
 	FILE* fi;
-	fi = fopen(filename.c_str(), "r");
+	fi = oxfopen(filename.c_str(), "r");
 	if (fi == nullptr) {
 		DEG_LOG(E, "File does not exist.\n");
 		return;
@@ -820,7 +820,7 @@ void on_button_clicked_m_write(GtkWidgetHelper helper) {
 		return;
 	}
 	FILE* fi;
-	fi = fopen(filename.c_str(), "r");
+	fi = oxfopen(filename.c_str(), "r");
 	if (fi == nullptr) {
 		DEG_LOG(E, "File does not exist.\n");
 		return;
@@ -944,7 +944,7 @@ void on_button_clicked_start_repart(GtkWidgetHelper helper) {
 	}
 	GtkWidget *parent = helper.getWidget("main_window");
 	std::string filePath = helper.getEntryText(helper.getWidget("xml_path"));
-	FILE *fi = fopen(filePath.c_str(), "r");
+	FILE *fi = oxfopen(filePath.c_str(), "r");
 	if (fi == nullptr) {
 		DEG_LOG(E, "File does not exist.");
 		return;
@@ -974,7 +974,7 @@ void on_button_clicked_read_xml(GtkWidgetHelper helper) {
 			return;
 		} else {
 			DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
-			FILE* fo = my_fopen(savePath.c_str(), "wb");
+			FILE* fo = my_oxfopen(savePath.c_str(), "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");
 			fprintf(fo, "<Partitions>\n");
 			for (int i = 0; i < io->part_count; i++) {
@@ -994,7 +994,7 @@ void on_button_clicked_read_xml(GtkWidgetHelper helper) {
 			return;
 		} else {
 			DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
-			FILE* fo = my_fopen(savePath.c_str(), "wb");
+			FILE* fo = my_oxfopen(savePath.c_str(), "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");
 			fprintf(fo, "<Partitions>\n");
 			char* name;
@@ -1058,7 +1058,7 @@ void on_button_clicked_exp_log(GtkWidgetHelper helper) {
 		return;
 	}
 	const char* txt = helper.getTextAreaText(txtOutput);
-	FILE* fo = fopen(savePath.c_str(), "w");
+	FILE* fo = oxfopen(savePath.c_str(), "w");
 	if (!fo) {
 		showErrorDialog(GTK_WINDOW(parent), "错误 Error", "无法保存日志文件！\nFailed to save log file!");
 		return;
@@ -1686,7 +1686,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		helper.setLabelText(helper.getWidget("con"), dtxt + " -> FDL Executing");
 		//Send fdl2
 		if (device_mode == SPRD3) {
-			FILE *fi = fopen(fdl_path, "r");
+			FILE *fi = oxfopen(fdl_path, "r");
 			if (fi == nullptr) {
 				DEG_LOG(W, "File does not exist.");
 				return;
@@ -1708,7 +1708,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 							if (send_and_check(io)) exit(1);
 							return;
 						} else {
-							FILE *fi = fopen(fdl_path, "r");
+							FILE *fi = oxfopen(fdl_path, "r");
 							if (fi == nullptr) {
 								DEG_LOG(W, "File does not exist.");
 								return;
@@ -1830,7 +1830,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		std::string dtxt = helper.getLabelText(helper.getWidget("con"));
 		helper.setLabelText(helper.getWidget("con"), dtxt + " -> FDL Executing");
 		std::thread([helper, fdl_path, fdl_addr, execfile]() mutable {
-			FILE* fi = fopen(fdl_path, "r");
+			FILE* fi = oxfopen(fdl_path, "r");
 			GtkWidget* cveSwitch = helper.getWidget("exec_addr");
 			GtkWidget* cveAddr = helper.getWidget("cve_addr");
 			GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
@@ -1893,7 +1893,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 											encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
 											if (send_and_check(io)) exit(1);
 										}
-										FILE* fi = fopen(execfile, "rb");
+										FILE* fi = oxfopen(execfile, "rb");
 										if (fi) {
 											fseek(fi, 0, SEEK_END);
 											n = ftell(fi);

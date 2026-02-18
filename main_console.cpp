@@ -714,7 +714,7 @@ int main_console(int argc, char** argv) {
 			if (0 == fdl1_loaded && argcount > 2) {
 				exec_addr = strtoul(str2[3], nullptr, 0);
 				sprintf(execfile, str2[2]);
-				fi = fopen(execfile, "r");
+				fi = oxfopen(execfile, "r");
 				if (fi == nullptr) {
 					DEG_LOG(W, "%s does not exist", execfile);
 					exec_addr = 0;
@@ -734,7 +734,7 @@ int main_console(int argc, char** argv) {
 			}
 
 			fn = str2[2];
-			fi = fopen(fn, "r");
+			fi = oxfopen(fn, "r");
 			if (fi == nullptr) {
 				DEG_LOG(E, "File does not exist.");
 				argc -= 3;
@@ -808,7 +808,7 @@ int main_console(int argc, char** argv) {
 			//FDL2, NOT NEED TO SEND CVE FILE
 			else if (fdl1_loaded > 0) {
 				if (fdl2_executed != -1) {
-					fi = fopen(fn, "r");
+					fi = oxfopen(fn, "r");
 					if (fi == nullptr) {
 						DEG_LOG(W, "File does not exist.");
 						argc -= argchange;
@@ -822,7 +822,7 @@ int main_console(int argc, char** argv) {
 			//FDL1, MAY NEED TO SEND CVE FILE
 			else {
 				if (fdl1_loaded != -1) {
-					fi = fopen(fn, "r");
+					fi = oxfopen(fn, "r");
 					if (fi == nullptr) {
 						DEG_LOG(W, "File does not exist.\n");
 						argc -= argchange;
@@ -838,7 +838,7 @@ int main_console(int argc, char** argv) {
 							encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
 							if (send_and_check(io)) exit(1);
 						}
-						fi = fopen(execfile, "rb");
+						fi = oxfopen(execfile, "rb");
 						if (fi) {
 							fseek(fi, 0, SEEK_END);
 							n = ftell(fi);
@@ -899,7 +899,7 @@ int main_console(int argc, char** argv) {
 				char* pdump;
 				char chdump;
 				FILE* fdump;
-				fdump = my_fopen("memdump.bin", "wb");
+				fdump = my_oxfopen("memdump.bin", "wb");
 				encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
 				while (1) {
 					send_msg(io);
@@ -1088,7 +1088,7 @@ int main_console(int argc, char** argv) {
 				char* pdump;
 				char chdump;
 				FILE* fdump;
-				fdump = my_fopen("memdump.bin", "wb");
+				fdump = my_oxfopen("memdump.bin", "wb");
 				encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
 				while (1) {
 					send_msg(io);
@@ -1312,7 +1312,7 @@ int main_console(int argc, char** argv) {
 			size_t length = 0;
 			FILE* fi;
 			if (argcount > 3) {
-				fi = fopen(str2[3], "rb");
+				fi = oxfopen(str2[3], "rb");
 				fseek(fi, 0, SEEK_END);
 				length = ftell(fi);
 				if (length) {
@@ -1534,7 +1534,7 @@ rloop:
 				continue;
 			}
 			fn = str2[2];
-			fi = fopen(fn, "r");
+			fi = oxfopen(fn, "r");
 			if (fi == nullptr) {
 				DEG_LOG(E, "File does not exist.");
 				argc -= 2;
@@ -1560,7 +1560,7 @@ rloop:
 					continue;
 				} else {
 					DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
-					FILE* fo = my_fopen(str2[2], "wb");
+					FILE* fo = my_oxfopen(str2[2], "wb");
 					if (!fo) ERR_EXIT("Failed to open file\n");
 					fprintf(fo, "<Partitions>\n");
 					for (i = 0; i < io->part_count; i++) {
@@ -1587,7 +1587,7 @@ rloop:
 					continue;
 				} else {
 					DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
-					FILE* fo = my_fopen(str2[2], "wb");
+					FILE* fo = my_oxfopen(str2[2], "wb");
 					if (!fo) ERR_EXIT("Failed to open file\n");
 					fprintf(fo, "<Partitions>\n");
 					char* name;
@@ -1623,7 +1623,7 @@ rloop:
 				continue;
 			}
 			fn = str2[2];
-			fi = fopen(fn, "r");
+			fi = oxfopen(fn, "r");
 			if (fi == nullptr) {
 				DEG_LOG(E, "File does not exist.");
 				argc -= 2;
@@ -1711,7 +1711,7 @@ rloop:
 				continue;
 			}
 			fn = str2[3];
-			fi = fopen(fn, "r");
+			fi = oxfopen(fn, "r");
 			if (fi == nullptr) {
 				DEG_LOG(E, "File does not exist.\n");
 				argc -= 3;
@@ -1772,7 +1772,7 @@ rloop:
 					continue;
 				}
 				fn = str2[3];
-				fi = fopen(fn, "r");
+				fi = oxfopen(fn, "r");
 				if (fi == nullptr) {
 					DEG_LOG(E, "File does not exist.");
 					argc -= 3;
@@ -1808,7 +1808,7 @@ rloop:
 					continue;
 				}
 				fn = str2[3];
-				fi = fopen(fn, "r");
+				fi = oxfopen(fn, "r");
 				if (fi == nullptr) {
 					DEG_LOG(E, "File does not exist.");
 					argc -= 3;
