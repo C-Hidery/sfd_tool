@@ -49,8 +49,9 @@ FILE *my_fopen(const char *fn, const char *mode) {
 		if ((ch = const_cast<char*>(strrchr(fn, '/')))) sprintf(fix_fn, "%s/%s", savepath, ch + 1);
 		else if ((ch = const_cast<char*>(strrchr(fn, '\\')))) sprintf(fix_fn, "%s/%s", savepath, ch + 1);
 		else sprintf(fix_fn, "%s/%s", savepath, fn);
+		FILE* fe = fopen(fix_fn, mode);
 		delete[] fix_fn;
-		return fopen(fix_fn, mode);
+		return fe;
 	}
 	else return fopen(fn, mode);
 }
