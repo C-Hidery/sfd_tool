@@ -43,12 +43,13 @@ FILE *my_fopen(const char *fn, const char *mode) {
 	if (savepath && savepath[0]) {
 		size_t fn_len = strlen(fn);
         size_t path_len = strlen(savepath);
-		char* fix_fn = (char*)malloc(path_len + fn_len + 2); // +2 for '/' and '\0'
+		char* fix_fn = NEWN char[path_len + fn_len + 2]; // +2 for '/' and '\0'
         if (!fix_fn) return nullptr;
 		char* ch;
 		if ((ch = const_cast<char*>(strrchr(fn, '/')))) sprintf(fix_fn, "%s/%s", savepath, ch + 1);
 		else if ((ch = const_cast<char*>(strrchr(fn, '\\')))) sprintf(fix_fn, "%s/%s", savepath, ch + 1);
 		else sprintf(fix_fn, "%s/%s", savepath, fn);
+		delete[] fix_fn;
 		return fopen(fix_fn, mode);
 	}
 	else return fopen(fn, mode);
