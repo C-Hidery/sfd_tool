@@ -49,6 +49,7 @@ void crash_handler(int sig) {
 	} else {
 		fprintf(stderr, "Failed to get exception information.\n");
 	}
+	system("pause");
 #endif
     // 退出
     exit(1);
