@@ -9,7 +9,25 @@
 #include "GenTosNoAvb.h"
 #ifdef __linux__
 #include <unistd.h>
+#include <execinfo.h>
 #endif
+void crash_handler(int sig) {
+    void* array[20];
+    size_t size;
+    
+    // 获取回溯信息
+    size = backtrace(array, 20);
+    
+    // 打印错误信息
+    fprintf(stderr, "Error: signal %d:\n", sig);
+    
+    // 打印堆栈
+    backtrace_symbols_fd(array, size, STDERR_FILENO);
+    
+    // 退出
+    exit(1);
+}
+
 const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.4.1\n\nCopyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n---v 1.7.2.1---\nAdd root permission check for Linux\n---v 1.7.2.2---\nAdd dis_avb function\n---v 1.7.2.3---\nFix some bugs\n---v 1.7.3.0---\nAdd some advanced settings\n---v 1.7.3.1---\nAdd SPRD4 one-time kick mode\n---v 1.7.3.2---\nFix some bugs\n---v 1.7.3.3---\nFix dis_avb func\n---v 1.7.3.4---\nFix some bugs, improved UI\n---v 1.7.3.5---\nFix some bugs\n---v 1.7.4.0---\nAdd window dragging detection for Windows dialog-showing issue\n---v 1.7.4.1---\nAdd CVE v2 function, fix some bugs\n\n\nUnder GPL v3 License\nGithub: C-Hidery/sfd_tool";
 const char* Version = "[1.2.1.0@_250726]";
 int bListenLibusb = -1;
@@ -2934,6 +2952,8 @@ int gtk_kmain(int argc, char** argv) {
 	return 0;
 }
 int main(int argc, char** argv) {
+	signal(SIGSEGV, crash_handler);   // 段错误
+    signal(SIGABRT, crash_handler);   // 断言失败
 	if (argc > 1 && !strcmp(argv[1], "--no-gui")) {
 		// Call the console version of main
 		return main_console(argc - 1, argv + 1); // Skip the first argument
