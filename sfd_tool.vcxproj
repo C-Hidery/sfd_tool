@@ -145,7 +145,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>setupapi.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>setupapi.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -175,7 +175,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>setupapi.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>setupapi.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -206,7 +206,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>Lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libusb-1.0.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libusb-1.0.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   
@@ -237,7 +237,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>Lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libusb-1.0.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libusb-1.0.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   
