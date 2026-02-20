@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "/usr/bin/bash",
-            "args": ["-c","make debug; sfd_tool"],
+            "args": ["-c","make debug; ./sfd_tool"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
