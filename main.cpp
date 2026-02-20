@@ -448,6 +448,7 @@ void crash_handler(int sig) {
     // 打印堆栈
     backtrace_symbols_fd(array, size, STDERR_FILENO);
 #elif defined(_WIN32)
+	fprintf(stderr, "Error: signal %d:\n", sig);
 	void* stack[100];
     unsigned short frames;
     SYMBOL_INFO* symbol;
@@ -2994,7 +2995,9 @@ int main(int argc, char** argv) {
     signal(SIGABRT, crash_handler);   // 断言失败
 	signal(SIGFPE, crash_handler);    // 浮点异常
 	signal(SIGILL, crash_handler);    // 非法指令
-	signal(SIGKILL, crash_handler);   // 杀死进程
+#ifdef __linux__
+	signal(SIGKILL, crash_handler);   // 杀死进程(Linux)
+#endif
 	signal(SIGTERM, crash_handler);   // 终止信号
 	if (argc > 1 && !strcmp(argv[1], "--no-gui")) {
 		// Call the console version of main
