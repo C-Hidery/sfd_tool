@@ -10,8 +10,12 @@
 #ifdef __linux__
 #include <unistd.h>
 #include <execinfo.h>
+#elif defined(_WIN32)
+#include <windows.h>
+#include <dbghelp.h>
 #endif
 void crash_handler(int sig) {
+#ifdef __linux__
     void* array[20];
     size_t size;
     
@@ -23,7 +27,29 @@ void crash_handler(int sig) {
     
     // 打印堆栈
     backtrace_symbols_fd(array, size, STDERR_FILENO);
-    
+#elif defined(_WIN32)
+	// Windows下的异常处理
+	EXCEPTION_POINTERS* exception_pointers = nullptr;
+	exception_pointers = GetExceptionInformation();
+	
+	if (exception_pointers) {
+		// 打印异常信息
+		fprintf(stderr, "Exception code: 0x%X\n", exception_pointers->ExceptionRecord->ExceptionCode);
+		fprintf(stderr, "Exception address: 0x%p\n", exception_pointers->ExceptionRecord->ExceptionAddress);
+		
+		// 可以使用DbgHelp库来获取堆栈信息
+		SymInitialize(GetCurrentProcess(), NULL, TRUE);
+		DWORD64 stack[20];
+		USHORT frames = CaptureStackBackTrace(0, 20, stack, NULL);
+		
+		fprintf(stderr, "Stack trace:\n");
+		for (USHORT i = 0; i < frames; i++) {
+			fprintf(stderr, "Frame %d: 0x%p\n", i, (void*)stack[i]);
+		}
+	} else {
+		fprintf(stderr, "Failed to get exception information.\n");
+	}
+#endif
     // 退出
     exit(1);
 }
@@ -2954,6 +2980,10 @@ int gtk_kmain(int argc, char** argv) {
 int main(int argc, char** argv) {
 	signal(SIGSEGV, crash_handler);   // 段错误
     signal(SIGABRT, crash_handler);   // 断言失败
+	signal(SIGFPE, crash_handler);    // 浮点异常
+	signal(SIGILL, crash_handler);    // 非法指令
+	signal(SIGKILL, crash_handler);   // 杀死进程
+	signal(SIGTERM, crash_handler);   // 终止信号
 	if (argc > 1 && !strcmp(argv[1], "--no-gui")) {
 		// Call the console version of main
 		return main_console(argc - 1, argv + 1); // Skip the first argument
