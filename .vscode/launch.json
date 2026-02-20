@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "/usr/bin/bash",
-            "args": ["-c","make debug; ./sfd_tool"],
+            "args": ["-c","cd ~/Source/sfd_tool; make debug; ./sfd_tool"], // 在这里修改为正确的可执行文件路径
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
