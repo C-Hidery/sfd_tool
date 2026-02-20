@@ -448,27 +448,26 @@ void crash_handler(int sig) {
     // 打印堆栈
     backtrace_symbols_fd(array, size, STDERR_FILENO);
 #elif defined(_WIN32)
-	// Windows下的异常处理
-	EXCEPTION_POINTERS* exception_pointers = nullptr;
-	exception_pointers = GetExceptionInformation();
-	
-	if (exception_pointers) {
-		// 打印异常信息
-		fprintf(stderr, "Exception code: 0x%X\n", exception_pointers->ExceptionRecord->ExceptionCode);
-		fprintf(stderr, "Exception address: 0x%p\n", exception_pointers->ExceptionRecord->ExceptionAddress);
-		
-		// 可以使用DbgHelp库来获取堆栈信息
-		SymInitialize(GetCurrentProcess(), NULL, TRUE);
-		DWORD64 stack[20];
-		USHORT frames = CaptureStackBackTrace(0, 20, stack, NULL);
-		
-		fprintf(stderr, "Stack trace:\n");
-		for (USHORT i = 0; i < frames; i++) {
-			fprintf(stderr, "Frame %d: 0x%p\n", i, (void*)stack[i]);
-		}
-	} else {
-		fprintf(stderr, "Failed to get exception information.\n");
-	}
+	void* stack[100];
+    unsigned short frames;
+    SYMBOL_INFO* symbol;
+    HANDLE process;
+    
+    process = GetCurrentProcess();
+    SymInitialize(process, NULL, TRUE);
+    
+    frames = CaptureStackBackTrace(0, 100, stack, NULL);
+    symbol = (SYMBOL_INFO*)calloc(sizeof(SYMBOL_INFO) + 256 * sizeof(char), 1);
+    symbol->MaxNameLen = 255;
+    symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+    
+    for (int i = 0; i < frames; i++) {
+        SymFromAddr(process, (DWORD64)stack[i], 0, symbol);
+        printf("%i: %s - 0x%0llX\n", frames - i - 1, symbol->Name, symbol->Address);
+    }
+    
+    free(symbol);
+
 	system("pause");
 #endif
     // 退出
