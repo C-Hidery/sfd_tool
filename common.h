@@ -10,6 +10,7 @@
 #include <new>
 #include <stdlib.h>
 #include <stdio.h>
+#include <thread>
 #include <stddef.h>
 
 #include <stdint.h>
@@ -83,13 +84,6 @@ void usleep(unsigned int us);
 extern char fn_partlist[40];
 extern char savepath[ARGV_LEN];
 
-#if _WIN32
-#define ERR_EXIT(...) \
-	do { fprintf(stderr, __VA_ARGS__); if (m_bOpened == 1) system("pause"); exit(1); } while (0)
-#else
-#define ERR_EXIT(...) \
-	do { fprintf(stderr, __VA_ARGS__); exit(1); } while (0)
-#endif
 
 #define DBG_LOG(...) fprintf(stderr, __VA_ARGS__)
 
@@ -259,6 +253,7 @@ enum Stages {
 	SPRD4 = 4
 };
 #define REOPEN_FREQ 2
+void ERR_EXIT(const char* format, ...);
 extern int isCancel;
 extern uint64_t g_spl_size;
 spdio_t *spdio_init(int flags);

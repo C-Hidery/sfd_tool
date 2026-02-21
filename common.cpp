@@ -2,6 +2,21 @@
 int isCancel = 0;
 bool isHelperInit = false;
 GtkWidgetHelper helper;
+void ERR_EXIT(const char* format, ...) {
+	va_list args;
+	va_start(args, format);
+	vfprintf(stderr, format, args);
+	va_end(args);
+	if (isHelperInit){
+		gui_idle_call_wait_drag([]() {
+			showErrorDialog(helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr, "Error", "An error occurred. The application will now exit.\n监测到错误，应用程序将退出。");
+		}, helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr);
+	}
+	std::thread([](){
+		sleep(5);
+		exit(EXIT_FAILURE);
+	}).detach();
+}
 FILE* xfopen(const char* fn, const char* mode) {
 #ifdef _WIN32
     // Windows下处理中文路径：UTF-8 -> UTF-16 -> _wfopen

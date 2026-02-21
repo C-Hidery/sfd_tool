@@ -9,6 +9,186 @@
 #include <map>
 #include <memory>
 #include <algorithm>
+static bool g_window_is_dragging = false;
+static guint g_drag_check_timeout = 0;
+
+bool isWindowDragging(GtkWindow* window);
+void initDragDetection(GtkWindow* window);
+template<typename Func>
+void gui_idle_call(Func&& func) {
+	using FuncType = typename std::decay<Func>::type;
+
+	// 动态分配func的副本
+	auto* func_ptr = new FuncType(std::forward<Func>(func));
+
+	g_idle_add([](gpointer data) -> gboolean {
+		auto* f = static_cast<FuncType*>(data);
+		(*f)();
+		delete f;
+		return G_SOURCE_REMOVE;
+	}, func_ptr);
+}
+// 改进的 idle call，自动等待拖动结束
+template<typename Func>
+void gui_idle_call_wait_drag(Func&& func, GtkWindow* window) {
+    using FuncType = typename std::decay<Func>::type;
+    
+    // 如果窗口在拖动中，使用循环检测机制
+    if (g_window_is_dragging) {
+        // 创建一个结构体保存所有需要的数据
+        struct WaitData {
+            FuncType func;
+            GtkWindow* window;
+            int retry_count;
+        };
+        
+        auto* wait_data = new WaitData{
+            std::forward<Func>(func),
+            window,
+            0
+        };
+        
+        // 使用超时不断检查，直到拖动结束
+        g_timeout_add(50, [](gpointer data) -> gboolean {
+            auto* wd = static_cast<WaitData*>(data);
+            
+            // 更新拖动状态
+            g_window_is_dragging = isWindowDragging(wd->window);
+            
+            if (!g_window_is_dragging) {
+                // 拖动结束，执行原函数
+                wd->func();
+                delete wd;
+                return G_SOURCE_REMOVE;
+            }
+            
+            wd->retry_count++;
+            if (wd->retry_count > 200) { // 最多等待10秒（50ms * 200）
+                printf("[WARN] Drag wait timeout, forcing dialog\n");
+                wd->func();
+                delete wd;
+                return G_SOURCE_REMOVE;
+            }
+            
+            return G_SOURCE_CONTINUE;
+        }, wait_data);
+        
+        return;
+    }
+    
+    // 不在拖动中，正常执行
+    gui_idle_call(std::forward<Func>(func));
+}
+// 改进的 idle call with callback，自动等待拖动结束
+template<typename Func, typename Callback>
+void gui_idle_call_with_callback(Func&& func, Callback&& callback, GtkWindow* window) {
+    using FuncType = typename std::decay<Func>::type;
+    using CallbackType = typename std::decay<Callback>::type;
+
+    // 如果窗口在拖动中，使用循环检测机制
+    if (g_window_is_dragging) {
+        // 创建结构体保存所有需要的数据
+        struct WaitData {
+            FuncType func;
+            CallbackType callback;
+            GtkWindow* window;
+            int retry_count;
+        };
+        
+        auto* wait_data = new WaitData{
+            std::forward<Func>(func),
+            std::forward<Callback>(callback),
+            window,
+            0
+        };
+        
+        // 使用超时不断检查，直到拖动结束
+        g_timeout_add(50, [](gpointer data) -> gboolean {
+            auto* wd = static_cast<WaitData*>(data);
+            
+            // 更新拖动状态
+            g_window_is_dragging = isWindowDragging(wd->window);
+            
+            if (!g_window_is_dragging) {
+                // 拖动结束，执行原函数
+                auto* func_ptr = new FuncType(std::move(wd->func));
+                auto* callback_ptr = new CallbackType(std::move(wd->callback));
+                
+                g_idle_add([](gpointer data) -> gboolean {
+                    auto* pair = static_cast<std::pair<FuncType*, CallbackType*>*>(data);
+                    auto& [func, callback] = *pair;
+                    
+                    bool result = (*func)();
+                    (*callback)(result);
+                    
+                    delete func;
+                    delete callback;
+                    delete pair;
+                    return G_SOURCE_REMOVE;
+                }, new std::pair<FuncType*, CallbackType*>(func_ptr, callback_ptr));
+                
+                delete wd;
+                return G_SOURCE_REMOVE;
+            }
+            
+            wd->retry_count++;
+            if (wd->retry_count > 200) { // 最多等待10秒（50ms * 200）
+                printf("[WARN] Drag wait timeout, forcing dialog\n");
+                
+                // 超时，强制执行
+                auto* func_ptr = new FuncType(std::move(wd->func));
+                auto* callback_ptr = new CallbackType(std::move(wd->callback));
+                
+                g_idle_add([](gpointer data) -> gboolean {
+                    auto* pair = static_cast<std::pair<FuncType*, CallbackType*>*>(data);
+                    auto& [func, callback] = *pair;
+                    
+                    bool result = (*func)();
+                    (*callback)(result);
+                    
+                    delete func;
+                    delete callback;
+                    delete pair;
+                    return G_SOURCE_REMOVE;
+                }, new std::pair<FuncType*, CallbackType*>(func_ptr, callback_ptr));
+                
+                delete wd;
+                return G_SOURCE_REMOVE;
+            }
+            
+            return G_SOURCE_CONTINUE;
+        }, wait_data);
+        
+        return;
+    }
+    
+    // 不在拖动中，正常执行
+    auto* func_ptr = new FuncType(std::forward<Func>(func));
+    auto* callback_ptr = new CallbackType(std::forward<Callback>(callback));
+
+    g_idle_add([](gpointer data) -> gboolean {
+        auto* pair = static_cast<std::pair<FuncType*, CallbackType*>*>(data);
+        auto& [func, callback] = *pair;
+
+        bool result = (*func)();
+        (*callback)(result);
+
+        delete func;
+        delete callback;
+        delete pair;
+        return G_SOURCE_REMOVE;
+    }, new std::pair<FuncType*, CallbackType*>(func_ptr, callback_ptr));
+}
+std::string showFileChooser(GtkWindow* parent, bool open = true);
+const char *showFolderChooser(GtkWindow* parent);
+void showInfoDialog(GtkWindow* parent, const char* title, const char* message);
+void showWarningDialog(GtkWindow* parent, const char* title, const char* message);
+void showErrorDialog(GtkWindow* parent, const char* title, const char* message);
+bool showConfirmDialog(GtkWindow* parent, const char* title, const char* message);
+std::string showSaveFileDialog(GtkWindow* parent,
+                               const std::string& default_filename = "",
+                               const std::vector<std::pair<std::string, std::string>>& filters = {});
+
 
 #ifndef G_CONNECT_DEFAULT
 #define G_CONNECT_DEFAULT ((GConnectFlags)0)

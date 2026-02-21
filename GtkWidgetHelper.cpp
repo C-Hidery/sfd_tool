@@ -4,6 +4,205 @@
 #include <sstream>
 #include <iomanip>
 
+
+// 检测窗口是否在拖动中
+bool isWindowDragging(GtkWindow* window) {
+    GdkWindow* gdk_window = gtk_widget_get_window(GTK_WIDGET(window));
+    if (!gdk_window) return false;
+    
+    // 获取鼠标状态
+    GdkModifierType mask;
+    gdk_window_get_device_position(gdk_window, 
+        gdk_device_manager_get_client_pointer(
+            gdk_display_get_device_manager(gdk_window_get_display(gdk_window))),
+        nullptr, nullptr, &mask);
+    
+    // 检查左键是否按下（拖动标志）
+    return (mask & GDK_BUTTON1_MASK) != 0;
+}
+
+// 初始化拖动检测
+void initDragDetection(GtkWindow* window) {
+    // 每秒检测60次
+    g_drag_check_timeout = g_timeout_add(16, [](gpointer data) -> gboolean {
+        GtkWindow* win = GTK_WINDOW(data);
+        bool was_dragging = g_window_is_dragging;
+        g_window_is_dragging = isWindowDragging(win);
+        
+        if (was_dragging != g_window_is_dragging) {
+            if (g_window_is_dragging) {
+#ifdef _DEBUG
+                printf("[DEBUG] Window started dragging\n");
+#endif
+            } else {
+#ifdef _DEBUG
+                printf("[DEBUG] Window stopped dragging\n");
+#endif
+            }
+        }
+        return G_SOURCE_CONTINUE;
+    }, window);
+}
+
+// 选择文件
+std::string showFileChooser(GtkWindow* parent, bool open) {
+	GtkWidget* dialog;
+
+	if (open) {
+		dialog = gtk_file_chooser_dialog_new("Select file 选择文件",
+		                                     parent,
+		                                     GTK_FILE_CHOOSER_ACTION_OPEN,
+		                                     "_Cancel取消", GTK_RESPONSE_CANCEL,
+		                                     "_Open打开", GTK_RESPONSE_ACCEPT,
+		                                     NULL);
+	} else {
+		dialog = gtk_file_chooser_dialog_new("Save file 保存文件",
+		                                     parent,
+		                                     GTK_FILE_CHOOSER_ACTION_SAVE,
+		                                     "_Cancel取消", GTK_RESPONSE_CANCEL,
+		                                     "_Save保存", GTK_RESPONSE_ACCEPT,
+		                                     NULL);
+	}
+
+	// 设置过滤器
+	GtkFileFilter* filter = gtk_file_filter_new();
+	gtk_file_filter_set_name(filter, "All files 所有文件 (*.*)");
+	gtk_file_filter_add_pattern(filter, "*");
+	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+
+	gint result = gtk_dialog_run(GTK_DIALOG(dialog));
+	std::string filename;
+
+	if (result == GTK_RESPONSE_ACCEPT) {
+		char* file = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+		if (file) {
+			filename = file;
+			g_free(file);
+		}
+	}
+
+	gtk_widget_destroy(dialog);
+	return filename;
+}
+
+// 选择文件夹
+const char* showFolderChooser(GtkWindow* parent) {
+	GtkWidget* dialog = gtk_file_chooser_dialog_new("Select folder 选择文件夹",
+	                    parent,
+	                    GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER,
+	                    "_Cancel取消", GTK_RESPONSE_CANCEL,
+	                    "_Select选择", GTK_RESPONSE_ACCEPT,
+	                    NULL);
+
+	gint result = gtk_dialog_run(GTK_DIALOG(dialog));
+	const char* folder = nullptr;
+
+	if (result == GTK_RESPONSE_ACCEPT) {
+		char* dir = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+		if (dir) {
+			folder = dir;
+			g_free(dir);
+		}
+	}
+
+	gtk_widget_destroy(dialog);
+	return folder;
+}
+// 信息对话框
+void showInfoDialog(GtkWindow* parent, const char* title, const char* message) {
+	GtkWidget* dialog = gtk_message_dialog_new(parent,
+	                    GTK_DIALOG_MODAL,
+	                    GTK_MESSAGE_INFO,
+	                    GTK_BUTTONS_OK,
+	                    "%s", message);
+	gtk_window_set_title(GTK_WINDOW(dialog), title);
+	gtk_dialog_run(GTK_DIALOG(dialog));
+	gtk_widget_destroy(dialog);
+}
+
+// 警告对话框
+void showWarningDialog(GtkWindow* parent, const char* title, const char* message) {
+	GtkWidget* dialog = gtk_message_dialog_new(parent,
+	                    GTK_DIALOG_MODAL,
+	                    GTK_MESSAGE_WARNING,
+	                    GTK_BUTTONS_OK,
+	                    "%s", message);
+	gtk_window_set_title(GTK_WINDOW(dialog), title);
+	gtk_dialog_run(GTK_DIALOG(dialog));
+	gtk_widget_destroy(dialog);
+}
+
+// 错误对话框
+void showErrorDialog(GtkWindow* parent, const char* title, const char* message) {
+	GtkWidget* dialog = gtk_message_dialog_new(parent,
+	                    GTK_DIALOG_MODAL,
+	                    GTK_MESSAGE_ERROR,
+	                    GTK_BUTTONS_OK,
+	                    "%s", message);
+	gtk_window_set_title(GTK_WINDOW(dialog), title);
+	gtk_dialog_run(GTK_DIALOG(dialog));
+	gtk_widget_destroy(dialog);
+}
+
+// 确认对话框（是/否）
+bool showConfirmDialog(GtkWindow* parent, const char* title, const char* message) {
+	GtkWidget* dialog = gtk_message_dialog_new(parent,
+	                    GTK_DIALOG_MODAL,
+	                    GTK_MESSAGE_QUESTION,
+	                    GTK_BUTTONS_YES_NO,
+	                    "%s", message);
+	gtk_window_set_title(GTK_WINDOW(dialog), title);
+
+	gint result = gtk_dialog_run(GTK_DIALOG(dialog));
+	gtk_widget_destroy(dialog);
+
+	return (result == GTK_RESPONSE_YES);
+}
+// 文件选择对话框函数
+std::string showSaveFileDialog(GtkWindow* parent,
+                               const std::string& default_filename,
+                               const std::vector<std::pair<std::string, std::string>>& filters) {
+	GtkWidget* dialog = gtk_file_chooser_dialog_new("Saving files 保存文件",
+	                    parent,
+	                    GTK_FILE_CHOOSER_ACTION_SAVE,
+	                    "_Cancel取消", GTK_RESPONSE_CANCEL,
+	                    "_Save保存", GTK_RESPONSE_ACCEPT,
+	                    NULL);
+
+	// 设置默认文件名
+	if (!default_filename.empty()) {
+		gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), default_filename.c_str());
+	}
+
+	// 添加文件过滤器
+	for (const auto& filter_pair : filters) {
+		GtkFileFilter* filter = gtk_file_filter_new();
+		gtk_file_filter_set_name(filter, filter_pair.first.c_str());
+		gtk_file_filter_add_pattern(filter, filter_pair.second.c_str());
+		gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+	}
+
+	// 默认添加"所有文件"过滤器
+	GtkFileFilter* all_filter = gtk_file_filter_new();
+	gtk_file_filter_set_name(all_filter, "All files 所有文件 (*.*)");
+	gtk_file_filter_add_pattern(all_filter, "*");
+	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), all_filter);
+
+	std::string filename;
+	gint result = gtk_dialog_run(GTK_DIALOG(dialog));
+
+	if (result == GTK_RESPONSE_ACCEPT) {
+		char* file = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+		if (file) {
+			filename = file;
+			g_free(file);
+		}
+	}
+
+	gtk_widget_destroy(dialog);
+	return filename;
+}
+
 GtkWidgetHelper::GtkWidgetHelper(GtkWidget* parent) 
     : m_parent(parent), m_layoutType(LayoutType::NONE) {}
 
