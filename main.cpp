@@ -108,7 +108,11 @@ void crash_handler(int sig) {
 #endif
     // 退出
 	std::thread([](){
-		sleep(5);
+#ifdef _WIN32
+		Sleep(5000); // 5 seconds in milliseconds
+#else
+		sleep(5); // 5 seconds
+#endif
 		exit(1);
 	}).detach();
     

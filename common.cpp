@@ -13,7 +13,11 @@ void ERR_EXIT(const char* format, ...) {
 		}, helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr);
 	}
 	std::thread([](){
+#ifdef _WIN32
+		Sleep(5000);
+#else
 		sleep(5);
+#endif
 		exit(EXIT_FAILURE);
 	}).detach();
 }
@@ -239,7 +243,7 @@ libusb_device **FindPort(int pid) {
 }
 #endif
 
-#ifdef _MSC_VER
+#ifdef _MSC_VER || _WIN32
 void usleep(unsigned int us) {
 	Sleep(us / 1000);
 }
