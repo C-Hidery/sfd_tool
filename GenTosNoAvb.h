@@ -29,7 +29,7 @@ private:
     }
 public:
     int patcher(const char* fn) {
-        printf("[TosPatcher] [INFO] GenTosPatcher v1.2 by TomKing062");
+        printf("[TosPatcher] [INFO] GenTosPatcher v1.2 by TomKing062\n");
         uint8_t *mem;
         size_t size = 0;
         mem = loadfile(fn, &size, 0);
