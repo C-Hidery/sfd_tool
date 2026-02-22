@@ -1915,7 +1915,7 @@ rloop:
 				int o = patcher.patcher("trustos-orig.bin");
 				if (!o) {
 					load_partition_unify(io, "trustos", "tos-noavb.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-					DEG_LOG(I, "Done, backup trustos image is backup_tos/tos_bak.bin");
+					DEG_LOG(I, "Done, backup trustos image is in backup_tos");
 				} else {
 					DEG_LOG(E, "Failed.");
 				}
