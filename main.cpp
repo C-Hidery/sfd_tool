@@ -891,9 +891,14 @@ void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
 	bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Warn 警告", "This operation may break your device, and not all devices support this, if your device is broken, flash backup in backup_tos, continue?\n此操作可能会使你的设备损坏，并且不是所有设备都支持此操作，如果设备损坏，请刷回backup_tos里的备份，是否继续？");
 	if (i_is) {
 		std::thread([helper, patcher]() mutable {
-			dump_partition(io, "trustos", 0, check_partition(io, "trustos", 1), "trustos.bin", 0);
+			get_partition_info(io, "trustos", 1);
+			if (!gPartInfo.size) {
+				DEG_LOG(E, "Partition not exist\n");
+				return;
+			}
+			dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "trustos.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
 			int o = patcher.patcher("trustos.bin");
-			if (!o) load_partition_unify(io, "trustos", "tos-noavb.bin", 0, isCMethod);
+			if (!o) load_partition_unify(io, "trustos", "tos-noavb.bin",blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 			if (!o) {
 				gui_idle_call_wait_drag([helper]() {
 					showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", "Disabled AVB successfully, the backup trustos is tos_bak.bin\n禁用AVB成功，原版trustos是tos_bak.bin");
