@@ -1914,7 +1914,7 @@ rloop:
 				dump_partition(io, "trustos", 0, check_partition(io, "trustos", 1), "trustos-orig.bin", 0);
 				int o = patcher.patcher("trustos-orig.bin");
 				if (!o) {
-					load_partition_unify(io, "trustos", "tos-noavb.bin", 0, isCMethod);
+					load_partition_unify(io, "trustos", "tos-noavb.bin",blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 					DEG_LOG(I, "Done, backup trustos image is backup_tos/tos_bak.bin");
 				} else {
 					DEG_LOG(E, "Failed.");
