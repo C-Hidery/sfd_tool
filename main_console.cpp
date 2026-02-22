@@ -1911,10 +1911,10 @@ rloop:
 			DEG_LOG(W, "This operation may brick your device, and not all devices support this, if your device is broken, flash backup in backup_tos");
 			if (check_confirm("Disable AVB by patching trustos")) {
 				TosPatcher patcher;
-				dump_partition(io, "trustos", 0, check_partition(io, "trustos", 1), "trustos-orig.bin", 0);
+				dump_partition(io, "trustos", 0, check_partition(io, "trustos", 1), "trustos-orig.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
 				int o = patcher.patcher("trustos-orig.bin");
 				if (!o) {
-					load_partition_unify(io, "trustos", "tos-noavb.bin",blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
+					load_partition_unify(io, "trustos", "tos-noavb.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 					DEG_LOG(I, "Done, backup trustos image is backup_tos/tos_bak.bin");
 				} else {
 					DEG_LOG(E, "Failed.");
