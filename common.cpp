@@ -2,11 +2,15 @@
 int isCancel = 0;
 bool isHelperInit = false;
 GtkWidgetHelper helper;
+
+bool Err_Showed = false;
 void ERR_EXIT(const char* format, ...) {
 	va_list args;
 	va_start(args, format);
 	vfprintf(stderr, format, args);
 	va_end(args);
+	if (Err_Showed) return;
+	Err_Showed = true;
 	if (isHelperInit){
 		gui_idle_call_wait_drag([]() {
 			showErrorDialog(helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr, "Error", "An error occurred. The application will now exit.\n监测到错误，应用程序将退出。");
@@ -14,7 +18,7 @@ void ERR_EXIT(const char* format, ...) {
 	}
 	std::thread([](){
 #ifdef _WIN32
-		Sleep(5000);
+		system("pause");
 #else
 		sleep(5);
 #endif
@@ -259,22 +263,25 @@ void DEG_LOG(int type, const char* format, ...) {
     const char* prefix;
     
     switch(type) {
-        case I: prefix = "[INFO] "; break;
-        case W: prefix = "[WARN] "; break;
-        case E: prefix = "[ERROR] "; break;
-        case OP: prefix = "[OPERATION] "; break;
-        case DE: prefix = "[DEBUG] "; break;
-        default: prefix = "[UNKNOWN] "; break;
+        case I: prefix = "[i] "; break;
+        case W: prefix = "[!] "; break;
+        case E: prefix = "[x] "; break;
+        case OP: prefix = "[=] "; break;
+        case DE: prefix = "[DE] "; break;
+        default: prefix = "[UN] "; break;
     }
     
     vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
-    
+	time_t now = time(nullptr);
+    struct tm* local_time = localtime(&now);
     // 输出到控制台
+	char timestamp[64];
+    strftime(timestamp, sizeof(timestamp), "[%H:%M:%S] ", local_time);
     if (type == I || type == W || type == OP) {
-        fprintf(stdout, "%s%s\n", prefix, buffer);
+        fprintf(stdout, "%s%s%s\n", timestamp, prefix, buffer);
     } else {
-        fprintf(stderr, "%s%s\n", prefix, buffer);
+        fprintf(stderr, "%s%s%s\n", timestamp, prefix, buffer);
     }
     
     // 输出到GUI日志框

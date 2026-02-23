@@ -14,8 +14,8 @@
 #include <windows.h>
 #include <dbghelp.h>
 #endif
-const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.4.3\n\nCopyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n---v 1.7.2.1---\nAdd root permission check for Linux\n---v 1.7.2.2---\nAdd dis_avb function\n---v 1.7.2.3---\nFix some bugs\n---v 1.7.3.0---\nAdd some advanced settings\n---v 1.7.3.1---\nAdd SPRD4 one-time kick mode\n---v 1.7.3.2---\nFix some bugs\n---v 1.7.3.3---\nFix dis_avb func\n---v 1.7.3.4---\nFix some bugs, improved UI\n---v 1.7.3.5---\nFix some bugs\n---v 1.7.4.0---\nAdd window dragging detection for Windows dialog-showing issue\n---v 1.7.4.1---\nAdd CVE v2 function, fix some bugs\n---v 1.7.4.2---\nFix some bugs, add crash info displaying\n---v 1.7.4.3---\nFix some bugs\n\n\nUnder GPL v3 License\nGithub: C-Hidery/sfd_tool";
-const char* Version = "[1.2.1.0@_250726]";
+const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.5.0 LTV Edition\n\nCopyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n---v 1.7.2.1---\nAdd root permission check for Linux\n---v 1.7.2.2---\nAdd dis_avb function\n---v 1.7.2.3---\nFix some bugs\n---v 1.7.3.0---\nAdd some advanced settings\n---v 1.7.3.1---\nAdd SPRD4 one-time kick mode\n---v 1.7.3.2---\nFix some bugs\n---v 1.7.3.3---\nFix dis_avb func\n---v 1.7.3.4---\nFix some bugs, improved UI\n---v 1.7.3.5---\nFix some bugs\n---v 1.7.4.0---\nAdd window dragging detection for Windows dialog-showing issue\n---v 1.7.4.1---\nAdd CVE v2 function, fix some bugs\n---v 1.7.4.2---\nFix some bugs, add crash info displaying\n---v 1.7.4.3---\nFix some bugs\n---v 1.7.5.0---\nFix some bugs, improved console\n\n\nUnder GPL v3 License\nGithub: C-Hidery/sfd_tool\nLTV means Long-time-version";
+const char* Version = "[1.2.2.0@_250726]";
 int bListenLibusb = -1;
 int gpt_failed = 1;
 int m_bOpened = 0;
@@ -65,7 +65,11 @@ void check_root_permission(GtkWidgetHelper helper) {
 	}
 }
 #endif
+
+bool isCrashed = false;
 void crash_handler(int sig) {
+	if (isCrashed) return;
+	isCrashed = true;
 	if (isHelperInit){
 		gui_idle_call_wait_drag([]() {
 			showErrorDialog(helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr, "程序崩溃 Program Crash", "程序发生了未处理的异常，可能是由于设备连接问题或程序错误引起的。\nThe program encountered an unhandled exception, which may be caused by device connection issues or a bug in the program.\n\n建议检查设备连接，确保使用了正确的选项，并尝试重新运行工具。\nIt is recommended to check the device connection, ensure the correct options are used, and try running the tool again.");
@@ -109,7 +113,7 @@ void crash_handler(int sig) {
     // 退出
 	std::thread([](){
 #ifdef _WIN32
-		Sleep(5000); // 5 seconds in milliseconds
+		system("pause");
 #else
 		sleep(5); // 5 seconds
 #endif

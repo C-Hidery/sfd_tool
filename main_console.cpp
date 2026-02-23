@@ -230,7 +230,7 @@ int main_console(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(nullptr));
-	printf("sfd_tool version 1.7.4.3 Console mode\n");
+	printf("sfd_tool Long-time version 1.7.5.0 Console mode\n");
 	printf("Copyright 2026 Ryan Crepa\n");
 #if _DEBUG
 	DBG_LOG("version:debug, core version:%s\n", Version);
@@ -681,7 +681,7 @@ int main_console(int argc, char** argv) {
 		if (!strcmp(str2[1], "sendloop")) {
 			uint32_t addr = 0;
 			if (argcount <= 2) {
-				DBG_LOG("sendloop [ADDR]\n");
+				DEG_LOG(W, "sendloop [ADDR]");
 				argc = 1;
 				continue;
 			}
@@ -690,7 +690,7 @@ int main_console(int argc, char** argv) {
 			addr = strtoul(str2[2], nullptr, 0);
 			while (1) {
 				send_buf(io, addr, 0, 528, data, 4);
-				DBG_LOG("SEND 4 bytes to 0x%x\n", addr);
+				DEG_LOG(OP,"SEND 4 bytes to 0x%x", addr);
 				addr -= 8;
 			}
 			argc -= 2;
@@ -698,7 +698,7 @@ int main_console(int argc, char** argv) {
 		} else if (!strcmp(str2[1], "write_word")) {
 			uint32_t addr, data;
 			if (argc <= 3) {
-				DBG_LOG("write_word [ADDR] [VALUE](max is 0xFFFFFFFF)\n");
+				DEG_LOG(W, "write_word [ADDR] [VALUE](max is 0xFFFFFFFF)");
 				argc = 1;
 				continue;
 			}
