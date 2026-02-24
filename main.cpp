@@ -149,6 +149,9 @@ void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("check_nand");
 	helper.enableWidget("dis_avb");
 	helper.enableWidget("modify_part");
+	helper.enableWidget("modify_new_part");
+	helper.enableWidget("modify_rm_part");
+	helper.enableWidget("modify_ren_part");
 }
 void Enable_Startup() {
 	helper.enableWidget("transcode_en");
@@ -505,7 +508,8 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			if (!send_and_check(io)) gpt_failed = 0;
 		}
 		else {
-			showWarningDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区大小可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition size may brick the device!");
+			bool i_is = showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区大小可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition size may brick the device!");
+			if(!i_is) return;
 			for (i_part = 0; i_part < io->part_count_c; i_part++) {
 				if (!strcmp(part_name.c_str(), (*(io->Cptable + i_part)).name)) {
 					break;
@@ -559,20 +563,405 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			showInfoDialog(window, "完成 Completed", "分区修改完成！\nPartition modification completed!");
 			std::vector<partition_t> partitions;
 			partitions.reserve(io->part_count);
-			if(!isCMethod) {
-				for (int i = 0; i < io->part_count; i++) {
-					partitions.push_back(io->ptable[i]);
-				}
-			}
-			else {
-				for (int i = 0; i < io->part_count_c; i++) {
-					partitions.push_back(io->Cptable[i]);
-				}
+			
+			for (int i = 0; i < io->part_count; i++) {
+				partitions.push_back(io->ptable[i]);
 			}
 			populatePartitionList(helper, partitions);
 		}, window);
+		if(isCMethod){
+			delete[] io->Cptable;
+			io->Cptable = nullptr;
+			io->part_count_c = 0;
+			isCMethod = 0;
+		}
 	}).detach();
 
+}
+void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
+	if (io->part_count == 0 && io->part_count_c == 0) {
+		showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "错误 Error", "当前未加载分区表，无法修改分区大小！\nNo partition table loaded, cannot modify partition size!");
+		return;
+	}
+	GtkWindow* window = GTK_WINDOW(helper.getWidget("main_window"));
+	std::string part_name = getSelectedPartitionName(helper);
+	if (m_bOpened == -1) {
+		DEG_LOG(E, "device unattached, exiting...");
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+		    exit(1);
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		
+	}
+	std::string newPartName = getSelectedPartitionName(helper);
+	const char* newSizeText = helper.getEntryText(helper.getWidget("modify_add_size"));
+	if(newPartName.empty()){
+		showErrorDialog(window, "错误 Error", "请填写完整的修改信息！\nPlease fill in complete modification info!");
+		return;
+	}
+	long long newPartSize = strtoll(newSizeText,nullptr,0);
+	if(newPartSize <= 0){
+		showErrorDialog(window, "错误 Error", "请输入合法的新大小！\nPlease enter a valid new size!");
+		return;
+	}
+	std::thread([window, newPartName, helper, newPartSize]() mutable {
+		if(!isCMethod) {
+			partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
+			if (ptable == nullptr) return;
+			int k = io->part_count;
+			for (int i = 0; i < io->part_count_c; i++) {
+				strncpy(ptable[i].name, io->Cptable[i].name, sizeof(ptable[i].name) - 1);
+				ptable[i].name[sizeof(ptable[i].name) - 1] = '\0'; 
+				ptable[i].size = io->Cptable[i].size;
+			}
+			for (int i = 0; i < io->part_count_c; i++) {
+				if (strcmp(io->ptable[i].name, newPartName.c_str()) == 0) {
+					DEG_LOG(W, "Partition %s already exists", newPartName.c_str());
+					showErrorDialog(window, "错误 Error", "分区已存在！\nPartition already exists!");
+					return;
+				}
+			}
+			strncpy(ptable[k].name, newPartName.c_str(), sizeof(ptable[k].name) - 1);
+			ptable[k].name[sizeof(ptable[k].name) - 1] = '\0'; 
+			ptable[k].size = newPartSize;
+			io->ptable = ptable;
+			io->part_count++;
+			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
+			if (!fo) ERR_EXIT("Failed to open file\n");
+			fprintf(fo, "<Partitions>\n");
+			for (int i = 0; i < io->part_count; i++) {
+				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
+				if (i + 1 == io->part_count) fprintf(fo, "0x%x\"/>\n", ~0);
+				else fprintf(fo, "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
+			}
+			fprintf(fo, "</Partitions>");
+			fclose(fo);
+			uint8_t* buf = io->temp_buf;
+			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0);
+			if (n <= 0) {
+				DEG_LOG(E, "Failed to parse modified partition table\n");
+				gui_idle_call_wait_drag([window]() {
+					showErrorDialog(window, "错误 Error", "解析修改后的分区表失败！\nFailed to parse modified partition table!");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				return;
+			}
+			encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
+			if (!send_and_check(io)) gpt_failed = 0;
+		}
+		else {
+			bool i_is = showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，添加分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, adding partition may brick the device!");
+			if(!i_is) return;
+			partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
+			if (ptable == nullptr) return;
+			int k = io->part_count_c;
+			for (int i = 0; i < io->part_count_c; i++) {
+				strncpy(ptable[i].name, io->Cptable[i].name, sizeof(ptable[i].name) - 1);
+				ptable[i].name[sizeof(ptable[i].name) - 1] = '\0'; 
+				ptable[i].size = io->Cptable[i].size;
+			}
+			for (int i = 0; i < io->part_count_c; i++) {
+				if (strcmp(io->Cptable[i].name, newPartName.c_str()) == 0) {
+					DEG_LOG(W, "Partition %s already exists", newPartName.c_str());
+					return;
+				}
+			}
+			strncpy(ptable[k].name, newPartName.c_str(), sizeof(ptable[k].name) - 1);
+			ptable[k].name[sizeof(ptable[k].name) - 1] = '\0'; 
+			ptable[k].size = newPartSize;
+			io->Cptable = ptable;
+			io->part_count_c++;
+			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
+			if (!fo) ERR_EXIT("Failed to open file\n");
+			fprintf(fo, "<Partitions>\n");
+			for (int i = 0; i < io->part_count_c; i++) {
+				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->Cptable + i)).name);
+				if (i + 1 == io->part_count_c) fprintf(fo, "0x%x\"/>\n", ~0);
+				else fprintf(fo, "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
+			}
+			fprintf(fo, "</Partitions>");
+			fclose(fo);
+			uint8_t* buf = io->temp_buf;
+			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0);
+			if (n <= 0) {
+				DEG_LOG(E, "Failed to parse modified partition table\n");
+				gui_idle_call_wait_drag([window]() {
+					showErrorDialog(window, "错误 Error", "解析修改后的分区表失败！\nFailed to parse modified partition table!");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				return;
+			}
+			encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
+			if (!send_and_check(io)) gpt_failed = 0;
+		}
+		gui_idle_call_wait_drag([window, helper]() mutable {
+			showInfoDialog(window, "完成 Completed", "分区修改完成！\nPartition modification completed!");
+			std::vector<partition_t> partitions;
+			partitions.reserve(io->part_count);
+			
+			for (int i = 0; i < io->part_count; i++) {
+				partitions.push_back(io->ptable[i]);
+			}
+			populatePartitionList(helper, partitions);
+		}, window);
+		if(isCMethod){
+			delete[] io->Cptable;
+			io->Cptable = nullptr;
+			io->part_count_c = 0;
+			isCMethod = 0;
+		}
+	}).detach();
+}
+void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
+	if (io->part_count == 0 && io->part_count_c == 0) {
+		showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "错误 Error", "当前未加载分区表，无法修改分区大小！\nNo partition table loaded, cannot modify partition size!");
+		return;
+	}
+	GtkWindow* window = GTK_WINDOW(helper.getWidget("main_window"));
+	std::string part_name = getSelectedPartitionName(helper);
+	if (m_bOpened == -1) {
+		DEG_LOG(E, "device unattached, exiting...");
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+		    exit(1);
+		},GTK_WINDOW(helper.getWidget("main_window")));
+	}
+	std::thread([part_name, helper, window]() mutable {
+		int i = 0;
+		if(!isCMethod){
+			for(i = 0;i < io->part_count; i++) {
+				if(strcmp((*(io->ptable + i)).name, part_name.c_str()) == 0){
+					break;
+				}
+			}
+			if(i == io->part_count){
+				DEG_LOG(E, "Partition not exist\n");
+				gui_idle_call_wait_drag([window]() {
+					showErrorDialog(window, "错误 Error", "分区不存在！\nSecond partition does not exist!");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				return;
+			}
+			partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
+			int new_index = 0;
+			for (int j = 0; j < io->part_count; j++) {
+				// 使用 strcmp 比较字符串内容
+				if (strcmp(io->ptable[j].name, part_name.c_str()) != 0) {
+					// 复制不需要删除的分区到新表
+					strncpy(ptable[new_index].name, io->ptable[j].name, sizeof(ptable[new_index].name) - 1);
+					ptable[new_index].name[sizeof(ptable[new_index].name) - 1] = '\0';
+					ptable[new_index].size = io->ptable[j].size;
+					new_index++;
+				}
+			}
+
+			// 更新 io 结构
+			io->part_count--;
+			// 注意：需要释放原来的 ptable 内存
+			delete[] (io->ptable);
+			io->ptable = ptable;
+			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
+			if (!fo) ERR_EXIT("Failed to open file\n");
+			fprintf(fo, "<Partitions>\n");
+			for (int i = 0; i < io->part_count; i++) {
+				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
+				if (i + 1 == io->part_count) fprintf(fo, "0x%x\"/>\n", ~0);
+				else fprintf(fo, "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
+			}
+			fprintf(fo, "</Partitions>");
+			fclose(fo);
+			uint8_t* buf = io->temp_buf;
+			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0);
+			if (n <= 0) {
+				DEG_LOG(E, "Failed to parse modified partition table\n");
+				gui_idle_call_wait_drag([window]() {
+					showErrorDialog(window, "错误 Error", "解析修改后的分区表失败！\nFailed to parse modified partition table!");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				return;
+			}
+			encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
+			if (!send_and_check(io)) gpt_failed = 0;
+		}
+		else{
+			for(i = 0;i < io->part_count_c; i++) {
+				if(strcmp((*(io->Cptable + i)).name, part_name.c_str())){
+					break;
+				}
+			}
+			if(i == io->part_count_c){
+				DEG_LOG(E, "Partition not exist\n");
+				gui_idle_call_wait_drag([window]() {
+					showErrorDialog(window, "错误 Error", "分区不存在！\nSecond partition does not exist!");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				return;
+			}
+			partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
+			int new_index = 0;
+			for (int j = 0; j < io->part_count_c; j++) {
+				// 使用 strcmp 比较字符串内容
+				if (strcmp(io->ptable[j].name, part_name.c_str()) != 0) {
+					// 复制不需要删除的分区到新表
+					strncpy(ptable[new_index].name, io->Cptable[j].name, sizeof(ptable[new_index].name) - 1);
+					ptable[new_index].name[sizeof(ptable[new_index].name) - 1] = '\0';
+					ptable[new_index].size = io->Cptable[j].size;
+					new_index++;
+				}
+			}
+
+			// 更新 io 结构
+			io->part_count_c--;
+			// 注意：需要释放原来的 ptable 内存
+			delete[] (io->Cptable);
+			io->Cptable = ptable;
+			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
+			if (!fo) ERR_EXIT("Failed to open file\n");
+			fprintf(fo, "<Partitions>\n");
+			for (int i = 0; i < io->part_count_c; i++) {
+				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->Cptable + i)).name);
+				if (i + 1 == io->part_count_c) fprintf(fo, "0x%x\"/>\n", ~0);
+				else fprintf(fo, "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
+			}
+			fprintf(fo, "</Partitions>");
+			fclose(fo);
+			uint8_t* buf = io->temp_buf;
+			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0);
+			if (n <= 0) {
+				DEG_LOG(E, "Failed to parse modified partition table\n");
+				gui_idle_call_wait_drag([window]() {
+					showErrorDialog(window, "错误 Error", "解析修改后的分区表失败！\nFailed to parse modified partition table!");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				return;
+			}
+			encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
+			if (!send_and_check(io)) gpt_failed = 0;
+		}
+		gui_idle_call_wait_drag([window, helper]() mutable {
+			showInfoDialog(window, "完成 Completed", "分区修改完成！\nPartition modification completed!");
+			std::vector<partition_t> partitions;
+			partitions.reserve(io->part_count);
+			
+			for (int i = 0; i < io->part_count; i++) {
+				partitions.push_back(io->ptable[i]);
+			}
+			populatePartitionList(helper, partitions);
+		}, window);
+		if(isCMethod){
+			delete[] io->Cptable;
+			io->Cptable = nullptr;
+			io->part_count_c = 0;
+			isCMethod = 0;
+		}
+	}).detach();
+}
+void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
+	if (io->part_count == 0 && io->part_count_c == 0) {
+		showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "错误 Error", "当前未加载分区表，无法修改分区大小！\nNo partition table loaded, cannot modify partition size!");
+		return;
+	}
+	GtkWindow* window = GTK_WINDOW(helper.getWidget("main_window"));
+	std::string part_name = getSelectedPartitionName(helper);
+	if (m_bOpened == -1) {
+		DEG_LOG(E, "device unattached, exiting...");
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+		    exit(1);
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		
+	}
+	std::thread([part_name, helper, window]() mutable {
+		int i = 0;
+		if(!isCMethod){
+			for(i = 0;i < io->part_count; i++) {
+				if(strcmp((*(io->ptable + i)).name, part_name.c_str()) == 0){
+					break;
+				}
+			}
+			if(i == io->part_count){
+				DEG_LOG(E, "Partition not exist\n");
+				gui_idle_call_wait_drag([window]() {
+					showErrorDialog(window, "错误 Error", "分区不存在！\nSecond partition does not exist!");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				return;
+			}
+
+			strncpy(io->ptable[i].name, part_name.c_str(), sizeof(io->ptable[i].name) - 1);
+			io->ptable[i].name[sizeof(io->ptable[i].name) - 1] = '\0';
+
+			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
+			if (!fo) ERR_EXIT("Failed to open file\n");
+			fprintf(fo, "<Partitions>\n");
+			for (int i = 0; i < io->part_count; i++) {
+				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
+				if (i + 1 == io->part_count) fprintf(fo, "0x%x\"/>\n", ~0);
+				else fprintf(fo, "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
+			}
+			fprintf(fo, "</Partitions>");
+			fclose(fo);
+			uint8_t* buf = io->temp_buf;
+			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0);
+			if (n <= 0) {
+				DEG_LOG(E, "Failed to parse modified partition table\n");
+				gui_idle_call_wait_drag([window]() {
+					showErrorDialog(window, "错误 Error", "解析修改后的分区表失败！\nFailed to parse modified partition table!");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				return;
+			}
+			encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
+			if (!send_and_check(io)) gpt_failed = 0;
+		}
+		else{
+			for(i = 0;i < io->part_count_c; i++) {
+				if(strcmp((*(io->Cptable + i)).name, part_name.c_str())){
+					break;
+				}
+			}
+			if(i == io->part_count_c){
+				DEG_LOG(E, "Partition not exist\n");
+				gui_idle_call_wait_drag([window]() {
+					showErrorDialog(window, "错误 Error", "分区不存在！\nSecond partition does not exist!");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				return;
+			}
+
+			strncpy(io->Cptable[i].name, part_name.c_str(), sizeof(io->Cptable[i].name) - 1);
+			io->Cptable[i].name[sizeof(io->ptable[i].name) - 1] = '\0';
+
+			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
+			if (!fo) ERR_EXIT("Failed to open file\n");
+			fprintf(fo, "<Partitions>\n");
+			for (int i = 0; i < io->part_count_c; i++) {
+				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->Cptable + i)).name);
+				if (i + 1 == io->part_count_c) fprintf(fo, "0x%x\"/>\n", ~0);
+				else fprintf(fo, "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
+			}
+			fprintf(fo, "</Partitions>");
+			fclose(fo);
+			uint8_t* buf = io->temp_buf;
+			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0);
+			if (n <= 0) {
+				DEG_LOG(E, "Failed to parse modified partition table\n");
+				gui_idle_call_wait_drag([window]() {
+					showErrorDialog(window, "错误 Error", "解析修改后的分区表失败！\nFailed to parse modified partition table!");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				return;
+			}
+			encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
+			if (!send_and_check(io)) gpt_failed = 0;
+		}
+		gui_idle_call_wait_drag([window, helper]() mutable {
+			showInfoDialog(window, "完成 Completed", "分区修改完成！\nPartition modification completed!");
+			std::vector<partition_t> partitions;
+			partitions.reserve(io->part_count);
+			
+			for (int i = 0; i < io->part_count; i++) {
+				partitions.push_back(io->ptable[i]);
+			}
+			populatePartitionList(helper, partitions);
+		}, window);
+		if(isCMethod){
+			delete[] io->Cptable;
+			io->Cptable = nullptr;
+			io->part_count_c = 0;
+			isCMethod = 0;
+		}
+	}).detach();
 }
 void on_button_clicked_poweroff(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
@@ -1880,6 +2269,9 @@ void DisableWidgets(GtkWidgetHelper helper) {
 	helper.disableWidget("raw_data_en");
 	helper.disableWidget("raw_data_dis");
 	helper.disableWidget("modify_part");
+	helper.disableWidget("modify_new_part");
+	helper.disableWidget("modify_rm_part");
+	helper.disableWidget("modify_ren_part");
 }
 
 int gtk_kmain(int argc, char** argv) {
@@ -2102,7 +2494,7 @@ int gtk_kmain(int argc, char** argv) {
 
 		// ListView for partitions
 		GtkWidget* scrolledWindow = gtk_scrolled_window_new(NULL, NULL);
-		gtk_widget_set_size_request(scrolledWindow, 1000, 450);
+		gtk_widget_set_size_request(scrolledWindow, 1000, 300);
 		gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolledWindow),
 		                               GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
@@ -2133,12 +2525,23 @@ int gtk_kmain(int argc, char** argv) {
 		GtkWidget* cancelBtn = helper.createButton("Cancel  取消", "list_cancel", nullptr, 0, 0, 117, 32);
 		
 		// 修改分区表
-		GtkWidget* ModifyLabel = helper.createLabel("Modify Partition Table - Please check a partition you want to change the size 修改分区表 - 请选择一个欲修改大小的分区", "modify_label", 0, 0, 200, 20);
-		GtkWidget* SeLabel = helper.createLabel("Second-change partition 第二个被动修改的分区", "second_part_label", 0, 0, 100, 20);
+		GtkWidget* ModifyLabel = helper.createLabel("Modify Partition Table 修改分区表", "modify_label", 0, 0, 200, 20);
+		GtkWidget* SedLabel = helper.createLabel("[Change size 修改大小] Please check a partition you want to change 请选择一个欲修改大小的分区", "fff_label", 0, 0, 100, 20);
+		GtkWidget* SeLabel = helper.createLabel("Second-change partition 第二个被动修改的分区", "second_part_label", 0, 0, 200, 20);
 		GtkWidget* secondPart = helper.createEntry("modify_second_part", "", false, 0, 0, 200, 32);
 		GtkWidget* newSizeLabel = helper.createLabel("New size in MB 新大小（MB）", "new_size_label", 0, 0, 100, 20);
 		GtkWidget* newSizeEntry = helper.createEntry("modify_new_size", "", false, 0, 0, 150, 32);
 		GtkWidget* modifyBtn = helper.createButton("Modify  修改", "modify_part", nullptr, 0, 0, 117, 32);
+		GtkWidget* AddLabel = helper.createLabel("[Add partition 添加分区] Enter partition name: partition will be added above userdata 输入分区名: 分区将被添加在userdata前","ff_label",0,0,200,20);
+		GtkWidget* Add2Label = helper.createLabel("Part name 分区名:","f_label",0,0,50,20);
+		GtkWidget* newPartEntry = helper.createEntry("new_part","",false,0,0,200,32);
+		GtkWidget* new2SizeLabel = helper.createLabel("Size 大小(MB):","f3_label",0,0,150,20);
+		GtkWidget* newPartSize = helper.createEntry("modify_add_size","",false,0,0,150,32);
+		GtkWidget* addNewPartBtn = helper.createButton("Modify  修改","modify_new_part",nullptr,0,0,117,32);
+		GtkWidget* RemvLabel = helper.createLabel("[Remove partition 移除分区] Please check a partition you want to remove  请选择你想要移除的分区","ffff_label",0,0,250,20);
+		GtkWidget* RemvPartBtn = helper.createButton("Modify  修改","modify_rm_part",nullptr,0,0,117,32);
+		GtkWidget* RenmLabel = helper.createLabel("[Rename partition 重命名分区] Please check a partition you want to rename  请选择一个你想要重命名的分区","f2_label",0,0,250,20);
+		GtkWidget* RenmPartBtn = helper.createButton("Modify  修改","modify_ren_part",nullptr,0,0,117,32);
 
 		// 设置按钮初始状态
 		gtk_widget_set_sensitive(writeBtn, FALSE);
@@ -2173,14 +2576,30 @@ int gtk_kmain(int argc, char** argv) {
 
 		//修改分区表所有部分放在cancel下方
 		helper.addToGrid(partPage, ModifyLabel, 0, 12, 5, 1);
-		GtkWidget* modifyBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-		gtk_box_pack_start(GTK_BOX(modifyBox), SeLabel, FALSE, FALSE, 0);
-		gtk_box_pack_start(GTK_BOX(modifyBox), secondPart, FALSE, FALSE, 0);
-		gtk_box_pack_start(GTK_BOX(modifyBox), newSizeLabel, FALSE, FALSE, 0);
-		gtk_box_pack_start(GTK_BOX(modifyBox), newSizeEntry, FALSE, FALSE, 0);
-		gtk_box_pack_start(GTK_BOX(modifyBox), modifyBtn, FALSE, FALSE, 0);
-		helper.addToGrid(partPage, modifyBox, 0, 13, 5, 1);
-
+		helper.addToGrid(partPage, SedLabel, 0, 13, 5, 1);
+		GtkWidget* modifySizeBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+		gtk_box_pack_start(GTK_BOX(modifySizeBox), SeLabel, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(modifySizeBox), secondPart, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(modifySizeBox), newSizeLabel, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(modifySizeBox), newSizeEntry, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(modifySizeBox), modifyBtn, FALSE, FALSE, 0);
+		helper.addToGrid(partPage, modifySizeBox, 0, 14, 5, 1);
+		GtkWidget* modifyAddBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+		helper.addToGrid(partPage, AddLabel, 0,15,5,1);
+		gtk_box_pack_start(GTK_BOX(modifyAddBox), Add2Label, FALSE,FALSE,0);
+		gtk_box_pack_start(GTK_BOX(modifyAddBox), newPartEntry, FALSE,FALSE,0);
+		gtk_box_pack_start(GTK_BOX(modifyAddBox), new2SizeLabel, FALSE,FALSE,0);
+		gtk_box_pack_start(GTK_BOX(modifyAddBox), newPartSize, FALSE,FALSE,0);
+		gtk_box_pack_start(GTK_BOX(modifyAddBox), addNewPartBtn, FALSE,FALSE,0);
+		helper.addToGrid(partPage, modifyAddBox, 0, 16, 5, 1);
+		GtkWidget* modifyRemvBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+		helper.addToGrid(partPage, RemvLabel, 0,17,5,1);
+		gtk_box_pack_start(GTK_BOX(modifyRemvBox), RemvPartBtn, FALSE,FALSE,0);
+		helper.addToGrid(partPage, modifyRemvBox, 0,18,5,1);
+		GtkWidget* modifyRenmBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL,10);
+		helper.addToGrid(partPage, RenmLabel, 0,19,5,1);
+		gtk_box_pack_start(GTK_BOX(modifyRenmBox), RenmPartBtn, FALSE,FALSE,0);
+		helper.addToGrid(partPage, modifyRenmBox, 0,20,5,1);
 
 		// ========== Manually Operate Page ==========
 
@@ -2812,6 +3231,15 @@ int gtk_kmain(int argc, char** argv) {
 		});
 		helper.bindClick(modifyBtn,[]() {
 			on_button_clicked_modify_part(helper);
+		});
+		helper.bindClick(addNewPartBtn,[](){
+			on_button_clicked_modify_new_part(helper);
+		});
+		helper.bindClick(RemvPartBtn,[](){
+			on_button_clicked_modify_rm_part(helper);
+		});
+		helper.bindClick(RenmPartBtn,[](){
+			on_button_clicked_modify_ren_part(helper);
 		});
 	}
 	DisableWidgets(helper);
