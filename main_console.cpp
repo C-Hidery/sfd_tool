@@ -500,11 +500,11 @@ int main_console(int argc, char** argv) {
 				print_to_string(mode_str, sizeof(mode_str), io->raw_buf + 4, READ16_BE(io->raw_buf + 2), 0);
 
 				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-				if (send_and_check(io)) exit(1);
+				if (send_and_check(io)) ERR_EXIT("FDL connect failed");;
 			} else if (ret == BSL_REP_VERIFY_ERROR) {
 				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
 				if (fdl1_loaded != 1) {
-					if (send_and_check(io)) exit(1);
+					if (send_and_check(io)) ERR_EXIT("FDL connect failed");;
 				} else {
 					i = -1;
 					continue;
@@ -845,7 +845,7 @@ int main_console(int argc, char** argv) {
 							n = gapsize - i;
 							if (n > 528) n = 528;
 							encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
-							if (send_and_check(io)) exit(1);
+							if (send_and_check(io)) ERR_EXIT("CVE v2 failed");;
 						}
 						fi = oxfopen(execfile, "rb");
 						if (fi) {
@@ -856,7 +856,7 @@ int main_console(int argc, char** argv) {
 							fclose(fi);
 						}
 						encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
-						if (send_and_check(io)) exit(1);
+						if (send_and_check(io)) ERR_EXIT("CVE v2 failed");
 						delete[](execfile);
 					} else {
 						send_file(io, fn, addr, end_data, 528, 0, 0);
@@ -865,12 +865,12 @@ int main_console(int argc, char** argv) {
 							delete[](execfile);
 						} else {
 							encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-							if (send_and_check(io)) exit(1);
+							if (send_and_check(io)) ERR_EXIT("CVE v2 failed");
 						}
 					}
 				} else {
 					encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-					if (send_and_check(io)) exit(1);
+					if (send_and_check(io)) ERR_EXIT("FDL exec failed");;
 				}
 				DEG_LOG(OP, "Execute FDL1");
 				// Tiger 310(0x5500) and Tiger 616(0x65000800) need to change baudrate after FDL1
@@ -931,7 +931,7 @@ int main_console(int argc, char** argv) {
 #endif
 
 				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-				if (send_and_check(io)) exit(1);
+				if (send_and_check(io)) ERR_EXIT("FDL connect failed");;
 				DEG_LOG(I, "FDL1 connected.");
 #if !USE_LIBUSB
 				if (baudrate) {
@@ -1062,7 +1062,7 @@ int main_console(int argc, char** argv) {
 				}
 				uint32_t addr = strtoul(str2[2], nullptr, 0);
 				encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-				if (send_and_check(io)) exit(1);
+				if (send_and_check(io)) ERR_EXIT("FDL exec failed");;
 				DEG_LOG(OP, "Execute FDL1");
 				// Tiger 310(0x5500) and Tiger 616(0x65000800) need to change baudrate after FDL1
 				if (addr == 0x5500 || addr == 0x65000800) {
@@ -1120,7 +1120,7 @@ int main_console(int argc, char** argv) {
 #endif
 
 				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-				if (send_and_check(io)) exit(1);
+				if (send_and_check(io)) ERR_EXIT("FDL connect failed");;
 				DEG_LOG(I, "FDL1 connected.");
 #if !USE_LIBUSB
 				if (baudrate) {
