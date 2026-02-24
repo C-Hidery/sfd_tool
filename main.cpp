@@ -1879,8 +1879,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	DEG_LOG(I, "SPRD3 Current : %d", found);
 	if (!found && isKickMode) device_mode = SPRD4;
 	else device_mode = SPRD3;
-	if (!found && isKickMode) device_mode = SPRD4;
-	else device_mode = SPRD3;
+	
 	if (fdl2_executed > 0) {
 		if (device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: FDL2/SPRD3");
@@ -2103,9 +2102,34 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				} else fclose(fi);
 				send_file(io, fdl_path, fdl_addr, end_data, 528, 0, 0);
 				if (cve_addr && strlen(cve_addr) > 0 && isCve) {
-					DEG_LOG(I, "Using CVE binary: %s at address: %s", cve_path, cve_addr);
-					uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
-					send_file(io, cve_path, cve_addr_val, 0, 528, 0, 0);
+					bool isCVEv2 = helper.getSwitchState(helper.getWidget("cve_v2"));
+					if(!isCVEv2){
+						DEG_LOG(I, "Using CVE binary: %s at address: %s", cve_path, cve_addr);
+						uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
+						send_file(io, cve_path, cve_addr_val, 0, 528, 0, 0);
+					}
+					else{
+						DEG_LOG(I, "Using CVEv2 binary: %s at address: %s", cve_path, cve_addr);
+						uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
+						size_t execsize = send_file(io, cve_path, cve_addr_val, 0, 528, 0, 0);
+						int n, gapsize = exec_addr - cve_addr_val - execsize;
+						for (int i = 0; i < gapsize; i += n) {
+							n = gapsize - i;
+							if (n > 528) n = 528;
+							encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
+							if (send_and_check(io)) exit(1);
+						}
+						FILE* fi = oxfopen(execfile, "rb");
+						if (fi) {
+							fseek(fi, 0, SEEK_END);
+							n = ftell(fi);
+							fseek(fi, 0, SEEK_SET);
+							execsize = fread(io->temp_buf, 1, n, fi);
+							fclose(fi);
+						}
+						encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
+						if (send_and_check(io)) exit(1);
+					}
 					delete[](execfile);
 				} else {
 					encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
