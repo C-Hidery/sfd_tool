@@ -479,6 +479,9 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
+			long long k = (*(io->ptable + i_part)).size * 1024 * 1024;
+			(*(io->ptable + i_part)).size = (long long)newSizeMB * 1024 * 1024;
+			(*(io->ptable + i_se_part)).size = (*(io->ptable + i_se_part)).size + k - ((long long)newSizeMB * 1024 * 1024);
 			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");
 			fprintf(fo, "<Partitions>\n");
@@ -527,6 +530,9 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
+			long long k = (*(io->Cptable + i_part)).size * 1024 * 1024;
+			(*(io->Cptable + i_part)).size = (long long)newSizeMB * 1024 * 1024;
+			(*(io->Cptable + i_se_part)).size = (*(io->Cptable + i_se_part)).size + k - ((long long)newSizeMB * 1024 * 1024);
 			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");
 			fprintf(fo, "<Partitions>\n");
