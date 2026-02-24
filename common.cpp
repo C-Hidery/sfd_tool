@@ -1167,22 +1167,19 @@ size_t send_file(spdio_t *io, const char *fn,
 	DEG_LOG(OP,"Sent %s to 0x%x", fn, start_addr);
 	return size;
 }
-int GetStage(int mode) {	
+int GetStage() {	
 	if (fdl2_executed > 0) return FDL2;
 	else if (fdl1_loaded > 0) return FDL1;
 	else return BROM;
 }
-
-unsigned dump_flash(spdio_t *io,
-	uint32_t addr, uint32_t start, uint32_t len,
-	const char *fn, unsigned step) {
+unsigned read_flash(spdio_t *io,
+		uint32_t addr, uint32_t start, uint32_t len,
+		uint8_t *mem, FILE *fo, unsigned step) {
 	uint32_t n, offset, nread;
 	int ret;
-	FILE *fo = my_oxfopen(fn, "wb");
-	if (!fo) ERR_EXIT("fopen(dump) failed\n");
 
 	for (offset = start; offset < start + len; ) {
-		uint32_t *data = (uint32_t *)io->temp_buf;
+		uint32_t data[3];
 		n = start + len - offset;
 		if (n > step) n = step;
 
@@ -1190,10 +1187,9 @@ unsigned dump_flash(spdio_t *io,
 		WRITE32_BE(data + 1, n);
 		WRITE32_BE(data + 2, offset);
 
-		encode_msg_nocpy(io, BSL_CMD_READ_FLASH, 4 * 3);
+		encode_msg(io, BSL_CMD_READ_FLASH, data, 4 * 3);
 		send_msg(io);
 		ret = recv_msg(io);
-		if (!ret) ERR_EXIT("timeout reached\n");
 		if ((ret = recv_type(io)) != BSL_REP_READ_FLASH) {
 			const char* name = get_bsl_enum_name(ret);
 			DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
@@ -1201,17 +1197,68 @@ unsigned dump_flash(spdio_t *io,
 		}
 		nread = READ16_BE(io->raw_buf + 2);
 		if (n < nread)
-			ERR_EXIT("excepted length\n");
-		if (fwrite(io->raw_buf + 4, 1, nread, fo) != nread)
+			ERR_EXIT("unexpected length\n");
+		if (mem) {
+			memcpy(mem, io->raw_buf + 4, nread);
+			mem += nread;
+		}
+		if (fo && fwrite(io->raw_buf + 4, 1, nread, fo) != nread) {
 			ERR_EXIT("fwrite(dump) failed\n");
+		}
 		offset += nread;
 		if (n != nread) break;
 	}
-	DEG_LOG(I,"Read flash successfully: 0x%08x+0x%x, target: 0x%x, read: 0x%x", addr, start, len, offset - start);
-	fclose(fo);
-	return offset;
+	return offset - start;
 }
 
+unsigned dump_flash(spdio_t *io,
+		uint32_t addr, uint32_t start, uint32_t len,
+		const char *fn, unsigned step, int mode) {
+	uint32_t nread = 0;
+	FILE *fo = fopen(fn, "wb");
+	if (!fo) ERR_EXIT("fopen(dump) failed\n");
+
+	if (mode == 1) {
+		uint8_t buf[0x34];
+		len = sizeof(buf);
+		nread = read_flash(io, addr, start, len, buf, fo, step);
+		if (nread != len)
+			ERR_EXIT("can't read DHTB header\n");
+		// "DHTB" -> "BTHD", Boot Header
+		if (READ32_LE(buf) != 0x42544844 || READ32_LE(buf + 4) != 1)
+			ERR_EXIT("unexpected DHTB header\n");
+		len = READ32_LE(buf + 0x30);
+		if (len >> 31) ERR_EXIT("unexpected DHTB size (0x%x)\n", len);
+		len += 0x200;
+	}
+	nread += read_flash(io, addr, start + nread, len - nread, NULL, fo, step);
+	if (mode == 1 && len == nread) do {	// read DHTB signature
+		uint8_t buf[0x60];
+		uint32_t nread2, nread1;
+		nread2 = read_flash(io, addr, start + nread, 0x60, buf, NULL, step);
+		// can be unsigned
+		if (nread2 != 0x60) break;
+		if (!READ32_LE(buf + 0x10)) break; // all zeros
+		if (!~READ32_LE(buf + 0x10)) break; // all ones
+
+		if (fwrite(buf, 1, nread2, fo) != nread2)
+			ERR_EXIT("fwrite(dump) failed\n");
+
+		nread1 = nread; len = nread += nread2;
+		if (READ32_LE(buf + 0x10) != (int)nread1 - 0x200 || // data size
+				READ32_LE(buf + 0x18) != 0x200 || // data offset
+				READ32_LE(buf + 0x20) >> 12 || // sign data size (0x254, 0x234)
+				READ32_LE(buf + 0x28) != (int)nread1 + 0x60) { // sign data offset
+			DEG_LOG(E,"unexpected DHTB signature\n");
+			break;
+		}
+		len += nread2 = READ32_LE(buf + 0x20);
+		nread += read_flash(io, addr, start + nread, nread2, NULL, fo, step);
+	} while (0);
+	DEG_LOG(I,"Read flash successfully: 0x%08x+0x%x, target: 0x%x, read: 0x%x\n", addr, start, len, nread);
+	fclose(fo);
+	return nread;
+}
 unsigned dump_mem(spdio_t *io,
 	uint32_t start, uint32_t len, const char *fn, unsigned step) {
 	uint32_t n, offset, nread;
@@ -2053,6 +2100,7 @@ partition_t* partition_list_d(spdio_t* io) {
 	DEG_LOG(I,"Compatibility-method mode will not save partition table xml automatically.");
 	DEG_LOG(I, "You can get partition xml by `part_table` command manually.");
 	DEG_LOG(I,"Total number of partitions: %d", n);
+	delete[] io->ptable;
 	io->ptable = nullptr;
 	io->part_count_c = n;
 	return ptable;

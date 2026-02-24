@@ -136,32 +136,41 @@ void print_help() {
 	    "\t\tRead the partition table in compatibility mode\n"
 	    "\t35.dis_avb_tos\n"
 	    "\t\tDisable AVB verification by patching trustos(FDL2 only)\n"
+		"\t36.scan_partition [PARTITION TABLE XML]\n"
+		"\tGet partition table through scanning a partition xml file\n"
 	    "Debug commands:\n"
-	    "\t36.skip_confirm {0,1}\n"
+	    "\t37.skip_confirm {0,1}\n"
 	    "\t\tSkips all confirmation prompts(use with caution!)\n"
-	    "\t37.keep_charge\n"
+	    "\t38.keep_charge\n"
 	    "\t\tKeep charge in FDL1/FDL2 stage.\n"
-	    "\t38.send_end_data {0,1}\n"
+	    "\t39.send_end_data {0,1}\n"
 	    "\t\tSends end data after file transfer.\n"
-	    "\t39.rawdata {0,1,2}\n"
+	    "\t40.rawdata {0,1,2}\n"
 	    "\t\tEnable raw_data mode for file sending to get better speed.\n"
 	    "\t\t(Not all FDL2 support.)\n"
-	    "\t40.slot {0,1,2}\n"
+	    "\t41.slot {0,1,2}\n"
 	    "\t\tSelect slot auto|a|b on VAB devices.\n"
-	    "\t41.chip_uid\n"
+	    "\t42.chip_uid\n"
 	    "\t\tReads the chip UID (FDL2 stage only).\n"
-	    "\t42.transcode {0,1}\n"
+	    "\t43.transcode {0,1}\n"
 	    "\t\tEnable or disable transcode mode (FDL2 stage only).\n"
-	    "\t43.sendloop [ADDR]\n"
+	    "\t44.sendloop [ADDR]\n"
 	    "\t\tSend [0, 0, 0, 0] packet to a specified address, then send addresses in a loop of [0, 0, 0, 0] packet to sequentially decrease by 8\n"
-	    "\t44.write_word\n"
+	    "\t45.write_word\n"
 	    "\t\tWrite a HEX number word to a specified address.\n"
-	    "\t45.read_nand\n"
+	    "\t46.read_nand\n"
 	    "\t\tDetermine whether the current device is a NAND model; not all devices are supported.(through 0x0D)\n"
-	    "\t46.sendcmd [TYPE] <FILE>\n"
+	    "\t47.sendcmd [TYPE] <FILE>\n"
 	    "\t\tSend a specified command (with a file)\n"
-	    "\t47.pactime\n"
+	    "\t48.pactime\n"
 	    "\t\tRead the last time the PAC firmware was flashed.\n"
+		"\t49.read_flash [ADDR] [OFFSET] [SIZE] [FILE]\n"
+		"\t\tRead flash content to a file\n"
+		"\t\t`read_flash_dhtb` for reading DHTB Signature for ums9117\n"
+		"\t50.read_mem [ADDR] [SIZE] [FILE]\n"
+		"\t\tRead memory content to a file\n"
+		"\t51.erase_flash [ADDR] [SIZE]\n"
+		"\t\tErase flash content\n"
 	    "Notice:\n"
 	    "\t1.The compatibility method to get part table sometimes can not get all partitions on your device\n"
 	    "\t2.Command `bootloader` : It is only supported on special FDL2 and requires trustos and sml partition files.\n"
@@ -169,10 +178,10 @@ void print_help() {
 	);
 	DBG_LOG(
 	    "\nExit Commands\n"
-	    "\t48.reboot-recovery\n\t\tFDL2 only\n"
-	    "\t49.reboot-fastboot\n\t\tFDL2 only\n"
-	    "\t50.reset\n\t\tFDL2 and new FDL1\n"
-	    "\t51.poweroff\n\t\tFDL2 and new FDL1\n"
+	    "\t52.reboot-recovery\n\t\tFDL2 only\n"
+	    "\t53.reboot-fastboot\n\t\tFDL2 only\n"
+	    "\t54.reset\n\t\tFDL2 and new FDL1\n"
+	    "\t55.poweroff\n\t\tFDL2 and new FDL1\n"
 	);
 }
 void ThrowExit() {
@@ -230,7 +239,7 @@ int main_console(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(nullptr));
-	printf("sfd_tool Long-time version 1.7.5.0 Console mode\n");
+	printf("sfd_tool Long-time version 1.7.5.1 Console mode\n");
 	printf("Copyright 2026 Ryan Crepa\n");
 #if _DEBUG
 	DBG_LOG("version:debug, core version:%s\n", Version);
@@ -1169,7 +1178,7 @@ int main_console(int argc, char** argv) {
 			DEG_LOG(I, "Current nand ID is 0x%x", nand_id);
 			argc -= 2;
 			argv += 2;
-		} else if (!strcmp(str2[1], "read_flash")) {
+		} else if (!strncmp(str2[1], "read_flash", 10)) {
 			const char* fn;
 			uint64_t addr, offset, size;
 			if (argcount <= 5) {
@@ -1177,7 +1186,8 @@ int main_console(int argc, char** argv) {
 				argc = 1;
 				continue;
 			}
-
+			int isReadDHTB = 0;
+			if (!strncmp(str2[1], "read_flash_dhtb", 15)) isReadDHTB = 1;
 			addr = str_to_size(str2[2]);
 			offset = str_to_size(str2[3]);
 			size = str_to_size(str2[4]);
@@ -1189,7 +1199,7 @@ int main_console(int argc, char** argv) {
 				continue;
 			}
 			//func
-			dump_flash(io, addr, offset, size, fn, blk_size ? blk_size : 1024);
+			dump_flash(io, addr, offset, size, fn, blk_size ? blk_size : 1024, isReadDHTB);
 			argc -= 5;
 			argv += 5;
 
@@ -1974,7 +1984,17 @@ rloop:
 			} else {
 				DEG_LOG(E, "`add_part` command only supported in compatibility-method mode.");
 			}
-		} else if (!strcmp(str2[1], "p") || !strcmp(str2[1], "print")) {
+		} 
+		else if(!strcmp(str2[1],"scan_partition")){
+			if (argcount <= 2) {
+				DEG_LOG(W, "scan_partition [PARTITION_XML_FILE]");
+				argc = 1;
+				continue;
+			}
+			uint8_t *buf = io->temp_buf;
+			scan_xml_partitions(io, str2[2], buf, 0xffff);
+		}
+		else if (!strcmp(str2[1], "p") || !strcmp(str2[1], "print")) {
 			if (io->part_count) {
 				DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
 				for (i = 0; i < io->part_count; i++) {

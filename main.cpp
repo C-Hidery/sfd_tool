@@ -14,7 +14,7 @@
 #include <windows.h>
 #include <dbghelp.h>
 #endif
-const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.5.0 LTV Edition\n\nCopyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n---v 1.7.2.1---\nAdd root permission check for Linux\n---v 1.7.2.2---\nAdd dis_avb function\n---v 1.7.2.3---\nFix some bugs\n---v 1.7.3.0---\nAdd some advanced settings\n---v 1.7.3.1---\nAdd SPRD4 one-time kick mode\n---v 1.7.3.2---\nFix some bugs\n---v 1.7.3.3---\nFix dis_avb func\n---v 1.7.3.4---\nFix some bugs, improved UI\n---v 1.7.3.5---\nFix some bugs\n---v 1.7.4.0---\nAdd window dragging detection for Windows dialog-showing issue\n---v 1.7.4.1---\nAdd CVE v2 function, fix some bugs\n---v 1.7.4.2---\nFix some bugs, add crash info displaying\n---v 1.7.4.3---\nFix some bugs\n---v 1.7.5.0---\nFix some bugs, improved console\n\n\nUnder GPL v3 License\nGithub: C-Hidery/sfd_tool\nLTV means Long-time-version";
+const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.5.1 LTV Edition\n\nCopyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n---v 1.7.2.1---\nAdd root permission check for Linux\n---v 1.7.2.2---\nAdd dis_avb function\n---v 1.7.2.3---\nFix some bugs\n---v 1.7.3.0---\nAdd some advanced settings\n---v 1.7.3.1---\nAdd SPRD4 one-time kick mode\n---v 1.7.3.2---\nFix some bugs\n---v 1.7.3.3---\nFix dis_avb func\n---v 1.7.3.4---\nFix some bugs, improved UI\n---v 1.7.3.5---\nFix some bugs\n---v 1.7.4.0---\nAdd window dragging detection for Windows dialog-showing issue\n---v 1.7.4.1---\nAdd CVE v2 function, fix some bugs\n---v 1.7.4.2---\nFix some bugs, add crash info displaying\n---v 1.7.4.3---\nFix some bugs\n---v 1.7.5.0---\nFix some bugs, improved console\n---v 1.7.5.1---\nFix some bugs, add partition table modify function, add DHTB Signature read for ums9117\n\n\nUnder GPL v3 License\nGithub: C-Hidery/sfd_tool\nLTV means Long-time-version";
 const char* Version = "[1.2.2.0@_250726]";
 int bListenLibusb = -1;
 int gpt_failed = 1;
@@ -148,6 +148,7 @@ void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("pac_time");
 	helper.enableWidget("check_nand");
 	helper.enableWidget("dis_avb");
+	helper.enableWidget("modify_part");
 }
 void Enable_Startup() {
 	helper.enableWidget("transcode_en");
@@ -158,6 +159,76 @@ void Enable_Startup() {
 	helper.enableWidget("charge_dis");
 	helper.enableWidget("raw_data_en");
 	helper.enableWidget("raw_data_dis");
+}
+void populatePartitionList(GtkWidgetHelper& helper, const std::vector<partition_t>& partitions) {
+	// 获取列表视图
+	GtkWidget* part_list = helper.getWidget("part_list");
+	if (!part_list || !GTK_IS_TREE_VIEW(part_list)) {
+		std::cerr << "part_list not found or not a TreeView" << std::endl;
+		return;
+	}
+
+	// 获取列表存储模型
+	GtkTreeModel* model = gtk_tree_view_get_model(GTK_TREE_VIEW(part_list));
+	if (!model) {
+		std::cerr << "TreeView model not found" << std::endl;
+		return;
+	}
+
+	// 清空现有数据
+	GtkListStore* store = GTK_LIST_STORE(model);
+	gtk_list_store_clear(store);
+
+	// 添加分区数据
+	int index = 1;
+	GtkTreeIter iter_spl;
+	gtk_list_store_append(store, &iter_spl);
+	long long spl_size = g_spl_size > 0 ? g_spl_size : 0;
+	std::string display_name = std::to_string(index) + ". splloader";
+	std::string size_str;
+	if (spl_size < 1024) {
+		size_str = std::to_string(spl_size) + " B";
+	} else {
+		size_str = std::to_string(spl_size / 1024) + " KB";
+	}
+	gtk_list_store_set(store, &iter_spl,
+	                   0, display_name.c_str(),   // 显示名称（带序号）
+	                   1, size_str.c_str(),       // 格式化的大小
+	                   2, "splloader",            // 原始分区名
+	                   -1);
+
+	index++;  // 递增序号
+	for (const auto& partition : partitions) {
+		GtkTreeIter iter;
+		gtk_list_store_append(store, &iter);
+
+		// 格式化显示文本
+		std::string display_name = std::to_string(index) + ". " + partition.name;
+
+		// 格式化大小显示
+		std::string size_str;
+		if (partition.size < 1024) {
+			size_str = std::to_string(partition.size) + " B";
+		} else if (partition.size < 1024 * 1024) {
+			size_str = std::to_string(partition.size / 1024) + " KB";
+		} else if (partition.size < 1024 * 1024 * 1024) {
+			size_str = std::to_string(partition.size / (1024 * 1024)) + " MB";
+		} else {
+			size_str = std::to_string(partition.size / (1024 * 1024 * 1024.0)) + " GB";
+		}
+
+		// 设置行数据
+		gtk_list_store_set(store, &iter,
+		                   0, display_name.c_str(),  // 显示名称（带序号）
+		                   1, size_str.c_str(),      // 格式化的大小
+		                   2, partition.name,        // 原始分区名（隐藏列，可选）
+		                   -1);
+
+		index++;
+	}
+
+	// 更新显示
+	gtk_widget_queue_draw(part_list);
 }
 void on_button_clicked_select_cve(GtkWidgetHelper helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
@@ -351,6 +422,149 @@ void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 		gui_idle_call_wait_drag([parent]() {
 			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区擦除完成！\nPartition erase completed!");
 		},GTK_WINDOW(helper.getWidget("main_window")));
+	}).detach();
+
+}
+void on_button_clicked_modify_part(GtkWidgetHelper helper) {
+	if (io->part_count == 0 && io->part_count_c == 0) {
+		showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "错误 Error", "当前未加载分区表，无法修改分区大小！\nNo partition table loaded, cannot modify partition size!");
+		return;
+	}
+	GtkWindow* window = GTK_WINDOW(helper.getWidget("main_window"));
+	std::string part_name = getSelectedPartitionName(helper);
+	if (m_bOpened == -1) {
+		DEG_LOG(E, "device unattached, exiting...");
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+		    exit(1);
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		
+	}
+	const char* secondPartName = gtk_entry_get_text(GTK_ENTRY(helper.getWidget("modify_second_part")));
+	const char* newSizeStr = gtk_entry_get_text(GTK_ENTRY(helper.getWidget("modify_new_size")));
+	if (strlen(secondPartName) == 0 || strlen(newSizeStr) == 0) {
+		showErrorDialog(window, "错误 Error", "请填写完整的修改信息！\nPlease fill in complete modification info!");
+		return;
+	}
+	int newSizeMB = atoi(newSizeStr);
+	if (newSizeMB <= 0) {
+		showErrorDialog(window, "错误 Error", "请输入合法的新大小！\nPlease enter a valid new size!");
+		return;
+	}
+	std::thread([secondPartName, newSizeMB, window, helper, part_name]() mutable {
+		int i_part = 0;
+		int i_se_part = 0;
+		if (!isCMethod) {
+			for (i_part = 0; i_part < io->part_count; i_part++) {
+				if (!strcmp(part_name.c_str(), (*(io->ptable + i_part)).name)) {
+					break;
+				}
+			}
+			if (i_part == io->part_count) {
+				DEG_LOG(E, "Partition not exist\n");
+				gui_idle_call_wait_drag([window]() {
+					showErrorDialog(window, "错误 Error", "欲修改分区不存在！\nPartition does not exist!");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				return;
+			}
+			for (i_se_part = 0; i_se_part < io->part_count; i_se_part++) {
+				if (!strcmp(secondPartName, (*(io->ptable + i_se_part)).name)) {
+					break;
+				}
+			}
+			if (i_se_part == io->part_count) {
+				DEG_LOG(E, "Second partition not exist\n");
+				gui_idle_call_wait_drag([window]() {
+					showErrorDialog(window, "错误 Error", "第二分区不存在！\nSecond partition does not exist!");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				return;
+			}
+			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
+			if (!fo) ERR_EXIT("Failed to open file\n");
+			fprintf(fo, "<Partitions>\n");
+			for (int i = 0; i < io->part_count; i++) {
+				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
+				if (i + 1 == io->part_count) fprintf(fo, "0x%x\"/>\n", ~0);
+				else fprintf(fo, "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
+			}
+			fprintf(fo, "</Partitions>");
+			fclose(fo);
+			uint8_t* buf = io->temp_buf;
+			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0);
+			if (n <= 0) {
+				DEG_LOG(E, "Failed to parse modified partition table\n");
+				gui_idle_call_wait_drag([window]() {
+					showErrorDialog(window, "错误 Error", "解析修改后的分区表失败！\nFailed to parse modified partition table!");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				return;
+			}
+			encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
+			if (!send_and_check(io)) gpt_failed = 0;
+		}
+		else {
+			showWarningDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区大小可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition size may brick the device!");
+			for (i_part = 0; i_part < io->part_count_c; i_part++) {
+				if (!strcmp(part_name.c_str(), (*(io->Cptable + i_part)).name)) {
+					break;
+				}
+			}
+			if (i_part == io->part_count_c) {
+				DEG_LOG(E, "Partition not exist\n");
+				gui_idle_call_wait_drag([window]() {
+					showErrorDialog(window, "错误 Error", "欲修改分区不存在！\nPartition does not exist!");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				return;
+			}
+			for (i_se_part = 0; i_se_part < io->part_count_c; i_se_part++) {
+				if (!strcmp(secondPartName, (*(io->Cptable + i_se_part)).name)) {
+					break;
+				}
+			}
+			if (i_se_part == io->part_count_c) {
+				DEG_LOG(E, "Second partition not exist\n");
+				gui_idle_call_wait_drag([window]() {
+					showErrorDialog(window, "错误 Error", "第二分区不存在！\nSecond partition does not exist!");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				return;
+			}
+			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
+			if (!fo) ERR_EXIT("Failed to open file\n");
+			fprintf(fo, "<Partitions>\n");
+			for (int i = 0; i < io->part_count_c; i++) {
+				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->Cptable + i)).name);
+				if (i + 1 == io->part_count_c) fprintf(fo, "0x%x\"/>\n", ~0);
+				else fprintf(fo, "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
+			}
+			fprintf(fo, "</Partitions>");
+			fclose(fo);
+			uint8_t* buf = io->temp_buf;
+			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0);
+			if (n <= 0) {
+				DEG_LOG(E, "Failed to parse modified partition table\n");
+				gui_idle_call_wait_drag([window]() {
+					showErrorDialog(window, "错误 Error", "解析修改后的分区表失败！\nFailed to parse modified partition table!");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				return;
+			}
+			encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
+			if (!send_and_check(io)) gpt_failed = 0;
+		}
+		gui_idle_call_wait_drag([window, helper]() mutable {
+			showInfoDialog(window, "完成 Completed", "分区修改完成！\nPartition modification completed!");
+			std::vector<partition_t> partitions;
+			partitions.reserve(io->part_count);
+			if(!isCMethod) {
+				for (int i = 0; i < io->part_count; i++) {
+					partitions.push_back(io->ptable[i]);
+				}
+			}
+			else {
+				for (int i = 0; i < io->part_count_c; i++) {
+					partitions.push_back(io->Cptable[i]);
+				}
+			}
+			populatePartitionList(helper, partitions);
+		}, window);
 	}).detach();
 
 }
@@ -655,6 +869,19 @@ void on_button_clicked_start_repart(GtkWidgetHelper helper) {
 	} else fclose(fi);
 	repartition(io, filePath.c_str());
 	showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "重新分区完成！\nRepartition completed!");
+	std::vector<partition_t> partitions;
+	partitions.reserve(io->part_count);
+	if(!isCMethod){
+		for (int i = 0; i < io->part_count; i++) {
+			partitions.push_back(io->ptable[i]);
+		}
+	}
+	else {
+		for (int i = 0; i < io->part_count_c; i++) {
+			partitions.push_back(io->Cptable[i]);
+		}
+	}
+	populatePartitionList(helper, partitions);
 }
 void on_button_clicked_read_xml(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
@@ -957,76 +1184,7 @@ void on_button_clicked_end_data_dis(GtkWidgetHelper helper) {
 	end_data = 0;
 	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", "Set successfully\n设置成功");
 }
-void populatePartitionList(GtkWidgetHelper& helper, const std::vector<partition_t>& partitions) {
-	// 获取列表视图
-	GtkWidget* part_list = helper.getWidget("part_list");
-	if (!part_list || !GTK_IS_TREE_VIEW(part_list)) {
-		std::cerr << "part_list not found or not a TreeView" << std::endl;
-		return;
-	}
 
-	// 获取列表存储模型
-	GtkTreeModel* model = gtk_tree_view_get_model(GTK_TREE_VIEW(part_list));
-	if (!model) {
-		std::cerr << "TreeView model not found" << std::endl;
-		return;
-	}
-
-	// 清空现有数据
-	GtkListStore* store = GTK_LIST_STORE(model);
-	gtk_list_store_clear(store);
-
-	// 添加分区数据
-	int index = 1;
-	GtkTreeIter iter_spl;
-	gtk_list_store_append(store, &iter_spl);
-	long long spl_size = g_spl_size > 0 ? g_spl_size : 0;
-	std::string display_name = std::to_string(index) + ". splloader";
-	std::string size_str;
-	if (spl_size < 1024) {
-		size_str = std::to_string(spl_size) + " B";
-	} else {
-		size_str = std::to_string(spl_size / 1024) + " KB";
-	}
-	gtk_list_store_set(store, &iter_spl,
-	                   0, display_name.c_str(),   // 显示名称（带序号）
-	                   1, size_str.c_str(),       // 格式化的大小
-	                   2, "splloader",            // 原始分区名
-	                   -1);
-
-	index++;  // 递增序号
-	for (const auto& partition : partitions) {
-		GtkTreeIter iter;
-		gtk_list_store_append(store, &iter);
-
-		// 格式化显示文本
-		std::string display_name = std::to_string(index) + ". " + partition.name;
-
-		// 格式化大小显示
-		std::string size_str;
-		if (partition.size < 1024) {
-			size_str = std::to_string(partition.size) + " B";
-		} else if (partition.size < 1024 * 1024) {
-			size_str = std::to_string(partition.size / 1024) + " KB";
-		} else if (partition.size < 1024 * 1024 * 1024) {
-			size_str = std::to_string(partition.size / (1024 * 1024)) + " MB";
-		} else {
-			size_str = std::to_string(partition.size / (1024 * 1024 * 1024.0)) + " GB";
-		}
-
-		// 设置行数据
-		gtk_list_store_set(store, &iter,
-		                   0, display_name.c_str(),  // 显示名称（带序号）
-		                   1, size_str.c_str(),      // 格式化的大小
-		                   2, partition.name,        // 原始分区名（隐藏列，可选）
-		                   -1);
-
-		index++;
-	}
-
-	// 更新显示
-	gtk_widget_queue_draw(part_list);
-}
 void confirm_partition_c(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
@@ -1036,14 +1194,12 @@ void confirm_partition_c(GtkWidgetHelper helper) {
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
-	auto i_is_ptr = std::make_shared<bool>(false);
 	gui_idle_call_with_callback(
 		[helper]() -> bool {
-			return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", "No partition table found on current device, read partition list through compatibility method?\nWarn: This mode may not find all partitions on your device, use caution with force write!\n当前设备未找到分区表，是否通过兼容方式读取分区列表？\n警告：此模式可能无法找到设备上的所有分区，强制写入时请谨慎使用！");
+			return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", "No partition table found on current device, read partition list through compatibility method?\nWarn: This mode may not find all partitions on your device, use caution with force write or editing partition table!\n当前设备未找到分区表，是否通过兼容方式读取分区列表？\n警告：此模式可能无法找到设备上的所有分区，强制写入或修改分区表时请谨慎使用！");
 		},
-		[i_is_ptr, helper](bool result) mutable {
-			*i_is_ptr = result;
-			if (*i_is_ptr) {
+			[helper](bool result) mutable {
+			if (result) {
 				isUseCptable = 1;
 				io->Cptable = partition_list_d(io);
 				isCMethod = 1;
@@ -1404,14 +1560,12 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			else send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
 		} else {
 			if (device_mode == SPRD4 && isKickMode) {
-				auto i_is_ptr = std::make_shared<bool>(false);
 				gui_idle_call_with_callback(
 					[helper]() -> bool {
 						return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", "Device can be booted without FDL in SPRD4 mode, continue?\n设备在SPRD4模式下可以无需FDL启动，是否继续？");
 					},
-					[i_is_ptr, fdl_path, fdl_addr](bool result) {
-						*i_is_ptr = result;
-						if (*i_is_ptr) {
+					[helper, fdl_path, fdl_addr](bool result) {
+						if (result) {
 							DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
 							encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
 							if (send_and_check(io)) exit(1);
@@ -1564,14 +1718,12 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				}
 			} else {
 				if (device_mode == SPRD4 && isKickMode) {
-					auto i_is_ptr = std::make_shared<bool>(false);
 					gui_idle_call_with_callback(
 						[helper]() -> bool {
 							return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", "Device can be booted without FDL in SPRD4 mode, continue?\n设备在SPRD4模式下可以无需FDL启动，是否继续？");
 						},
-						[i_is_ptr,execfile,fdl_path,fdl_addr,isCve,cve_addr,cve_path,fi, helper](bool result) {
-							*i_is_ptr = result;
-							if (*i_is_ptr) {
+						[execfile,fdl_path,fdl_addr,isCve,cve_addr,cve_path,fi, helper](bool result) {
+							if (result) {
 								DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
 								fclose(fi);
 								encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
@@ -1721,6 +1873,7 @@ void DisableWidgets(GtkWidgetHelper helper) {
 	helper.disableWidget("charge_dis");
 	helper.disableWidget("raw_data_en");
 	helper.disableWidget("raw_data_dis");
+	helper.disableWidget("modify_part");
 }
 
 int gtk_kmain(int argc, char** argv) {
@@ -1972,6 +2125,14 @@ int gtk_kmain(int argc, char** argv) {
 		GtkWidget* eraseBtn = helper.createButton("ERASE  擦除分区", "list_erase", nullptr, 0, 0, 170, 32);
 		GtkWidget* backupAllBtn = helper.createButton("Backup All  备份分区", "backup_all", nullptr, 0, 0, 180, 32);
 		GtkWidget* cancelBtn = helper.createButton("Cancel  取消", "list_cancel", nullptr, 0, 0, 117, 32);
+		
+		// 修改分区表
+		GtkWidget* ModifyLabel = helper.createLabel("Modify Partition Table - Please check a partition you want to change the size 修改分区表 - 请选择一个欲修改大小的分区", "modify_label", 0, 0, 200, 20);
+		GtkWidget* SeLabel = helper.createLabel("Second-change partition 第二个被动修改的分区", "second_part_label", 0, 0, 100, 20);
+		GtkWidget* secondPart = helper.createEntry("modify_second_part", "", false, 0, 0, 200, 32);
+		GtkWidget* newSizeLabel = helper.createLabel("New size in MB 新大小（MB）", "new_size_label", 0, 0, 100, 20);
+		GtkWidget* newSizeEntry = helper.createEntry("modify_new_size", "", false, 0, 0, 150, 32);
+		GtkWidget* modifyBtn = helper.createButton("Modify  修改", "modify_part", nullptr, 0, 0, 117, 32);
 
 		// 设置按钮初始状态
 		gtk_widget_set_sensitive(writeBtn, FALSE);
@@ -2003,6 +2164,16 @@ int gtk_kmain(int argc, char** argv) {
 		gtk_box_pack_start(GTK_BOX(cancelButtonBox), placeholder1, FALSE, FALSE, 117);
 		gtk_box_pack_start(GTK_BOX(cancelButtonBox), placeholder2, FALSE, FALSE, 0);
 		helper.addToGrid(partPage, cancelButtonBox, 0, 11, 5, 1);
+
+		//修改分区表所有部分放在cancel下方
+		helper.addToGrid(partPage, ModifyLabel, 0, 12, 5, 1);
+		GtkWidget* modifyBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+		gtk_box_pack_start(GTK_BOX(modifyBox), SeLabel, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(modifyBox), secondPart, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(modifyBox), newSizeLabel, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(modifyBox), newSizeEntry, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(modifyBox), modifyBtn, FALSE, FALSE, 0);
+		helper.addToGrid(partPage, modifyBox, 0, 13, 5, 1);
 
 
 		// ========== Manually Operate Page ==========
@@ -2632,6 +2803,9 @@ int gtk_kmain(int argc, char** argv) {
 		});
 		helper.bindValueChanged(timeout_op, [timeout_op]() {
 			io->timeout = helper.getSpinValue(timeout_op);
+		});
+		helper.bindClick(modifyBtn,[]() {
+			on_button_clicked_modify_part(helper);
 		});
 	}
 	DisableWidgets(helper);

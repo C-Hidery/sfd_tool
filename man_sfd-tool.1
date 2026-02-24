@@ -1,6 +1,6 @@
 .\" Man page for sfd_tool - Spreadtrum Firmware Dumper Tool
 .\" Contact RyanCrepa <Ryan110413@outlook.com> for updates/corrections
-.TH SFD_TOOL 1 "February 2026" "sfd_tool 1.7.5.0 LTV" "User Commands"
+.TH SFD_TOOL 1 "February 2026" "sfd_tool 1.7.5.1 LTV" "User Commands"
 
 .SH NAME
 sfd_tool \- Spreadtrum Firmware Dumping and Programming Tool
@@ -190,6 +190,22 @@ Check if partition exists.
 .TP
 .B add_part \fIPARTITION_NAME\fR
 Add partition to table (FDL2 only, compatibility mode).
+
+.TP
+.B read_flash \faddr offset size FILE\fR
+Read flash on device, read_flash_dhtb for ums9117
+
+.TP
+.B erase_flash \faddr size\fR
+Erase flash on device.
+
+.TP
+.B read_mem \faddr size FILE\fR
+Read memory on device.
+
+.TP
+.B scan_partition \fIPARTITION_TABLE_XML\fR
+Get partition table through scanning partition XML file.
 
 .SS "Device Control Commands"
 .TP

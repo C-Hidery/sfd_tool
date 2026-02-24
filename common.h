@@ -272,7 +272,10 @@ uint8_t *loadfile(const char *fn, size_t *num, size_t extra);
 void send_buf(spdio_t *io, uint32_t start_addr, int end_data, unsigned step, uint8_t *mem, unsigned size);
 size_t send_file(spdio_t *io, const char *fn, uint32_t start_addr, int end_data, unsigned step, unsigned src_offs, unsigned src_size);
 FILE *my_fopen(const char *fn, const char *mode);
-unsigned dump_flash(spdio_t *io, uint32_t addr, uint32_t start, uint32_t len, const char *fn, unsigned step);
+unsigned dump_flash(spdio_t *io, uint32_t addr, uint32_t start, uint32_t len, const char *fn, unsigned step, int mode);
+unsigned read_flash(spdio_t *io,
+		uint32_t addr, uint32_t start, uint32_t len,
+		uint8_t *mem, FILE *fo, unsigned step) ;
 unsigned dump_mem(spdio_t *io, uint32_t start, uint32_t len, const char *fn, unsigned step);
 uint64_t dump_partition(spdio_t *io, const char *name, uint64_t start, uint64_t len, const char *fn, unsigned step);
 void dump_partitions(spdio_t *io, const char *fn, int *nand_info, unsigned step);
@@ -303,7 +306,7 @@ int print_to_string(char* dest, size_t dest_size, const void* src, size_t n,int 
 //void send_buf_1(spdio_t* io,
 //	uint32_t start_addr, int end_data,
 //	unsigned step, uint8_t* mem, unsigned size);
-int GetStage(int mode);
+int GetStage();
 double get_time();
 const char* get_bsl_enum_name(unsigned int value);
 void print_all_bsl_commands();
@@ -315,3 +318,4 @@ FILE* xfopen(const char* fn, const char* mode);
 FILE* my_xfopen(const char* fn, const char* mode);
 FILE* my_oxfopen(const char* fn, const char* mode);
 FILE* oxfopen(const char* fn, const char* mode);
+int scan_xml_partitions(spdio_t *io, const char *fn, uint8_t *buf, size_t buf_size);
