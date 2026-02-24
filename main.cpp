@@ -1796,11 +1796,11 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 				print_to_string(mode_str, sizeof(mode_str), io->raw_buf + 4, READ16_BE(io->raw_buf + 2), 0);
 
 				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-				if (send_and_check(io)) exit(1);
+				if (send_and_check(io)) ERR_EXIT("FDL connect failed");
 			} else if (ret == BSL_REP_VERIFY_ERROR) {
 				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
 				if (fdl1_loaded != 1) {
-					if (send_and_check(io)) exit(1);
+					if (send_and_check(io)) ERR_EXIT("FDL connect failed");;
 				} else {
 					i = -1;
 					continue;
@@ -1962,7 +1962,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 						if (result) {
 							DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
 							encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-							if (send_and_check(io)) exit(1);
+							if (send_and_check(io)) ERR_EXIT("FDL exec failed");;
 							return;
 						} else {
 							FILE *fi = oxfopen(fdl_path, "r");
@@ -2117,7 +2117,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 							n = gapsize - i;
 							if (n > 528) n = 528;
 							encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
-							if (send_and_check(io)) exit(1);
+							if (send_and_check(io)) ERR_EXIT("CVE v2 failed");;
 						}
 						FILE* fi = oxfopen(execfile, "rb");
 						if (fi) {
@@ -2128,12 +2128,12 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 							fclose(fi);
 						}
 						encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
-						if (send_and_check(io)) exit(1);
+						if (send_and_check(io)) ERR_EXIT("CVE v2 failed");;
 					}
 					delete[](execfile);
 				} else {
 					encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-					if (send_and_check(io)) exit(1);
+					if (send_and_check(io)) ERR_EXIT("FDL exec failed");;
 				}
 			} else {
 				if (device_mode == SPRD4 && isKickMode) {
@@ -2146,7 +2146,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 								DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
 								fclose(fi);
 								encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-								if (send_and_check(io)) exit(1);
+								if (send_and_check(io)) ERR_EXIT("FDL exec failed");
 								delete[](execfile);
 								return;
 							} else {
@@ -2171,7 +2171,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 											n = gapsize - i;
 											if (n > 528) n = 528;
 											encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
-											if (send_and_check(io)) exit(1);
+											if (send_and_check(io)) ERR_EXIT("CVE V2 failed");
 										}
 										FILE* fi = oxfopen(execfile, "rb");
 										if (fi) {
@@ -2182,12 +2182,12 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 											fclose(fi);
 										}
 										encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
-										if (send_and_check(io)) exit(1);
+										if (send_and_check(io)) ERR_EXIT("CVE V2 failed");;
 									}
 									delete[](execfile);
 								} else {
 									encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-									if (send_and_check(io)) exit(1);
+									if (send_and_check(io)) ERR_EXIT("FDL exec failed");;
 								}
 							}	
 						},
@@ -2227,7 +2227,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			DEG_LOG(I, "Device REP_Version: ");
 			print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
 			encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-			if (send_and_check(io)) exit(1);
+			if (send_and_check(io)) ERR_EXIT("FDL connect failed");;
 			DEG_LOG(I, "FDL1 connected.");
 #if !USE_LIBUSB
 			if (baudrate) {
