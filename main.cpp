@@ -581,8 +581,7 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 }
 void on_button_clicked_xml_get(GtkWidgetHelper helper) {
     GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
-	std::string filename = showFileChooser(parent, true);
-	std::string part_name = getSelectedPartitionName(helper);
+
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
