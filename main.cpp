@@ -3301,7 +3301,7 @@ int gtk_kmain(int argc, char** argv) {
 			on_button_clicked_modify_ren_part(helper);
 		});
 		helper.bindClick(xmlGetBtn,[](){
-			on_button_clicked_modify_xml_get(helper);
+			on_button_clicked_xml_get(helper);
 		});
 	}
 	DisableWidgets(helper);
