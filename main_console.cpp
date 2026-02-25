@@ -1993,6 +1993,12 @@ rloop:
 			}
 			uint8_t *buf = io->temp_buf;
 			scan_xml_partitions(io, str2[2], buf, 0xffff);
+			if(isCMethod){
+			    delete[] io->Cptable;
+			    io->Cptable = nullptr;
+			    io->part_count_c = 0;
+			    isCMethod = 0;
+			}
 		}
 		else if (!strcmp(str2[1], "p") || !strcmp(str2[1], "print")) {
 			if (io->part_count) {

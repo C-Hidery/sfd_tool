@@ -152,6 +152,7 @@ void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("modify_new_part");
 	helper.enableWidget("modify_rm_part");
 	helper.enableWidget("modify_ren_part");
+	helper.enableWidget("xml_get");
 }
 void Enable_Startup() {
 	helper.enableWidget("transcode_en");
@@ -496,7 +497,7 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			fprintf(fo, "</Partitions>");
 			fclose(fo);
 			uint8_t* buf = io->temp_buf;
-			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0);
+			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
 				DEG_LOG(E, "Failed to parse modified partition table\n");
 				gui_idle_call_wait_drag([window]() {
@@ -548,7 +549,7 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			fprintf(fo, "</Partitions>");
 			fclose(fo);
 			uint8_t* buf = io->temp_buf;
-			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0);
+			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
 				DEG_LOG(E, "Failed to parse modified partition table\n");
 				gui_idle_call_wait_drag([window]() {
@@ -577,6 +578,37 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 		}
 	}).detach();
 
+}
+void on_button_clicked_xml_get(GtkWidgetHelper helper) {
+    GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+	std::string filename = showFileChooser(parent, true);
+	std::string part_name = getSelectedPartitionName(helper);
+	if (m_bOpened == -1) {
+		DEG_LOG(E, "device unattached, exiting...");
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+		    exit(1);
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		
+	}
+	std::string filename = showFileChooser(parent, true);
+	if(filename.empty()){return;}
+	uint8_t* buf = io->temp_buf;
+	int n = scan_xml_partitions(io, filename.c_str(), buf, 0xffff);
+	if(n <= 0) return;
+	std::vector<partition_t> partitions;
+	partitions.reserve(io->part_count);
+			
+	for (int i = 0; i < io->part_count; i++) {
+		partitions.push_back(io->ptable[i]);
+	}
+	populatePartitionList(helper, partitions);
+    if(isCMethod){
+		delete[] io->Cptable;
+		io->Cptable = nullptr;
+		io->part_count_c = 0;
+		isCMethod = 0;
+	}
 }
 void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 	if (io->part_count == 0 && io->part_count_c == 0) {
@@ -637,7 +669,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			fprintf(fo, "</Partitions>");
 			fclose(fo);
 			uint8_t* buf = io->temp_buf;
-			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0);
+			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
 				DEG_LOG(E, "Failed to parse modified partition table\n");
 				gui_idle_call_wait_drag([window]() {
@@ -681,7 +713,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			fprintf(fo, "</Partitions>");
 			fclose(fo);
 			uint8_t* buf = io->temp_buf;
-			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0);
+			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
 				DEG_LOG(E, "Failed to parse modified partition table\n");
 				gui_idle_call_wait_drag([window]() {
@@ -768,7 +800,7 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 			fprintf(fo, "</Partitions>");
 			fclose(fo);
 			uint8_t* buf = io->temp_buf;
-			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0);
+			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
 				DEG_LOG(E, "Failed to parse modified partition table\n");
 				gui_idle_call_wait_drag([window]() {
@@ -821,7 +853,7 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 			fprintf(fo, "</Partitions>");
 			fclose(fo);
 			uint8_t* buf = io->temp_buf;
-			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0);
+			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
 				DEG_LOG(E, "Failed to parse modified partition table\n");
 				gui_idle_call_wait_drag([window]() {
@@ -895,7 +927,7 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 			fprintf(fo, "</Partitions>");
 			fclose(fo);
 			uint8_t* buf = io->temp_buf;
-			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0);
+			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
 				DEG_LOG(E, "Failed to parse modified partition table\n");
 				gui_idle_call_wait_drag([window]() {
@@ -934,7 +966,7 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 			fprintf(fo, "</Partitions>");
 			fclose(fo);
 			uint8_t* buf = io->temp_buf;
-			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0);
+			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
 				DEG_LOG(E, "Failed to parse modified partition table\n");
 				gui_idle_call_wait_drag([window]() {
@@ -2296,6 +2328,7 @@ void DisableWidgets(GtkWidgetHelper helper) {
 	helper.disableWidget("modify_new_part");
 	helper.disableWidget("modify_rm_part");
 	helper.disableWidget("modify_ren_part");
+	helper.disableWidget("xml_get");
 }
 
 int gtk_kmain(int argc, char** argv) {
@@ -2547,6 +2580,7 @@ int gtk_kmain(int argc, char** argv) {
 		GtkWidget* eraseBtn = helper.createButton("ERASE  擦除分区", "list_erase", nullptr, 0, 0, 170, 32);
 		GtkWidget* backupAllBtn = helper.createButton("Backup All  备份分区", "backup_all", nullptr, 0, 0, 180, 32);
 		GtkWidget* cancelBtn = helper.createButton("Cancel  取消", "list_cancel", nullptr, 0, 0, 117, 32);
+		GtkWidget* xmlGetBtn = helper.createButton("Get partition table through scanning an Xml file  通过XML文件获取分区列表", "xml_get", nullptr, 0, 0, 250, 32);
 		
 		// 修改分区表
 		GtkWidget* ModifyLabel = helper.createLabel("Modify Partition Table 修改分区表", "modify_label", 0, 0, 200, 20);
@@ -2591,6 +2625,7 @@ int gtk_kmain(int argc, char** argv) {
 		// 第二行按钮 - Cancel按钮单独一行，在刷写按钮正下方
 		GtkWidget* cancelButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
 		gtk_box_pack_start(GTK_BOX(cancelButtonBox), cancelBtn, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(cancelButtonBox), xmlGetBtn, FALSE, FALSE, 0);
 		// 添加占位空间使Cancel按钮对齐到刷写按钮下方
 		GtkWidget* placeholder1 = gtk_label_new("");
 		GtkWidget* placeholder2 = gtk_label_new("");
@@ -3264,6 +3299,9 @@ int gtk_kmain(int argc, char** argv) {
 		});
 		helper.bindClick(RenmPartBtn,[](){
 			on_button_clicked_modify_ren_part(helper);
+		});
+		helper.bindClick(xmlGetBtn,[](){
+			on_button_clicked_modify_xml_get(helper);
 		});
 	}
 	DisableWidgets(helper);
