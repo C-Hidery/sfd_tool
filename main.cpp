@@ -635,6 +635,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 		showErrorDialog(window, "错误 Error", "请输入合法的新大小！\nPlease enter a valid new size!");
 		return;
 	}
+	newPartSize = newPartSize * 1024 * 1024;
 	std::thread([window, newPartName, helper, newPartSize]() mutable {
 		if(!isCMethod) {
 			partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
