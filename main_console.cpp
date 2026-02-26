@@ -1913,7 +1913,7 @@ rloop:
 				argc = 1;
 				continue;
 			}
-			fblk_size = strtoull(str2[2], nullptr, 0) << 20;
+			fblk_size = strtoull(str2[2], nullptr, 0) * 1024 * 1024; // Not safe with `<<`
 			argc -= 2;
 			argv += 2;
 
