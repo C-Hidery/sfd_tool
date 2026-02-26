@@ -153,6 +153,9 @@ void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("modify_rm_part");
 	helper.enableWidget("modify_ren_part");
 	helper.enableWidget("xml_get");
+	helper.enableWidget("abpart_auto");
+	helper.enableWidget("abpart_a");
+	helper.enableWidget("abpart_b");
 }
 void Enable_Startup() {
 	helper.enableWidget("transcode_en");
@@ -1262,8 +1265,17 @@ void on_button_clicked_set_active_a(GtkWidgetHelper helper) {
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
+	if(!selected_ab) {
+		gui_idle_call_wait_drag([helper](){
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device is not using VAB!\n设备不是VAB分区表！");
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		return;
+	}
 	set_active(io, "a", isCMethod);
 	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "已设置当前分区为A槽！\nCurrent active partition set to Slot A!");
+	gui_idle_call([helper]() mutable {
+		helper.setLabelText(helper.getWidget("slot_mode"),"Slot A");
+	});
 }
 void on_button_clicked_set_active_b(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
@@ -1274,8 +1286,17 @@ void on_button_clicked_set_active_b(GtkWidgetHelper helper) {
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
+	if(!selected_ab) {
+		gui_idle_call_wait_drag([helper](){
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device is not using VAB!\n设备不是VAB分区表！");
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		return;
+	}
 	set_active(io, "b", isCMethod);
 	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "已设置当前分区为B槽！\nCurrent active partition set to Slot B!");
+	gui_idle_call([helper]() mutable {
+		helper.setLabelText(helper.getWidget("slot_mode"),"Slot B");
+	});
 }
 void on_button_clicked_start_repart(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
@@ -1610,6 +1631,15 @@ void on_button_clicked_end_data_dis(GtkWidgetHelper helper) {
 	end_data = 0;
 	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", "Set successfully\n设置成功");
 }
+void on_button_clicked_abpart_auto(GtkWidgetHelper helper) {
+	selected_ab = 0;
+}
+void on_button_clicked_abpart_a(GtkWidgetHelper helper) {
+	selected_ab = 1;
+}
+void on_button_clicked_abpart_b(GtkWidgetHelper helper) {
+	selected_ab = 2;
+}
 
 void confirm_partition_c(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
@@ -1654,7 +1684,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	if (argc > 1 && !strcmp(argv[1], "--reconnect")) {
 		stage = 99;
 		gui_idle_call_wait_drag([helper]() {
-			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "你已启动重连模式，重连模式下只能兼容获取分区列表！\nYou have entered Reconnect Mode, which only supports compatibility-method partition list retrieval!");
+			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "你已启动重连模式，重连模式下只能兼容获取分区列表，且不能获取槽位和储存类型！\nYou have entered Reconnect Mode, which only supports compatibility-method partition list retrieval, and [storage mode/slot mode] can not be gotten!");
 		},GTK_WINDOW(helper.getWidget("main_window")));
 
 	}
@@ -2064,17 +2094,36 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				encode_msg_nocpy(io, BSL_CMD_ENABLE_RAW_DATA, 0);
 				if (!send_and_check(io)) DEG_LOG(OP, "Raw data mode enabled.");
 			}
-		} else if (highspeed || Da_Info.dwStorageType == 0x103) {
+		} else if (highspeed || Da_Info.dwStorageType == 0x103) { // ufs
+			gui_idle_call([helper]() mutable {
+					helper.setLabelText(helper.getWidget("storage_mode"),"Ufs");
+				});
 			blk_size = 0xf800;
 			io->ptable = partition_list(io, fn_partlist, &io->part_count);
-		} else if (Da_Info.dwStorageType == 0x102) {
+		} else if (Da_Info.dwStorageType == 0x102) { // emmc
+			gui_idle_call([helper]() mutable {
+					helper.setLabelText(helper.getWidget("storage_mode"),"Emmc");
+				});
 			io->ptable = partition_list(io, fn_partlist, &io->part_count);
 		} else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
 		if (gpt_failed != 1) {
-			if (selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
-			else if (selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
+			if (selected_ab == 2) {
+				DEG_LOG(I, "Device is using slot b\n");
+				gui_idle_call([helper]() mutable {
+					helper.setLabelText(helper.getWidget("slot_mode"),"Slot B");
+				});
+			}
+			else if (selected_ab == 1) {
+				DEG_LOG(I, "Device is using slot a\n");
+				gui_idle_call([helper]() mutable {
+					helper.setLabelText(helper.getWidget("slot_mode"),"Slot A");
+				});
+			}
 			else {
 				DEG_LOG(I, "Device is not using VAB\n");
+				gui_idle_call([helper]() mutable {
+					helper.setLabelText(helper.getWidget("slot_mode"),"Not VAB");
+				});
 				if (Da_Info.bSupportRawData) {
 					DEG_LOG(I, "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.", (unsigned)Da_Info.bSupportRawData);
 					Da_Info.bSupportRawData = 0;
@@ -2328,6 +2377,9 @@ void DisableWidgets(GtkWidgetHelper helper) {
 	helper.disableWidget("modify_rm_part");
 	helper.disableWidget("modify_ren_part");
 	helper.disableWidget("xml_get");
+	helper.disableWidget("abpart_auto");
+	helper.disableWidget("abpart_a");
+	helper.disableWidget("abpart_b");
 }
 
 int gtk_kmain(int argc, char** argv) {
@@ -2854,7 +2906,12 @@ int gtk_kmain(int argc, char** argv) {
 		GtkWidget* timeout_label = helper.createLabel("Operation timeout 操作超时时间",
 		                           "timeout_label", 0, 0, 200, 20);
 		GtkWidget* timeout_op = helper.createSpinButton(3000, 300000, 1, "timeout", 3000, 0, 0, 120, 32);
-
+		
+		// A/B分区设置
+		GtkWidget* abpart_auto = helper.createButton("Not VAB 不是A/B分区 --- FDL2","abpart_auto",nullptr,0,0,120,32);
+		GtkWidget* abpart_a = helper.createButton("A Parts A分区 --- FDL2","abpart_a",nullptr,0,0,130,32);
+		GtkWidget* abpart_b = helper.createButton("B Parts B分区 --- FDL2","abpart_b",nullptr,0,0,130,32);
+		
 		// 创建主垂直容器
 		GtkWidget* emainBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 20);
 		gtk_widget_set_margin_start(emainBox, 20);
@@ -2932,43 +2989,61 @@ int gtk_kmain(int argc, char** argv) {
 
 		gtk_box_pack_start(GTK_BOX(timeoutBox), timeoutTopBox, FALSE, FALSE, 0);
 
+		// 7. A/B分区设置部分
+		GtkWidget* abpartBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+		GtkWidget* abpartLabel = gtk_label_new("A/B Part read/flash manually set A/B分区读取/刷写手动设置 --- FDL2");
+		gtk_label_set_xalign(GTK_LABEL(abpartLabel), 0.0);
+		GtkWidget* abpartButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+		gtk_box_pack_start(GTK_BOX(abpartButtonBox), abpart_auto,FALSE,FALSE,0);
+		gtk_box_pack_start(GTK_BOX(abpartButtonBox), abpart_a,FALSE,FALSE,0);
+		gtk_box_pack_start(GTK_BOX(abpartButtonBox), abpart_b, FALSE,FALSE,0);
+
+		gtk_box_pack_start(GTK_BOX(abpartBox), abpartLabel, FALSE,FALSE,0);
+		gtk_box_pack_start(GTK_BOX(abpartBox), abpartButtonBox,FALSE,FALSE,0);
 		// 将所有部分添加到主容器
 		gtk_box_pack_start(GTK_BOX(emainBox), blockSizeBox, FALSE, FALSE, 0);
 
-		// 添加分隔线
+		// 分隔线占空间已删除
+		/*
 		GtkWidget* sep01 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
 		gtk_widget_set_margin_top(sep01, 10);
 		gtk_widget_set_margin_bottom(sep01, 10);
 		gtk_box_pack_start(GTK_BOX(emainBox), sep01, FALSE, FALSE, 0);
-
+		*/
 		gtk_box_pack_start(GTK_BOX(emainBox), rawDataBox, FALSE, FALSE, 0);
-
+		
+		/*
 		GtkWidget* sep02 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
 		gtk_widget_set_margin_top(sep02, 10);
 		gtk_widget_set_margin_bottom(sep02, 10);
 		gtk_box_pack_start(GTK_BOX(emainBox), sep02, FALSE, FALSE, 0);
-
+		*/
 		gtk_box_pack_start(GTK_BOX(emainBox), transcodeBox, FALSE, FALSE, 0);
-
+		
+		/*
 		GtkWidget* sep3 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
 		gtk_widget_set_margin_top(sep3, 10);
 		gtk_widget_set_margin_bottom(sep3, 10);
 		gtk_box_pack_start(GTK_BOX(emainBox), sep3, FALSE, FALSE, 0);
-
+		*/
 		gtk_box_pack_start(GTK_BOX(emainBox), chargeBox, FALSE, FALSE, 0);
 
+		/*
 		GtkWidget* sep4 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
 		gtk_widget_set_margin_top(sep4, 10);
 		gtk_widget_set_margin_bottom(sep4, 10);
 		gtk_box_pack_start(GTK_BOX(emainBox), sep4, FALSE, FALSE, 0);
-
+		*/
 		gtk_box_pack_start(GTK_BOX(emainBox), endDataBox, FALSE, FALSE, 0);
+		
 
+		gtk_box_pack_start(GTK_BOX(emainBox), abpartBox,FALSE,FALSE,0);
+		/*
 		GtkWidget* sep5 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
 		gtk_widget_set_margin_top(sep5, 10);
 		gtk_widget_set_margin_bottom(sep5, 10);
 		gtk_box_pack_start(GTK_BOX(emainBox), sep5, FALSE, FALSE, 0);
-
+		*/
 		gtk_box_pack_start(GTK_BOX(emainBox), timeoutBox, FALSE, FALSE, 0);
 
 		// 添加弹性空间使内容顶部对齐
@@ -3131,7 +3206,20 @@ int gtk_kmain(int argc, char** argv) {
 		gtk_box_pack_start(GTK_BOX(statusBox2), modeLabel, FALSE, FALSE, 0);
 		gtk_box_pack_start(GTK_BOX(statusBox2), modeStatus, FALSE, FALSE, 0);
 		helper.addToGrid(bottomGrid, statusBox2, 0, 17, 2, 1);
-
+		// 储存类型
+		GtkWidget* statusBox3 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+		GtkWidget* storageLabel = helper.createLabel("   Storage:","",0,0,50,20);
+		GtkWidget* storageMode = helper.createLabel("Unknown","storage_mode",0,0,150,20);
+		gtk_box_pack_start(GTK_BOX(statusBox3), storageLabel, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(statusBox3), storageMode, FALSE, FALSE, 0);
+		helper.addToGrid(bottomGrid, statusBox3, 0, 18, 2, 1);
+		// 槽位
+		GtkWidget* statusBox4 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+		GtkWidget* slotLabel = helper.createLabel("   Slot:","",0,0,40,20);
+		GtkWidget* slotMode = helper.createLabel("Unknown","slot_mode",0,0,200,20);
+		gtk_box_pack_start(GTK_BOX(statusBox4), slotLabel, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(statusBox4), slotMode, FALSE, FALSE, 0);
+		helper.addToGrid(bottomGrid, statusBox4, 0, 19, 2, 1);
 		// Add notebook and bottom grid to main grid
 		gtk_grid_attach(GTK_GRID(mainGrid), notebook, 0, 0, 10, 1);
 		gtk_grid_attach(GTK_GRID(mainGrid), bottomGrid, 0, 1, 10, 1);
@@ -3301,6 +3389,15 @@ int gtk_kmain(int argc, char** argv) {
 		});
 		helper.bindClick(xmlGetBtn,[](){
 			on_button_clicked_xml_get(helper);
+		});
+		helper.bindClick(abpart_auto,[](){
+			on_button_clicked_abpart_auto(helper);
+		});
+		helper.bindClick(abpart_a,[](){
+			on_button_clicked_abpart_a(helper);
+		});
+		helper.bindClick(abpart_b,[](){
+			on_button_clicked_abpart_b(helper);
 		});
 	}
 	DisableWidgets(helper);

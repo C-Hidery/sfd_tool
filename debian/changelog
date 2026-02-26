@@ -1,8 +1,9 @@
-sfd-tool (1.7.5.1-1-ltv) unstable; urgency=medium
+sfd-tool (1.7.5.2-1-ltv) unstable; urgency=medium
 
   * Initial Debian package release
   * SFD Tool GUI - Spreadtrum Firmware Dumper
-  * Version 1.7.5.1 features:
+  * Version 1.7.5.2 features:
+    - Add slot flash/read manually set, add storage/slot showing
     - Fix some bugs, add partition table modify function
     - Fix some bugs, improved console
     - Fix some bugs
