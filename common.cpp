@@ -2075,7 +2075,7 @@ partition_t* partition_list_d(spdio_t* io) {
 	if (selected_ab < 0) select_ab(io);
 	int verbose = io->verbose;
 	io->verbose = -1;
-	DBG_LOG("  0 %36s  %lldKB\n", "splloader",(long long)g_spl_size / 1024);
+	DBG_LOG("  0 %36s  %lldKB\n", "splloader",(long long)g_spl_size >> 10);
 	for (i = 0; i < CommonPartitionsCount && n < 128; ++i) {
 		const char* part = CommonPartitions[i];
 		long long result = check_partition(io, part, 0);
@@ -2084,19 +2084,18 @@ partition_t* partition_list_d(spdio_t* io) {
 		if (result) {
 			size = check_partition(io, part, 1);
 			
-			//����
+		
 			if (part != "splloader") {
 				strncpy(ptable[n].name, part, sizeof(ptable[n].name) - 1);
-				ptable[n].name[sizeof(ptable[n].name) - 1] = '\0'; // ȷ���ַ�����ֹ
+				ptable[n].name[sizeof(ptable[n].name) - 1] = '\0'; 
 				ptable[n].size = size;
 				n++;
 			}
-			if (part != "splloader") { size = size / 1024 / 1024; DBG_LOG("  %d %36s  %lldMB\n", n, part, size); }
+			if (part != "splloader") { size = size >> 20; DBG_LOG("  %d %36s  %lldMB\n", n, part, size); }
 			
 		}
 	}
 	io->verbose = verbose;
-	//if (strcmp(fn, "-")) DEG_LOG(OP,"Tryed to save partition table to %s", fn);
 	DEG_LOG(I,"Compatibility-method mode will not save partition table xml automatically.");
 	DEG_LOG(I, "You can get partition xml by `part_table` command manually.");
 	DEG_LOG(I,"Total number of partitions: %d", n);

@@ -483,9 +483,9 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
-			long long k = (*(io->ptable + i_part)).size * 1024 * 1024;
-			(*(io->ptable + i_part)).size = (long long)newSizeMB * 1024 * 1024;
-			(*(io->ptable + i_se_part)).size = (*(io->ptable + i_se_part)).size + k - ((long long)newSizeMB * 1024 * 1024);
+			long long k = (*(io->ptable + i_part)).size << 20;
+			(*(io->ptable + i_part)).size = (long long)newSizeMB << 20;
+			(*(io->ptable + i_se_part)).size = (*(io->ptable + i_se_part)).size + k - ((long long)newSizeMB << 20);
 			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");
 			fprintf(fo, "<Partitions>\n");
@@ -535,9 +535,9 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
-			long long k = (*(io->Cptable + i_part)).size * 1024 * 1024;
-			(*(io->Cptable + i_part)).size = (long long)newSizeMB * 1024 * 1024;
-			(*(io->Cptable + i_se_part)).size = (*(io->Cptable + i_se_part)).size + k - ((long long)newSizeMB * 1024 * 1024);
+			long long k = (*(io->Cptable + i_part)).size << 20;
+			(*(io->Cptable + i_part)).size = (long long)newSizeMB << 20;
+			(*(io->Cptable + i_se_part)).size = (*(io->Cptable + i_se_part)).size + k - ((long long)newSizeMB << 20);
 			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");
 			fprintf(fo, "<Partitions>\n");
@@ -635,7 +635,6 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 		showErrorDialog(window, "错误 Error", "请输入合法的新大小！\nPlease enter a valid new size!");
 		return;
 	}
-	newPartSize = newPartSize * 1024 * 1024;
 	std::thread([window, newPartName, helper, newPartSize]() mutable {
 		if(!isCMethod) {
 			partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
@@ -655,7 +654,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			}
 			strncpy(ptable[k].name, newPartName.c_str(), sizeof(ptable[k].name) - 1);
 			ptable[k].name[sizeof(ptable[k].name) - 1] = '\0'; 
-			ptable[k].size = newPartSize;
+			ptable[k].size = newPartSize << 20;
 			io->ptable = ptable;
 			io->part_count++;
 			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
@@ -699,7 +698,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			}
 			strncpy(ptable[k].name, newPartName.c_str(), sizeof(ptable[k].name) - 1);
 			ptable[k].name[sizeof(ptable[k].name) - 1] = '\0'; 
-			ptable[k].size = newPartSize;
+			ptable[k].size = newPartSize << 20;
 			io->Cptable = ptable;
 			io->part_count_c++;
 			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
