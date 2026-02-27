@@ -14,7 +14,7 @@
 #include <windows.h>
 #include <dbghelp.h>
 #endif
-const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.5.1 LTV Edition\n\nCopyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n---v 1.7.2.1---\nAdd root permission check for Linux\n---v 1.7.2.2---\nAdd dis_avb function\n---v 1.7.2.3---\nFix some bugs\n---v 1.7.3.0---\nAdd some advanced settings\n---v 1.7.3.1---\nAdd SPRD4 one-time kick mode\n---v 1.7.3.2---\nFix some bugs\n---v 1.7.3.3---\nFix dis_avb func\n---v 1.7.3.4---\nFix some bugs, improved UI\n---v 1.7.3.5---\nFix some bugs\n---v 1.7.4.0---\nAdd window dragging detection for Windows dialog-showing issue\n---v 1.7.4.1---\nAdd CVE v2 function, fix some bugs\n---v 1.7.4.2---\nFix some bugs, add crash info displaying\n---v 1.7.4.3---\nFix some bugs\n---v 1.7.5.0---\nFix some bugs, improved console\n---v 1.7.5.1---\nFix some bugs, add partition table modify function, add DHTB Signature read for ums9117\n\n\nUnder GPL v3 License\nGithub: C-Hidery/sfd_tool\nLTV means Long-time-version";
+const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.5.2 LTV Edition\n\nCopyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n---v 1.7.2.1---\nAdd root permission check for Linux\n---v 1.7.2.2---\nAdd dis_avb function\n---v 1.7.2.3---\nFix some bugs\n---v 1.7.3.0---\nAdd some advanced settings\n---v 1.7.3.1---\nAdd SPRD4 one-time kick mode\n---v 1.7.3.2---\nFix some bugs\n---v 1.7.3.3---\nFix dis_avb func\n---v 1.7.3.4---\nFix some bugs, improved UI\n---v 1.7.3.5---\nFix some bugs\n---v 1.7.4.0---\nAdd window dragging detection for Windows dialog-showing issue\n---v 1.7.4.1---\nAdd CVE v2 function, fix some bugs\n---v 1.7.4.2---\nFix some bugs, add crash info displaying\n---v 1.7.4.3---\nFix some bugs\n---v 1.7.5.0---\nFix some bugs, improved console\n---v 1.7.5.1---\nFix some bugs, add partition table modify function, add DHTB Signature read for ums9117\n---v 1.7.5.2---\nAdd slot flash/read manually set, add storage/slot showing\n\n\nUnder GPL v3 License\nGithub: C-Hidery/sfd_tool\nLTV means Long-time-version";
 const char* Version = "[1.2.2.0@_250726]";
 int bListenLibusb = -1;
 int gpt_failed = 1;
@@ -618,7 +618,6 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 		return;
 	}
 	GtkWindow* window = GTK_WINDOW(helper.getWidget("main_window"));
-	std::string part_name = getSelectedPartitionName(helper);
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
@@ -627,8 +626,9 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
-	std::string newPartName = getSelectedPartitionName(helper);
+	std::string newPartName = helper.getEntryText(helper.getWidget("new_part"));
 	const char* newSizeText = helper.getEntryText(helper.getWidget("modify_add_size"));
+	const char* beforePart = helper.getEntryText(helper.getWidget("before_new_part"));
 	if(newPartName.empty()){
 		showErrorDialog(window, "错误 Error", "请填写完整的修改信息！\nPlease fill in complete modification info!");
 		return;
@@ -638,26 +638,49 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 		showErrorDialog(window, "错误 Error", "请输入合法的新大小！\nPlease enter a valid new size!");
 		return;
 	}
-	std::thread([window, newPartName, helper, newPartSize]() mutable {
+	std::thread([window, newPartName, helper, newPartSize, beforePart]() mutable {
 		if(!isCMethod) {
 			partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
 			if (ptable == nullptr) return;
 			int k = io->part_count;
-			for (int i = 0; i < io->part_count_c; i++) {
-				strncpy(ptable[i].name, io->Cptable[i].name, sizeof(ptable[i].name) - 1);
-				ptable[i].name[sizeof(ptable[i].name) - 1] = '\0'; 
-				ptable[i].size = io->Cptable[i].size;
-			}
-			for (int i = 0; i < io->part_count_c; i++) {
+			
+			for (int i = 0; i < io->part_count; i++) {
 				if (strcmp(io->ptable[i].name, newPartName.c_str()) == 0) {
 					DEG_LOG(W, "Partition %s already exists", newPartName.c_str());
 					showErrorDialog(window, "错误 Error", "分区已存在！\nPartition already exists!");
 					return;
 				}
 			}
-			strncpy(ptable[k].name, newPartName.c_str(), sizeof(ptable[k].name) - 1);
-			ptable[k].name[sizeof(ptable[k].name) - 1] = '\0'; 
-			ptable[k].size = newPartSize << 20;
+			int i_o = 0;
+			for (i_o=0;i_o < io->part_count;i_o++){
+				if(strcmp(beforePart,(*(io->ptable + i_o)).name) == 0){
+					break;
+				}
+			}
+			if(i_o = io->part_count){
+				showErrorDialog(window, "错误 Error", "后一个指定的分区不存在！\nPartition after does not exist!");
+				return;
+			}
+			int i_op = 0;
+			for (i_op = 0; i_op < io->part_count; i_op++) {
+				if(strcmp(beforePart,(*(io->ptable + i_op)).name) != 0){
+					strncpy(ptable[i_op].name, io->ptable[i_op].name, sizeof(ptable[i_op].name) - 1);
+					ptable[i_op].name[sizeof(ptable[i_op].name) - 1] = '\0'; 
+					ptable[i_op].size = io->ptable[i_op].size;
+				}
+				else{
+					break;
+				}
+			}
+			i_op++;
+			strncpy(ptable[i_op].name, newPartName.c_str(), sizeof(ptable[i_op].name) - 1);
+			ptable[i_op].name[sizeof(ptable[i_op].name) - 1] = '\0'; 
+			ptable[i_op].size = newPartSize << 20;
+			for (i_op; i_op < (io->part_count - i_op); i_op++) {
+				strncpy(ptable[i_op].name, io->ptable[i_op].name, sizeof(ptable[i_op].name) - 1);
+				ptable[i_op].name[sizeof(ptable[i_op].name) - 1] = '\0'; 
+				ptable[i_op].size = io->ptable[i_op].size;
+			}
 			io->ptable = ptable;
 			io->part_count++;
 			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
@@ -689,19 +712,42 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			if (ptable == nullptr) return;
 			int k = io->part_count_c;
 			for (int i = 0; i < io->part_count_c; i++) {
-				strncpy(ptable[i].name, io->Cptable[i].name, sizeof(ptable[i].name) - 1);
-				ptable[i].name[sizeof(ptable[i].name) - 1] = '\0'; 
-				ptable[i].size = io->Cptable[i].size;
-			}
-			for (int i = 0; i < io->part_count_c; i++) {
 				if (strcmp(io->Cptable[i].name, newPartName.c_str()) == 0) {
 					DEG_LOG(W, "Partition %s already exists", newPartName.c_str());
+					showErrorDialog(window, "错误 Error", "分区已存在！\nPartition already exists!");
 					return;
 				}
 			}
-			strncpy(ptable[k].name, newPartName.c_str(), sizeof(ptable[k].name) - 1);
-			ptable[k].name[sizeof(ptable[k].name) - 1] = '\0'; 
-			ptable[k].size = newPartSize << 20;
+			int i_o = 0;
+			for (i_o=0;i_o < io->part_count_c;i_o++){
+				if(strcmp(beforePart,(*(io->Cptable + i_o)).name) == 0){
+					break;
+				}
+			}
+			if(i_o = io->part_count_c){
+				showErrorDialog(window, "错误 Error", "后一个指定的分区不存在！\nPartition after does not exist!");
+				return;
+			}
+			int i_op = 0;
+			for (i_op = 0; i_op < io->part_count_c; i_op++) {
+				if(strcmp(beforePart,(*(io->Cptable + i_op)).name) != 0){
+					strncpy(ptable[i_op].name, io->Cptable[i_op].name, sizeof(ptable[i_op].name) - 1);
+					ptable[i_op].name[sizeof(ptable[i_op].name) - 1] = '\0'; 
+					ptable[i_op].size = io->Cptable[i_op].size;
+				}
+				else{
+					break;
+				}
+			}
+			i_op++;
+			strncpy(ptable[i_op].name, newPartName.c_str(), sizeof(ptable[i_op].name) - 1);
+			ptable[i_op].name[sizeof(ptable[i_op].name) - 1] = '\0'; 
+			ptable[i_op].size = newPartSize << 20;
+			for (i_op; i_op < (io->part_count_c - i_op); i_op++) {
+				strncpy(ptable[i_op].name, io->ptable[i_op].name, sizeof(ptable[i_op].name) - 1);
+				ptable[i_op].name[sizeof(ptable[i_op].name) - 1] = '\0'; 
+				ptable[i_op].size = io->ptable[i_op].size;
+			}
 			io->Cptable = ptable;
 			io->part_count_c++;
 			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
@@ -2641,11 +2687,13 @@ int gtk_kmain(int argc, char** argv) {
 		GtkWidget* newSizeLabel = helper.createLabel("New size in MB 新大小（MB）", "new_size_label", 0, 0, 100, 20);
 		GtkWidget* newSizeEntry = helper.createEntry("modify_new_size", "", false, 0, 0, 150, 32);
 		GtkWidget* modifyBtn = helper.createButton("Modify  修改", "modify_part", nullptr, 0, 0, 117, 32);
-		GtkWidget* AddLabel = helper.createLabel("[Add partition 添加分区] Enter partition name: partition will be added above userdata 输入分区名: 分区将被添加在userdata前","ff_label",0,0,200,20);
+		GtkWidget* AddLabel = helper.createLabel("[Add partition 添加分区] Enter partition name: 输入分区名:","ff_label",0,0,100,20);
 		GtkWidget* Add2Label = helper.createLabel("Part name 分区名:","f_label",0,0,50,20);
 		GtkWidget* newPartEntry = helper.createEntry("new_part","",false,0,0,200,32);
-		GtkWidget* new2SizeLabel = helper.createLabel("Size 大小(MB):","f3_label",0,0,150,20);
+		GtkWidget* new2SizeLabel = helper.createLabel("Size 大小(MB):","f3_label",0,0,100,20);
 		GtkWidget* newPartSize = helper.createEntry("modify_add_size","",false,0,0,150,32);
+		GtkWidget* afterPartLabel = helper.createLabel("Part after this new part 新分区之后的分区:","",0,0,100,20);
+		GtkWidget* afterPart = helper.createEntry("before_new_part","",false,0,0,100,32);
 		GtkWidget* addNewPartBtn = helper.createButton("Modify  修改","modify_new_part",nullptr,0,0,117,32);
 		GtkWidget* RemvLabel = helper.createLabel("[Remove partition 移除分区] Please check a partition you want to remove  请选择你想要移除的分区","ffff_label",0,0,250,20);
 		GtkWidget* RemvPartBtn = helper.createButton("Modify  修改","modify_rm_part",nullptr,0,0,117,32);
@@ -2700,6 +2748,8 @@ int gtk_kmain(int argc, char** argv) {
 		gtk_box_pack_start(GTK_BOX(modifyAddBox), newPartEntry, FALSE,FALSE,0);
 		gtk_box_pack_start(GTK_BOX(modifyAddBox), new2SizeLabel, FALSE,FALSE,0);
 		gtk_box_pack_start(GTK_BOX(modifyAddBox), newPartSize, FALSE,FALSE,0);
+		gtk_box_pack_start(GTK_BOX(modifyAddBox), afterPartLabel,FALSE,FALSE,0);
+		gtk_box_pack_start(GTK_BOX(modifyAddBox), afterPart,FALSE,FALSE,0);
 		gtk_box_pack_start(GTK_BOX(modifyAddBox), addNewPartBtn, FALSE,FALSE,0);
 		helper.addToGrid(partPage, modifyAddBox, 0, 16, 5, 1);
 		GtkWidget* modifyRemvBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
