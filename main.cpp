@@ -672,7 +672,6 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 					break;
 				}
 			}
-			i_op++;
 			strncpy(ptable[i_op].name, newPartName.c_str(), sizeof(ptable[i_op].name) - 1);
 			ptable[i_op].name[sizeof(ptable[i_op].name) - 1] = '\0'; 
 			ptable[i_op].size = newPartSize << 20;
@@ -739,7 +738,6 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 					break;
 				}
 			}
-			i_op++;
 			strncpy(ptable[i_op].name, newPartName.c_str(), sizeof(ptable[i_op].name) - 1);
 			ptable[i_op].name[sizeof(ptable[i_op].name) - 1] = '\0'; 
 			ptable[i_op].size = newPartSize << 20;
