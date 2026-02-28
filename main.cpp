@@ -121,7 +121,25 @@ void crash_handler(int sig) {
 	}).detach();
     
 }
-
+void update_partition_size(spdio_t* io) {
+    if(!isCMethod) {
+        for(int i = 0; i < io->part_count; i++) {
+            int v1 = io->verbose;
+            io->verbose = -1;
+            (*(io->ptable + i)).size = check_partition(io, (*(io->ptable + i)).name, 1);
+            io->verbose = v1;
+        }
+    }
+    else {
+        for(int i = 0; i < io->part_count_c; i++) {
+            int v1 = io->verbose;
+            io->verbose = -1;
+            (*(io->Cptable + i)).size = check_partition(io, (*(io->Cptable + i)).name, 1);
+            io->verbose = v1;
+        }
+    }
+   
+}
 void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("poweroff");
 	helper.enableWidget("reboot");
@@ -571,6 +589,7 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			for (int i = 0; i < io->part_count; i++) {
 				partitions.push_back(io->ptable[i]);
 			}
+			update_partition_size(io);
 			populatePartitionList(helper, partitions);
 		}, window);
 		if(isCMethod){
@@ -780,6 +799,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			for (int i = 0; i < io->part_count; i++) {
 				partitions.push_back(io->ptable[i]);
 			}
+			update_partition_size(io);
 			populatePartitionList(helper, partitions);
 		}, window);
 		if(isCMethod){
@@ -920,6 +940,7 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 			for (int i = 0; i < io->part_count; i++) {
 				partitions.push_back(io->ptable[i]);
 			}
+			update_partition_size(io);
 			populatePartitionList(helper, partitions);
 		}, window);
 		if(isCMethod){
@@ -1033,6 +1054,7 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 			for (int i = 0; i < io->part_count; i++) {
 				partitions.push_back(io->ptable[i]);
 			}
+			// update_partition_size(io);
 			populatePartitionList(helper, partitions);
 		}, window);
 		if(isCMethod){
