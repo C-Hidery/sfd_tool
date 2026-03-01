@@ -694,11 +694,10 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			strncpy(ptable[i_op].name, newPartName.c_str(), sizeof(ptable[i_op].name) - 1);
 			ptable[i_op].name[sizeof(ptable[i_op].name) - 1] = '\0'; 
 			ptable[i_op].size = newPartSize << 20;
-			i_op++;
-			for (i_op; i_op < (io->part_count - i_op); i_op++) {
-				strncpy(ptable[i_op].name, io->ptable[i_op].name, sizeof(ptable[i_op].name) - 1);
-				ptable[i_op].name[sizeof(ptable[i_op].name) - 1] = '\0'; 
-				ptable[i_op].size = io->ptable[i_op].size;
+			for (i_op; i_op < io->part_count; i_op++) {
+				strncpy(ptable[i_op + 1].name, io->ptable[i_op].name, sizeof(ptable[i_op + 1].name) - 1);
+				ptable[i_op + 1].name[sizeof(ptable[i_op + 1].name) - 1] = '\0'; 
+				ptable[i_op + 1].size = io->ptable[i_op].size;
 			}
 			io->ptable = ptable;
 			io->part_count++;
@@ -761,11 +760,10 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			strncpy(ptable[i_op].name, newPartName.c_str(), sizeof(ptable[i_op].name) - 1);
 			ptable[i_op].name[sizeof(ptable[i_op].name) - 1] = '\0'; 
 			ptable[i_op].size = newPartSize << 20;
-			i_op++;
-			for (i_op; i_op < (io->part_count_c - i_op); i_op++) {
-				strncpy(ptable[i_op].name, io->ptable[i_op].name, sizeof(ptable[i_op].name) - 1);
-				ptable[i_op].name[sizeof(ptable[i_op].name) - 1] = '\0'; 
-				ptable[i_op].size = io->ptable[i_op].size;
+			for (i_op; i_op < io->part_count_c; i_op++) {
+				strncpy(ptable[i_op + 1].name, io->ptable[i_op].name, sizeof(ptable[i_op + 1].name) - 1);
+				ptable[i_op + 1].name[sizeof(ptable[i_op + 1].name) - 1] = '\0'; 
+				ptable[i_op + 1].size = io->ptable[i_op].size;
 			}
 			io->Cptable = ptable;
 			io->part_count_c++;
