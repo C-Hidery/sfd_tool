@@ -320,7 +320,7 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 	}
 	std::thread([filename, parent,helper]() {
 		load_partition_unify(io, gPartInfo.name, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-		gui_idle_call_wait_drag([parent,helper]() {
+		gui_idle_call_wait_drag([parent,helper]() mutable {
 			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区写入完成！\nPartition write completed!");
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
@@ -388,7 +388,7 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 					load_partition_force(io, i, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
 					break;
 				}
-			gui_idle_call_wait_drag([parent, helper]() {
+			gui_idle_call_wait_drag([parent, helper]() mutable {
 				showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区强制写入完成！\nPartition force write completed!");
 				helper.setLabelText(helper.getWidget("con"), "Ready");
 			},GTK_WINDOW(helper.getWidget("main_window")));
@@ -425,7 +425,7 @@ void on_button_clicked_list_read(GtkWidgetHelper helper) {
 	}
 	std::thread([savePath, parent, helper]() {
 		dump_partition(io, gPartInfo.name, 0, gPartInfo.size, savePath.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);
-		gui_idle_call_wait_drag([parent, helper]() {
+		gui_idle_call_wait_drag([parent, helper]() mutable {
 			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区读取完成！\nPartition read completed!");
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
@@ -451,7 +451,7 @@ void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 	}
 	std::thread([parent, helper]() {
 		erase_partition(io, gPartInfo.name, isCMethod);
-		gui_idle_call_wait_drag([parent, helper]() {
+		gui_idle_call_wait_drag([parent, helper]() mutable {
 			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区擦除完成！\nPartition erase completed!");
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
@@ -1291,7 +1291,7 @@ void on_button_clicked_m_write(GtkWidgetHelper helper) {
 	}
 	std::thread([parent, filename, helper]() {
 		load_partition_unify(io, gPartInfo.name, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-		gui_idle_call_wait_drag([parent, helper]() {
+		gui_idle_call_wait_drag([parent, helper]() mutable {
 			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区写入完成！\nPartition write completed!");
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
@@ -1325,7 +1325,7 @@ void on_button_clicked_m_read(GtkWidgetHelper helper) {
     helper.setLabelText(helper.getWidget("con"), "Reading partition");
 	std::thread([parent, savePath, helper]() {
 		dump_partition(io, gPartInfo.name, 0, gPartInfo.size, savePath.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);
-		gui_idle_call_wait_drag([parent, helper]() {
+		gui_idle_call_wait_drag([parent, helper]() mutable {
 			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区读取完成！\nPartition read completed!");
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
@@ -1354,7 +1354,7 @@ void on_button_clicked_m_erase(GtkWidgetHelper helper) {
 	helper.setLabelText(helper.getWidget("con"), "Erase partition");
 	std::thread([parent, helper]() {
 		erase_partition(io, gPartInfo.name, isCMethod);
-		gui_idle_call_wait_drag([parent, helper]() {
+		gui_idle_call_wait_drag([parent, helper]() mutable{
 			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区擦除完成！\nPartition erase completed!");
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
