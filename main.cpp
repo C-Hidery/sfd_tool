@@ -306,6 +306,7 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 		showErrorDialog(parent, "错误 Error", "当前未加载分区表，无法写入分区列表！\nNo partition table loaded, cannot write partition list!");
 		return;
 	}
+	helper.setLabelText(helper.getWidget("con"), "Writing partition");
 	FILE* fi;
 	fi = oxfopen(filename.c_str(), "r");
 	if (fi == nullptr) {
@@ -321,6 +322,7 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 		load_partition_unify(io, gPartInfo.name, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 		gui_idle_call_wait_drag([parent]() {
 			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区写入完成！\nPartition write completed!");
+			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
 	}).detach();
 
@@ -345,6 +347,7 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 		showErrorDialog(parent, "错误 Error", "当前未加载分区表，无法写入分区列表！\nNo partition table loaded, cannot write partition list!");
 		return;
 	}
+	helper.setLabelText(helper.getWidget("con"), "Force Writing partition");
 	FILE* fi;
 	fi = oxfopen(filename.c_str(), "r");
 	if (fi == nullptr) {
@@ -387,6 +390,7 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 				}
 			gui_idle_call_wait_drag([parent]() {
 				showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区强制写入完成！\nPartition force write completed!");
+				helper.setLabelText(helper.getWidget("con"), "Ready");
 			},GTK_WINDOW(helper.getWidget("main_window")));
 		}).detach();
 	}
@@ -412,6 +416,7 @@ void on_button_clicked_list_read(GtkWidgetHelper helper) {
 		showErrorDialog(parent, "错误 Error", "当前未加载分区表，无法写入分区列表！\nNo partition table loaded, cannot write partition list!");
 		return;
 	}
+	helper.setLabelText(helper.getWidget("con"), "Reading partition");
 	//dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
 	get_partition_info(io, part_name.c_str(), 1);
 	if (!gPartInfo.size) {
@@ -422,6 +427,7 @@ void on_button_clicked_list_read(GtkWidgetHelper helper) {
 		dump_partition(io, gPartInfo.name, 0, gPartInfo.size, savePath.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);
 		gui_idle_call_wait_drag([parent]() {
 			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区读取完成！\nPartition read completed!");
+			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
 	}).detach();
 
@@ -437,6 +443,7 @@ void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
+	helper.setLabelText(helper.getWidget("con"), "Erase partition");
 	get_partition_info(io, part_name.c_str(), 0);
 	if (!gPartInfo.size) {
 		DEG_LOG(E, "Partition not exist\n");
@@ -446,6 +453,7 @@ void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 		erase_partition(io, gPartInfo.name, isCMethod);
 		gui_idle_call_wait_drag([parent]() {
 			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区擦除完成！\nPartition erase completed!");
+			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
 	}).detach();
 
@@ -476,6 +484,7 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 		showErrorDialog(window, "错误 Error", "请输入合法的新大小！\nPlease enter a valid new size!");
 		return;
 	}
+	helper.setLabelText(helper.getWidget("con"), "Modify partition table");
 	std::thread([secondPartName, newSizeMB, window, helper, part_name]() mutable {
 		int i_part = 0;
 		int i_se_part = 0;
@@ -530,8 +539,14 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			if (!send_and_check(io)) gpt_failed = 0;
 		}
 		else {
-			bool i_is = showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区大小可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition size may brick the device!");
-			if(!i_is) return;
+		    bool i_is = false;
+		    gui_idle_call_with_callback([helper]() -> bool {
+		        return showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
+		    },
+		    [helper, &i_is](bool result){
+		        i_is = result;
+		    });
+		    if(!i_is) return;
 			for (i_part = 0; i_part < io->part_count_c; i_part++) {
 				if (!strcmp(part_name.c_str(), (*(io->Cptable + i_part)).name)) {
 					break;
@@ -591,6 +606,7 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			}
 			update_partition_size(io);
 			populatePartitionList(helper, partitions);
+			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}, window);
 		if(isCMethod){
 			delete[] io->Cptable;
@@ -657,6 +673,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 		showErrorDialog(window, "错误 Error", "请输入合法的新大小！\nPlease enter a valid new size!");
 		return;
 	}
+	helper.setLabelText(helper.getWidget("con"), "Modify partition table");
 	std::thread([window, newPartName, helper, newPartSize, beforePart]() mutable {
 		if(!isCMethod) {
 			partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
@@ -724,8 +741,14 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			if (!send_and_check(io)) gpt_failed = 0;
 		}
 		else {
-			bool i_is = showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，添加分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, adding partition may brick the device!");
-			if(!i_is) return;
+			bool i_is = false;
+		    gui_idle_call_with_callback([helper]() -> bool {
+		        return showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
+		    },
+		    [helper, &i_is](bool result){
+		        i_is = result;
+		    });
+		    if(!i_is) return;
 			partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
 			if (ptable == nullptr) return;
 			int k = io->part_count_c;
@@ -799,6 +822,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			}
 			update_partition_size(io);
 			populatePartitionList(helper, partitions);
+			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}, window);
 		if(isCMethod){
 			delete[] io->Cptable;
@@ -822,6 +846,7 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 	}
+	helper.setLabelText(helper.getWidget("con"), "Modify partition table");
 	std::thread([part_name, helper, window]() mutable {
 		int i = 0;
 		if(!isCMethod){
@@ -878,6 +903,14 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 			if (!send_and_check(io)) gpt_failed = 0;
 		}
 		else{
+		    bool i_is = false;
+		    gui_idle_call_with_callback([helper]() -> bool {
+		        return showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
+		    },
+		    [helper, &i_is](bool result){
+		        i_is = result;
+		    });
+		    if(!i_is) return;
 			for(i = 0;i < io->part_count_c; i++) {
 				if(strcmp((*(io->Cptable + i)).name, part_name.c_str())){
 					break;
@@ -940,6 +973,7 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 			}
 			update_partition_size(io);
 			populatePartitionList(helper, partitions);
+			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}, window);
 		if(isCMethod){
 			delete[] io->Cptable;
@@ -964,6 +998,7 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
+	helper.setLabelText(helper.getWidget("con"), "Modify partition table");
 	std::thread([part_name, helper, window]() mutable {
 		int i = 0;
 		if(!isCMethod){
@@ -1006,6 +1041,14 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 			if (!send_and_check(io)) gpt_failed = 0;
 		}
 		else{
+		    bool i_is = false;
+		    gui_idle_call_with_callback([helper]() -> bool {
+		        return showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
+		    },
+		    [helper, &i_is](bool result){
+		        i_is = result;
+		    });
+		    if(!i_is) return;
 			for(i = 0;i < io->part_count_c; i++) {
 				if(strcmp((*(io->Cptable + i)).name, part_name.c_str())){
 					break;
@@ -1054,6 +1097,7 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 			}
 			// update_partition_size(io);
 			populatePartitionList(helper, partitions);
+			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}, window);
 		if(isCMethod){
 			delete[] io->Cptable;
@@ -1157,6 +1201,7 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
+	helper.setLabelText(helper.getWidget("con"), "Backup partitions");
 	std::thread([helper]() {
 		if (!isCMethod) {
 			if (gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
@@ -1203,7 +1248,7 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 			}
 		}
 	}).detach();
-
+    helper.setLabelText(helper.getWidget("con"), "Ready");
 }
 void on_button_clicked_m_select(GtkWidgetHelper helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
@@ -1232,6 +1277,7 @@ void on_button_clicked_m_write(GtkWidgetHelper helper) {
 		showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未指定分区名称！\nNo partition name specified!");
 		return;
 	}
+	helper.setLabelText(helper.getWidget("con"), "Writing partition");
 	FILE* fi;
 	fi = oxfopen(filename.c_str(), "r");
 	if (fi == nullptr) {
@@ -1247,6 +1293,7 @@ void on_button_clicked_m_write(GtkWidgetHelper helper) {
 		load_partition_unify(io, gPartInfo.name, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 		gui_idle_call_wait_drag([parent]() {
 			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区写入完成！\nPartition write completed!");
+			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
 	}).detach();
 }
@@ -1275,11 +1322,12 @@ void on_button_clicked_m_read(GtkWidgetHelper helper) {
 		DEG_LOG(E, "Partition does not exist\n");
 		return;
 	}
-
+    helper.setLabelText(helper.getWidget("con"), "Reading partition");
 	std::thread([parent, savePath, helper]() {
 		dump_partition(io, gPartInfo.name, 0, gPartInfo.size, savePath.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);
 		gui_idle_call_wait_drag([parent]() {
 			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区读取完成！\nPartition read completed!");
+			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
 	}).detach();
 }
@@ -1303,10 +1351,12 @@ void on_button_clicked_m_erase(GtkWidgetHelper helper) {
 		DEG_LOG(E, "Partition does not exist\n");
 		return;
 	}
+	helper.setLabelText(helper.getWidget("con"), "Erase partition");
 	std::thread([parent, helper]() {
 		erase_partition(io, gPartInfo.name, isCMethod);
 		gui_idle_call_wait_drag([parent]() {
 			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区擦除完成！\nPartition erase completed!");
+			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
 	}).detach();
 }
@@ -1631,6 +1681,7 @@ void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
+	helper.setLabelText(helper.getWidget("con"), "Patching trustos");
 	TosPatcher patcher;
 	bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Warn 警告", "This operation may break your device, and not all devices support this, if your device is broken, flash backup in backup_tos, continue?\n此操作可能会使你的设备损坏，并且不是所有设备都支持此操作，如果设备损坏，请刷回backup_tos里的备份，是否继续？");
 	if (i_is) {
@@ -1654,7 +1705,7 @@ void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
 			}
 		}).detach();
 	}
-
+    helper.setLabelText(helper.getWidget("con"), "Ready");
 }
 void on_button_clicked_raw_data_en(GtkWidgetHelper helper) {
 	int rawdatay = atoi(helper.getEntryText(helper.getWidget("raw_data_v")));
