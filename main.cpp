@@ -320,7 +320,7 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 	}
 	std::thread([filename, parent,helper]() {
 		load_partition_unify(io, gPartInfo.name, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-		gui_idle_call_wait_drag([parent]() {
+		gui_idle_call_wait_drag([parent,helper]() {
 			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区写入完成！\nPartition write completed!");
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
@@ -388,7 +388,7 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 					load_partition_force(io, i, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
 					break;
 				}
-			gui_idle_call_wait_drag([parent]() {
+			gui_idle_call_wait_drag([parent, helper]() {
 				showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区强制写入完成！\nPartition force write completed!");
 				helper.setLabelText(helper.getWidget("con"), "Ready");
 			},GTK_WINDOW(helper.getWidget("main_window")));
@@ -425,7 +425,7 @@ void on_button_clicked_list_read(GtkWidgetHelper helper) {
 	}
 	std::thread([savePath, parent, helper]() {
 		dump_partition(io, gPartInfo.name, 0, gPartInfo.size, savePath.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);
-		gui_idle_call_wait_drag([parent]() {
+		gui_idle_call_wait_drag([parent, helper]() {
 			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区读取完成！\nPartition read completed!");
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
@@ -451,7 +451,7 @@ void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 	}
 	std::thread([parent, helper]() {
 		erase_partition(io, gPartInfo.name, isCMethod);
-		gui_idle_call_wait_drag([parent]() {
+		gui_idle_call_wait_drag([parent, helper]() {
 			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区擦除完成！\nPartition erase completed!");
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
@@ -540,12 +540,12 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 		}
 		else {
 		    bool i_is = false;
-		    gui_idle_call_with_callback([helper]() -> bool {
+		    gui_idle_call_with_callback([helper, window]() -> bool {
 		        return showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
 		    },
 		    [helper, &i_is](bool result){
 		        i_is = result;
-		    });
+		    }, window);
 		    if(!i_is) return;
 			for (i_part = 0; i_part < io->part_count_c; i_part++) {
 				if (!strcmp(part_name.c_str(), (*(io->Cptable + i_part)).name)) {
@@ -742,12 +742,12 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 		}
 		else {
 			bool i_is = false;
-		    gui_idle_call_with_callback([helper]() -> bool {
+		    gui_idle_call_with_callback([helper, window]() -> bool {
 		        return showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
 		    },
 		    [helper, &i_is](bool result){
 		        i_is = result;
-		    });
+		    }, window);
 		    if(!i_is) return;
 			partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
 			if (ptable == nullptr) return;
@@ -904,12 +904,12 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 		}
 		else{
 		    bool i_is = false;
-		    gui_idle_call_with_callback([helper]() -> bool {
+		    gui_idle_call_with_callback([helper, window]() -> bool {
 		        return showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
 		    },
 		    [helper, &i_is](bool result){
 		        i_is = result;
-		    });
+		    }, window);
 		    if(!i_is) return;
 			for(i = 0;i < io->part_count_c; i++) {
 				if(strcmp((*(io->Cptable + i)).name, part_name.c_str())){
@@ -1042,12 +1042,12 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 		}
 		else{
 		    bool i_is = false;
-		    gui_idle_call_with_callback([helper]() -> bool {
+		    gui_idle_call_with_callback([helper, window]() -> bool {
 		        return showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
 		    },
 		    [helper, &i_is](bool result){
 		        i_is = result;
-		    });
+		    }, window);
 		    if(!i_is) return;
 			for(i = 0;i < io->part_count_c; i++) {
 				if(strcmp((*(io->Cptable + i)).name, part_name.c_str())){
@@ -1291,7 +1291,7 @@ void on_button_clicked_m_write(GtkWidgetHelper helper) {
 	}
 	std::thread([parent, filename, helper]() {
 		load_partition_unify(io, gPartInfo.name, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-		gui_idle_call_wait_drag([parent]() {
+		gui_idle_call_wait_drag([parent, helper]() {
 			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区写入完成！\nPartition write completed!");
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
@@ -1325,7 +1325,7 @@ void on_button_clicked_m_read(GtkWidgetHelper helper) {
     helper.setLabelText(helper.getWidget("con"), "Reading partition");
 	std::thread([parent, savePath, helper]() {
 		dump_partition(io, gPartInfo.name, 0, gPartInfo.size, savePath.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);
-		gui_idle_call_wait_drag([parent]() {
+		gui_idle_call_wait_drag([parent, helper]() {
 			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区读取完成！\nPartition read completed!");
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
@@ -1354,7 +1354,7 @@ void on_button_clicked_m_erase(GtkWidgetHelper helper) {
 	helper.setLabelText(helper.getWidget("con"), "Erase partition");
 	std::thread([parent, helper]() {
 		erase_partition(io, gPartInfo.name, isCMethod);
-		gui_idle_call_wait_drag([parent]() {
+		gui_idle_call_wait_drag([parent, helper]() {
 			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区擦除完成！\nPartition erase completed!");
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
@@ -2083,6 +2083,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Tips 提示", "Since your device is in SPRD4 mode, you can choose to skip FDL setting and directly execute FDL, but not all devices support that, please proceed with caution!\n由于你的设备处于SPRD4模式，你可以选择跳过FDL设置直接执行FDL，但是不是所有设备都支持，请谨慎操作！");
 			}
 		}
+		else if (device_stage == FDL2) helper.setLabelText(helper.getWidget("con"), "Ready");
 		Enable_Startup();
 		helper.setLabelText(helper.getWidget("con"), "Connected");
 		if (device_stage == BROM) helper.setLabelText(helper.getWidget("mode"), "BROM");
@@ -2276,7 +2277,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			EnableWidgets(helper);
 			helper.disableWidget("fdl_exec");
 			helper.setLabelText(helper.getWidget("mode"), "FDL2");
-			helper.setLabelText(helper.getWidget("con"), "Connected");
+			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
 
 	} else {
