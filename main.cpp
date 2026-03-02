@@ -485,7 +485,9 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 		return;
 	}
 	helper.setLabelText(helper.getWidget("con"), "Modify partition table");
-	std::thread([secondPartName, newSizeMB, window, helper, part_name]() mutable {
+	bool i_is = false;
+	if(isCMethod) i_is = showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
+	std::thread([secondPartName, newSizeMB, window, helper, part_name, i_is](){
 		int i_part = 0;
 		int i_se_part = 0;
 		if (!isCMethod) {
@@ -539,14 +541,9 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			if (!send_and_check(io)) gpt_failed = 0;
 		}
 		else {
-		    bool i_is = false;
-		    gui_idle_call_with_callback([helper, window]() -> bool {
-		        return showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
-		    },
-		    [helper, &i_is](bool result){
-		        i_is = result;
-		    }, window);
+		    
 		    if(!i_is) return;
+		    
 			for (i_part = 0; i_part < io->part_count_c; i_part++) {
 				if (!strcmp(part_name.c_str(), (*(io->Cptable + i_part)).name)) {
 					break;
@@ -608,15 +605,17 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			populatePartitionList(helper, partitions);
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}, window);
+	}).detach();
 		if(isCMethod){
 			delete[] io->Cptable;
 			io->Cptable = nullptr;
 			io->part_count_c = 0;
 			isCMethod = 0;
-		}
-	}).detach();
+		} 
+	 }
+	 
+  }
 
-}
 void on_button_clicked_xml_get(GtkWidgetHelper helper) {
     GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
 
@@ -674,7 +673,9 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 		return;
 	}
 	helper.setLabelText(helper.getWidget("con"), "Modify partition table");
-	std::thread([window, newPartName, helper, newPartSize, beforePart]() mutable {
+	bool i_is = false;
+	if(isCMethod) i_is = showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
+	std::thread([window, newPartName, helper, newPartSize, beforePart, i_is]() mutable {
 		if(!isCMethod) {
 			partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
 			if (ptable == nullptr) return;
@@ -741,13 +742,6 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			if (!send_and_check(io)) gpt_failed = 0;
 		}
 		else {
-			bool i_is = false;
-		    gui_idle_call_with_callback([helper, window]() -> bool {
-		        return showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
-		    },
-		    [helper, &i_is](bool result){
-		        i_is = result;
-		    }, window);
 		    if(!i_is) return;
 			partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
 			if (ptable == nullptr) return;
@@ -824,13 +818,13 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			populatePartitionList(helper, partitions);
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}, window);
+	}).detach();
 		if(isCMethod){
 			delete[] io->Cptable;
 			io->Cptable = nullptr;
 			io->part_count_c = 0;
 			isCMethod = 0;
 		}
-	}).detach();
 }
 void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 	if (io->part_count == 0 && io->part_count_c == 0) {
@@ -847,7 +841,9 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 		},GTK_WINDOW(helper.getWidget("main_window")));
 	}
 	helper.setLabelText(helper.getWidget("con"), "Modify partition table");
-	std::thread([part_name, helper, window]() mutable {
+	bool i_is = false;
+	if(isCMethod) i_is = showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
+	std::thread([part_name, helper, window, i_is]() mutable {
 		int i = 0;
 		if(!isCMethod){
 			for(i = 0;i < io->part_count; i++) {
@@ -903,13 +899,7 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 			if (!send_and_check(io)) gpt_failed = 0;
 		}
 		else{
-		    bool i_is = false;
-		    gui_idle_call_with_callback([helper, window]() -> bool {
-		        return showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
-		    },
-		    [helper, &i_is](bool result){
-		        i_is = result;
-		    }, window);
+		    
 		    if(!i_is) return;
 			for(i = 0;i < io->part_count_c; i++) {
 				if(strcmp((*(io->Cptable + i)).name, part_name.c_str())){
@@ -975,13 +965,13 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 			populatePartitionList(helper, partitions);
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}, window);
+	}).detach();
 		if(isCMethod){
 			delete[] io->Cptable;
 			io->Cptable = nullptr;
 			io->part_count_c = 0;
 			isCMethod = 0;
 		}
-	}).detach();
 }
 void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 	if (io->part_count == 0 && io->part_count_c == 0) {
@@ -999,7 +989,9 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 		
 	}
 	helper.setLabelText(helper.getWidget("con"), "Modify partition table");
-	std::thread([part_name, helper, window]() mutable {
+	bool i_is = false;
+	if(isCMethod) i_is = showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
+	std::thread([part_name, helper, window, i_is]() mutable {
 		int i = 0;
 		if(!isCMethod){
 			for(i = 0;i < io->part_count; i++) {
@@ -1041,13 +1033,8 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 			if (!send_and_check(io)) gpt_failed = 0;
 		}
 		else{
-		    bool i_is = false;
-		    gui_idle_call_with_callback([helper, window]() -> bool {
-		        return showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
-		    },
-		    [helper, &i_is](bool result){
-		        i_is = result;
-		    }, window);
+		    
+		    
 		    if(!i_is) return;
 			for(i = 0;i < io->part_count_c; i++) {
 				if(strcmp((*(io->Cptable + i)).name, part_name.c_str())){
@@ -1099,13 +1086,13 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 			populatePartitionList(helper, partitions);
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}, window);
+	}).detach();
 		if(isCMethod){
 			delete[] io->Cptable;
 			io->Cptable = nullptr;
 			io->part_count_c = 0;
 			isCMethod = 0;
 		}
-	}).detach();
 }
 void on_button_clicked_poweroff(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
