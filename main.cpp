@@ -611,10 +611,8 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			io->Cptable = nullptr;
 			io->part_count_c = 0;
 			isCMethod = 0;
-		} 
-	 }
-	 
-  }
+	    } 
+}
 
 void on_button_clicked_xml_get(GtkWidgetHelper helper) {
     GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
