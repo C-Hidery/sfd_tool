@@ -1808,8 +1808,18 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 	if (*part_count_ptr) {
 		if (strcmp(fn, "-")) DEG_LOG(I,"Partition list saved to %s\n", fn);
 		DEG_LOG(I,"Total number of partitions: %d\n", *part_count_ptr);
-		if (Da_Info.dwStorageType == 0x102) DEG_LOG(I,"Storage is emmc\n");
-		else if (Da_Info.dwStorageType == 0x103) DEG_LOG(I,"Storage is ufs\n");
+		if (Da_Info.dwStorageType == 0x102) {
+			DEG_LOG(I,"Storage is emmc\n"); 
+		    gui_idle_call([]() mutable {
+				helper.setLabelText(helper.getWidget("storage_mode"),"Emmc");
+			});
+		}
+		else if (Da_Info.dwStorageType == 0x103) {
+			DEG_LOG(I,"Storage is ufs\n");
+		    gui_idle_call([]() mutable {
+				helper.setLabelText(helper.getWidget("storage_mode"),"Ufs");
+			});
+		}
 		return ptable;
 	}
 	else {

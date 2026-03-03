@@ -2203,17 +2203,16 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				if (!send_and_check(io)) DEG_LOG(OP, "Raw data mode enabled.");
 			}
 		} else if (highspeed || Da_Info.dwStorageType == 0x103) { // ufs
-			gui_idle_call([helper]() mutable {
-					helper.setLabelText(helper.getWidget("storage_mode"),"Ufs");
-				});
 			blk_size = 0xf800;
 			io->ptable = partition_list(io, fn_partlist, &io->part_count);
 		} else if (Da_Info.dwStorageType == 0x102) { // emmc
-			gui_idle_call([helper]() mutable {
-					helper.setLabelText(helper.getWidget("storage_mode"),"Emmc");
-				});
 			io->ptable = partition_list(io, fn_partlist, &io->part_count);
-		} else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
+		} else if (Da_Info.dwStorageType == 0x101) {
+			DEG_LOG(I, "Device storage is nand.");
+			gui_idle_call([helper]() mutable {
+				helper.setLabelText(helper.getWidget("storage_mode"),"Nand");
+			});
+		}
 		if (gpt_failed != 1) {
 			if (selected_ab == 2) {
 				DEG_LOG(I, "Device is using slot b\n");
