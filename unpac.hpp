@@ -49,12 +49,12 @@ static unsigned crc16(uint32_t crc, const void *src, unsigned len) {
     return crc;
 }
 
-#define ERR_EXIT(...) \
+#define U_ERR_EXIT(...) \
     do { fprintf(stderr, __VA_ARGS__); exit(1); } while (0)
 
 #define READ(p, n, name) \
     if (fread(p, n, 1, fi) != 1) \
-        ERR_EXIT("fread(%s) failed\n", #name)
+        U_ERR_EXIT("fread(%s) failed\n", #name)
 #define READ1(p) READ(&p, sizeof(p), #p)
 
 enum {
@@ -79,7 +79,7 @@ static size_t u16_to_u8(char *d, size_t dn, const uint16_t *s, size_t sn) {
 
 static int compare_u8_u16(int depth, char *d, const uint16_t *s, size_t sn) {
     size_t i = 0; int a, b;
-    if (depth > 10) ERR_EXIT("use less wildcards\n");
+    if (depth > 10) U_ERR_EXIT("use less wildcards\n");
     for (;;) {
         a = *d++;
         if (a == '*') goto wildcard;
@@ -138,17 +138,17 @@ public:
     
     void openPacFile(const char* filename) {
         fi = fopen(filename, "rb");
-        if (!fi) ERR_EXIT("fopen(input) failed\n");
+        if (!fi) U_ERR_EXIT("fopen(input) failed\n");
         
         READ1(head);
         if (head.pac_magic != ~0x50005u)
-            ERR_EXIT("bad pac_magic\n");
+            U_ERR_EXIT("bad pac_magic\n");
             
         if (head.dir_offset != sizeof(head))
-            ERR_EXIT("unexpected directory offset\n");
+            U_ERR_EXIT("unexpected directory offset\n");
             
         if (head.file_count >> 10)
-            ERR_EXIT("too many files\n");
+            U_ERR_EXIT("too many files\n");
     }
     
     void setFilter(int filter_argc, char** filter_argv) {
@@ -160,7 +160,7 @@ public:
         u16_to_u8(str_buf, sizeof(str_buf), x, sizeof(x) / 2)
     
     void listFiles() {
-        if (!fi) ERR_EXIT("PAC file not opened\n");
+        if (!fi) U_ERR_EXIT("PAC file not opened\n");
         
         CONV_STR(head.pac_version);
         printf("pac_version: %s\n", str_buf);
@@ -185,7 +185,7 @@ public:
             sprd_file_t file; int j;
             READ1(file);
             if (file.struct_size != sizeof(sprd_file_t))
-                ERR_EXIT("unexpected struct size\n");
+                U_ERR_EXIT("unexpected struct size\n");
 
             long long file_size = (long long)file.size_high << 32 | file.size;
             long long pac_offset = (long long)file.pac_offset_high << 32 | file.pac_offset;
@@ -224,17 +224,17 @@ public:
     }
     
     void extractFiles() {
-        if (!fi) ERR_EXIT("PAC file not opened\n");
+        if (!fi) U_ERR_EXIT("PAC file not opened\n");
         
         if (dir && chdir(dir))
-            ERR_EXIT("chdir failed\n");
+            U_ERR_EXIT("chdir failed\n");
         
         for (unsigned i = 0; i < head.file_count; i++) {
             sprd_file_t file; int j;
             long long file_size, pac_offset;
             READ1(file);
             if (file.struct_size != sizeof(sprd_file_t))
-                ERR_EXIT("unexpected struct size\n");
+                U_ERR_EXIT("unexpected struct size\n");
 
             file_size = (long long)file.size_high << 32 | file.size;
             pac_offset = (long long)file.pac_offset_high << 32 | file.pac_offset;
@@ -255,7 +255,7 @@ public:
             printf("%s\n", str_buf);
 
             if (fseeko(fi, pac_offset, SEEK_SET))
-                ERR_EXIT("fseek failed\n");
+                U_ERR_EXIT("fseek failed\n");
 
             if (check_path(str_buf) < 1) {
                 printf("!!! unsafe filename detected\n");
@@ -264,12 +264,12 @@ public:
 
             if (!buf) {
                 buf = (uint8_t*) malloc(chunk);
-                if (!buf) ERR_EXIT("malloc failed\n");
+                if (!buf) U_ERR_EXIT("malloc failed\n");
             }
 
             fo = fopen(str_buf, "wb");
             if (!fo)
-                ERR_EXIT("fopen(output) failed\n");
+                U_ERR_EXIT("fopen(output) failed\n");
 
             l = file_size;
             for (; l; l -= n) {
@@ -280,12 +280,12 @@ public:
             fclose(fo);
 
             if (fseek(fi, sizeof(head) + (i + 1) * sizeof(sprd_file_t), SEEK_SET))
-                ERR_EXIT("fseek failed\n");
+                U_ERR_EXIT("fseek failed\n");
         }
     }
     
     void checkCrc() {
-        if (!fi) ERR_EXIT("PAC file not opened\n");
+        if (!fi) U_ERR_EXIT("PAC file not opened\n");
         
         // Head CRC
         uint32_t head_crc = crc16(0, &head, sizeof(head) - 4);
@@ -298,9 +298,9 @@ public:
         uint32_t n, l = head.pac_size;
         uint32_t data_crc = 0;
         buf = (uint8_t*) malloc(chunk);
-        if (!buf) ERR_EXIT("malloc failed\n");
+        if (!buf) U_ERR_EXIT("malloc failed\n");
         n = sizeof(head);
-        if (l < n) ERR_EXIT("unexpected pac size\n");
+        if (l < n) U_ERR_EXIT("unexpected pac size\n");
         for (l -= n; l; l -= n) {
             n = l > chunk ? chunk : l;
             READ(buf, n, "chunk");

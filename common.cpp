@@ -2,7 +2,7 @@
 int isCancel = 0;
 bool isHelperInit = false;
 GtkWidgetHelper helper;
-
+#include "unpac.hpp"
 bool Err_Showed = false;
 void ERR_EXIT(const char* format, ...) {
 	va_list args;
