@@ -978,6 +978,7 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 	}
 	GtkWindow* window = GTK_WINDOW(helper.getWidget("main_window"));
 	std::string part_name = getSelectedPartitionName(helper);
+	std::string new_part_name = helper.getEntryText(helper.getWidget("modify_rename_part"));
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
@@ -986,10 +987,14 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
+	if(part_name.empty() || new_part_name.empty()){
+		showErrorDialog(window, "错误 Error", "请填写完整的修改信息！\nPlease fill in complete modification info!");
+		return;
+	}
 	helper.setLabelText(helper.getWidget("con"), "Modify partition table");
 	bool i_is = false;
 	if(isCMethod) i_is = showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
-	std::thread([part_name, helper, window, i_is]() mutable {
+	std::thread([part_name, new_part_name, helper, window, i_is]() mutable {
 		int i = 0;
 		if(!isCMethod){
 			for(i = 0;i < io->part_count; i++) {
@@ -1005,7 +1010,7 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 				return;
 			}
 
-			strncpy(io->ptable[i].name, part_name.c_str(), sizeof(io->ptable[i].name) - 1);
+			strncpy(io->ptable[i].name, new_part_name.c_str(), sizeof(io->ptable[i].name) - 1);
 			io->ptable[i].name[sizeof(io->ptable[i].name) - 1] = '\0';
 
 			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
@@ -2755,6 +2760,8 @@ int gtk_kmain(int argc, char** argv) {
 		GtkWidget* RemvLabel = helper.createLabel("[Remove partition 移除分区] Please check a partition you want to remove  请选择你想要移除的分区","ffff_label",0,0,250,20);
 		GtkWidget* RemvPartBtn = helper.createButton("Modify  修改","modify_rm_part",nullptr,0,0,117,32);
 		GtkWidget* RenmLabel = helper.createLabel("[Rename partition 重命名分区] Please check a partition you want to rename  请选择一个你想要重命名的分区","f2_label",0,0,250,20);
+		GtkWidget* RenmPartLabel = helper.createLabel("New name 新名字","f4_label",0,0,100,20);
+		GtkWidget* RenmPartEntry = helper.createEntry("modify_rename_part","",false,0,0,200,32);
 		GtkWidget* RenmPartBtn = helper.createButton("Modify  修改","modify_ren_part",nullptr,0,0,117,32);
 
 		// 设置按钮初始状态
@@ -2815,6 +2822,8 @@ int gtk_kmain(int argc, char** argv) {
 		helper.addToGrid(partPage, modifyRemvBox, 0,18,5,1);
 		GtkWidget* modifyRenmBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL,10);
 		helper.addToGrid(partPage, RenmLabel, 0,19,5,1);
+		gtk_box_pack_start(GTK_BOX(modifyRenmBox), RenmPartLabel, FALSE,FALSE,0);
+		gtk_box_pack_start(GTK_BOX(modifyRenmBox), RenmPartEntry, FALSE,FALSE,0);
 		gtk_box_pack_start(GTK_BOX(modifyRenmBox), RenmPartBtn, FALSE,FALSE,0);
 		helper.addToGrid(partPage, modifyRenmBox, 0,20,5,1);
 
