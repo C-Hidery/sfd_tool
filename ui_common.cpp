@@ -193,16 +193,16 @@ GtkWidget* create_bottom_controls(GtkWidgetHelper& helper) {
 }
 
 void bind_bottom_signals(GtkWidgetHelper& helper, GtkWidget* bottomContainer) {
-	helper.bindClick(helper.getWidget("poweroff"), []() {
+	helper.bindClick(helper.getWidget("poweroff"), [&]() {
 		on_button_clicked_poweroff(helper);
 	});
-	helper.bindClick(helper.getWidget("reboot"), []() {
+	helper.bindClick(helper.getWidget("reboot"), [&]() {
 		on_button_clicked_reboot(helper);
 	});
-	helper.bindClick(helper.getWidget("recovery"), []() {
+	helper.bindClick(helper.getWidget("recovery"), [&]() {
 		on_button_clicked_recovery(helper);
 	});
-	helper.bindClick(helper.getWidget("fastboot"), []() {
+	helper.bindClick(helper.getWidget("fastboot"), [&]() {
 		on_button_clicked_fastboot(helper);
 	});
 }

@@ -56,10 +56,10 @@ GtkWidget* create_log_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 }
 
 void bind_log_signals(GtkWidgetHelper& helper) {
-	helper.bindClick(helper.getWidget("exp_log"), []() {
+	helper.bindClick(helper.getWidget("exp_log"), [&]() {
 		on_button_clicked_exp_log(helper);
 	});
-	helper.bindClick(helper.getWidget("log_clear"), []() {
+	helper.bindClick(helper.getWidget("log_clear"), [&]() {
 		on_button_clicked_log_clear(helper);
 	});
 }

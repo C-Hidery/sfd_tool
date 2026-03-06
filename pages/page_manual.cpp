@@ -216,19 +216,19 @@ GtkWidget* create_manual_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 }
 
 void bind_manual_signals(GtkWidgetHelper& helper) {
-	helper.bindClick(helper.getWidget("m_select"), []() {
+	helper.bindClick(helper.getWidget("m_select"), [&]() {
 		on_button_clicked_m_select(helper);
 	});
-	helper.bindClick(helper.getWidget("m_write"), []() {
+	helper.bindClick(helper.getWidget("m_write"), [&]() {
 		on_button_clicked_m_write(helper);
 	});
-	helper.bindClick(helper.getWidget("m_read"), []() {
+	helper.bindClick(helper.getWidget("m_read"), [&]() {
 		on_button_clicked_m_read(helper);
 	});
-	helper.bindClick(helper.getWidget("m_erase"), []() {
+	helper.bindClick(helper.getWidget("m_erase"), [&]() {
 		on_button_clicked_m_erase(helper);
 	});
-	helper.bindClick(helper.getWidget("m_cancel"), []() {
+	helper.bindClick(helper.getWidget("m_cancel"), [&]() {
 		on_button_clicked_m_cancel(helper);
 	});
 }

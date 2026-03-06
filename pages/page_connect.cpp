@@ -32,9 +32,9 @@ extern bool isUseCptable;
 using nlohmann::json;
 
 // 前向声明 — 这些回调定义在本文件中
-static void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv);
+extern void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv);
 static void on_button_clicked_select_fdl(GtkWidgetHelper helper);
-static void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile);
+extern void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile);
 static void on_button_clicked_select_cve(GtkWidgetHelper helper);
 
 static void on_button_clicked_select_cve(GtkWidgetHelper helper) {
@@ -301,15 +301,15 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 }
 
 void bind_connect_signals(GtkWidgetHelper& helper, int argc, char** argv) {
-	helper.bindClick(helper.getWidget("connect_1"), [argc, argv]() {
-		std::thread([argc, argv]() {
+	helper.bindClick(helper.getWidget("connect_1"), [&, argc, argv]() {
+		std::thread([&, argc, argv]() {
 			on_button_clicked_connect(helper, argc, argv);
 		}).detach();
 	});
-	helper.bindClick(helper.getWidget("select_fdl"), []() {
+	helper.bindClick(helper.getWidget("select_fdl"), [&]() {
 		on_button_clicked_select_fdl(helper);
 	});
-	helper.bindClick(helper.getWidget("select_cve"), []() {
+	helper.bindClick(helper.getWidget("select_cve"), [&]() {
 		on_button_clicked_select_cve(helper);
 	});
 	// fdl_exec 信号绑定在 main.cpp 中处理，因为需要 execfile 参数

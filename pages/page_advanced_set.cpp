@@ -237,46 +237,48 @@ void bind_advanced_set_signals(GtkWidgetHelper& helper) {
 	GtkWidget* sizeCon = helper.getWidget("size_con");
 	GtkWidget* timeout_op = helper.getWidget("timeout");
 
-	helper.bindValueChanged(blkSlider, [sizeCon]() {
+	helper.bindValueChanged(blkSlider, [&]() {
 		double value = gtk_range_get_value(GTK_RANGE(helper.getWidget("blk_size")));
 		int intValue = static_cast<int>(value);
-		gtk_label_set_text(GTK_LABEL(sizeCon), std::to_string(intValue).c_str());
+		GtkWidget* sc = helper.getWidget("size_con");
+		gtk_label_set_text(GTK_LABEL(sc), std::to_string(intValue).c_str());
 		blk_size = intValue;
 	});
-	helper.bindClick(helper.getWidget("raw_data_en"), []() {
+	helper.bindClick(helper.getWidget("raw_data_en"), [&]() {
 		on_button_clicked_raw_data_en(helper);
 	});
-	helper.bindClick(helper.getWidget("raw_data_dis"), []() {
+	helper.bindClick(helper.getWidget("raw_data_dis"), [&]() {
 		on_button_clicked_raw_data_dis(helper);
 	});
-	helper.bindClick(helper.getWidget("transcode_en"), []() {
+	helper.bindClick(helper.getWidget("transcode_en"), [&]() {
 		on_button_clicked_transcode_en(helper);
 	});
-	helper.bindClick(helper.getWidget("transcode_dis"), []() {
+	helper.bindClick(helper.getWidget("transcode_dis"), [&]() {
 		on_button_clicked_transcode_dis(helper);
 	});
-	helper.bindClick(helper.getWidget("charge_en"), []() {
+	helper.bindClick(helper.getWidget("charge_en"), [&]() {
 		on_button_clicked_charge_en(helper);
 	});
-	helper.bindClick(helper.getWidget("charge_dis"), []() {
+	helper.bindClick(helper.getWidget("charge_dis"), [&]() {
 		on_button_clicked_charge_dis(helper);
 	});
-	helper.bindClick(helper.getWidget("end_data_en"), []() {
+	helper.bindClick(helper.getWidget("end_data_en"), [&]() {
 		on_button_clicked_end_data_en(helper);
 	});
-	helper.bindClick(helper.getWidget("end_data_dis"), []() {
+	helper.bindClick(helper.getWidget("end_data_dis"), [&]() {
 		on_button_clicked_end_data_dis(helper);
 	});
-	helper.bindValueChanged(timeout_op, [timeout_op]() {
-		io->timeout = helper.getSpinValue(timeout_op);
+	helper.bindValueChanged(timeout_op, [&]() {
+		GtkWidget* to = helper.getWidget("timeout");
+		io->timeout = helper.getSpinValue(to);
 	});
-	helper.bindClick(helper.getWidget("abpart_auto"),[](){
+	helper.bindClick(helper.getWidget("abpart_auto"),[&](){
 		on_button_clicked_abpart_auto(helper);
 	});
-	helper.bindClick(helper.getWidget("abpart_a"),[](){
+	helper.bindClick(helper.getWidget("abpart_a"),[&](){
 		on_button_clicked_abpart_a(helper);
 	});
-	helper.bindClick(helper.getWidget("abpart_b"),[](){
+	helper.bindClick(helper.getWidget("abpart_b"),[&](){
 		on_button_clicked_abpart_b(helper);
 	});
 }

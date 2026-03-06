@@ -768,3 +768,45 @@ msgstr "_选择"
 #: GtkWidgetHelper.cpp:166
 msgid "Saving files"
 msgstr "保存文件"
+
+msgid "Change size"
+msgstr "修改分区大小"
+
+msgid "Please check a partition you want to change"
+msgstr "请选择你想要修改大小的分区"
+
+msgid "New size (MB)"
+msgstr "新大小 (MB)"
+
+msgid "Add partition"
+msgstr "添加分区"
+
+msgid "Enter partition name:"
+msgstr "输入分区名称:"
+
+msgid "Size (MB):"
+msgstr "大小 (MB):"
+
+msgid "Remove partition"
+msgstr "移除分区"
+
+msgid "Please check a partition you want to remove"
+msgstr "请选择你想要移除的分区"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "Rename partition"
+msgstr "重构分区名"
+
+msgid "Please check a partition you want to rename"
+msgstr "请选择你想重命名的分区"
+
+msgid "Partition Name"
+msgstr "分区名称"
+
+msgid "Size"
+msgstr "大小"
+
+msgid "Type"
+msgstr "类型"

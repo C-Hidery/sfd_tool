@@ -168,13 +168,13 @@ GtkWidget* create_debug_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 }
 
 void bind_debug_signals(GtkWidgetHelper& helper) {
-	helper.bindClick(helper.getWidget("pac_time"), []() {
+	helper.bindClick(helper.getWidget("pac_time"), [&]() {
 		on_button_clicked_pac_time(helper);
 	});
-	helper.bindClick(helper.getWidget("chip_uid"), []() {
+	helper.bindClick(helper.getWidget("chip_uid"), [&]() {
 		on_button_clicked_chip_uid(helper);
 	});
-	helper.bindClick(helper.getWidget("check_nand"), []() {
+	helper.bindClick(helper.getWidget("check_nand"), [&]() {
 		on_button_clicked_check_nand(helper);
 	});
 }

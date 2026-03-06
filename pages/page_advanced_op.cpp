@@ -295,28 +295,28 @@ GtkWidget* create_advanced_op_page(GtkWidgetHelper& helper, GtkWidget* notebook)
 }
 
 void bind_advanced_op_signals(GtkWidgetHelper& helper) {
-	helper.bindClick(helper.getWidget("set_active_a"), []() {
+	helper.bindClick(helper.getWidget("set_active_a"), [&]() {
 		on_button_clicked_set_active_a(helper);
 	});
-	helper.bindClick(helper.getWidget("set_active_b"), []() {
+	helper.bindClick(helper.getWidget("set_active_b"), [&]() {
 		on_button_clicked_set_active_b(helper);
 	});
-	helper.bindClick(helper.getWidget("select_xml"), []() {
+	helper.bindClick(helper.getWidget("select_xml"), [&]() {
 		on_button_clicked_select_xml(helper);
 	});
-	helper.bindClick(helper.getWidget("start_repart"), []() {
+	helper.bindClick(helper.getWidget("start_repart"), [&]() {
 		on_button_clicked_start_repart(helper);
 	});
-	helper.bindClick(helper.getWidget("read_xml"), []() {
+	helper.bindClick(helper.getWidget("read_xml"), [&]() {
 		on_button_clicked_read_xml(helper);
 	});
-	helper.bindClick(helper.getWidget("dmv_disable"), []() {
+	helper.bindClick(helper.getWidget("dmv_disable"), [&]() {
 		on_button_clicked_dmv_disable(helper);
 	});
-	helper.bindClick(helper.getWidget("dmv_enable"), []() {
+	helper.bindClick(helper.getWidget("dmv_enable"), [&]() {
 		on_button_clicked_dmv_enable(helper);
 	});
-	helper.bindClick(helper.getWidget("dis_avb"), []() {
+	helper.bindClick(helper.getWidget("dis_avb"), [&]() {
 		on_button_clicked_dis_avb(helper);
 	});
 }
