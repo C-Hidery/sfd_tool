@@ -2535,170 +2535,248 @@ int gtk_kmain(int argc, char** argv) {
 		GtkWidget* connectPage = helper.createGrid("connect_page", 5, 5);
 		helper.addNotebookPage(notebook, connectPage, _("Connect"));
 
-		// Welcome labels
-		GtkWidget* welcomeLabel1 = helper.createLabel(_("Welcome to SFD Tool GUI!"), "welcome_en", 0, 0, 467, 28);
-		GtkWidget* welcomeLabel2 = helper.createLabel(_("Welcome to SFD Tool GUI!"), "welcome_cn", 0, 30, 400, 28);
-		GtkWidget* ti_c = helper.createLabel(_("Please connect your device with BROM mode"), "ti_c", 0, 60, 400, 28);
-		GtkWidget* ti_e = helper.createLabel(_(_("Please connect your device with BROM mode")), "ti_e", 0, 90, 500, 28);
+		// 创建连接页的根垂直盒子（完全取代依靠行列Grid布局的方式）
+		GtkWidget* mainConnectBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 15);
+		// 容器上下左右留出一定边距，使得整个界面不会紧贴边缘
+		gtk_widget_set_margin_start(mainConnectBox, 20);
+		gtk_widget_set_margin_end(mainConnectBox, 20);
+		gtk_widget_set_margin_top(mainConnectBox, 20);
+		gtk_widget_set_margin_bottom(mainConnectBox, 20);
 
-		// 设置字体大小
+		// 1. Header 部分 (居中)
+		GtkWidget* headerBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+		gtk_widget_set_halign(headerBox, GTK_ALIGN_CENTER);
+
+		GtkWidget* welcomeLabel = helper.createLabel(_("Welcome to SFD Tool GUI!"), "welcome", 0, 0, 467, 28);
+		GtkWidget* tiLabel = helper.createLabel(_("Please connect your device with BROM mode"), "ti", 0, 0, 400, 28);
+		
 		PangoAttrList* attr_list = pango_attr_list_new();
 		PangoAttribute* attr = pango_attr_size_new(20 * PANGO_SCALE);
 		pango_attr_list_insert(attr_list, attr);
-		gtk_label_set_attributes(GTK_LABEL(welcomeLabel1), attr_list);
-		gtk_label_set_attributes(GTK_LABEL(welcomeLabel2), attr_list);
-		gtk_label_set_attributes(GTK_LABEL(ti_c), attr_list);
-		gtk_label_set_attributes(GTK_LABEL(ti_e), attr_list);
+		gtk_label_set_attributes(GTK_LABEL(welcomeLabel), attr_list);
+		gtk_label_set_attributes(GTK_LABEL(tiLabel), attr_list);
 
-		// 连接说明
-		GtkWidget* instruction1 = helper.createLabel(_("Press and hold the volume up or down keys and the power key to connect"),
-		                          "instruction1", 0, 120, 600, 20);
-		GtkWidget* instruction2 = helper.createLabel(_("Press and hold the volume up or down keys and the power key to connect"),
-		                          "instruction2", 0, 140, 400, 20);
+		// Color for tiLabel (blueish as in demo), using standard pango markup is better or base style, we skip color hardcoding here unless needed
+		
+		GtkWidget* instruction = helper.createLabel(_("Press and hold the volume up or down keys and the power key to connect"),
+		                          "instruction", 0, 0, 600, 20);
 
-		// FDL Settings section
-		GtkWidget* fdlSettings = helper.createLabel(_("FDL Send Settings"), "fdl_settings", 0, 170, 150, 20);
-		GtkWidget* fdlSettingsCn = helper.createLabel(_("FDL Send Settings"), "fdl_settings_cn", 0, 190, 150, 20);
+		gtk_box_pack_start(GTK_BOX(headerBox), welcomeLabel, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(headerBox), tiLabel, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(headerBox), instruction, FALSE, FALSE, 0);
+		
+		gtk_box_pack_start(GTK_BOX(mainConnectBox), headerBox, FALSE, FALSE, 10);
+
+		// 2. FDL Settings section
+		GtkWidget* fdlCenterBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+		gtk_widget_set_halign(fdlCenterBox, GTK_ALIGN_CENTER); // 居中 fdlFrame
+
+		GtkWidget* fdlFrame = gtk_frame_new(_("FDL Send Settings"));
+		gtk_widget_set_size_request(fdlFrame, 600, -1); // 限制宽度约为原来的一半（整个窗口大约1174，左右各减去边距，所以600左右差不多）
+
+		GtkWidget* fdlGrid = gtk_grid_new();
+		gtk_grid_set_row_spacing(GTK_GRID(fdlGrid), 10);
+		gtk_grid_set_column_spacing(GTK_GRID(fdlGrid), 10);
+		gtk_widget_set_margin_start(fdlGrid, 15);
+		gtk_widget_set_margin_end(fdlGrid, 15);
+		gtk_widget_set_margin_top(fdlGrid, 15);
+		gtk_widget_set_margin_bottom(fdlGrid, 15);
 
 		// FDL File Path
-		GtkWidget* fdlLabel = helper.createLabel(_("FDL File Path :"), "fdl_label", 0, 220, 200, 20);
-		GtkWidget* fdlFilePath = helper.createEntry("fdl_file_path", "", false, 200, 215, 275, 32);
-		GtkWidget* selectFdlBtn = helper.createButton("...", "select_fdl", nullptr, 485, 215, 40, 32);
+		GtkWidget* fdlLabel = helper.createLabel(_("FDL File Path :"), "fdl_label", 0, 0, 100, 20);
+		gtk_widget_set_halign(fdlLabel, GTK_ALIGN_START);
+		GtkWidget* fdlFilePath = helper.createEntry("fdl_file_path", "", false, 0, 0, 300, 32);
+		gtk_widget_set_hexpand(fdlFilePath, TRUE);
+		GtkWidget* selectFdlBtn = helper.createButton("...", "select_fdl", nullptr, 0, 0, 40, 32);
+
+		gtk_grid_attach(GTK_GRID(fdlGrid), fdlLabel, 0, 0, 1, 1);
+		gtk_grid_attach(GTK_GRID(fdlGrid), fdlFilePath, 1, 0, 1, 1);
+		gtk_grid_attach(GTK_GRID(fdlGrid), selectFdlBtn, 2, 0, 1, 1);
 
 		// FDL Address
-		GtkWidget* fdlAddrLabel = helper.createLabel(_("FDL Send Address :"), "fdl_addr_label", 0, 260, 220, 20);
-		GtkWidget* fdlAddr = helper.createEntry("fdl_addr", "", false, 220, 255, 185, 32);
+		GtkWidget* fdlAddrLabel = helper.createLabel(_("FDL Send Address :"), "fdl_addr_label", 0, 0, 120, 20);
+		gtk_widget_set_halign(fdlAddrLabel, GTK_ALIGN_START);
+		GtkWidget* fdlAddr = helper.createEntry("fdl_addr", "", false, 0, 0, 300, 32);
+		gtk_widget_set_hexpand(fdlAddr, TRUE);
+
+		gtk_grid_attach(GTK_GRID(fdlGrid), fdlAddrLabel, 0, 1, 1, 1);
+		gtk_grid_attach(GTK_GRID(fdlGrid), fdlAddr, 1, 1, 2, 1); // 占两列
 
 		// Execute button
-		GtkWidget* fdlExecBtn = helper.createButton(_("Execute"), "fdl_exec", nullptr, 0, 300, 157, 32);
+		GtkWidget* fdlExecBtn = helper.createButton(_("Execute"), "fdl_exec", nullptr, 0, 0, 150, 32);
+		gtk_widget_set_hexpand(fdlExecBtn, TRUE);
+		gtk_grid_attach(GTK_GRID(fdlGrid), fdlExecBtn, 0, 2, 3, 1);
 
-		// Advanced Options - 放在左边
-		GtkWidget* advLabel = helper.createLabel(_("Advanced"), "adv_label", 0, 350, 150, 20);
+		gtk_container_add(GTK_CONTAINER(fdlFrame), fdlGrid);
+		gtk_box_pack_start(GTK_BOX(fdlCenterBox), fdlFrame, FALSE, FALSE, 0); // 放入居中的盒子
+		gtk_box_pack_start(GTK_BOX(mainConnectBox), fdlCenterBox, FALSE, FALSE, 0); // 将居中盒子放入主VBox
 
-		// CVE Toggle Switch - 放在左边
-		GtkWidget* cveSwitchBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+		// 3. Advanced Options Containers
+		GtkWidget* advContainer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 20);
+		gtk_box_set_homogeneous(GTK_BOX(advContainer), TRUE); // 两边等宽
+
+		// Left frame for CVE options
+		GtkWidget* cveFrame = gtk_frame_new(_("CVE Bypass Options"));
+		GtkWidget* cveGrid = gtk_grid_new();
+		gtk_grid_set_row_spacing(GTK_GRID(cveGrid), 15);
+		gtk_grid_set_column_spacing(GTK_GRID(cveGrid), 10);
+		gtk_widget_set_margin_start(cveGrid, 15);
+		gtk_widget_set_margin_end(cveGrid, 15);
+		gtk_widget_set_margin_top(cveGrid, 15);
+		gtk_widget_set_margin_bottom(cveGrid, 15);
+		gtk_container_add(GTK_CONTAINER(cveFrame), cveGrid);
+
+		// 行 0: CVE Switch
+		GtkWidget* cveSwitchLabel = helper.createLabel(_("Try to use CVE to skip FDL verification"), "exec_addr_label", 0, 0, 200, 20);
+		gtk_widget_set_halign(cveSwitchLabel, GTK_ALIGN_START);
+		gtk_label_set_xalign(GTK_LABEL(cveSwitchLabel), 0.0);
 		GtkWidget* cveSwitch = gtk_switch_new();
 		gtk_widget_set_name(cveSwitch, "exec_addr");
+		gtk_widget_set_halign(cveSwitch, GTK_ALIGN_END);
+		gtk_widget_set_hexpand(cveSwitch, TRUE);
 		helper.addWidget("exec_addr", cveSwitch);
-		gtk_box_pack_start(GTK_BOX(cveSwitchBox), cveSwitch, FALSE, FALSE, 0);
-		GtkWidget* cveSwitchLabel = helper.createLabel(_("Try to use CVE to skip FDL verification"),
-		                            "exec_addr_label", 0, 0, 500, 20);
-		gtk_box_pack_start(GTK_BOX(cveSwitchBox), cveSwitchLabel, FALSE, FALSE, 0);
 
-		// CVE Binary File - 放在左边，标签在右边，输入框在左边
-		GtkWidget* cveAddrBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-		GtkWidget* cveAddr = helper.createEntry("cve_addr", "", false, 0, 0, 295, 32);
-		GtkWidget* cveLabel = helper.createLabel(_("CVE Binary File Address"), "cve_label", 0, 0, 270, 20);
-		gtk_box_pack_start(GTK_BOX(cveAddrBox), cveLabel, FALSE, FALSE, 0);
-		gtk_box_pack_start(GTK_BOX(cveAddrBox), cveAddr, FALSE, FALSE, 0);
+		gtk_grid_attach(GTK_GRID(cveGrid), cveSwitchLabel, 0, 0, 1, 1);
+		gtk_grid_attach(GTK_GRID(cveGrid), cveSwitch, 1, 0, 1, 1);
+
+		// 行 1: CVE V2 Switch
+		GtkWidget* cveV2Label = helper.createLabel(_("Enable CVE v2"),"cve_v2_label", 0, 0, 100, 20);
+		gtk_widget_set_halign(cveV2Label, GTK_ALIGN_START);
+		gtk_label_set_xalign(GTK_LABEL(cveV2Label), 0.0);
+		GtkWidget* cveV2Switch = gtk_switch_new();
+		gtk_widget_set_name(cveV2Switch, "cve_v2");
+		gtk_widget_set_halign(cveV2Switch, GTK_ALIGN_END);
+		gtk_widget_set_hexpand(cveV2Switch, TRUE);
+		helper.addWidget("cve_v2", cveV2Switch);
+
+		gtk_grid_attach(GTK_GRID(cveGrid), cveV2Label, 0, 1, 1, 1);
+		gtk_grid_attach(GTK_GRID(cveGrid), cveV2Switch, 1, 1, 1, 1);
+
+		// 行 2: CVE File
+		GtkWidget* cveLabel = helper.createLabel(_("CVE Binary File Address"), "cve_label", 0, 0, 150, 20);
+		gtk_widget_set_halign(cveLabel, GTK_ALIGN_START);
+		gtk_label_set_xalign(GTK_LABEL(cveLabel), 0.0);
+		
+		GtkWidget* cveInputBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+		gtk_widget_set_halign(cveInputBox, GTK_ALIGN_END);
+		gtk_widget_set_hexpand(cveInputBox, TRUE);
+		GtkWidget* cveAddr = helper.createEntry("cve_addr", "", false, 0, 0, 150, 32);
 		GtkWidget* selectCveBtn = helper.createButton("...", "select_cve", nullptr, 0, 0, 40, 32);
-		gtk_box_pack_start(GTK_BOX(cveAddrBox), selectCveBtn, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(cveInputBox), cveAddr, TRUE, TRUE, 0);
+		gtk_box_pack_start(GTK_BOX(cveInputBox), selectCveBtn, FALSE, FALSE, 0);
 
-		// SPRD4 Toggle Switch - 放在右边
-		GtkWidget* sprd4SwitchBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+		gtk_grid_attach(GTK_GRID(cveGrid), cveLabel, 0, 2, 1, 1);
+		gtk_grid_attach(GTK_GRID(cveGrid), cveInputBox, 1, 2, 1, 1);
+
+		// Right frame for SPRD4 options
+		GtkWidget* sprdFrame = gtk_frame_new(_("SPRD4 Options"));
+		GtkWidget* sprdGrid = gtk_grid_new();
+		gtk_grid_set_row_spacing(GTK_GRID(sprdGrid), 15);
+		gtk_grid_set_column_spacing(GTK_GRID(sprdGrid), 10);
+		gtk_widget_set_margin_start(sprdGrid, 15);
+		gtk_widget_set_margin_end(sprdGrid, 15);
+		gtk_widget_set_margin_top(sprdGrid, 15);
+		gtk_widget_set_margin_bottom(sprdGrid, 15);
+		gtk_container_add(GTK_CONTAINER(sprdFrame), sprdGrid);
+
+		// 行 0: SPRD4 Switch
+		GtkWidget* sprd4Label = helper.createLabel(_("Kick device to SPRD4"), "sprd4_label", 0, 0, 150, 20);
+		gtk_widget_set_halign(sprd4Label, GTK_ALIGN_START);
+		gtk_label_set_xalign(GTK_LABEL(sprd4Label), 0.0);
 		GtkWidget* sprd4Switch = gtk_switch_new();
 		gtk_widget_set_name(sprd4Switch, "sprd4");
+		gtk_widget_set_halign(sprd4Switch, GTK_ALIGN_END);
+		gtk_widget_set_hexpand(sprd4Switch, TRUE);
 		helper.addWidget("sprd4", sprd4Switch);
-		gtk_box_pack_start(GTK_BOX(sprd4SwitchBox), sprd4Switch, FALSE, FALSE, 0);
-		GtkWidget* sprd4Label = helper.createLabel(_("Kick device to SPRD4"),
-		                        "sprd4_label", 0, 0, 250, 20);
-		gtk_box_pack_start(GTK_BOX(sprd4SwitchBox), sprd4Label, FALSE, FALSE, 0);
+
+		gtk_grid_attach(GTK_GRID(sprdGrid), sprd4Label, 0, 0, 1, 1);
+		gtk_grid_attach(GTK_GRID(sprdGrid), sprd4Switch, 1, 0, 1, 1);
+
+		// 行 1: Kick One-time Mode
+		GtkWidget* sprd4OneLabel = helper.createLabel(_("Kick One-time Mode"), "sprd4_one_label", 0, 0, 150, 20);
+		gtk_widget_set_halign(sprd4OneLabel, GTK_ALIGN_START);
+		gtk_label_set_xalign(GTK_LABEL(sprd4OneLabel), 0.0);
 		GtkWidget* sprd4OneMode = gtk_switch_new();
 		gtk_widget_set_name(sprd4OneMode, "sprd4_one_mode");
+		gtk_widget_set_halign(sprd4OneMode, GTK_ALIGN_END);
+		gtk_widget_set_hexpand(sprd4OneMode, TRUE);
 		helper.addWidget("sprd4_one_mode", sprd4OneMode);
-		GtkWidget* sprd4OneLabel = helper.createLabel(_("Kick One-time Mode"),
-		                           "sprd4_one_label", 0, 0, 150, 20);
-		gtk_box_pack_start(GTK_BOX(sprd4SwitchBox), sprd4OneMode, FALSE, FALSE, 0);
-		gtk_box_pack_start(GTK_BOX(sprd4SwitchBox), sprd4OneLabel, FALSE, FALSE, 0);
 
-		// Addr 地址
-		GtkWidget* addrBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+		gtk_grid_attach(GTK_GRID(sprdGrid), sprd4OneLabel, 0, 1, 1, 1);
+		gtk_grid_attach(GTK_GRID(sprdGrid), sprd4OneMode, 1, 1, 1, 1);
+
+		// 行 2: Address
 		GtkWidget* cveAddrLabel2 = helper.createLabel(_("CVE Addr"), "cve_addr_label2", 0, 0, 100, 20);
-		GtkWidget* cveAddrC = helper.createEntry("cve_addr_c", "", false, 0, 0, 120, 20);
-		GtkWidget* cveV2Label = helper.createLabel(_("Enable CVE v2"),"cve_v2_label", 0, 0, 150, 20);
-		GtkWidget* cveV2Switch = gtk_switch_new();
-		
-		gtk_box_pack_start(GTK_BOX(addrBox), cveAddrLabel2, FALSE, FALSE, 0);
-		gtk_box_pack_start(GTK_BOX(addrBox), cveAddrC, FALSE, FALSE, 0);
-		
-		// CVE V2 BOX
-		GtkWidget* CVEv2Box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-		gtk_widget_set_name(cveV2Switch, "cve_v2");
-		helper.addWidget("cve_v2", cveV2Switch);
-		
-		gtk_box_pack_start(GTK_BOX(CVEv2Box), cveV2Switch, FALSE, FALSE, 0);
-		gtk_box_pack_start(GTK_BOX(CVEv2Box), cveV2Label, FALSE, FALSE, 0);
+		gtk_widget_set_halign(cveAddrLabel2, GTK_ALIGN_START);
+		gtk_label_set_xalign(GTK_LABEL(cveAddrLabel2), 0.0);
+		GtkWidget* cveAddrC = helper.createEntry("cve_addr_c", "", false, 0, 0, 200, 32);
+		gtk_widget_set_halign(cveAddrC, GTK_ALIGN_END);
+		gtk_widget_set_hexpand(cveAddrC, TRUE);
 
-		// Connect Button - 放在右边
-		GtkWidget* connectBtn = helper.createButton(_("CONNECT"), "connect_1", nullptr, 0, 0, 143, 52);
+		gtk_grid_attach(GTK_GRID(sprdGrid), cveAddrLabel2, 0, 2, 1, 1);
+		gtk_grid_attach(GTK_GRID(sprdGrid), cveAddrC, 1, 2, 1, 1);
 
-		// Wait connection time - 放在右边
+		gtk_box_pack_start(GTK_BOX(advContainer), cveFrame, TRUE, TRUE, 0);
+		gtk_box_pack_start(GTK_BOX(advContainer), sprdFrame, TRUE, TRUE, 0);
+
+		gtk_box_pack_start(GTK_BOX(mainConnectBox), advContainer, FALSE, FALSE, 0);
+
+		// 4. Bottom Action Area
+		GtkWidget* actionBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+		gtk_widget_set_halign(actionBox, GTK_ALIGN_CENTER);
+
+		// Connect Button (Wide)
+		GtkWidget* connectBtn = helper.createButton(_("CONNECT"), "connect_1", nullptr, 0, 0, 300, 48);
+		
+		// Wait connection time
 		GtkWidget* waitBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-		GtkWidget* waitLabel = helper.createLabel(_("Wait connection time (s):"), "wait_label", 0, 0, 250, 20);
-		GtkWidget* waitCon = helper.createSpinButton(1, 65535, 1, "wait_con", 30, 0, 0, 120, 32);
-		gtk_box_pack_start(GTK_BOX(waitBox), waitLabel, FALSE, FALSE, 0);
-		gtk_box_pack_start(GTK_BOX(waitBox), waitCon, FALSE, FALSE, 0);
+		gtk_widget_set_halign(waitBox, GTK_ALIGN_CENTER);
+		GtkWidget* waitLabel = helper.createLabel(_("Wait connection time (s):"), "wait_label", 0, 0, 150, 20);
+		
+		// 自定义 SpinBox 结合体 [ 30 | - | + ]
+		GtkWidget* customSpinBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+		GtkStyleContext* styleCtx = gtk_widget_get_style_context(customSpinBox);
+		gtk_style_context_add_class(styleCtx, "linked"); // GTK 的联动样式，将子组件连成一个整体无缝框
 
-		// Status labels - 放在底部
+		// 核心的隐藏了默认箭头的 SpinButton (供逻辑读取)
+		GtkWidget* waitCon = helper.createSpinButton(1, 65535, 1, "wait_con", 30, 0, 0, 60, 32);
+		gtk_widget_set_name(waitCon, "wait_con_no_arrow");
+		
+		// 独立渲染的减号和加号按钮
+		GtkWidget* btnMinus = gtk_button_new_with_label("-");
+		GtkWidget* btnPlus = gtk_button_new_with_label("+");
+		gtk_widget_set_size_request(btnMinus, 32, 32);
+		gtk_widget_set_size_request(btnPlus, 32, 32);
+
+		// 绑定加减操作
+		g_signal_connect(btnMinus, "clicked", G_CALLBACK(+[](GtkButton* btn, gpointer data) {
+			gtk_spin_button_spin(GTK_SPIN_BUTTON(data), GTK_SPIN_STEP_BACKWARD, 1);
+		}), waitCon);
+		g_signal_connect(btnPlus, "clicked", G_CALLBACK(+[](GtkButton* btn, gpointer data) {
+			gtk_spin_button_spin(GTK_SPIN_BUTTON(data), GTK_SPIN_STEP_FORWARD, 1);
+		}), waitCon);
+
+		gtk_box_pack_start(GTK_BOX(customSpinBox), waitCon, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(customSpinBox), btnMinus, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(customSpinBox), btnPlus, FALSE, FALSE, 0);
+
+		gtk_box_pack_start(GTK_BOX(waitBox), waitLabel, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(waitBox), customSpinBox, FALSE, FALSE, 0);
+
+		gtk_box_pack_start(GTK_BOX(actionBox), connectBtn, FALSE, FALSE, 5);
+		gtk_box_pack_start(GTK_BOX(actionBox), waitBox, FALSE, FALSE, 5);
+
+		// 添加一些弹簧占位，把底部区域推向垂直居中
+		gtk_box_pack_start(GTK_BOX(mainConnectBox), actionBox, TRUE, FALSE, 15);
+
+		// Status labels (kept from original logic but usually shouldn't impact grid layout since they are handled elsewhere or placed as children)
 		GtkWidget* statusLabel = helper.createLabel(_("Status : "), "status_label", 0, 0, 70, 24);
 		GtkWidget* conStatus = helper.createLabel(_("Not connected"), "con", 0, 0, 150, 23);
 		GtkWidget* modeLabel = helper.createLabel(_("   Mode : "), "mode_label", 0, 0, 50, 19);
 		GtkWidget* modeStatus = helper.createLabel(_("BROM Not connected!!!"), "mode", 0, 0, 200, 19);
 
-		// Add all widgets to connect page grid
-		// 使用4列网格：0-3列
-		// 左边区域：0-2列，右边区域：3列
-
-		// 欢迎信息（横跨所有列）
-		helper.addToGrid(connectPage, welcomeLabel1, 0, 0, 4, 1);
-		helper.addToGrid(connectPage, welcomeLabel2, 0, 1, 4, 1);
-		helper.addToGrid(connectPage, ti_c, 0, 2, 4, 1);
-		helper.addToGrid(connectPage, ti_e, 0, 3, 4, 1);
-
-		// 连接说明
-		helper.addToGrid(connectPage, instruction1, 0, 4, 4, 1);
-		helper.addToGrid(connectPage, instruction2, 0, 5, 4, 1);
-
-		// FDL设置部分
-		helper.addToGrid(connectPage, fdlSettings, 0, 6, 2, 1);
-		helper.addToGrid(connectPage, fdlSettingsCn, 0, 7, 2, 1);
-
-		// FDL文件路径
-		helper.addToGrid(connectPage, fdlLabel, 0, 8, 1, 1);
-		helper.addToGrid(connectPage, fdlFilePath, 1, 8, 1, 1);
-		helper.addToGrid(connectPage, selectFdlBtn, 2, 8, 1, 1);
-
-		// FDL地址
-		helper.addToGrid(connectPage, fdlAddrLabel, 0, 9, 1, 1);
-		helper.addToGrid(connectPage, fdlAddr, 1, 9, 2, 1);
-
-		// 执行按钮
-		helper.addToGrid(connectPage, fdlExecBtn, 0, 10, 2, 1);
-
-		// 高级选项标题
-		helper.addToGrid(connectPage, advLabel, 0, 11, 2, 1);
-
-		// CVE开关
-		helper.addToGrid(connectPage, cveSwitchBox, 0, 12, 3, 1);
-
-		// CVE文件地址 - 注意：输入框在标签左边
-		helper.addToGrid(connectPage, cveAddrBox, 0, 13, 3, 1);
-
-		// CVE V2 开关 - 放在CVE开关下面
-		helper.addToGrid(connectPage, CVEv2Box, 0, 14, 3, 1);
-
-		// ========== 右边区域 ==========
-		// SPRD4开关
-		helper.addToGrid(connectPage, sprd4SwitchBox, 3, 12, 1, 1);
-
-		// Addr 地址标签和输入框
-		helper.addToGrid(connectPage, addrBox, 3, 13, 1, 1);
-
-		// 连接按钮
-		helper.addToGrid(connectPage, connectBtn, 3, 15, 1, 1);
-
-		// 等待时间
-		helper.addToGrid(connectPage, waitBox, 3, 16, 1, 1);
+		// 把整合完毕的 mainConnectBox 添加到 connectPage 网格的起始位置，占据所有空间
+		gtk_grid_attach(GTK_GRID(connectPage), mainConnectBox, 0, 0, 5, 5);
 
 
 
@@ -2707,7 +2785,7 @@ int gtk_kmain(int argc, char** argv) {
 		GtkWidget* partPage = helper.createGrid("part_page", 5, 5);
 		helper.addNotebookPage(notebook, partPage, _("Partition Operation"));
 
-		GtkWidget* instruction = helper.createLabel(_("Please check a partition"), "part_instruction", 0, 0, 300, 20);
+		GtkWidget* part_instruction_label = helper.createLabel(_("Please check a partition"), "part_instruction", 0, 0, 300, 20);
 
 		// ListView for partitions
 		GtkWidget* scrolledWindow = gtk_scrolled_window_new(NULL, NULL);
@@ -3277,66 +3355,108 @@ int gtk_kmain(int argc, char** argv) {
 
 		// ========== Bottom Controls ==========
 
-		// Progress section
-		GtkWidget* progressLabel = helper.createLabel(_("Progress:"), "progress_label", 0, 0, 100, 20);
+		// ========== Bottom Controls ==========
+
+		// 外层垂直 Box 包裹整个底部控制区
+		GtkWidget* bottomContainer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+		gtk_widget_set_margin_start(bottomContainer, 15);
+		gtk_widget_set_margin_end(bottomContainer, 15);
+		gtk_widget_set_margin_top(bottomContainer, 10);
+		gtk_widget_set_margin_bottom(bottomContainer, 10);
+
+		// 【第一行】: 横向排列的控制按钮，整体居中
+		GtkWidget* topActionBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+		GtkWidget* buttonsHBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+		
+		GtkWidget* poweroffBtn = helper.createButton(_("POWEROFF"), "poweroff", nullptr, 0, 0, 130, 32);
+		GtkWidget* rebootBtn = helper.createButton(_("REBOOT"), "reboot", nullptr, 0, 0, 110, 32);
+		GtkWidget* recoveryBtn = helper.createButton(_("BOOT TO RECOVERY"), "recovery", nullptr, 0, 0, 180, 32);
+		GtkWidget* fastbootBtn = helper.createButton(_("BOOT TO FASTBOOT"), "fastboot", nullptr, 0, 0, 180, 32);
+		
+		gtk_box_pack_start(GTK_BOX(buttonsHBox), poweroffBtn, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(buttonsHBox), rebootBtn, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(buttonsHBox), recoveryBtn, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(buttonsHBox), fastbootBtn, FALSE, FALSE, 0);
+
+		// 占位居中
+		GtkWidget* cSpacer1 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+		GtkWidget* cSpacer2 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+		gtk_box_pack_start(GTK_BOX(topActionBox), cSpacer1, TRUE, TRUE, 0);
+		gtk_box_pack_start(GTK_BOX(topActionBox), buttonsHBox, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(topActionBox), cSpacer2, TRUE, TRUE, 0);
+
+
+		// 【第二行】: 分界线、进度条与文字
+		GtkWidget* midProgressBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
+		
+		// 顶部带有一根横贯长线 (Demo 呈现上下间隔线效果)
+		GtkWidget* statSeparatorTop = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+		gtk_box_pack_start(GTK_BOX(midProgressBox), statSeparatorTop, FALSE, FALSE, 0);
+
+		// 长进度条
 		GtkWidget* progressBar = gtk_progress_bar_new();
 		gtk_widget_set_name(progressBar, "progressBar_1");
 		helper.addWidget("progressBar_1", progressBar);
-		gtk_widget_set_size_request(progressBar, 345, 9);
+		gtk_widget_set_hexpand(progressBar, TRUE);
+		// Demo中进度条横跨整行，高度极窄
+		gtk_widget_set_size_request(progressBar, -1, 4); 
+		gtk_widget_set_margin_top(progressBar, 5);
+		gtk_box_pack_start(GTK_BOX(midProgressBox), progressBar, FALSE, FALSE, 0);
 
-		GtkWidget* percentLabel = helper.createLabel("0%", "percent", 0, 0, 30, 20);
 
-		// Control buttons
-		GtkWidget* poweroffBtn = helper.createButton(_("POWEROFF"), "poweroff", nullptr, 0, 0, 130, 32);
-		GtkWidget* rebootBtn = helper.createButton(_("REBOOT"), "reboot", nullptr, 0, 0, 110, 32);
-		GtkWidget* recoveryBtn = helper.createButton(_("BOOT TO RECOVERY"), "recovery", nullptr, 0, 0, 260, 32);
-		GtkWidget* fastbootBtn = helper.createButton(_("BOOT TO FASTBOOT"), "fastboot", nullptr, 0, 0, 260, 32);
+		// 【第三行】: 状态栏和进度数
+		GtkWidget* bottomStatusBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 20);
 
-		// Create bottom grid
-		GtkWidget* bottomGrid = gtk_grid_new();
-		gtk_grid_set_row_spacing(GTK_GRID(bottomGrid), 5);
-		gtk_grid_set_column_spacing(GTK_GRID(bottomGrid), 10);
+		// 各状态子 Box
+		GtkWidget* stBoxLabel = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+		gtk_label_set_xalign(GTK_LABEL(statusLabel), 0.0);
+		gtk_label_set_xalign(GTK_LABEL(conStatus), 0.0);
+		gtk_box_pack_start(GTK_BOX(stBoxLabel), statusLabel, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(stBoxLabel), conStatus, FALSE, FALSE, 0);
 
-		// Add to bottom grid
-		gtk_grid_attach(GTK_GRID(bottomGrid), progressLabel, 0, 0, 1, 1);
-		gtk_grid_attach(GTK_GRID(bottomGrid), progressBar, 0, 1, 1, 1);
+		GtkWidget* mdBoxLabel = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+		gtk_label_set_xalign(GTK_LABEL(modeLabel), 0.0);
+		gtk_label_set_xalign(GTK_LABEL(modeStatus), 0.0);
+		gtk_box_pack_start(GTK_BOX(mdBoxLabel), modeLabel, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(mdBoxLabel), modeStatus, FALSE, FALSE, 0);
 
-		gtk_grid_attach(GTK_GRID(bottomGrid), percentLabel, 1, 0, 1, 1);
+		GtkWidget* stgBoxLabel = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+		GtkWidget* storageLabel = helper.createLabel("Storage:", "", 0, 0, 60, 20);
+		GtkWidget* storageMode = helper.createLabel("Unknown", "storage_mode", 0, 0, 100, 20);
+		gtk_label_set_xalign(GTK_LABEL(storageLabel), 0.0);
+		gtk_label_set_xalign(GTK_LABEL(storageMode), 0.0);
+		gtk_box_pack_start(GTK_BOX(stgBoxLabel), storageLabel, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(stgBoxLabel), storageMode, FALSE, FALSE, 0);
 
-		gtk_grid_attach(GTK_GRID(bottomGrid), poweroffBtn, 4, 0, 1, 1);
-		gtk_grid_attach(GTK_GRID(bottomGrid), rebootBtn, 5, 0, 1, 1);
-		gtk_grid_attach(GTK_GRID(bottomGrid), recoveryBtn, 6, 0, 1, 1);
-		gtk_grid_attach(GTK_GRID(bottomGrid), fastbootBtn, 7, 0, 1, 1);
+		// 将左侧三段状态添加至最底层横行
+		gtk_box_pack_start(GTK_BOX(bottomStatusBox), stBoxLabel, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(bottomStatusBox), mdBoxLabel, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(bottomStatusBox), stgBoxLabel, FALSE, FALSE, 0);
 
-		// ========== 底部状态信息 ==========
-		// 状态行
-		GtkWidget* statusBox1 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-		gtk_box_pack_start(GTK_BOX(statusBox1), statusLabel, FALSE, FALSE, 0);
-		gtk_box_pack_start(GTK_BOX(statusBox1), conStatus, FALSE, FALSE, 0);
-		helper.addToGrid(bottomGrid, statusBox1, 0, 16, 2, 1);
+		// 将中间弹性撑开
+		GtkWidget* stSpacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+		gtk_box_pack_start(GTK_BOX(bottomStatusBox), stSpacer, TRUE, TRUE, 0);
 
-		// 模式行
-		GtkWidget* statusBox2 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-		gtk_box_pack_start(GTK_BOX(statusBox2), modeLabel, FALSE, FALSE, 0);
-		gtk_box_pack_start(GTK_BOX(statusBox2), modeStatus, FALSE, FALSE, 0);
-		helper.addToGrid(bottomGrid, statusBox2, 0, 17, 2, 1);
-		// 储存类型
-		GtkWidget* statusBox3 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-		GtkWidget* storageLabel = helper.createLabel("   Storage:","",0,0,50,20);
-		GtkWidget* storageMode = helper.createLabel("Unknown","storage_mode",0,0,150,20);
-		gtk_box_pack_start(GTK_BOX(statusBox3), storageLabel, FALSE, FALSE, 0);
-		gtk_box_pack_start(GTK_BOX(statusBox3), storageMode, FALSE, FALSE, 0);
-		helper.addToGrid(bottomGrid, statusBox3, 0, 18, 2, 1);
-		// 槽位
-		GtkWidget* statusBox4 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-		GtkWidget* slotLabel = helper.createLabel("   Slot:","",0,0,40,20);
-		GtkWidget* slotMode = helper.createLabel("Unknown","slot_mode",0,0,200,20);
-		gtk_box_pack_start(GTK_BOX(statusBox4), slotLabel, FALSE, FALSE, 0);
-		gtk_box_pack_start(GTK_BOX(statusBox4), slotMode, FALSE, FALSE, 0);
-		helper.addToGrid(bottomGrid, statusBox4, 0, 19, 2, 1);
-		// Add notebook and bottom grid to main grid
+		// 右侧进度文字
+		GtkWidget* prgTextHBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+		GtkWidget* progressLabel = helper.createLabel(_("Progress:"), "progress_label", 0, 0, 60, 20);
+		GtkWidget* percentLabel = helper.createLabel("0%", "percent", 0, 0, 40, 20);
+		gtk_label_set_xalign(GTK_LABEL(progressLabel), 1.0); // 靠右
+		gtk_label_set_xalign(GTK_LABEL(percentLabel), 1.0);
+		gtk_box_pack_start(GTK_BOX(prgTextHBox), progressLabel, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(prgTextHBox), percentLabel, FALSE, FALSE, 0);
+
+		gtk_box_pack_end(GTK_BOX(bottomStatusBox), prgTextHBox, FALSE, FALSE, 0);
+
+
+		// 将三层组装
+		gtk_box_pack_start(GTK_BOX(bottomContainer), topActionBox, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(bottomContainer), midProgressBox, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(bottomContainer), bottomStatusBox, FALSE, FALSE, 0);
+
+		// Add notebook and bottom container to main grid
 		gtk_grid_attach(GTK_GRID(mainGrid), notebook, 0, 0, 10, 1);
-		gtk_grid_attach(GTK_GRID(mainGrid), bottomGrid, 0, 1, 10, 1);
+		gtk_grid_attach(GTK_GRID(mainGrid), bottomContainer, 0, 1, 10, 1);
 
 
 
@@ -3344,7 +3464,8 @@ int gtk_kmain(int argc, char** argv) {
 		GtkCssProvider* provider = gtk_css_provider_new();
 		const gchar* css =
 		    "label.big-label { font-size: 20px; }"
-		    "progressbar { min-height: 9px; }";
+		    "progressbar { min-height: 9px; }"
+		    "#wait_con_no_arrow button { min-width: 0px; padding: 0px; border: none; background: transparent; -gtk-icon-source: none; color: transparent; opacity: 0; }";
 		gtk_css_provider_load_from_data(provider, css, -1, NULL);
 		gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
 		        GTK_STYLE_PROVIDER(provider),
