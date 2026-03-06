@@ -9,7 +9,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-06 14:24+0800\n"
+"POT-Creation-Date: 2026-03-06 14:43+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -93,7 +93,7 @@ msgstr "完成"
 msgid "Partition write completed!"
 msgstr "分区写入完成！"
 
-#: main.cpp:364
+#: main.cpp:364 main.cpp:1764 main.cpp:2130 main.cpp:2331
 msgid "Confirm"
 msgstr "确认"
 
@@ -175,6 +175,11 @@ msgstr "分区已存在！"
 msgid "Partition after does not exist!"
 msgstr "后一个指定的分区不存在！"
 
+#: main.cpp:1185 main.cpp:1365 main.cpp:1383 main.cpp:1404 main.cpp:1796
+#: main.cpp:2073 main.cpp:2075
+msgid "Tips"
+msgstr "提示"
+
 #: main.cpp:1185 main.cpp:1365
 msgid "Current partition operation cancelled!"
 msgstr "已取消当前分区操作！"
@@ -207,6 +212,10 @@ msgstr "已设置当前分区为B槽！"
 msgid "Repartition completed!"
 msgstr "重新分区完成！"
 
+#: main.cpp:1451
+msgid "XML files (*.xml)"
+msgstr "XML文件 (*.xml)"
+
 #: main.cpp:1502
 msgid "Partition table export completed!"
 msgstr "分区表导出完成！"
@@ -219,6 +228,10 @@ msgstr "已启用DM-Verity和AVB保护！"
 msgid "DM-Verity and AVB protection disabled!"
 msgstr "已禁用DM-Verity和AVB保护！"
 
+#: main.cpp:1541
+msgid "Text files (*.txt)"
+msgstr "文本文件 (*.txt)"
+
 #: main.cpp:1549
 msgid "Failed to save log file!"
 msgstr "无法保存日志文件！"
@@ -226,6 +239,12 @@ msgstr "无法保存日志文件！"
 #: main.cpp:1554
 msgid "Log export completed!"
 msgstr "日志导出完成！"
+
+#: main.cpp:1583 main.cpp:1636 main.cpp:1661 main.cpp:1664 main.cpp:1691
+#: main.cpp:1707 main.cpp:1708 main.cpp:1712 main.cpp:1719 main.cpp:1725
+#: main.cpp:1729 main.cpp:1733 main.cpp:1737 main.cpp:1741
+msgid "Info"
+msgstr "信息"
 
 #: main.cpp:1678
 msgid ""
@@ -280,6 +299,10 @@ msgid ""
 msgstr "你已启动重连模式，重连模式下只能兼容获取分区列表，且不能获取槽位和储存类型！"
 
 #: main.cpp:2070
+msgid "Successfully connected"
+msgstr "连接成功"
+
+#: main.cpp:2070
 msgid "Device already connected! Some advanced settings opened!"
 msgstr "设备已成功连接！部分高级设置已开放！"
 
@@ -299,12 +322,24 @@ msgid "Device can be booted without FDL in SPRD4 mode, continue?"
 msgstr "设备在SPRD4模式下可以无需FDL启动，是否继续？"
 
 #: main.cpp:2267
+msgid "FDL2 Executed"
+msgstr "FDL2执行成功"
+
+#: main.cpp:2267
 msgid "FDL2 executed successfully!"
 msgstr "FDL2已成功执行！"
 
 #: main.cpp:2395
+msgid "High Speed Mode Enabled"
+msgstr "高速模式已启用"
+
+#: main.cpp:2395
 msgid "Do not set block size manually in high speed mode!"
 msgstr "高速模式下请勿手动设置块大小！"
+
+#: main.cpp:2438
+msgid "FDL1 Executed"
+msgstr "FDL1执行成功"
 
 #: main.cpp:2438
 msgid "FDL1 executed successfully!"
@@ -701,6 +736,23 @@ msgstr "重启到线刷模式"
 msgid "Select file"
 msgstr "选择文件"
 
+#: GtkWidgetHelper.cpp:56 GtkWidgetHelper.cpp:63 GtkWidgetHelper.cpp:94
+#: GtkWidgetHelper.cpp:169
+msgid "_Cancel"
+msgstr "_取消"
+
+#: GtkWidgetHelper.cpp:57
+msgid "_Open"
+msgstr "_打开"
+
+#: GtkWidgetHelper.cpp:60
+msgid "Save file"
+msgstr "保存文件"
+
+#: GtkWidgetHelper.cpp:64 GtkWidgetHelper.cpp:170
+msgid "_Save"
+msgstr "_保存"
+
 #: GtkWidgetHelper.cpp:70 GtkWidgetHelper.cpp:188
 msgid "All files (*.*)"
 msgstr "所有文件 (*.*)"
@@ -708,6 +760,10 @@ msgstr "所有文件 (*.*)"
 #: GtkWidgetHelper.cpp:91
 msgid "Select folder"
 msgstr "选择文件夹"
+
+#: GtkWidgetHelper.cpp:95
+msgid "_Select"
+msgstr "_选择"
 
 #: GtkWidgetHelper.cpp:166
 msgid "Saving files"

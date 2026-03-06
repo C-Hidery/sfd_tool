@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-06 14:24+0800\n"
+"POT-Creation-Date: 2026-03-06 14:43+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -92,7 +92,7 @@ msgstr ""
 msgid "Partition write completed!"
 msgstr ""
 
-#: main.cpp:364
+#: main.cpp:364 main.cpp:1764 main.cpp:2130 main.cpp:2331
 msgid "Confirm"
 msgstr ""
 
@@ -174,6 +174,11 @@ msgstr ""
 msgid "Partition after does not exist!"
 msgstr ""
 
+#: main.cpp:1185 main.cpp:1365 main.cpp:1383 main.cpp:1404 main.cpp:1796
+#: main.cpp:2073 main.cpp:2075
+msgid "Tips"
+msgstr ""
+
 #: main.cpp:1185 main.cpp:1365
 msgid "Current partition operation cancelled!"
 msgstr ""
@@ -206,6 +211,10 @@ msgstr ""
 msgid "Repartition completed!"
 msgstr ""
 
+#: main.cpp:1451
+msgid "XML files (*.xml)"
+msgstr ""
+
 #: main.cpp:1502
 msgid "Partition table export completed!"
 msgstr ""
@@ -218,12 +227,22 @@ msgstr ""
 msgid "DM-Verity and AVB protection disabled!"
 msgstr ""
 
+#: main.cpp:1541
+msgid "Text files (*.txt)"
+msgstr ""
+
 #: main.cpp:1549
 msgid "Failed to save log file!"
 msgstr ""
 
 #: main.cpp:1554
 msgid "Log export completed!"
+msgstr ""
+
+#: main.cpp:1583 main.cpp:1636 main.cpp:1661 main.cpp:1664 main.cpp:1691
+#: main.cpp:1707 main.cpp:1708 main.cpp:1712 main.cpp:1719 main.cpp:1725
+#: main.cpp:1729 main.cpp:1733 main.cpp:1737 main.cpp:1741
+msgid "Info"
 msgstr ""
 
 #: main.cpp:1678
@@ -279,6 +298,10 @@ msgid ""
 msgstr ""
 
 #: main.cpp:2070
+msgid "Successfully connected"
+msgstr ""
+
+#: main.cpp:2070
 msgid "Device already connected! Some advanced settings opened!"
 msgstr ""
 
@@ -298,11 +321,23 @@ msgid "Device can be booted without FDL in SPRD4 mode, continue?"
 msgstr ""
 
 #: main.cpp:2267
+msgid "FDL2 Executed"
+msgstr ""
+
+#: main.cpp:2267
 msgid "FDL2 executed successfully!"
 msgstr ""
 
 #: main.cpp:2395
+msgid "High Speed Mode Enabled"
+msgstr ""
+
+#: main.cpp:2395
 msgid "Do not set block size manually in high speed mode!"
+msgstr ""
+
+#: main.cpp:2438
+msgid "FDL1 Executed"
 msgstr ""
 
 #: main.cpp:2438
@@ -700,12 +735,33 @@ msgstr ""
 msgid "Select file"
 msgstr ""
 
+#: GtkWidgetHelper.cpp:56 GtkWidgetHelper.cpp:63 GtkWidgetHelper.cpp:94
+#: GtkWidgetHelper.cpp:169
+msgid "_Cancel"
+msgstr ""
+
+#: GtkWidgetHelper.cpp:57
+msgid "_Open"
+msgstr ""
+
+#: GtkWidgetHelper.cpp:60
+msgid "Save file"
+msgstr ""
+
+#: GtkWidgetHelper.cpp:64 GtkWidgetHelper.cpp:170
+msgid "_Save"
+msgstr ""
+
 #: GtkWidgetHelper.cpp:70 GtkWidgetHelper.cpp:188
 msgid "All files (*.*)"
 msgstr ""
 
 #: GtkWidgetHelper.cpp:91
 msgid "Select folder"
+msgstr ""
+
+#: GtkWidgetHelper.cpp:95
+msgid "_Select"
 msgstr ""
 
 #: GtkWidgetHelper.cpp:166

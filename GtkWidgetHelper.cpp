@@ -53,15 +53,15 @@ std::string showFileChooser(GtkWindow* parent, bool open) {
 		dialog = gtk_file_chooser_dialog_new(_("Select file"),
 		                                     parent,
 		                                     GTK_FILE_CHOOSER_ACTION_OPEN,
-		                                     "_Cancel取消", GTK_RESPONSE_CANCEL,
-		                                     "_Open打开", GTK_RESPONSE_ACCEPT,
+		                                     _("_Cancel"), GTK_RESPONSE_CANCEL,
+		                                     _("_Open"), GTK_RESPONSE_ACCEPT,
 		                                     NULL);
 	} else {
-		dialog = gtk_file_chooser_dialog_new("Save file 保存文件",
+		dialog = gtk_file_chooser_dialog_new(_("Save file"),
 		                                     parent,
 		                                     GTK_FILE_CHOOSER_ACTION_SAVE,
-		                                     "_Cancel取消", GTK_RESPONSE_CANCEL,
-		                                     "_Save保存", GTK_RESPONSE_ACCEPT,
+		                                     _("_Cancel"), GTK_RESPONSE_CANCEL,
+		                                     _("_Save"), GTK_RESPONSE_ACCEPT,
 		                                     NULL);
 	}
 
@@ -91,8 +91,8 @@ const char* showFolderChooser(GtkWindow* parent) {
 	GtkWidget* dialog = gtk_file_chooser_dialog_new(_("Select folder"),
 	                    parent,
 	                    GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER,
-	                    "_Cancel取消", GTK_RESPONSE_CANCEL,
-	                    "_Select选择", GTK_RESPONSE_ACCEPT,
+	                    _("_Cancel"), GTK_RESPONSE_CANCEL,
+	                    _("_Select"), GTK_RESPONSE_ACCEPT,
 	                    NULL);
 
 	gint result = gtk_dialog_run(GTK_DIALOG(dialog));
@@ -166,8 +166,8 @@ std::string showSaveFileDialog(GtkWindow* parent,
 	GtkWidget* dialog = gtk_file_chooser_dialog_new(_("Saving files"),
 	                    parent,
 	                    GTK_FILE_CHOOSER_ACTION_SAVE,
-	                    "_Cancel取消", GTK_RESPONSE_CANCEL,
-	                    "_Save保存", GTK_RESPONSE_ACCEPT,
+	                    _("_Cancel"), GTK_RESPONSE_CANCEL,
+	                    _("_Save"), GTK_RESPONSE_ACCEPT,
 	                    NULL);
 
 	// 设置默认文件名

@@ -1182,7 +1182,7 @@ void on_button_clicked_list_cancel(GtkWidgetHelper helper) {
 		
 	}
 	signal_handler(0);
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", _("Current partition operation cancelled!"));
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Current partition operation cancelled!"));
 }
 void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
@@ -1362,7 +1362,7 @@ void on_button_clicked_m_cancel(GtkWidgetHelper helper) {
 		
 	}
 	signal_handler(0);
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", _("Current partition operation cancelled!"));
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Current partition operation cancelled!"));
 }
 void on_button_clicked_set_active_a(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
@@ -1380,7 +1380,7 @@ void on_button_clicked_set_active_a(GtkWidgetHelper helper) {
 		return;
 	}
 	set_active(io, "a", isCMethod);
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", _("Current active partition set to Slot A!"));
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Current active partition set to Slot A!"));
 	gui_idle_call([helper]() mutable {
 		helper.setLabelText(helper.getWidget("slot_mode"),"Slot A");
 	});
@@ -1401,7 +1401,7 @@ void on_button_clicked_set_active_b(GtkWidgetHelper helper) {
 		return;
 	}
 	set_active(io, "b", isCMethod);
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", _("Current active partition set to Slot B!"));
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Current active partition set to Slot B!"));
 	gui_idle_call([helper]() mutable {
 		helper.setLabelText(helper.getWidget("slot_mode"),"Slot B");
 	});
@@ -1448,7 +1448,7 @@ void on_button_clicked_read_xml(GtkWidgetHelper helper) {
 		
 	}
 	GtkWidget* parent = helper.getWidget("main_window");
-	std::string savePath = showSaveFileDialog(GTK_WINDOW(parent), "partition_table.xml", { {"XML文件 (*.xml)", "*.xml"} });
+	std::string savePath = showSaveFileDialog(GTK_WINDOW(parent), "partition_table.xml", { {_("XML files (*.xml)"), "*.xml"} });
 	if (savePath.empty()) {
 		showErrorDialog(GTK_WINDOW(parent), _(_(_("Error"))), _("No save path selected!"));
 		return;
@@ -1538,7 +1538,7 @@ void on_button_clicked_select_xml(GtkWidgetHelper helper) {
 void on_button_clicked_exp_log(GtkWidgetHelper helper) {
 	GtkWidget* parent = helper.getWidget("main_window");
 	GtkWidget *txtOutput = helper.getWidget("txtOutput");
-	std::string savePath = showSaveFileDialog(GTK_WINDOW(parent), "sfd_tool_log.txt", { {"文本文件 (*.txt)", "*.txt"} });
+	std::string savePath = showSaveFileDialog(GTK_WINDOW(parent), "sfd_tool_log.txt", { {_("Text files (*.txt)"), "*.txt"} });
 	if (savePath.empty()) {
 		showErrorDialog(GTK_WINDOW(parent), _(_(_("Error"))), _("No save path selected!"));
 		return;
@@ -1580,7 +1580,7 @@ void on_button_clicked_chip_uid(GtkWidgetHelper helper) {
 	char* str = NEWN char[1024];
 	if (!str) ERR_EXIT("malloc failed");
 	print_to_string(str, 1024, io->raw_buf + 4, READ16_BE(io->raw_buf + 2), 0);
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", str);
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), str);
 	delete[] str;
 }
 
@@ -1633,7 +1633,7 @@ void on_button_clicked_pac_time(GtkWidgetHelper helper) {
 	snprintf(text, need + 1, "pactime = 0x%llx (unix = %llu)", time, unix1);
 	encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
 	send_and_check(io);
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", text);
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), text);
 	delete[] text;
 }
 void on_button_clicked_check_nand(GtkWidgetHelper helper) {
@@ -1658,10 +1658,10 @@ void on_button_clicked_check_nand(GtkWidgetHelper helper) {
 	}
 	if (Da_Info.dwStorageType == 0x101) {
 		DEG_LOG(I, "Device storage is nand");
-		showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", "Storage is nand.");
+		showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), "Storage is nand.");
 	} else {
 		DEG_LOG(I, "Device storage is not nand");
-		showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", "Storage is not nand.");
+		showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), "Storage is not nand.");
 	}
 }
 void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
@@ -1688,7 +1688,7 @@ void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
 			if (!o) load_partition_unify(io, "trustos", "tos-noavb.bin",blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 			if (!o) {
 				gui_idle_call_wait_drag([helper]() {
-					showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Disabled AVB successfully, the backup trustos is tos_bak.bin"));
+					showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Disabled AVB successfully, the backup trustos is tos_bak.bin"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 			} else {
 				gui_idle_call_wait_drag([helper]() {
@@ -1704,41 +1704,41 @@ void on_button_clicked_raw_data_en(GtkWidgetHelper helper) {
 	if (rawdatay) {
 		Da_Info.bSupportRawData = rawdatay;
 	}
-	if (Da_Info.bSupportRawData) showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Successfully enabled raw data mode"));
-	else showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Failed to enable raw data mode, please set value!"));
+	if (Da_Info.bSupportRawData) showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Successfully enabled raw data mode"));
+	else showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Failed to enable raw data mode, please set value!"));
 }
 void on_button_clicked_raw_data_dis(GtkWidgetHelper helper) {
 	Da_Info.bSupportRawData = 0;
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Successfully disabled raw data mode"));
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Successfully disabled raw data mode"));
 }
 void on_button_clicked_transcode_en(GtkWidgetHelper helper) {
 	unsigned a, f;
 	a = 1;
 	f = (io->flags & ~FLAGS_TRANSCODE);
 	io->flags = f | (a ? FLAGS_TRANSCODE : 0);
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Enabled transcode successfully"));
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Enabled transcode successfully"));
 }
 void on_button_clicked_transcode_dis(GtkWidgetHelper helper) {
 	unsigned a = 0;
 	encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
 	if (!send_and_check(io)) io->flags &= ~FLAGS_TRANSCODE;
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Disabled transcode successfully"));
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Disabled transcode successfully"));
 }
 void on_button_clicked_charge_en(GtkWidgetHelper helper) {
 	keep_charge = 1;
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Set successfully"));
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Set successfully"));
 }
 void on_button_clicked_charge_dis(GtkWidgetHelper helper) {
 	keep_charge = 0;
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Set successfully"));
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Set successfully"));
 }
 void on_button_clicked_end_data_en(GtkWidgetHelper helper) {
 	end_data = 1;
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Set successfully"));
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Set successfully"));
 }
 void on_button_clicked_end_data_dis(GtkWidgetHelper helper) {
 	end_data = 0;
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Set successfully"));
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Set successfully"));
 }
 void on_button_clicked_abpart_auto(GtkWidgetHelper helper) {
 	selected_ab = 0;
@@ -1761,7 +1761,7 @@ void confirm_partition_c(GtkWidgetHelper helper) {
 	}
 	gui_idle_call_with_callback(
 		[helper]() -> bool {
-			return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", _("No partition table found on current device, read partition list through compatibility method?\nWarn: This mode may not find all partitions on your device, use caution with force write or editing partition table!"));
+			return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("No partition table found on current device, read partition list through compatibility method?\nWarn: This mode may not find all partitions on your device, use caution with force write or editing partition table!"));
 		},
 			[helper](bool result) mutable {
 			if (result) {
@@ -1793,7 +1793,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	if (argc > 1 && !strcmp(argv[1], "--reconnect")) {
 		stage = 99;
 		gui_idle_call_wait_drag([helper]() {
-			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", _("You have entered Reconnect Mode, which only supports compatibility-method partition list retrieval, and [storage mode/slot mode] can not be gotten!"));
+			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("You have entered Reconnect Mode, which only supports compatibility-method partition list retrieval, and [storage mode/slot mode] can not be gotten!"));
 		},GTK_WINDOW(helper.getWidget("main_window")));
 
 	}
@@ -2067,12 +2067,12 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
 	}
 	gui_idle_call_wait_drag([helper]() mutable {
-		showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Successfully connected 连接成功", _("Device already connected! Some advanced settings opened!"));
+		showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Successfully connected"), _("Device already connected! Some advanced settings opened!"));
 		if (!fdl2_executed) {
 			helper.enableWidget("fdl_exec");
-			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Tips 提示", _("Please execute FDL file to continue!"));
+			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Please execute FDL file to continue!"));
 			if (device_mode == SPRD4 && isKickMode) {
-				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Tips 提示", _("Since your device is in SPRD4 mode, you can choose to skip FDL setting and directly execute FDL, but not all devices support that, please proceed with caution!"));
+				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Since your device is in SPRD4 mode, you can choose to skip FDL setting and directly execute FDL, but not all devices support that, please proceed with caution!"));
 			}
 		}
 		else if (device_stage == FDL2) helper.setLabelText(helper.getWidget("con"), "Ready");
@@ -2127,7 +2127,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			if (device_mode == SPRD4 && isKickMode) {
 				gui_idle_call_with_callback(
 					[helper]() -> bool {
-						return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", _("Device can be booted without FDL in SPRD4 mode, continue?"));
+						return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Device can be booted without FDL in SPRD4 mode, continue?"));
 					},
 					[helper, fdl_path, fdl_addr](bool result) {
 						if (result) {
@@ -2264,7 +2264,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		}
 		fdl2_executed = 1;
 		gui_idle_call_wait_drag([helper]() mutable {
-			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "FDL2 Executed FDL2执行成功", _("FDL2 executed successfully!"));
+			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("FDL2 Executed"), _("FDL2 executed successfully!"));
 			EnableWidgets(helper);
 			helper.disableWidget("fdl_exec");
 			helper.setLabelText(helper.getWidget("mode"), "FDL2");
@@ -2328,7 +2328,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				if (device_mode == SPRD4 && isKickMode) {
 					gui_idle_call_with_callback(
 						[helper]() -> bool {
-							return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", _("Device can be booted without FDL in SPRD4 mode, continue?"));
+							return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Device can be booted without FDL in SPRD4 mode, continue?"));
 						},
 						[execfile,fdl_path,fdl_addr,isCve,cve_addr,cve_path,fi, helper](bool result) {
 							if (result) {
@@ -2392,7 +2392,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				highspeed = 1;
 				if (!baudrate) baudrate = 921600;
 				gui_idle_call_wait_drag([helper]() {
-					showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "High Speed Mode Enabled 高速模式已启用", _("Do not set block size manually in high speed mode!"));
+					showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("High Speed Mode Enabled"), _("Do not set block size manually in high speed mode!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 			}
 
@@ -2435,7 +2435,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			}
 			fdl1_loaded = 1;
 			gui_idle_call_wait_drag([helper]() mutable {
-				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "FDL1 Executed FDL1执行成功", _("FDL1 executed successfully!"));
+				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("FDL1 Executed"), _("FDL1 executed successfully!"));
 				helper.setLabelText(helper.getWidget("mode"), "FDL1");
 				helper.setLabelText(helper.getWidget("con"), "Connected");
 			},GTK_WINDOW(helper.getWidget("main_window")));

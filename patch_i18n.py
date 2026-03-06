@@ -103,7 +103,24 @@ def process_file(filepath):
         '"Get pactime 获取PAC烧录时间"': '_("Get pactime")',
         '"Get chip UID  获取芯片UID"': '_("Get chip UID")',
         '"Check if NAND Storage 检查是否为NAND机型"': '_("Check if NAND Storage")',
-        'gtk_label_new("调试选项页面\\n"\n\t\t                                     "此页面包含设备调试功能\\n"\n\t\t                                     "Debug Options Page\\n"\n\t\t                                     "This page contains device debugging functions")': 'gtk_label_new(_("Debug Options Page\\nThis page contains device debugging functions"))'
+        'gtk_label_new("调试选项页面\\n"\n\t\t                                     "此页面包含设备调试功能\\n"\n\t\t                                     "Debug Options Page\\n"\n\t\t                                     "This page contains device debugging functions")': 'gtk_label_new(_("Debug Options Page\\nThis page contains device debugging functions"))',
+        '"_Cancel取消"': '_("_Cancel")',
+        '"_Open打开"': '_("_Open")',
+        '"Save file 保存文件"': '_("Save file")',
+        '"_Save保存"': '_("_Save")',
+        '"_Select选择"': '_("_Select")',
+        '"提示 Tips"': '_("Tips")',
+        '"Info 信息"': '_("Info")',
+        '"Confirm 确认"': '_("Confirm")',
+        '"Successfully connected 连接成功"': '_("Successfully connected")',
+        '"Tips 提示"': '_("Tips")',
+        '"FDL2 Executed FDL2执行成功"': '_("FDL2 Executed")',
+        '"High Speed Mode Enabled 高速模式已启用"': '_("High Speed Mode Enabled")',
+        '"FDL1 Executed FDL1执行成功"': '_("FDL1 Executed")',
+        '"An error occurred. The application will now exit.\\n监测到错误，应用程序将退出。"': '_("An error occurred. The application will now exit.")',
+        '"XML文件 (*.xml)"': '_("XML files (*.xml)")',
+        '"文本文件 (*.txt)"': '_("Text files (*.txt)")',
+        '"所有文件 (*.*)"': '_("All files (*.*)")'
     }
 
     for search, repl in replacements.items():

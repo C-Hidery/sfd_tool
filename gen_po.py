@@ -218,7 +218,23 @@ translation_dict = {
     "Get pactime": "读取PAC烧录时间记录",
     "Get chip UID": "获取芯片硬件UID",
     "Check if NAND Storage": "检查NAND存储标识",
-    "Debug Options Page\\nThis page contains device debugging functions": "调试选项页面\\n此页面包含设备调试功能"
+    "Debug Options Page\\nThis page contains device debugging functions": "调试选项页面\\n此页面包含设备调试功能",
+    "_Cancel": "_取消",
+    "_Open": "_打开",
+    "Save file": "保存文件",
+    "_Save": "_保存",
+    "_Select": "_选择",
+    "Tips": "提示",
+    "Info": "信息",
+    "Confirm": "确认",
+    "Successfully connected": "连接成功",
+    "FDL2 Executed": "FDL2执行成功",
+    "High Speed Mode Enabled": "高速模式已启用",
+    "FDL1 Executed": "FDL1执行成功",
+    "An error occurred. The application will now exit.": "监测到错误，应用程序将退出。",
+    "XML files (*.xml)": "XML文件 (*.xml)",
+    "Text files (*.txt)": "文本文件 (*.txt)",
+    "All files (*.*)": "所有文件 (*.*)"
 }
 
 pot_path = "locale/sfd_tool.pot"
