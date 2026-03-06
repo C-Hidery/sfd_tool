@@ -39,7 +39,7 @@ int in_quote;
 char* temp;
 char str1[(ARGC_MAX - 1) * ARGV_LEN];
 spdio_t* io = nullptr;
-int ret, wait = 30 * REOPEN_FREQ;
+int ret, conn_wait = 30 * REOPEN_FREQ;
 int keep_charge = 1, end_data = 0, blk_size = 0, skip_confirm = 1, highspeed = 0, cve_v2 = 0;
 int nand_info[3];
 int argcount = 0, stage = -1, nand_id = DEFAULT_NAND_ID;
@@ -693,7 +693,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 					break;
 				}
 			}
-			if(i_o = io->part_count){
+			if(i_o == io->part_count){
 				showErrorDialog(window, "错误 Error", "后一个指定的分区不存在！\nPartition after does not exist!");
 				return;
 			}
@@ -758,7 +758,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 					break;
 				}
 			}
-			if(i_o = io->part_count_c){
+			if(i_o == io->part_count_c){
 				showErrorDialog(window, "错误 Error", "后一个指定的分区不存在！\nPartition after does not exist!");
 				return;
 			}
@@ -1807,7 +1807,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	const char* cve_path = helper.getEntryText(cveAddr);
 	const char* cve_addr = helper.getEntryText(cveAddrC);
 	DEG_LOG(I, "Begin to boot...(%fs)", wait_time);
-	wait = static_cast<int>(wait_time * REOPEN_FREQ);
+	conn_wait = static_cast<int>(wait_time * REOPEN_FREQ);
 	if (isSprd4) {
 		if (isOneMode) {
 			DEG_LOG(I, "Using SPRD4 one-step mode to kick device.");
@@ -1829,8 +1829,8 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	if (at || bootmode >= 0) {
 		io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
 		if (io->hThread == nullptr) return;
-		ChangeMode(io, wait / REOPEN_FREQ * 1000, bootmode, at);
-		wait = 30 * REOPEN_FREQ;
+		ChangeMode(io, conn_wait / REOPEN_FREQ * 1000, bootmode, at);
+		conn_wait = 30 * REOPEN_FREQ;
 		stage = -1;
 	}
 #else
@@ -1842,8 +1842,8 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	}
 	if (at || bootmode >= 0) {
 		startUsbEventHandle();
-		ChangeMode(io, wait / REOPEN_FREQ * 1000, bootmode, at);
-		wait = 30 * REOPEN_FREQ;
+		ChangeMode(io, conn_wait / REOPEN_FREQ * 1000, bootmode, at);
+		conn_wait = 30 * REOPEN_FREQ;
 		stage = -1;
 	}
 	if (bListenLibusb < 0) startUsbEventHandle();
@@ -1863,7 +1863,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 #endif
 #endif
 	if (!m_bOpened) {
-		DBG_LOG("<waiting for connection,mode:dl,%ds>\n", wait / REOPEN_FREQ);
+		DBG_LOG("<waiting for connection,mode:dl,%ds>\n", conn_wait / REOPEN_FREQ);
 
 		for (int i = 0; ; i++) {
 #if USE_LIBUSB
@@ -1888,7 +1888,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 					if (m_bOpened) break;
 				}
 			}
-			if (i >= wait)
+			if (i >= conn_wait)
 				ERR_EXIT("libusb_open_device failed\n");
 #else
 			if (io->verbose) DBG_LOG("Cost: %.1f, Found: %d\n", (float)i / REOPEN_FREQ, curPort);
@@ -1909,7 +1909,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 					if (m_bOpened) break;
 				}
 			}
-			if (i >= wait) {
+			if (i >= conn_wait) {
 				ERR_EXIT("%s: Failed to find port.\n", o_exception);
 			}
 #endif
