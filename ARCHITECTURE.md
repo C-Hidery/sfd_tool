@@ -118,3 +118,37 @@ make clean
 ```
 
 **依赖：** GTK+ 3.0、libusb-1.0、gettext（libintl）
+
+---
+
+## 运行
+
+### 国际化说明
+
+程序已集成 gettext 国际化。直接运行（或 `sudo ./sfd_tool`）时，语言跟随系统默认 locale，部分环境下 `sudo` 会重置环境变量导致显示英文界面。
+
+**推荐运行方式：**
+
+```bash
+# 不需要 root 权限的情况（macOS 或已配置 udev 规则的 Linux）
+LC_ALL=zh_CN.UTF-8 ./sfd_tool
+
+# Linux — 需要 USB 访问权限时（推荐）
+LC_ALL=zh_CN.UTF-8 sudo -E ./sfd_tool
+```
+
+> `-E` 参数让 `sudo` 保留当前用户的环境变量（包括 `LC_ALL`），避免界面回退为英文。
+
+### Linux USB 权限
+
+Linux 默认对 USB 设备的访问需要 root 权限，因此推荐使用 `sudo -E`。  
+或者，可以配置 udev 规则避免每次都需要 sudo：
+
+```bash
+# 示例：允许所有用户访问展讯 USB 设备
+echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="1782", MODE="0666"' \
+  | sudo tee /etc/udev/rules.d/99-sprd.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+配置后即可直接用 `LC_ALL=zh_CN.UTF-8 ./sfd_tool` 运行。
