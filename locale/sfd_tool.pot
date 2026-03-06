@@ -1,0 +1,366 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-06 13:52+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: main.cpp:66 main.cpp:371 main.cpp:491 main.cpp:677 main.cpp:845 main.cpp:998
+#: main.cpp:1678
+msgid "Warning"
+msgstr ""
+
+#: main.cpp:66
+msgid ""
+"You are running this tool without root permission!\n"
+"It may cause device connecting issue\n"
+"Recommanded to open this tool with root permission!\n"
+"\n"
+"sudo -E /path/to/sfd_tool"
+msgstr ""
+
+#: main.cpp:77
+msgid "Program Crash"
+msgstr ""
+
+#: main.cpp:77
+msgid ""
+"The program encountered an unhandled exception, which may be caused by "
+"device connection issues or a bug in the program.\n"
+"\n"
+"It is recommended to check the device connection, ensure the correct options "
+"are used, and try running the tool again."
+msgstr ""
+
+#: main.cpp:298 main.cpp:304 main.cpp:308 main.cpp:339 main.cpp:345
+#: main.cpp:349 main.cpp:367 main.cpp:408 main.cpp:414 main.cpp:418
+#: main.cpp:443 main.cpp:465 main.cpp:473 main.cpp:481 main.cpp:486
+#: main.cpp:504 main.cpp:516 main.cpp:538 main.cpp:557 main.cpp:569
+#: main.cpp:591 main.cpp:625 main.cpp:651 main.cpp:658 main.cpp:667
+#: main.cpp:672 main.cpp:687 main.cpp:698 main.cpp:737 main.cpp:752
+#: main.cpp:763 main.cpp:802 main.cpp:831 main.cpp:839 main.cpp:857
+#: main.cpp:894 main.cpp:912 main.cpp:949 main.cpp:978 main.cpp:987
+#: main.cpp:993 main.cpp:1010 main.cpp:1033 main.cpp:1052 main.cpp:1075
+#: main.cpp:1106 main.cpp:1121 main.cpp:1136 main.cpp:1157 main.cpp:1179
+#: main.cpp:1191 main.cpp:1203 main.cpp:1224 main.cpp:1256 main.cpp:1265
+#: main.cpp:1269 main.cpp:1296 main.cpp:1305 main.cpp:1309 main.cpp:1330
+#: main.cpp:1338 main.cpp:1359 main.cpp:1371 main.cpp:1378 main.cpp:1392
+#: main.cpp:1399 main.cpp:1413 main.cpp:1445 main.cpp:1453 main.cpp:1509
+#: main.cpp:1522 main.cpp:1543 main.cpp:1549 main.cpp:1564 main.cpp:1591
+#: main.cpp:1643 main.cpp:1671 main.cpp:1695 main.cpp:1757 main.cpp:2109
+msgid "Error"
+msgstr ""
+
+#: main.cpp:298 main.cpp:339 main.cpp:408 main.cpp:443 main.cpp:473
+#: main.cpp:625 main.cpp:658 main.cpp:839 main.cpp:987 main.cpp:1106
+#: main.cpp:1121 main.cpp:1136 main.cpp:1157 main.cpp:1179 main.cpp:1191
+#: main.cpp:1256 main.cpp:1296 main.cpp:1330 main.cpp:1359 main.cpp:1371
+#: main.cpp:1392 main.cpp:1413 main.cpp:1445 main.cpp:1509 main.cpp:1522
+#: main.cpp:1564 main.cpp:1591 main.cpp:1643 main.cpp:1671 main.cpp:1757
+#: main.cpp:2109
+msgid "Device unattached, exiting..."
+msgstr ""
+
+#: main.cpp:304 main.cpp:345
+msgid "No partition list file selected!"
+msgstr ""
+
+#: main.cpp:308 main.cpp:349 main.cpp:418
+msgid "No partition table loaded, cannot write partition list!"
+msgstr ""
+
+#: main.cpp:326 main.cpp:382 main.cpp:394 main.cpp:431 main.cpp:457
+#: main.cpp:599 main.cpp:810 main.cpp:957 main.cpp:1083 main.cpp:1287
+#: main.cpp:1321 main.cpp:1350 main.cpp:1426 main.cpp:1502 main.cpp:1516
+#: main.cpp:1529 main.cpp:1554
+msgid "Completed"
+msgstr ""
+
+#: main.cpp:326 main.cpp:1287
+msgid "Partition write completed!"
+msgstr ""
+
+#: main.cpp:364
+msgid "Confirm"
+msgstr ""
+
+#: main.cpp:364
+msgid "Force writing partitions may brick the device, do you want to continue?"
+msgstr ""
+
+#: main.cpp:367
+msgid "Force write mode does not allow writing to splloader partition!"
+msgstr ""
+
+#: main.cpp:371
+msgid ""
+"Currently in compatibility-method-PartList mode, force writing may brick the "
+"device!"
+msgstr ""
+
+#: main.cpp:382 main.cpp:394
+msgid "Partition force write completed!"
+msgstr ""
+
+#: main.cpp:414 main.cpp:1305 main.cpp:1453 main.cpp:1543
+msgid "No save path selected!"
+msgstr ""
+
+#: main.cpp:431 main.cpp:1321
+msgid "Partition read completed!"
+msgstr ""
+
+#: main.cpp:457 main.cpp:1350
+msgid "Partition erase completed!"
+msgstr ""
+
+#: main.cpp:465 main.cpp:651 main.cpp:831 main.cpp:978
+msgid "No partition table loaded, cannot modify partition size!"
+msgstr ""
+
+#: main.cpp:481 main.cpp:667 main.cpp:993
+msgid "Please fill in complete modification info!"
+msgstr ""
+
+#: main.cpp:486 main.cpp:672
+msgid "Please enter a valid new size!"
+msgstr ""
+
+#: main.cpp:489 main.cpp:675 main.cpp:843 main.cpp:996
+msgid "Modify partition table"
+msgstr ""
+
+#: main.cpp:491 main.cpp:677 main.cpp:845 main.cpp:998
+msgid ""
+"Currently in compatibility-method-PartList mode, modifying partition may "
+"brick the device!"
+msgstr ""
+
+#: main.cpp:504 main.cpp:557
+msgid "Partition does not exist!"
+msgstr ""
+
+#: main.cpp:516 main.cpp:569 main.cpp:857 main.cpp:912 main.cpp:1010
+#: main.cpp:1052
+msgid "Second partition does not exist!"
+msgstr ""
+
+#: main.cpp:538 main.cpp:591 main.cpp:737 main.cpp:802 main.cpp:894
+#: main.cpp:949 main.cpp:1033 main.cpp:1075
+msgid "Failed to parse modified partition table!"
+msgstr ""
+
+#: main.cpp:599 main.cpp:810 main.cpp:957 main.cpp:1083
+msgid "Partition modification completed!"
+msgstr ""
+
+#: main.cpp:687 main.cpp:752
+msgid "Partition already exists!"
+msgstr ""
+
+#: main.cpp:698 main.cpp:763
+msgid "Partition after does not exist!"
+msgstr ""
+
+#: main.cpp:1185 main.cpp:1365
+msgid "Current partition operation cancelled!"
+msgstr ""
+
+#: main.cpp:1203 main.cpp:1224
+msgid "Partition table not available!"
+msgstr ""
+
+#: main.cpp:1265
+msgid "No partition image file selected!"
+msgstr ""
+
+#: main.cpp:1269 main.cpp:1309 main.cpp:1338
+msgid "No partition name specified!"
+msgstr ""
+
+#: main.cpp:1378 main.cpp:1399
+msgid "Device is not using VAB!"
+msgstr ""
+
+#: main.cpp:1383
+msgid "Current active partition set to Slot A!"
+msgstr ""
+
+#: main.cpp:1404
+msgid "Current active partition set to Slot B!"
+msgstr ""
+
+#: main.cpp:1426
+msgid "Repartition completed!"
+msgstr ""
+
+#: main.cpp:1502
+msgid "Partition table export completed!"
+msgstr ""
+
+#: main.cpp:1516
+msgid "DM-Verity and AVB protection enabled!"
+msgstr ""
+
+#: main.cpp:1529
+msgid "DM-Verity and AVB protection disabled!"
+msgstr ""
+
+#: main.cpp:1549
+msgid "Failed to save log file!"
+msgstr ""
+
+#: main.cpp:1554
+msgid "Log export completed!"
+msgstr ""
+
+#: main.cpp:1678
+msgid ""
+"This operation may break your device, and not all devices support this, if "
+"your device is broken, flash backup in backup_tos, continue?"
+msgstr ""
+
+#: main.cpp:1691
+msgid "Disabled AVB successfully, the backup trustos is tos_bak.bin"
+msgstr ""
+
+#: main.cpp:1695
+msgid "Disabled AVB failed, go to console window to see why"
+msgstr ""
+
+#: main.cpp:1707
+msgid "Successfully enabled raw data mode"
+msgstr ""
+
+#: main.cpp:1708
+msgid "Failed to enable raw data mode, please set value!"
+msgstr ""
+
+#: main.cpp:1712
+msgid "Successfully disabled raw data mode"
+msgstr ""
+
+#: main.cpp:1719
+msgid "Enabled transcode successfully"
+msgstr ""
+
+#: main.cpp:1725
+msgid "Disabled transcode successfully"
+msgstr ""
+
+#: main.cpp:1729 main.cpp:1733 main.cpp:1737 main.cpp:1741
+msgid "Set successfully"
+msgstr ""
+
+#: main.cpp:1764
+msgid ""
+"No partition table found on current device, read partition list through "
+"compatibility method?\n"
+"Warn: This mode may not find all partitions on your device, use caution with "
+"force write or editing partition table!"
+msgstr ""
+
+#: main.cpp:1796
+msgid ""
+"You have entered Reconnect Mode, which only supports compatibility-method "
+"partition list retrieval, and [storage mode/slot mode] can not be gotten!"
+msgstr ""
+
+#: main.cpp:2070
+msgid "Device already connected! Some advanced settings opened!"
+msgstr ""
+
+#: main.cpp:2073
+msgid "Please execute FDL file to continue!"
+msgstr ""
+
+#: main.cpp:2075
+msgid ""
+"Since your device is in SPRD4 mode, you can choose to skip FDL setting and "
+"directly execute FDL, but not all devices support that, please proceed with "
+"caution!"
+msgstr ""
+
+#: main.cpp:2130 main.cpp:2331
+msgid "Device can be booted without FDL in SPRD4 mode, continue?"
+msgstr ""
+
+#: main.cpp:2267
+msgid "FDL2 executed successfully!"
+msgstr ""
+
+#: main.cpp:2395
+msgid "Do not set block size manually in high speed mode!"
+msgstr ""
+
+#: main.cpp:2438
+msgid "FDL1 executed successfully!"
+msgstr ""
+
+#: main.cpp:2542
+msgid "Please connect your device with BROM mode"
+msgstr ""
+
+#: main.cpp:2591
+msgid "CVE Binary File Address"
+msgstr ""
+
+#: main.cpp:2609
+msgid "Kick One-time Mode"
+msgstr ""
+
+#: main.cpp:2618
+msgid "Enable CVE v2"
+msgstr ""
+
+#: main.cpp:2746
+msgid "Modify Partition Table"
+msgstr ""
+
+#: main.cpp:2984
+msgid "Data block size"
+msgstr ""
+
+#: main.cpp:2997
+msgid "Enable Rawdata mode"
+msgstr ""
+
+#: main.cpp:2999
+msgid "Disable Rawdata mode"
+msgstr ""
+
+#: main.cpp:3005
+msgid "Enable transcode - FDL1"
+msgstr ""
+
+#: main.cpp:3180
+msgid "Debug Options"
+msgstr ""
+
+#: GtkWidgetHelper.cpp:53
+msgid "Select file"
+msgstr ""
+
+#: GtkWidgetHelper.cpp:70 GtkWidgetHelper.cpp:188
+msgid "All files (*.*)"
+msgstr ""
+
+#: GtkWidgetHelper.cpp:91
+msgid "Select folder"
+msgstr ""
+
+#: GtkWidgetHelper.cpp:166
+msgid "Saving files"
+msgstr ""

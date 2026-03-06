@@ -1,5 +1,6 @@
 // GtkWidgetHelper.cpp
 #include "GtkWidgetHelper.hpp"
+#include "i18n.h"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -49,7 +50,7 @@ std::string showFileChooser(GtkWindow* parent, bool open) {
 	GtkWidget* dialog;
 
 	if (open) {
-		dialog = gtk_file_chooser_dialog_new("Select file 选择文件",
+		dialog = gtk_file_chooser_dialog_new(_("Select file"),
 		                                     parent,
 		                                     GTK_FILE_CHOOSER_ACTION_OPEN,
 		                                     "_Cancel取消", GTK_RESPONSE_CANCEL,
@@ -66,7 +67,7 @@ std::string showFileChooser(GtkWindow* parent, bool open) {
 
 	// 设置过滤器
 	GtkFileFilter* filter = gtk_file_filter_new();
-	gtk_file_filter_set_name(filter, "All files 所有文件 (*.*)");
+	gtk_file_filter_set_name(filter, _("All files (*.*)"));
 	gtk_file_filter_add_pattern(filter, "*");
 	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
 
@@ -87,7 +88,7 @@ std::string showFileChooser(GtkWindow* parent, bool open) {
 
 // 选择文件夹
 const char* showFolderChooser(GtkWindow* parent) {
-	GtkWidget* dialog = gtk_file_chooser_dialog_new("Select folder 选择文件夹",
+	GtkWidget* dialog = gtk_file_chooser_dialog_new(_("Select folder"),
 	                    parent,
 	                    GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER,
 	                    "_Cancel取消", GTK_RESPONSE_CANCEL,
@@ -162,7 +163,7 @@ bool showConfirmDialog(GtkWindow* parent, const char* title, const char* message
 std::string showSaveFileDialog(GtkWindow* parent,
                                const std::string& default_filename,
                                const std::vector<std::pair<std::string, std::string>>& filters) {
-	GtkWidget* dialog = gtk_file_chooser_dialog_new("Saving files 保存文件",
+	GtkWidget* dialog = gtk_file_chooser_dialog_new(_("Saving files"),
 	                    parent,
 	                    GTK_FILE_CHOOSER_ACTION_SAVE,
 	                    "_Cancel取消", GTK_RESPONSE_CANCEL,
@@ -184,7 +185,7 @@ std::string showSaveFileDialog(GtkWindow* parent,
 
 	// 默认添加"所有文件"过滤器
 	GtkFileFilter* all_filter = gtk_file_filter_new();
-	gtk_file_filter_set_name(all_filter, "All files 所有文件 (*.*)");
+	gtk_file_filter_set_name(all_filter, _("All files (*.*)"));
 	gtk_file_filter_add_pattern(all_filter, "*");
 	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), all_filter);
 

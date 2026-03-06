@@ -4,3 +4,4 @@ icon.png usr/share/icons/hicolor/256x256/apps/sfd-tool.png
 README.md usr/share/doc/sfd-tool/
 README_ZH.md usr/share/doc/sfd-tool/
 LICENSE.txt usr/share/doc/sfd-tool/copyright
+locale/zh_CN/LC_MESSAGES/sfd_tool.mo usr/share/locale/zh_CN/LC_MESSAGES/

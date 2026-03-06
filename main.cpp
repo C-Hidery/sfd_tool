@@ -4,6 +4,7 @@
 #include "main.h"
 #include "nlohmann/json.hpp" // json for auto sending FDL
 #include "GtkWidgetHelper.hpp"
+#include "i18n.h"
 #include <thread>
 #include <chrono>
 #include <gtk/gtk.h>
@@ -62,7 +63,7 @@ using nlohmann::json;
 void check_root_permission(GtkWidgetHelper helper) {
 	if (geteuid() != 0) {
 		// not root
-		showWarningDialog(GTK_WINDOW(helper.getWidget("main_window")), "Warn 警告", "You are running this tool without root permission!\nIt may cause device connecting issue\nRecommanded to open this tool with root permission!\n检测到未使用ROOT权限运行此工具\n可能会引起设备连接问题\n建议在ROOT环境下运行此工具\nsudo -E /path/to/sfd_tool");
+		showWarningDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Warning"))), _("You are running this tool without root permission!\nIt may cause device connecting issue\nRecommanded to open this tool with root permission!\n\nsudo -E /path/to/sfd_tool"));
 	}
 }
 #endif
@@ -73,7 +74,7 @@ void crash_handler(int sig) {
 	isCrashed = true;
 	if (isHelperInit){
 		gui_idle_call_wait_drag([]() {
-			showErrorDialog(helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr, "程序崩溃 Program Crash", "程序发生了未处理的异常，可能是由于设备连接问题或程序错误引起的。\nThe program encountered an unhandled exception, which may be caused by device connection issues or a bug in the program.\n\n建议检查设备连接，确保使用了正确的选项，并尝试重新运行工具。\nIt is recommended to check the device connection, ensure the correct options are used, and try running the tool again.");
+			showErrorDialog(helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr, _("Program Crash"), _("The program encountered an unhandled exception, which may be caused by device connection issues or a bug in the program.\n\nIt is recommended to check the device connection, ensure the correct options are used, and try running the tool again."));
 		},helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr);
 	}
 #ifdef __linux__
@@ -294,17 +295,17 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
 	if (filename.empty()) {
-		showErrorDialog(parent, "错误 Error", "未选择分区列表文件！\nNo partition list file selected!");
+		showErrorDialog(parent, _(_(_("Error"))), _("No partition list file selected!"));
 		return;
 	}
 	if (io->part_count == 0 && io->part_count_c == 0) {
-		showErrorDialog(parent, "错误 Error", "当前未加载分区表，无法写入分区列表！\nNo partition table loaded, cannot write partition list!");
+		showErrorDialog(parent, _(_(_("Error"))), _("No partition table loaded, cannot write partition list!"));
 		return;
 	}
 	helper.setLabelText(helper.getWidget("con"), "Writing partition");
@@ -322,7 +323,7 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 	std::thread([filename, parent,helper]() {
 		load_partition_unify(io, gPartInfo.name, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 		gui_idle_call_wait_drag([parent,helper]() mutable {
-			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区写入完成！\nPartition write completed!");
+			showInfoDialog(GTK_WINDOW(parent), _(_(_("Completed"))), _("Partition write completed!"));
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
 	}).detach();
@@ -335,17 +336,17 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
 	if (filename.empty()) {
-		showErrorDialog(parent, "错误 Error", "未选择分区列表文件！\nNo partition list file selected!");
+		showErrorDialog(parent, _(_(_("Error"))), _("No partition list file selected!"));
 		return;
 	}
 	if (io->part_count == 0 && io->part_count_c == 0) {
-		showErrorDialog(parent, "错误 Error", "当前未加载分区表，无法写入分区列表！\nNo partition table loaded, cannot write partition list!");
+		showErrorDialog(parent, _(_(_("Error"))), _("No partition table loaded, cannot write partition list!"));
 		return;
 	}
 	helper.setLabelText(helper.getWidget("con"), "Force Writing partition");
@@ -360,14 +361,14 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 		DEG_LOG(E, "Partition does not exist\n");
 		return;
 	}
-	bool i_op = showConfirmDialog(parent, "确认 Confirm", "强制写入分区可能会导致设备变砖，是否继续？\nForce writing partitions may brick the device, do you want to continue?");
+	bool i_op = showConfirmDialog(parent, _(_(_("Confirm"))), _("Force writing partitions may brick the device, do you want to continue?"));
 	if (!i_op) return;
 	if (!strncmp(gPartInfo.name, "splloader", 9)) {
-		showErrorDialog(parent, "错误 Error", "强制写入模式下不允许写入splloader分区！\nForce write mode does not allow writing to splloader partition!");
+		showErrorDialog(parent, _(_(_("Error"))), _("Force write mode does not allow writing to splloader partition!"));
 		return;
 	}
 	if (isCMethod) {
-		bool i_is = showConfirmDialog(parent, "警告 Warning", "当前处于兼容分区表模式，强制写入可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, force writing may brick the device!");
+		bool i_is = showConfirmDialog(parent, _(_(_("Warning"))), _("Currently in compatibility-method-PartList mode, force writing may brick the device!"));
 		if (!i_is) return;
 		if (io->part_count_c) {
 			std::thread([filename, parent, helper]() {
@@ -378,7 +379,7 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 					}
 				
 				gui_idle_call_wait_drag([parent]() {
-					showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区强制写入完成！\nPartition force write completed!");
+					showInfoDialog(GTK_WINDOW(parent), _(_(_("Completed"))), _("Partition force write completed!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 			}).detach();
 		}
@@ -390,7 +391,7 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 					break;
 				}
 			gui_idle_call_wait_drag([parent, helper]() mutable {
-				showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区强制写入完成！\nPartition force write completed!");
+				showInfoDialog(GTK_WINDOW(parent), _(_(_("Completed"))), _("Partition force write completed!"));
 				helper.setLabelText(helper.getWidget("con"), "Ready");
 			},GTK_WINDOW(helper.getWidget("main_window")));
 		}).detach();
@@ -404,17 +405,17 @@ void on_button_clicked_list_read(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
 	if (savePath.empty()) {
-		showErrorDialog(parent, "错误 Error", "未选择保存路径！\nNo save path selected!");
+		showErrorDialog(parent, _(_(_("Error"))), _("No save path selected!"));
 		return;
 	}
 	if (io->part_count == 0 && io->part_count_c == 0) {
-		showErrorDialog(parent, "错误 Error", "当前未加载分区表，无法写入分区列表！\nNo partition table loaded, cannot write partition list!");
+		showErrorDialog(parent, _(_(_("Error"))), _("No partition table loaded, cannot write partition list!"));
 		return;
 	}
 	helper.setLabelText(helper.getWidget("con"), "Reading partition");
@@ -427,7 +428,7 @@ void on_button_clicked_list_read(GtkWidgetHelper helper) {
 	std::thread([savePath, parent, helper]() {
 		dump_partition(io, gPartInfo.name, 0, gPartInfo.size, savePath.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);
 		gui_idle_call_wait_drag([parent, helper]() mutable {
-			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区读取完成！\nPartition read completed!");
+			showInfoDialog(GTK_WINDOW(parent), _(_(_("Completed"))), _("Partition read completed!"));
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
 	}).detach();
@@ -439,7 +440,7 @@ void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
@@ -453,7 +454,7 @@ void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 	std::thread([parent, helper]() {
 		erase_partition(io, gPartInfo.name, isCMethod);
 		gui_idle_call_wait_drag([parent, helper]() mutable {
-			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区擦除完成！\nPartition erase completed!");
+			showInfoDialog(GTK_WINDOW(parent), _(_(_("Completed"))), _("Partition erase completed!"));
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
 	}).detach();
@@ -461,7 +462,7 @@ void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 }
 void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 	if (io->part_count == 0 && io->part_count_c == 0) {
-		showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "错误 Error", "当前未加载分区表，无法修改分区大小！\nNo partition table loaded, cannot modify partition size!");
+		showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("No partition table loaded, cannot modify partition size!"));
 		return;
 	}
 	GtkWindow* window = GTK_WINDOW(helper.getWidget("main_window"));
@@ -469,7 +470,7 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
@@ -477,17 +478,17 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 	const char* secondPartName = gtk_entry_get_text(GTK_ENTRY(helper.getWidget("modify_second_part")));
 	const char* newSizeStr = gtk_entry_get_text(GTK_ENTRY(helper.getWidget("modify_new_size")));
 	if (strlen(secondPartName) == 0 || strlen(newSizeStr) == 0) {
-		showErrorDialog(window, "错误 Error", "请填写完整的修改信息！\nPlease fill in complete modification info!");
+		showErrorDialog(window, _(_(_("Error"))), _("Please fill in complete modification info!"));
 		return;
 	}
 	int newSizeMB = atoi(newSizeStr);
 	if (newSizeMB <= 0) {
-		showErrorDialog(window, "错误 Error", "请输入合法的新大小！\nPlease enter a valid new size!");
+		showErrorDialog(window, _(_(_("Error"))), _("Please enter a valid new size!"));
 		return;
 	}
-	helper.setLabelText(helper.getWidget("con"), "Modify partition table");
+	helper.setLabelText(helper.getWidget("con"), _(_("Modify partition table")));
 	bool i_is = false;
-	if(isCMethod) i_is = showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
+	if(isCMethod) i_is = showConfirmDialog(window, _(_(_("Warning"))), _("Currently in compatibility-method-PartList mode, modifying partition may brick the device!"));
 	std::thread([secondPartName, newSizeMB, window, helper, part_name, i_is](){
 		int i_part = 0;
 		int i_se_part = 0;
@@ -500,7 +501,7 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			if (i_part == io->part_count) {
 				DEG_LOG(E, "Partition not exist\n");
 				gui_idle_call_wait_drag([window]() {
-					showErrorDialog(window, "错误 Error", "欲修改分区不存在！\nPartition does not exist!");
+					showErrorDialog(window, _(_(_("Error"))), _("Partition does not exist!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
@@ -512,7 +513,7 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			if (i_se_part == io->part_count) {
 				DEG_LOG(E, "Second partition not exist\n");
 				gui_idle_call_wait_drag([window]() {
-					showErrorDialog(window, "错误 Error", "第二分区不存在！\nSecond partition does not exist!");
+					showErrorDialog(window, _(_(_("Error"))), _("Second partition does not exist!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
@@ -534,7 +535,7 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			if (n <= 0) {
 				DEG_LOG(E, "Failed to parse modified partition table\n");
 				gui_idle_call_wait_drag([window]() {
-					showErrorDialog(window, "错误 Error", "解析修改后的分区表失败！\nFailed to parse modified partition table!");
+					showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
@@ -553,7 +554,7 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			if (i_part == io->part_count_c) {
 				DEG_LOG(E, "Partition not exist\n");
 				gui_idle_call_wait_drag([window]() {
-					showErrorDialog(window, "错误 Error", "欲修改分区不存在！\nPartition does not exist!");
+					showErrorDialog(window, _(_(_("Error"))), _("Partition does not exist!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
@@ -565,7 +566,7 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			if (i_se_part == io->part_count_c) {
 				DEG_LOG(E, "Second partition not exist\n");
 				gui_idle_call_wait_drag([window]() {
-					showErrorDialog(window, "错误 Error", "第二分区不存在！\nSecond partition does not exist!");
+					showErrorDialog(window, _(_(_("Error"))), _("Second partition does not exist!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
@@ -587,7 +588,7 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			if (n <= 0) {
 				DEG_LOG(E, "Failed to parse modified partition table\n");
 				gui_idle_call_wait_drag([window]() {
-					showErrorDialog(window, "错误 Error", "解析修改后的分区表失败！\nFailed to parse modified partition table!");
+					showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
@@ -595,7 +596,7 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			if (!send_and_check(io)) gpt_failed = 0;
 		}
 		gui_idle_call_wait_drag([window, helper]() mutable {
-			showInfoDialog(window, "完成 Completed", "分区修改完成！\nPartition modification completed!");
+			showInfoDialog(window, _(_(_("Completed"))), _("Partition modification completed!"));
 			std::vector<partition_t> partitions;
 			partitions.reserve(io->part_count);
 			
@@ -621,7 +622,7 @@ void on_button_clicked_xml_get(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
@@ -647,14 +648,14 @@ void on_button_clicked_xml_get(GtkWidgetHelper helper) {
 }
 void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 	if (io->part_count == 0 && io->part_count_c == 0) {
-		showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "错误 Error", "当前未加载分区表，无法修改分区大小！\nNo partition table loaded, cannot modify partition size!");
+		showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("No partition table loaded, cannot modify partition size!"));
 		return;
 	}
 	GtkWindow* window = GTK_WINDOW(helper.getWidget("main_window"));
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
@@ -663,17 +664,17 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 	const char* newSizeText = helper.getEntryText(helper.getWidget("modify_add_size"));
 	const char* beforePart = helper.getEntryText(helper.getWidget("before_new_part"));
 	if(newPartName.empty()){
-		showErrorDialog(window, "错误 Error", "请填写完整的修改信息！\nPlease fill in complete modification info!");
+		showErrorDialog(window, _(_(_("Error"))), _("Please fill in complete modification info!"));
 		return;
 	}
 	long long newPartSize = strtoll(newSizeText,nullptr,0);
 	if(newPartSize <= 0){
-		showErrorDialog(window, "错误 Error", "请输入合法的新大小！\nPlease enter a valid new size!");
+		showErrorDialog(window, _(_(_("Error"))), _("Please enter a valid new size!"));
 		return;
 	}
-	helper.setLabelText(helper.getWidget("con"), "Modify partition table");
+	helper.setLabelText(helper.getWidget("con"), _(_("Modify partition table")));
 	bool i_is = false;
-	if(isCMethod) i_is = showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
+	if(isCMethod) i_is = showConfirmDialog(window, _(_(_("Warning"))), _("Currently in compatibility-method-PartList mode, modifying partition may brick the device!"));
 	std::thread([window, newPartName, helper, newPartSize, beforePart, i_is]() mutable {
 		if(!isCMethod) {
 			partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
@@ -683,7 +684,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			for (int i = 0; i < io->part_count; i++) {
 				if (strcmp(io->ptable[i].name, newPartName.c_str()) == 0) {
 					DEG_LOG(W, "Partition %s already exists", newPartName.c_str());
-					showErrorDialog(window, "错误 Error", "分区已存在！\nPartition already exists!");
+					showErrorDialog(window, _(_(_("Error"))), _("Partition already exists!"));
 					return;
 				}
 			}
@@ -694,7 +695,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 				}
 			}
 			if(i_o == io->part_count){
-				showErrorDialog(window, "错误 Error", "后一个指定的分区不存在！\nPartition after does not exist!");
+				showErrorDialog(window, _(_(_("Error"))), _("Partition after does not exist!"));
 				return;
 			}
 			int i_op = 0;
@@ -733,7 +734,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			if (n <= 0) {
 				DEG_LOG(E, "Failed to parse modified partition table\n");
 				gui_idle_call_wait_drag([window]() {
-					showErrorDialog(window, "错误 Error", "解析修改后的分区表失败！\nFailed to parse modified partition table!");
+					showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
@@ -748,7 +749,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			for (int i = 0; i < io->part_count_c; i++) {
 				if (strcmp(io->Cptable[i].name, newPartName.c_str()) == 0) {
 					DEG_LOG(W, "Partition %s already exists", newPartName.c_str());
-					showErrorDialog(window, "错误 Error", "分区已存在！\nPartition already exists!");
+					showErrorDialog(window, _(_(_("Error"))), _("Partition already exists!"));
 					return;
 				}
 			}
@@ -759,7 +760,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 				}
 			}
 			if(i_o == io->part_count_c){
-				showErrorDialog(window, "错误 Error", "后一个指定的分区不存在！\nPartition after does not exist!");
+				showErrorDialog(window, _(_(_("Error"))), _("Partition after does not exist!"));
 				return;
 			}
 			int i_op = 0;
@@ -798,7 +799,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			if (n <= 0) {
 				DEG_LOG(E, "Failed to parse modified partition table\n");
 				gui_idle_call_wait_drag([window]() {
-					showErrorDialog(window, "错误 Error", "解析修改后的分区表失败！\nFailed to parse modified partition table!");
+					showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
@@ -806,7 +807,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			if (!send_and_check(io)) gpt_failed = 0;
 		}
 		gui_idle_call_wait_drag([window, helper]() mutable {
-			showInfoDialog(window, "完成 Completed", "分区修改完成！\nPartition modification completed!");
+			showInfoDialog(window, _(_(_("Completed"))), _("Partition modification completed!"));
 			std::vector<partition_t> partitions;
 			partitions.reserve(io->part_count);
 			
@@ -827,7 +828,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 }
 void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 	if (io->part_count == 0 && io->part_count_c == 0) {
-		showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "错误 Error", "当前未加载分区表，无法修改分区大小！\nNo partition table loaded, cannot modify partition size!");
+		showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("No partition table loaded, cannot modify partition size!"));
 		return;
 	}
 	GtkWindow* window = GTK_WINDOW(helper.getWidget("main_window"));
@@ -835,13 +836,13 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 	}
-	helper.setLabelText(helper.getWidget("con"), "Modify partition table");
+	helper.setLabelText(helper.getWidget("con"), _(_("Modify partition table")));
 	bool i_is = false;
-	if(isCMethod) i_is = showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
+	if(isCMethod) i_is = showConfirmDialog(window, _(_(_("Warning"))), _("Currently in compatibility-method-PartList mode, modifying partition may brick the device!"));
 	std::thread([part_name, helper, window, i_is]() mutable {
 		int i = 0;
 		if(!isCMethod){
@@ -853,7 +854,7 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 			if(i == io->part_count){
 				DEG_LOG(E, "Partition not exist\n");
 				gui_idle_call_wait_drag([window]() {
-					showErrorDialog(window, "错误 Error", "分区不存在！\nSecond partition does not exist!");
+					showErrorDialog(window, _(_(_("Error"))), _("Second partition does not exist!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
@@ -890,7 +891,7 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 			if (n <= 0) {
 				DEG_LOG(E, "Failed to parse modified partition table\n");
 				gui_idle_call_wait_drag([window]() {
-					showErrorDialog(window, "错误 Error", "解析修改后的分区表失败！\nFailed to parse modified partition table!");
+					showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
@@ -908,7 +909,7 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 			if(i == io->part_count_c){
 				DEG_LOG(E, "Partition not exist\n");
 				gui_idle_call_wait_drag([window]() {
-					showErrorDialog(window, "错误 Error", "分区不存在！\nSecond partition does not exist!");
+					showErrorDialog(window, _(_(_("Error"))), _("Second partition does not exist!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
@@ -945,7 +946,7 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 			if (n <= 0) {
 				DEG_LOG(E, "Failed to parse modified partition table\n");
 				gui_idle_call_wait_drag([window]() {
-					showErrorDialog(window, "错误 Error", "解析修改后的分区表失败！\nFailed to parse modified partition table!");
+					showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
@@ -953,7 +954,7 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 			if (!send_and_check(io)) gpt_failed = 0;
 		}
 		gui_idle_call_wait_drag([window, helper]() mutable {
-			showInfoDialog(window, "完成 Completed", "分区修改完成！\nPartition modification completed!");
+			showInfoDialog(window, _(_(_("Completed"))), _("Partition modification completed!"));
 			std::vector<partition_t> partitions;
 			partitions.reserve(io->part_count);
 			
@@ -974,7 +975,7 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 }
 void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 	if (io->part_count == 0 && io->part_count_c == 0) {
-		showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "错误 Error", "当前未加载分区表，无法修改分区大小！\nNo partition table loaded, cannot modify partition size!");
+		showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("No partition table loaded, cannot modify partition size!"));
 		return;
 	}
 	GtkWindow* window = GTK_WINDOW(helper.getWidget("main_window"));
@@ -983,18 +984,18 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
 	if(part_name.empty() || new_part_name.empty()){
-		showErrorDialog(window, "错误 Error", "请填写完整的修改信息！\nPlease fill in complete modification info!");
+		showErrorDialog(window, _(_(_("Error"))), _("Please fill in complete modification info!"));
 		return;
 	}
-	helper.setLabelText(helper.getWidget("con"), "Modify partition table");
+	helper.setLabelText(helper.getWidget("con"), _(_("Modify partition table")));
 	bool i_is = false;
-	if(isCMethod) i_is = showConfirmDialog(window, "警告 Warning", "当前处于兼容分区表模式，修改分区可能会导致设备变砖！\nCurrently in compatibility-method-PartList mode, modifying partition may brick the device!");
+	if(isCMethod) i_is = showConfirmDialog(window, _(_(_("Warning"))), _("Currently in compatibility-method-PartList mode, modifying partition may brick the device!"));
 	std::thread([part_name, new_part_name, helper, window, i_is]() mutable {
 		int i = 0;
 		if(!isCMethod){
@@ -1006,7 +1007,7 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 			if(i == io->part_count){
 				DEG_LOG(E, "Partition not exist\n");
 				gui_idle_call_wait_drag([window]() {
-					showErrorDialog(window, "错误 Error", "分区不存在！\nSecond partition does not exist!");
+					showErrorDialog(window, _(_(_("Error"))), _("Second partition does not exist!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
@@ -1029,7 +1030,7 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 			if (n <= 0) {
 				DEG_LOG(E, "Failed to parse modified partition table\n");
 				gui_idle_call_wait_drag([window]() {
-					showErrorDialog(window, "错误 Error", "解析修改后的分区表失败！\nFailed to parse modified partition table!");
+					showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
@@ -1048,7 +1049,7 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 			if(i == io->part_count_c){
 				DEG_LOG(E, "Partition not exist\n");
 				gui_idle_call_wait_drag([window]() {
-					showErrorDialog(window, "错误 Error", "分区不存在！\nSecond partition does not exist!");
+					showErrorDialog(window, _(_(_("Error"))), _("Second partition does not exist!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
@@ -1071,7 +1072,7 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 			if (n <= 0) {
 				DEG_LOG(E, "Failed to parse modified partition table\n");
 				gui_idle_call_wait_drag([window]() {
-					showErrorDialog(window, "错误 Error", "解析修改后的分区表失败！\nFailed to parse modified partition table!");
+					showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
@@ -1079,7 +1080,7 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 			if (!send_and_check(io)) gpt_failed = 0;
 		}
 		gui_idle_call_wait_drag([window, helper]() mutable {
-			showInfoDialog(window, "完成 Completed", "分区修改完成！\nPartition modification completed!");
+			showInfoDialog(window, _(_(_("Completed"))), _("Partition modification completed!"));
 			std::vector<partition_t> partitions;
 			partitions.reserve(io->part_count);
 			
@@ -1102,7 +1103,7 @@ void on_button_clicked_poweroff(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
@@ -1117,7 +1118,7 @@ void on_button_clicked_reboot(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
@@ -1132,7 +1133,7 @@ void on_button_clicked_recovery(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
@@ -1153,7 +1154,7 @@ void on_button_clicked_fastboot(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
@@ -1175,19 +1176,19 @@ void on_button_clicked_list_cancel(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
 	signal_handler(0);
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "已取消当前分区操作！\nCurrent partition operation cancelled!");
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", _("Current partition operation cancelled!"));
 }
 void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
@@ -1199,7 +1200,7 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 			if (!io->part_count) {
 				DEG_LOG(E, "Partition table not available\n");
 				gui_idle_call_wait_drag([helper]() {
-					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "错误 Error", "分区表不可用！\nPartition table not available!");
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Partition table not available!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
@@ -1220,7 +1221,7 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 			if (!io->part_count_c) {
 				DEG_LOG(E, "Partition table not available\n");
 				gui_idle_call_wait_drag([helper]() {
-					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "错误 Error", "分区表不可用！\nPartition table not available!");
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Partition table not available!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
@@ -1252,7 +1253,7 @@ void on_button_clicked_m_write(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
@@ -1261,11 +1262,11 @@ void on_button_clicked_m_write(GtkWidgetHelper helper) {
 	std::string filename = helper.getEntryText(helper.getWidget("m_file_path"));
 	std::string part_name = helper.getEntryText(helper.getWidget("m_part_flash"));
 	if (filename.empty()) {
-		showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未选择分区镜像文件！\nNo partition image file selected!");
+		showErrorDialog(GTK_WINDOW(parent), _(_(_("Error"))), _("No partition image file selected!"));
 		return;
 	}
 	if (part_name.empty()) {
-		showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未指定分区名称！\nNo partition name specified!");
+		showErrorDialog(GTK_WINDOW(parent), _(_(_("Error"))), _("No partition name specified!"));
 		return;
 	}
 	helper.setLabelText(helper.getWidget("con"), "Writing partition");
@@ -1283,7 +1284,7 @@ void on_button_clicked_m_write(GtkWidgetHelper helper) {
 	std::thread([parent, filename, helper]() {
 		load_partition_unify(io, gPartInfo.name, filename.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 		gui_idle_call_wait_drag([parent, helper]() mutable {
-			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区写入完成！\nPartition write completed!");
+			showInfoDialog(GTK_WINDOW(parent), _(_(_("Completed"))), _("Partition write completed!"));
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
 	}).detach();
@@ -1292,7 +1293,7 @@ void on_button_clicked_m_read(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
@@ -1301,11 +1302,11 @@ void on_button_clicked_m_read(GtkWidgetHelper helper) {
 	std::string part_name = helper.getEntryText(helper.getWidget("m_part_read"));
 	std::string savePath = showSaveFileDialog(GTK_WINDOW(parent), part_name + ".img");
 	if (savePath.empty()) {
-		showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未选择保存路径！\nNo save path selected!");
+		showErrorDialog(GTK_WINDOW(parent), _(_(_("Error"))), _("No save path selected!"));
 		return;
 	}
 	if (part_name.empty()) {
-		showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未指定分区名称！\nNo partition name specified!");
+		showErrorDialog(GTK_WINDOW(parent), _(_(_("Error"))), _("No partition name specified!"));
 		return;
 	}
 	get_partition_info(io, part_name.c_str(), 1);
@@ -1317,7 +1318,7 @@ void on_button_clicked_m_read(GtkWidgetHelper helper) {
 	std::thread([parent, savePath, helper]() {
 		dump_partition(io, gPartInfo.name, 0, gPartInfo.size, savePath.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE);
 		gui_idle_call_wait_drag([parent, helper]() mutable {
-			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区读取完成！\nPartition read completed!");
+			showInfoDialog(GTK_WINDOW(parent), _(_(_("Completed"))), _("Partition read completed!"));
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
 	}).detach();
@@ -1326,7 +1327,7 @@ void on_button_clicked_m_erase(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
@@ -1334,7 +1335,7 @@ void on_button_clicked_m_erase(GtkWidgetHelper helper) {
 	GtkWidget *parent = helper.getWidget("main_window");
 	std::string part_name = helper.getEntryText(helper.getWidget("m_part_erase"));
 	if (part_name.empty()) {
-		showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未指定分区名称！\nNo partition name specified!");
+		showErrorDialog(GTK_WINDOW(parent), _(_(_("Error"))), _("No partition name specified!"));
 		return;
 	}
 	get_partition_info(io, part_name.c_str(), 0);
@@ -1346,7 +1347,7 @@ void on_button_clicked_m_erase(GtkWidgetHelper helper) {
 	std::thread([parent, helper]() {
 		erase_partition(io, gPartInfo.name, isCMethod);
 		gui_idle_call_wait_drag([parent, helper]() mutable{
-			showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区擦除完成！\nPartition erase completed!");
+			showInfoDialog(GTK_WINDOW(parent), _(_(_("Completed"))), _("Partition erase completed!"));
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
 	}).detach();
@@ -1355,31 +1356,31 @@ void on_button_clicked_m_cancel(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
 	signal_handler(0);
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "已取消当前分区操作！\nCurrent partition operation cancelled!");
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", _("Current partition operation cancelled!"));
 }
 void on_button_clicked_set_active_a(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
 	if(!selected_ab) {
 		gui_idle_call_wait_drag([helper](){
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device is not using VAB!\n设备不是VAB分区表！");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device is not using VAB!"));
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		return;
 	}
 	set_active(io, "a", isCMethod);
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "已设置当前分区为A槽！\nCurrent active partition set to Slot A!");
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", _("Current active partition set to Slot A!"));
 	gui_idle_call([helper]() mutable {
 		helper.setLabelText(helper.getWidget("slot_mode"),"Slot A");
 	});
@@ -1388,19 +1389,19 @@ void on_button_clicked_set_active_b(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
 	if(!selected_ab) {
 		gui_idle_call_wait_drag([helper](){
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device is not using VAB!\n设备不是VAB分区表！");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device is not using VAB!"));
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		return;
 	}
 	set_active(io, "b", isCMethod);
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "已设置当前分区为B槽！\nCurrent active partition set to Slot B!");
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", _("Current active partition set to Slot B!"));
 	gui_idle_call([helper]() mutable {
 		helper.setLabelText(helper.getWidget("slot_mode"),"Slot B");
 	});
@@ -1409,7 +1410,7 @@ void on_button_clicked_start_repart(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
@@ -1422,7 +1423,7 @@ void on_button_clicked_start_repart(GtkWidgetHelper helper) {
 		return;
 	} else fclose(fi);
 	repartition(io, filePath.c_str());
-	showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "重新分区完成！\nRepartition completed!");
+	showInfoDialog(GTK_WINDOW(parent), _(_(_("Completed"))), _("Repartition completed!"));
 	std::vector<partition_t> partitions;
 	partitions.reserve(io->part_count);
 	if(!isCMethod){
@@ -1441,7 +1442,7 @@ void on_button_clicked_read_xml(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
@@ -1449,7 +1450,7 @@ void on_button_clicked_read_xml(GtkWidgetHelper helper) {
 	GtkWidget* parent = helper.getWidget("main_window");
 	std::string savePath = showSaveFileDialog(GTK_WINDOW(parent), "partition_table.xml", { {"XML文件 (*.xml)", "*.xml"} });
 	if (savePath.empty()) {
-		showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未选择保存路径！\nNo save path selected!");
+		showErrorDialog(GTK_WINDOW(parent), _(_(_("Error"))), _("No save path selected!"));
 		return;
 	}
 	if (!isCMethod) {
@@ -1498,34 +1499,34 @@ void on_button_clicked_read_xml(GtkWidgetHelper helper) {
 			DEG_LOG(I, "Partition table saved to %s", savePath.c_str());
 		}
 	}
-	showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "分区表导出完成！\nPartition table export completed!");
+	showInfoDialog(GTK_WINDOW(parent), _(_(_("Completed"))), _("Partition table export completed!"));
 
 }
 void on_button_clicked_dmv_enable(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
 	GtkWidget *parent = helper.getWidget("main_window");
 	dm_avb_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-	showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "已启用DM-Verity和AVB保护！\nDM-Verity and AVB protection enabled!");
+	showInfoDialog(GTK_WINDOW(parent), _(_(_("Completed"))), _("DM-Verity and AVB protection enabled!"));
 }
 void on_button_clicked_dmv_disable(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
 	GtkWidget *parent = helper.getWidget("main_window");
 	avb_dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-	showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "已禁用DM-Verity和AVB保护！\nDM-Verity and AVB protection disabled!");
+	showInfoDialog(GTK_WINDOW(parent), _(_(_("Completed"))), _("DM-Verity and AVB protection disabled!"));
 }
 void on_button_clicked_select_xml(GtkWidgetHelper helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
@@ -1539,18 +1540,18 @@ void on_button_clicked_exp_log(GtkWidgetHelper helper) {
 	GtkWidget *txtOutput = helper.getWidget("txtOutput");
 	std::string savePath = showSaveFileDialog(GTK_WINDOW(parent), "sfd_tool_log.txt", { {"文本文件 (*.txt)", "*.txt"} });
 	if (savePath.empty()) {
-		showErrorDialog(GTK_WINDOW(parent), "错误 Error", "未选择保存路径！\nNo save path selected!");
+		showErrorDialog(GTK_WINDOW(parent), _(_(_("Error"))), _("No save path selected!"));
 		return;
 	}
 	const char* txt = helper.getTextAreaText(txtOutput);
 	FILE* fo = oxfopen(savePath.c_str(), "w");
 	if (!fo) {
-		showErrorDialog(GTK_WINDOW(parent), "错误 Error", "无法保存日志文件！\nFailed to save log file!");
+		showErrorDialog(GTK_WINDOW(parent), _(_(_("Error"))), _("Failed to save log file!"));
 		return;
 	}
 	fprintf(fo, "%s", txt);
 	fclose(fo);
-	showInfoDialog(GTK_WINDOW(parent), "完成 Completed", "日志导出完成！\nLog export completed!");
+	showInfoDialog(GTK_WINDOW(parent), _(_(_("Completed"))), _("Log export completed!"));
 }
 void on_button_clicked_log_clear(GtkWidgetHelper helper) {
 	GtkWidget* txtOutput = helper.getWidget("txtOutput");
@@ -1560,7 +1561,7 @@ void on_button_clicked_chip_uid(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
@@ -1587,7 +1588,7 @@ void on_button_clicked_pac_time(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
@@ -1639,7 +1640,7 @@ void on_button_clicked_check_nand(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
@@ -1667,14 +1668,14 @@ void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
 	helper.setLabelText(helper.getWidget("con"), "Patching trustos");
 	TosPatcher patcher;
-	bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Warn 警告", "This operation may break your device, and not all devices support this, if your device is broken, flash backup in backup_tos, continue?\n此操作可能会使你的设备损坏，并且不是所有设备都支持此操作，如果设备损坏，请刷回backup_tos里的备份，是否继续？");
+	bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Warning"))), _("This operation may break your device, and not all devices support this, if your device is broken, flash backup in backup_tos, continue?"));
 	if (i_is) {
 		std::thread([helper, patcher]() mutable {
 			get_partition_info(io, "trustos", 1);
@@ -1687,11 +1688,11 @@ void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
 			if (!o) load_partition_unify(io, "trustos", "tos-noavb.bin",blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 			if (!o) {
 				gui_idle_call_wait_drag([helper]() {
-					showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", "Disabled AVB successfully, the backup trustos is tos_bak.bin\n禁用AVB成功，原版trustos是tos_bak.bin");
+					showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Disabled AVB successfully, the backup trustos is tos_bak.bin"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 			} else {
 				gui_idle_call_wait_drag([helper]() {
-					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Disabled AVB failed, go to console window to see why\n禁用AVB失败，请检查控制台窗口输出内容");
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Disabled AVB failed, go to console window to see why"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 			}
 		}).detach();
@@ -1703,41 +1704,41 @@ void on_button_clicked_raw_data_en(GtkWidgetHelper helper) {
 	if (rawdatay) {
 		Da_Info.bSupportRawData = rawdatay;
 	}
-	if (Da_Info.bSupportRawData) showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", "Successfully enabled raw data mode\n启用RawData模式成功");
-	else showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", "Failed to enable raw data mode, please set value!\n启用RawData模式失败，请设置数值！");
+	if (Da_Info.bSupportRawData) showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Successfully enabled raw data mode"));
+	else showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Failed to enable raw data mode, please set value!"));
 }
 void on_button_clicked_raw_data_dis(GtkWidgetHelper helper) {
 	Da_Info.bSupportRawData = 0;
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", "Successfully disabled raw data mode\n禁用RawData模式成功");
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Successfully disabled raw data mode"));
 }
 void on_button_clicked_transcode_en(GtkWidgetHelper helper) {
 	unsigned a, f;
 	a = 1;
 	f = (io->flags & ~FLAGS_TRANSCODE);
 	io->flags = f | (a ? FLAGS_TRANSCODE : 0);
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", "Enabled transcode successfully\n启用转码成功");
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Enabled transcode successfully"));
 }
 void on_button_clicked_transcode_dis(GtkWidgetHelper helper) {
 	unsigned a = 0;
 	encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
 	if (!send_and_check(io)) io->flags &= ~FLAGS_TRANSCODE;
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", "Disabled transcode successfully\n禁用转码成功");
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Disabled transcode successfully"));
 }
 void on_button_clicked_charge_en(GtkWidgetHelper helper) {
 	keep_charge = 1;
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", "Set successfully\n设置成功");
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Set successfully"));
 }
 void on_button_clicked_charge_dis(GtkWidgetHelper helper) {
 	keep_charge = 0;
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", "Set successfully\n设置成功");
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Set successfully"));
 }
 void on_button_clicked_end_data_en(GtkWidgetHelper helper) {
 	end_data = 1;
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", "Set successfully\n设置成功");
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Set successfully"));
 }
 void on_button_clicked_end_data_dis(GtkWidgetHelper helper) {
 	end_data = 0;
-	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", "Set successfully\n设置成功");
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info 信息", _("Set successfully"));
 }
 void on_button_clicked_abpart_auto(GtkWidgetHelper helper) {
 	selected_ab = 0;
@@ -1753,14 +1754,14 @@ void confirm_partition_c(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
 	gui_idle_call_with_callback(
 		[helper]() -> bool {
-			return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", "No partition table found on current device, read partition list through compatibility method?\nWarn: This mode may not find all partitions on your device, use caution with force write or editing partition table!\n当前设备未找到分区表，是否通过兼容方式读取分区列表？\n警告：此模式可能无法找到设备上的所有分区，强制写入或修改分区表时请谨慎使用！");
+			return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", _("No partition table found on current device, read partition list through compatibility method?\nWarn: This mode may not find all partitions on your device, use caution with force write or editing partition table!"));
 		},
 			[helper](bool result) mutable {
 			if (result) {
@@ -1792,7 +1793,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	if (argc > 1 && !strcmp(argv[1], "--reconnect")) {
 		stage = 99;
 		gui_idle_call_wait_drag([helper]() {
-			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "你已启动重连模式，重连模式下只能兼容获取分区列表，且不能获取槽位和储存类型！\nYou have entered Reconnect Mode, which only supports compatibility-method partition list retrieval, and [storage mode/slot mode] can not be gotten!");
+			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", _("You have entered Reconnect Mode, which only supports compatibility-method partition list retrieval, and [storage mode/slot mode] can not be gotten!"));
 		},GTK_WINDOW(helper.getWidget("main_window")));
 
 	}
@@ -2066,12 +2067,12 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
 	}
 	gui_idle_call_wait_drag([helper]() mutable {
-		showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Successfully connected 连接成功", "Device already connected! Some advanced settings opened!\n设备已成功连接！部分高级设置已开放！");
+		showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Successfully connected 连接成功", _("Device already connected! Some advanced settings opened!"));
 		if (!fdl2_executed) {
 			helper.enableWidget("fdl_exec");
-			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Tips 提示", "Please execute FDL file to continue! \n请执行FDL以继续！");
+			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Tips 提示", _("Please execute FDL file to continue!"));
 			if (device_mode == SPRD4 && isKickMode) {
-				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Tips 提示", "Since your device is in SPRD4 mode, you can choose to skip FDL setting and directly execute FDL, but not all devices support that, please proceed with caution!\n由于你的设备处于SPRD4模式，你可以选择跳过FDL设置直接执行FDL，但是不是所有设备都支持，请谨慎操作！");
+				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Tips 提示", _("Since your device is in SPRD4 mode, you can choose to skip FDL setting and directly execute FDL, but not all devices support that, please proceed with caution!"));
 			}
 		}
 		else if (device_stage == FDL2) helper.setLabelText(helper.getWidget("con"), "Ready");
@@ -2105,7 +2106,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		exit(1);
 	}
@@ -2126,7 +2127,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			if (device_mode == SPRD4 && isKickMode) {
 				gui_idle_call_with_callback(
 					[helper]() -> bool {
-						return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", "Device can be booted without FDL in SPRD4 mode, continue?\n设备在SPRD4模式下可以无需FDL启动，是否继续？");
+						return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", _("Device can be booted without FDL in SPRD4 mode, continue?"));
 					},
 					[helper, fdl_path, fdl_addr](bool result) {
 						if (result) {
@@ -2263,7 +2264,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		}
 		fdl2_executed = 1;
 		gui_idle_call_wait_drag([helper]() mutable {
-			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "FDL2 Executed FDL2执行成功", "FDL2 executed successfully!\nFDL2已成功执行！");
+			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "FDL2 Executed FDL2执行成功", _("FDL2 executed successfully!"));
 			EnableWidgets(helper);
 			helper.disableWidget("fdl_exec");
 			helper.setLabelText(helper.getWidget("mode"), "FDL2");
@@ -2327,7 +2328,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				if (device_mode == SPRD4 && isKickMode) {
 					gui_idle_call_with_callback(
 						[helper]() -> bool {
-							return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", "Device can be booted without FDL in SPRD4 mode, continue?\n设备在SPRD4模式下可以无需FDL启动，是否继续？");
+							return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), "Confirm 确认", _("Device can be booted without FDL in SPRD4 mode, continue?"));
 						},
 						[execfile,fdl_path,fdl_addr,isCve,cve_addr,cve_path,fi, helper](bool result) {
 							if (result) {
@@ -2391,7 +2392,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				highspeed = 1;
 				if (!baudrate) baudrate = 921600;
 				gui_idle_call_wait_drag([helper]() {
-					showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "High Speed Mode Enabled 高速模式已启用", "Do not set block size manually in high speed mode!\n高速模式下请勿手动设置块大小！");
+					showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "High Speed Mode Enabled 高速模式已启用", _("Do not set block size manually in high speed mode!"));
 				},GTK_WINDOW(helper.getWidget("main_window")));
 			}
 
@@ -2434,7 +2435,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			}
 			fdl1_loaded = 1;
 			gui_idle_call_wait_drag([helper]() mutable {
-				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "FDL1 Executed FDL1执行成功", "FDL1 executed successfully!\nFDL1已成功执行！");
+				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "FDL1 Executed FDL1执行成功", _("FDL1 executed successfully!"));
 				helper.setLabelText(helper.getWidget("mode"), "FDL1");
 				helper.setLabelText(helper.getWidget("con"), "Connected");
 			},GTK_WINDOW(helper.getWidget("main_window")));
@@ -2538,7 +2539,7 @@ int gtk_kmain(int argc, char** argv) {
 		GtkWidget* welcomeLabel1 = helper.createLabel("Welcome to SFD Tool GUI!", "welcome_en", 0, 0, 467, 28);
 		GtkWidget* welcomeLabel2 = helper.createLabel("欢迎使用SFD Tool GUI!", "welcome_cn", 0, 30, 400, 28);
 		GtkWidget* ti_c = helper.createLabel("请将你的设备连接到BROM模式", "ti_c", 0, 60, 400, 28);
-		GtkWidget* ti_e = helper.createLabel("Please connect your device with BROM mode", "ti_e", 0, 90, 500, 28);
+		GtkWidget* ti_e = helper.createLabel(_(_("Please connect your device with BROM mode")), "ti_e", 0, 90, 500, 28);
 
 		// 设置字体大小
 		PangoAttrList* attr_list = pango_attr_list_new();
@@ -2587,7 +2588,7 @@ int gtk_kmain(int argc, char** argv) {
 		// CVE Binary File - 放在左边，标签在右边，输入框在左边
 		GtkWidget* cveAddrBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
 		GtkWidget* cveAddr = helper.createEntry("cve_addr", "", false, 0, 0, 295, 32);
-		GtkWidget* cveLabel = helper.createLabel("CVE Binary File Address CVE可执行镜像", "cve_label", 0, 0, 270, 20);
+		GtkWidget* cveLabel = helper.createLabel(_("CVE Binary File Address"), "cve_label", 0, 0, 270, 20);
 		gtk_box_pack_start(GTK_BOX(cveAddrBox), cveLabel, FALSE, FALSE, 0);
 		gtk_box_pack_start(GTK_BOX(cveAddrBox), cveAddr, FALSE, FALSE, 0);
 		GtkWidget* selectCveBtn = helper.createButton("...", "select_cve", nullptr, 0, 0, 40, 32);
@@ -2605,7 +2606,7 @@ int gtk_kmain(int argc, char** argv) {
 		GtkWidget* sprd4OneMode = gtk_switch_new();
 		gtk_widget_set_name(sprd4OneMode, "sprd4_one_mode");
 		helper.addWidget("sprd4_one_mode", sprd4OneMode);
-		GtkWidget* sprd4OneLabel = helper.createLabel("Kick One-time Mode Kick单次模式",
+		GtkWidget* sprd4OneLabel = helper.createLabel(_("Kick One-time Mode"),
 		                           "sprd4_one_label", 0, 0, 150, 20);
 		gtk_box_pack_start(GTK_BOX(sprd4SwitchBox), sprd4OneMode, FALSE, FALSE, 0);
 		gtk_box_pack_start(GTK_BOX(sprd4SwitchBox), sprd4OneLabel, FALSE, FALSE, 0);
@@ -2614,7 +2615,7 @@ int gtk_kmain(int argc, char** argv) {
 		GtkWidget* addrBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
 		GtkWidget* cveAddrLabel2 = helper.createLabel("CVE Addr  CVE镜像地址", "cve_addr_label2", 0, 0, 100, 20);
 		GtkWidget* cveAddrC = helper.createEntry("cve_addr_c", "", false, 0, 0, 120, 20);
-		GtkWidget* cveV2Label = helper.createLabel("Enable CVE v2 启用CVE v2","cve_v2_label", 0, 0, 150, 20);
+		GtkWidget* cveV2Label = helper.createLabel(_("Enable CVE v2"),"cve_v2_label", 0, 0, 150, 20);
 		GtkWidget* cveV2Switch = gtk_switch_new();
 		
 		gtk_box_pack_start(GTK_BOX(addrBox), cveAddrLabel2, FALSE, FALSE, 0);
@@ -2742,7 +2743,7 @@ int gtk_kmain(int argc, char** argv) {
 		GtkWidget* xmlGetBtn = helper.createButton("Get partition table through scanning an Xml file  通过XML文件获取分区列表", "xml_get", nullptr, 0, 0, 250, 32);
 		
 		// 修改分区表
-		GtkWidget* ModifyLabel = helper.createLabel("Modify Partition Table 修改分区表", "modify_label", 0, 0, 200, 20);
+		GtkWidget* ModifyLabel = helper.createLabel(_("Modify Partition Table"), "modify_label", 0, 0, 200, 20);
 		GtkWidget* SedLabel = helper.createLabel("[Change size 修改大小] Please check a partition you want to change 请选择一个欲修改大小的分区", "fff_label", 0, 0, 100, 20);
 		GtkWidget* SeLabel = helper.createLabel("Second-change partition 第二个被动修改的分区", "second_part_label", 0, 0, 200, 20);
 		GtkWidget* secondPart = helper.createEntry("modify_second_part", "", false, 0, 0, 200, 32);
@@ -2980,7 +2981,7 @@ int gtk_kmain(int argc, char** argv) {
 		helper.addNotebookPage(notebook, advSetPage, "Advanced Settings  高级设置");
 
 		// 数据块大小设置部分
-		GtkWidget* blkLabel = helper.createLabel("Data block size  数据块大小", "blk_label", 0, 0, 200, 20);
+		GtkWidget* blkLabel = helper.createLabel(_("Data block size"), "blk_label", 0, 0, 200, 20);
 
 		GtkWidget* blkSlider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 10000, 60000, 10000);
 		gtk_range_set_value(GTK_RANGE(blkSlider), 10000);
@@ -2993,15 +2994,15 @@ int gtk_kmain(int argc, char** argv) {
 		GtkWidget* sizeCon = helper.createLabel("10000", "size_con", 0, 0, 60, 20);
 
 		// Rawdata模式设置部分
-		GtkWidget* rawDataEn = helper.createButton("Enable Rawdata mode 启用Rawdata模式", "raw_data_en",
+		GtkWidget* rawDataEn = helper.createButton(_("Enable Rawdata mode"), "raw_data_en",
 		                       nullptr, 0, 0, 250, 32);
-		GtkWidget* rawDataDis = helper.createButton("Disable Rawdata mode 禁用Rawdata模式", "raw_data_dis",
+		GtkWidget* rawDataDis = helper.createButton(_("Disable Rawdata mode"), "raw_data_dis",
 		                        nullptr, 0, 0, 250, 32);
 		GtkWidget* rlabel = helper.createLabel("Value 数值:", "rawLabel", 0, 0, 80, 30);
 		GtkWidget* rawDataMk = helper.createEntry("raw_data_v", "", false, 0, 0, 50, 30);
 
 		// 转码设置部分
-		GtkWidget* transcode_en = helper.createButton("Enable transcode 启用转码 --- FDL1", "transcode_en",
+		GtkWidget* transcode_en = helper.createButton(_("Enable transcode - FDL1"), "transcode_en",
 		                          nullptr, 0, 0, 220, 32);
 		GtkWidget* transcode_dis = helper.createButton("Disable transcode 禁用转码 --- FDL2", "transcode_dis",
 		                           nullptr, 0, 0, 220, 32);
@@ -3176,7 +3177,7 @@ int gtk_kmain(int argc, char** argv) {
 		// ========== Debug Options Page ==========
 
 		GtkWidget* dbgOptPage = helper.createGrid("dbg_opt_page", 5, 5);
-		helper.addNotebookPage(notebook, dbgOptPage, "Debug Options 调试设置");
+		helper.addNotebookPage(notebook, dbgOptPage, _("Debug Options"));
 
 		// 创建三个按钮
 		GtkWidget* pactime = helper.createButton("Get pactime 获取PAC烧录时间", "pac_time", nullptr, 0, 0, 400, 32);
@@ -3525,6 +3526,11 @@ int gtk_kmain(int argc, char** argv) {
 	return 0;
 }
 int main(int argc, char** argv) {
+	setlocale(LC_ALL, "");
+	bindtextdomain("sfd_tool", "./locale");
+	textdomain("sfd_tool");
+	bind_textdomain_codeset("sfd_tool", "UTF-8");
+
 	signal(SIGSEGV, crash_handler);   // 段错误
     signal(SIGABRT, crash_handler);   // 断言失败
 	signal(SIGFPE, crash_handler);    // 浮点异常

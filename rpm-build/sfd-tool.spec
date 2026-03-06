@@ -28,7 +28,7 @@ GUI tool for dumping and programming Spreadtrum device firmware.
 %autosetup
 
 %build
-make GTK=1 LIBUSB=1 release
+make GTK=1 LIBUSB=1 release locales
 
 %install
 # 创建必要的目录
@@ -40,6 +40,8 @@ mkdir -p %{buildroot}%{_datadir}/icons/hicolor/48x48/apps
 mkdir -p %{buildroot}%{_datadir}/icons/hicolor/256x256/apps
 mkdir -p %{buildroot}%{_datadir}/doc/%{name}
 mkdir -p %{buildroot}%{_mandir}/man1
+mkdir -p %{buildroot}%{_datadir}/locale/zh_CN/LC_MESSAGES
+
 install -m 644 man_sfd-tool.1 %{buildroot}%{_mandir}/man1/
 
 # 安装二进制文件
@@ -60,6 +62,9 @@ install -m 644 LICENSE.txt %{buildroot}%{_datadir}/doc/%{name}/
 [ -f README.md ] && install -m 644 README.md %{buildroot}%{_datadir}/doc/%{name}/
 [ -f README_ZH.md ] && install -m 644 README_ZH.md %{buildroot}%{_datadir}/doc/%{name}/
 
+# 安装本地化文件
+install -m 644 locale/zh_CN/LC_MESSAGES/sfd_tool.mo %{buildroot}%{_datadir}/locale/zh_CN/LC_MESSAGES/
+
 %post
 %{_bindir}/gtk-update-icon-cache -q -t -f %{_datadir}/icons/hicolor || :
 
@@ -72,6 +77,7 @@ install -m 644 LICENSE.txt %{buildroot}%{_datadir}/doc/%{name}/
 %{_datadir}/applications/sfd_tool.desktop
 %{_datadir}/icons/hicolor/*/apps/sfd-tool.png
 %{_mandir}/man1/man_sfd-tool.1*
+%{_datadir}/locale/zh_CN/LC_MESSAGES/sfd_tool.mo
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog

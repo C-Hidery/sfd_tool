@@ -33,7 +33,15 @@ pkg install termux-api libusb clang git pkg-config gtk3 glib pango libcairo gdk-
 然后make:
 ``` bash
 make
+# 编译及加载国际化多语言支持（可选）
+make locales
 ```
+
+### 多语言国际化 (i18n)
+本工具支持中英文等多种语言适配：
+* `make` 会优先构建出纯英文核心程序。
+* `make locales` 将会对 `locale/zh_CN/LC_MESSAGES/sfd_tool.po` 翻译文件进行编译。在支持中文的环境下运行程序会自动显示中文。
+* **为新语言增加翻译**：可使用项目中提取生成的 `locale/sfd_tool.pot` 词库文件，翻译后放入对应的 `locale/<语言代码>/LC_MESSAGES/` 目录下即可。
 
 在Termux上使用(No GUI):
 

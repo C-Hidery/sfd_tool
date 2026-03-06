@@ -81,10 +81,16 @@ DATADIR ?= $(PREFIX)/share
 APPDIR ?= $(DATADIR)/applications
 ICONDIR ?= $(DATADIR)/icons/hicolor
 DOCDIR ?= $(DATADIR)/doc/sfd-tool
+LOCALEDIR ?= $(DATADIR)/locale
 
 # 默认目标
-.PHONY: all
-all: $(APPNAME)
+.PHONY: all locales
+all: $(APPNAME) locales
+
+locales: locale/zh_CN/LC_MESSAGES/sfd_tool.mo
+
+locale/zh_CN/LC_MESSAGES/sfd_tool.mo: locale/zh_CN/LC_MESSAGES/sfd_tool.po
+	msgfmt $< -o $@
 
 # 主目标
 $(APPNAME): main.cpp main_console.cpp common.cpp GtkWidgetHelper.cpp
@@ -109,6 +115,7 @@ analyze: debug
 .PHONY: clean
 clean:
 	rm -f $(APPNAME) *.o *.dSYM
+	rm -f locale/zh_CN/LC_MESSAGES/sfd_tool.mo
 
 # 安装目标
 .PHONY: install
@@ -120,6 +127,7 @@ install: $(APPNAME)
 	install -d $(DESTDIR)$(ICONDIR)/48x48/apps
 	install -d $(DESTDIR)$(ICONDIR)/32x32/apps
 	install -d $(DESTDIR)$(ICONDIR)/16x16/apps
+	install -d $(DESTDIR)$(LOCALEDIR)/zh_CN/LC_MESSAGES
 	
 	# 安装二进制
 	install -m 755 $(APPNAME) $(DESTDIR)$(BINDIR)/
@@ -141,6 +149,9 @@ install: $(APPNAME)
 	install -m 644 README.md $(DESTDIR)$(DOCDIR)/
 	install -m 644 README_ZH.md $(DESTDIR)$(DOCDIR)/
 	
+	# 安装国际化文件
+	install -m 644 locale/zh_CN/LC_MESSAGES/sfd_tool.mo $(DESTDIR)$(LOCALEDIR)/zh_CN/LC_MESSAGES/
+	
 	# 更新图标缓存
 	if [ -x /usr/bin/gtk-update-icon-cache ] && [ -z "$(DESTDIR)" ]; then \
 		gtk-update-icon-cache -q -t -f $(ICONDIR); \
@@ -152,6 +163,7 @@ uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/$(APPNAME)
 	rm -f $(DESTDIR)$(APPDIR)/sfd-tool.desktop
 	rm -rf $(DESTDIR)$(DOCDIR)
+	rm -f $(DESTDIR)$(LOCALEDIR)/zh_CN/LC_MESSAGES/sfd_tool.mo
 	find $(DESTDIR)$(ICONDIR) -name "sfd-tool.png" -delete
 
 # 依赖检查
