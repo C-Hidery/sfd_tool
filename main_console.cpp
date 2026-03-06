@@ -202,7 +202,7 @@ void ThrowExit() {
 int main_console(int argc, char** argv) {
 	ThrowExit();
 	spdio_t* io = nullptr;
-	int ret, wait = 30 * REOPEN_FREQ;
+	int ret, conn_wait = 30 * REOPEN_FREQ;
 	int keep_charge = 1, end_data = 0, blk_size = 0, skip_confirm = 1, highspeed = 0, cve_v2 = 0;
 	int nand_info[3];
 	int argcount = 0, stage = -1, nand_id = DEFAULT_NAND_ID;
@@ -262,7 +262,7 @@ int main_console(int argc, char** argv) {
 				ThrowExit();
 				ERR_EXIT("%s: bad option\n", o_exception);
 			}
-			wait = atoi(argv[2]) * REOPEN_FREQ;
+			conn_wait = atoi(argv[2]) * REOPEN_FREQ;
 			argc -= 2;
 			argv += 2;
 		} else if (!strcmp(argv[1], "--verbose")) {
@@ -374,8 +374,8 @@ int main_console(int argc, char** argv) {
 	}
 	if (at || bootmode >= 0) {
 		startUsbEventHandle();
-		ChangeMode(io, wait / REOPEN_FREQ * 1000, bootmode, at);
-		wait = 30 * REOPEN_FREQ;
+		ChangeMode(io, conn_wait / REOPEN_FREQ * 1000, bootmode, at);
+		conn_wait = 30 * REOPEN_FREQ;
 		stage = -1;
 	}
 	if (bListenLibusb < 0) startUsbEventHandle();
@@ -396,7 +396,7 @@ int main_console(int argc, char** argv) {
 #endif
 	init_stage = 0;
 	if (!m_bOpened) {
-		DBG_LOG("<waiting for connection,mode:dl,%ds>\n", wait / REOPEN_FREQ);
+		DBG_LOG("<waiting for connection,mode:dl,%ds>\n", conn_wait / REOPEN_FREQ);
 
 		ThrowExit();
 		for (i = 0; ; i++) {
@@ -422,7 +422,7 @@ int main_console(int argc, char** argv) {
 					if (m_bOpened) break;
 				}
 			}
-			if (i >= wait)
+			if (i >= conn_wait)
 				ERR_EXIT("libusb_open_device failed\n");
 #else
 			if (io->verbose) DBG_LOG("Cost: %.1f, Found: %d\n", (float)i / REOPEN_FREQ, curPort);
