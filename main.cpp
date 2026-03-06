@@ -2851,7 +2851,7 @@ int gtk_kmain(int argc, char** argv) {
 		gtk_widget_set_sensitive(cancelBtn, TRUE);  // Cancel按钮始终可用
 
 		// Add to grid - 主网格
-		helper.addToGrid(partPage, instruction, 0, 0, 5, 1);
+		helper.addToGrid(partPage, part_instruction_label, 0, 0, 5, 1);
 		helper.addToGrid(partPage, scrolledWindow, 0, 1, 5, 8);
 		helper.addToGrid(partPage, opLabel, 0, 9, 5, 1);
 
