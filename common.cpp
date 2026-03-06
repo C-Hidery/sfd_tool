@@ -106,23 +106,14 @@ FILE* xfopen(const char* fn, const char* mode) {
     return fopen(fn, mode);
 #endif
 }
-std::string ExtractPartitionsContent(const std::string& xmlContent) {
-    std::string startTag = "<Partitions>";
-    std::string endTag = "</Partitions>";
+std::string ExtractPartitionsWithTags(const std::string& xmlContent) {
+    std::regex pattern("<Partitions>.*?</Partitions>", std::regex::icase);
+    std::smatch match;
     
-    size_t startPos = xmlContent.find(startTag);
-    if (startPos == std::string::npos) {
-        return ""; // 没找到开始标签
+    if (std::regex_search(xmlContent, match, pattern)) {
+        return match.str();
     }
-    
-    size_t endPos = xmlContent.find(endTag, startPos + startTag.length());
-    if (endPos == std::string::npos) {
-        return ""; // 没找到结束标签
-    }
-    
-    // 提取开始标签之后，结束标签之前的内容
-    return xmlContent.substr(startPos + startTag.length(), 
-                             endPos - (startPos + startTag.length()));
+    return "";
 }
 std::string FindFirstXMLFile(const std::string& folderPath) {
 	namespace fs = std::filesystem;
@@ -169,6 +160,13 @@ void pac_extract(const char* fn, const char* floder)
                         std::istreambuf_iterator<char>());
     
     std::string partxml = ExtractPartitionsContent(content);
+    if (partxml.empty())
+    {
+        gui_idle_call_wait_drag([](){
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "No partition info found in xml\n不能在xml中找到分区信息\n");
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		return;
+    }
 	FILE* fi = oxfopen("partitions_temp.xml","w");
 	if(fi) {
 		fwrite(partxml.c_str(), 1, partxml.size(), fi);
