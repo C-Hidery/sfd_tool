@@ -6,6 +6,8 @@
 #include <string.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <filesystem>  // C++17 filesystem
+#include <iostream>    // for error output
 
 typedef struct {
     uint16_t pac_version[24];
@@ -136,6 +138,36 @@ public:
         dir = directory;
     }
     
+    // 新增：检查和准备输出目录的函数
+    void prepareOutputDirectory() {
+        if (!dir) {
+            std::cerr << "Error: Output directory not set" << std::endl;
+            exit(1);
+        }
+        
+        namespace fs = std::filesystem;
+        fs::path outputPath(dir);
+        
+        try {
+            if (fs::exists(outputPath)) {
+                // 如果目录存在，删除它及其所有内容
+                fs::remove_all(outputPath);
+                std::cout << "Removed existing directory: " << dir << std::endl;
+            }
+            
+            // 创建新目录
+            if (fs::create_directories(outputPath)) {
+                std::cout << "Created directory: " << dir << std::endl;
+            } else {
+                std::cerr << "Failed to create directory: " << dir << std::endl;
+                exit(1);
+            }
+        } catch (const fs::filesystem_error& e) {
+            std::cerr << "Filesystem error: " << e.what() << std::endl;
+            exit(1);
+        }
+    }
+    
     void openPacFile(const char* filename) {
         fi = fopen(filename, "rb");
         if (!fi) U_ERR_EXIT("fopen(input) failed\n");
@@ -225,6 +257,9 @@ public:
     
     void extractFiles() {
         if (!fi) U_ERR_EXIT("PAC file not opened\n");
+        
+        // 在提取文件前准备输出目录
+        prepareOutputDirectory();
         
         if (dir && chdir(dir))
             U_ERR_EXIT("chdir failed\n");
