@@ -36,6 +36,7 @@
 #include <math.h>
 #include <time.h>
 #include "GtkWidgetHelper.hpp"
+#include <fstream>
 #define NEWN new (std::nothrow)
 #ifndef LIBUSB_DETACH
 /* detach the device from crappy kernel drivers */
@@ -319,3 +320,4 @@ FILE* my_xfopen(const char* fn, const char* mode);
 FILE* my_oxfopen(const char* fn, const char* mode);
 FILE* oxfopen(const char* fn, const char* mode);
 int scan_xml_partitions(spdio_t *io, const char *fn, uint8_t *buf, size_t buf_size);
+void pac_extract(const char* fn, const char* floder);

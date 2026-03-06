@@ -15,7 +15,7 @@
 #include <windows.h>
 #include <dbghelp.h>
 #endif
-const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.5.2 LTV Edition\n\nCopyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n---v 1.7.2.1---\nAdd root permission check for Linux\n---v 1.7.2.2---\nAdd dis_avb function\n---v 1.7.2.3---\nFix some bugs\n---v 1.7.3.0---\nAdd some advanced settings\n---v 1.7.3.1---\nAdd SPRD4 one-time kick mode\n---v 1.7.3.2---\nFix some bugs\n---v 1.7.3.3---\nFix dis_avb func\n---v 1.7.3.4---\nFix some bugs, improved UI\n---v 1.7.3.5---\nFix some bugs\n---v 1.7.4.0---\nAdd window dragging detection for Windows dialog-showing issue\n---v 1.7.4.1---\nAdd CVE v2 function, fix some bugs\n---v 1.7.4.2---\nFix some bugs, add crash info displaying\n---v 1.7.4.3---\nFix some bugs\n---v 1.7.5.0---\nFix some bugs, improved console\n---v 1.7.5.1---\nFix some bugs, add partition table modify function, add DHTB Signature read for ums9117\n---v 1.7.5.2---\nAdd slot flash/read manually set, add storage/slot showing\n\n\nUnder GPL v3 License\nGithub: C-Hidery/sfd_tool\nLTV means Long-time-version";
+const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.6.0 LTV Edition\n\nCopyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n---v 1.7.2.1---\nAdd root permission check for Linux\n---v 1.7.2.2---\nAdd dis_avb function\n---v 1.7.2.3---\nFix some bugs\n---v 1.7.3.0---\nAdd some advanced settings\n---v 1.7.3.1---\nAdd SPRD4 one-time kick mode\n---v 1.7.3.2---\nFix some bugs\n---v 1.7.3.3---\nFix dis_avb func\n---v 1.7.3.4---\nFix some bugs, improved UI\n---v 1.7.3.5---\nFix some bugs\n---v 1.7.4.0---\nAdd window dragging detection for Windows dialog-showing issue\n---v 1.7.4.1---\nAdd CVE v2 function, fix some bugs\n---v 1.7.4.2---\nFix some bugs, add crash info displaying\n---v 1.7.4.3---\nFix some bugs\n---v 1.7.5.0---\nFix some bugs, improved console\n---v 1.7.5.1---\nFix some bugs, add partition table modify function, add DHTB Signature read for ums9117\n---v 1.7.5.2---\nAdd slot flash/read manually set, add storage/slot showing\n---v 1.7.6.0---\nAdd PAC flash func, auto FDL send\n\n\nUnder GPL v3 License\nGithub: C-Hidery/sfd_tool\nLTV means Long-time-version";
 const char* Version = "[1.2.2.0@_250726]";
 int bListenLibusb = -1;
 int gpt_failed = 1;
@@ -175,6 +175,7 @@ void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("abpart_auto");
 	helper.enableWidget("abpart_a");
 	helper.enableWidget("abpart_b");
+	helper.enableWidget("pac_flash_start");
 }
 void Enable_Startup() {
 	helper.enableWidget("transcode_en");
@@ -1748,7 +1749,35 @@ void on_button_clicked_abpart_a(GtkWidgetHelper helper) {
 void on_button_clicked_abpart_b(GtkWidgetHelper helper) {
 	selected_ab = 2;
 }
-
+void on_button_clicked_pac_select(GtkWidgetHelper helper)
+{
+	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+	std::string filename = showFileChooser(parent, true);
+	if (!filename.empty()) {
+		helper.setEntryText(helper.getWidget("pac_file_path"), filename);
+	}
+}
+void on_button_clicked_pac_unpack(GtkWidgetHelper helper)
+{
+	std::thread([helper]() mutable
+	{
+		pac_extract(
+		helper.getEntryText(helper.getWidget("pac_file_path")),
+		"pac_unpack_output"// default
+		);
+	}).detach();
+	
+}
+void on_button_clicked_pac_flash_start(GtkWidgetHelper helper)
+{
+	load_partitions(
+		io, 
+		"pac_unpack_output", // default
+		blk_size ? blk_size : DEFAULT_BLK_SIZE, 
+		selected_ab, 
+		isCMethod
+	);
+}
 void confirm_partition_c(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
@@ -1780,7 +1809,11 @@ void confirm_partition_c(GtkWidgetHelper helper) {
 		GTK_WINDOW(helper.getWidget("main_window"))
 	);
 }
-
+std::string uint32_to_hex_string(uint32_t value) {
+    std::stringstream ss;
+    ss << "0x" << std::hex << std::setw(8) << std::setfill('0') << value;
+    return ss.str();
+}
 void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	GtkWidget* waitBox = helper.getWidget("wait_con");
 	GtkWidget* sprd4Switch = helper.getWidget("sprd4");
@@ -2080,6 +2113,33 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		if (device_stage == BROM) helper.setLabelText(helper.getWidget("mode"), "BROM");
 		else if (device_stage == FDL1) helper.setLabelText(helper.getWidget("mode"), "FDL1");
 		else if (device_stage == FDL2) helper.setLabelText(helper.getWidget("mode"), "FDL2");
+		if(fs::exists("fdl_info.json") && device_stage == BROM)
+		{
+			bool i_is = false;
+			i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")),"Confirm","FDL Info detected, do you want to load it?\n检测到FDL信息，是否加载？");
+			if(i_is)
+			{
+				char* execfile = NEWN char[ARGV_LEN];
+				if (!execfile) {
+					ERR_EXIT("malloc failed\n");
+				}
+				std::ifstream f("fdl_info.json");
+				json j = json::parse(f);
+				fdl1_path_json = j["fdl1_path"].get<std::string>().c_str();
+				fdl2_path_json = j["fdl2_path"].get<std::string>().c_str();
+				fdl1_addr_json = j["fdl1_addr"].get<uint32_t>();
+				fdl2_addr_json = j["fdl2_addr"].get<uint32_t>();
+				helper.setEntryText(helper.getWidget("fdl_file_path"), fdl1_path_json);
+				helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(fdl1_addr_json));
+				DEG_LOG(I, "Loaded FDL info: %s at address: %s", fdl1_path_json, uint32_to_hex_string(fdl1_addr_json).c_str());
+				on_button_clicked_fdl_exec(helper, execfile);
+				helper.setEntryText(helper.getWidget("fdl_file_path"), fdl2_path_json);
+				helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(fdl2_addr_json));
+				DEG_LOG(I, "Loaded FDL info: %s at address: %s", fdl2_path_json, uint32_to_hex_string(fdl2_addr_json).c_str());
+				on_button_clicked_fdl_exec(helper, execfile);
+				
+			}
+		}
 	},GTK_WINDOW(helper.getWidget("main_window")));
 
 }
@@ -2096,6 +2156,10 @@ void on_button_clicked_select_fdl(GtkWidgetHelper helper) {
 	}
 }
 //fdl exec
+const char* fdl1_path_json;
+const char* fdl2_path_json;
+uint32_t fdl1_addr_json;
+uint32_t fdl2_addr_json;
 void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 	GtkWidget *fdlEntry = helper.getWidget("fdl_file_path");
 	GtkWidget *addrEntry = helper.getWidget("fdl_addr");
@@ -2111,6 +2175,8 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 	}
 	if (fdl1_loaded > 0) {
 		DEG_LOG(I, "Executing FDL file: %s at address: 0x%X", fdl_path, fdl_addr);
+		fdl2_path_json = fdl_path;
+		fdl2_addr_json = fdl_addr;
 		std::string dtxt = helper.getLabelText(helper.getWidget("con"));
 		helper.setLabelText(helper.getWidget("con"), dtxt + " -> FDL Executing");
 		//Send fdl2
@@ -2271,6 +2337,8 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		},GTK_WINDOW(helper.getWidget("main_window")));
 
 	} else {
+		fdl1_path_json = fdl_path;
+		fdl1_addr_json = fdl_addr;
 		DEG_LOG(I, "Executing FDL file: %s at address: 0x%X", fdl_path, fdl_addr);
 		std::string dtxt = helper.getLabelText(helper.getWidget("con"));
 		helper.setLabelText(helper.getWidget("con"), dtxt + " -> FDL Executing");
@@ -2442,7 +2510,21 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		}).detach();
 
 	}
-
+	if(!(helper.getSwitchState(helper.getWidget("exec_addr"))) && device_mode == SPRD3) 
+	{
+		FILE* json_file = oxfopen("fdl_info.json", "w");
+		if (json_file) 
+		{
+			json j = {
+				{"fdl1_path", fdl1_path_json ? fdl1_path_json : ""},
+				{"fdl1_addr", fdl1_addr_json},
+				{"fdl2_path", fdl2_path_json ? fdl2_path_json : ""},
+				{"fdl2_addr", fdl2_addr_json}
+			};
+			fprintf(json_file, "%s\n", j.dump().c_str());
+			fclose(json_file);
+		}
+	}
 }
 //disable widget when init
 void DisableWidgets(GtkWidgetHelper helper) {
@@ -2488,6 +2570,7 @@ void DisableWidgets(GtkWidgetHelper helper) {
 	helper.disableWidget("abpart_auto");
 	helper.disableWidget("abpart_a");
 	helper.disableWidget("abpart_b");
+	helper.disableWidget("pac_flash_start");
 }
 
 int gtk_kmain(int argc, char** argv) {
@@ -3171,8 +3254,49 @@ int gtk_kmain(int argc, char** argv) {
 		helper.addToGrid(advSetPage, emainBox, 0, 0, 4, 6);
 
 
+		// ========== PAC Flash Page ==========
+		GtkWidget* pacFlashPage = helper.createGrid("pac_flash_page", 5, 5);
+		helper.addNotebookPage(notebook, pacFlashPage, "PAC Flash  PAC烧录");
+		GtkWidget* pacFlashLabel = helper.createLabel("PAC Flash Settings  PAC烧录设置", "pac_flash_label", 0, 0, 400, 20);
+		GtkWidget* pacFileLabel = helper.createLabel("PAC file path  PAC文件路径", "pac_file_label", 0, 0, 200, 20);
+		GtkWidget* pacFilePath = helper.createEntry("pac_file_path", "", false, 0, 0, 240, 32);
+		GtkWidget* pacSelectBtn = helper.createButton("...", "pac_select", nullptr, 0, 0, 40, 32);
+		GtkWidget* pacUnpackBtn = helper.createButton("Unpack PAC file 解包PAC文件", "pac_unpack", nullptr, 0, 0, 180, 32);	
+		// ListView for partitions
+		GtkWidget* p_scrolledWindow = gtk_scrolled_window_new(NULL, NULL);
+		gtk_widget_set_size_request(p_scrolledWindow, 1000, 500);
+		gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(p_scrolledWindow),
+		                               GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
+		GtkListStore* p_store = gtk_list_store_new(3, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
+		GtkWidget* p_treeView = gtk_tree_view_new_with_model(GTK_TREE_MODEL(p_store));
+		gtk_widget_set_name(p_treeView, "pac_list");
+		helper.addWidget("pac_list", p_treeView);
+		GtkCellRenderer* p_renderer = gtk_cell_renderer_text_new();
+		gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(p_treeView), -1,
+		        "Partition Name", p_renderer,
+		        "text", 0, NULL);
+		gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(p_treeView), -1,
+		        "Size", p_renderer,
+		        "text", 1, NULL);
+		gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(p_treeView), -1,
+		        "Type", p_renderer,
+		        "text", 2, NULL);
 
+		gtk_container_add(GTK_CONTAINER(p_scrolledWindow), p_treeView);
+		GtkWidget* pacFlashBtn = helper.createButton("START PAC Flash  开始PAC烧录", "pac_flash_start", nullptr, 0, 0, 180, 32);
+		
+		// add to grid
+		row = 0;
+		helper.addToGrid(pacFlashPage, pacFlashLabel, 0, row++, 4, 1);
+		GtkWidget* pacFileBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+		gtk_box_pack_start(GTK_BOX(pacFileBox), pacFileLabel, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(pacFileBox), pacFilePath, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(pacFileBox), pacSelectBtn, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(pacFileBox), pacUnpackBtn, FALSE, FALSE, 0);
+		helper.addToGrid(pacFlashPage, pacFileBox, 0, row++, 4, 1);
+		helper.addToGrid(pacFlashPage, p_scrolledWindow, 0, row++, 4, 1);
+		helper.addToGrid(pacFlashPage, pacFlashBtn, 0, row++, 4, 1);
 		// ========== Debug Options Page ==========
 
 		GtkWidget* dbgOptPage = helper.createGrid("dbg_opt_page", 5, 5);
@@ -3514,6 +3638,15 @@ int gtk_kmain(int argc, char** argv) {
 		});
 		helper.bindClick(abpart_b,[](){
 			on_button_clicked_abpart_b(helper);
+		});
+		helper.bindClick(pacSelectBtn, []() {
+			on_button_clicked_pac_select(helper);
+		});
+		helper.bindClick(pacUnpackBtn, []() {
+			on_button_clicked_pac_unpack(helper);
+		});
+		helper.bindClick(pacFlashBtn, []() {
+			on_button_clicked_pac_flash_start(helper);
 		});
 	}
 	DisableWidgets(helper);
