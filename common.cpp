@@ -140,8 +140,7 @@ std::string FindFirstXMLFile(const std::string& folderPath) {
     return ""; // 没找到
 }
 void pac_extract(const char* fn, const char* floder)
-{
-	partition_t* pacptable;
+{	
 	int pac_part_count;
 	Unpac unpac;
 	unpac.setDirectory(floder);
@@ -175,7 +174,7 @@ void pac_extract(const char* fn, const char* floder)
 	else {
 		ERR_EXIT("Failed to create temporary partitions XML file.\n无法创建临时分区XML文件\n");
 	}
-	pacptable = NEWN partition_t[128];
+	partition_t* pacptable = NEWN partition_t[128];
 	uint8_t buf_size = 0xffff;
 	uint8_t* buf = NEWN uint8_t[0x4c * 128];
 	const char *part1 = "Partitions>";
@@ -304,6 +303,7 @@ void pac_extract(const char* fn, const char* floder)
 
 	// 更新显示
 	gtk_widget_queue_draw(part_list);
+	delete[] pacptable
 }
 
 FILE *my_fopen(const char *fn, const char *mode) {
