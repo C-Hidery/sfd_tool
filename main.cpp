@@ -1814,347 +1814,6 @@ std::string uint32_to_hex_string(uint32_t value) {
     ss << "0x" << std::hex << std::setw(8) << std::setfill('0') << value;
     return ss.str();
 }
-void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
-	GtkWidget* waitBox = helper.getWidget("wait_con");
-	GtkWidget* sprd4Switch = helper.getWidget("sprd4");
-	GtkWidget* cveSwitch = helper.getWidget("exec_addr");
-	GtkWidget* cveAddr = helper.getWidget("cve_addr");
-	GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
-	GtkWidget* sprd4OneMode = helper.getWidget("sprd4_one_mode");
-	helper.setLabelText(helper.getWidget("con"), "Waiting for connection...");
-	if (argc > 1 && !strcmp(argv[1], "--reconnect")) {
-		stage = 99;
-		gui_idle_call_wait_drag([helper]() {
-			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "你已启动重连模式，重连模式下只能兼容获取分区列表，且不能获取槽位和储存类型！\nYou have entered Reconnect Mode, which only supports compatibility-method partition list retrieval, and [storage mode/slot mode] can not be gotten!");
-		},GTK_WINDOW(helper.getWidget("main_window")));
-
-	}
-#ifdef __linux__
-	check_root_permission(helper);
-#endif
-	helper.disableWidget("connect_1");
-	double wait_time = helper.getSpinValue(waitBox);
-	bool isSprd4 = helper.getSwitchState(sprd4Switch);
-	bool isOneMode = helper.getSwitchState(sprd4OneMode);
-	bool isCve = helper.getSwitchState(cveSwitch);
-	const char* cve_path = helper.getEntryText(cveAddr);
-	const char* cve_addr = helper.getEntryText(cveAddrC);
-	DEG_LOG(I, "Begin to boot...(%fs)", wait_time);
-	wait = static_cast<int>(wait_time * REOPEN_FREQ);
-	if (isSprd4) {
-		if (isOneMode) {
-			DEG_LOG(I, "Using SPRD4 one-step mode to kick device.");
-			isKickMode = 1;
-			bootmode = strtol("2", nullptr, 0);
-			at = 0;
-		} else {
-			DEG_LOG(I, "Using SPRD4 mode to kick device.");
-			isKickMode = 1;
-			at = 1;
-		}
-	}
-	if (isCve) {
-		DEG_LOG(I, "Using CVE binary: %s at address: %s", cve_path, cve_addr);
-	}
-
-#if !USE_LIBUSB
-	bListenLibusb = 0;
-	if (at || bootmode >= 0) {
-		io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
-		if (io->hThread == nullptr) return;
-		ChangeMode(io, wait / REOPEN_FREQ * 1000, bootmode, at);
-		wait = 30 * REOPEN_FREQ;
-		stage = -1;
-	}
-#else
-	if (!libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG)) {
-		DBG_LOG("hotplug unsupported on this platform\n");
-		bListenLibusb = 0;
-		bootmode = -1;
-		at = 0;
-	}
-	if (at || bootmode >= 0) {
-		startUsbEventHandle();
-		ChangeMode(io, wait / REOPEN_FREQ * 1000, bootmode, at);
-		wait = 30 * REOPEN_FREQ;
-		stage = -1;
-	}
-	if (bListenLibusb < 0) startUsbEventHandle();
-#endif
-#if _WIN32
-	if (!bListenLibusb) {
-		if (io->hThread == nullptr) io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
-		if (io->hThread == nullptr) return;
-	}
-#if !USE_LIBUSB
-	if (!m_bOpened && async) {
-		if (FALSE == CreateRecvThread(io)) {
-			io->m_dwRecvThreadID = 0;
-			DEG_LOG(E, "Create Receive Thread Fail.");
-		}
-	}
-#endif
-#endif
-	if (!m_bOpened) {
-		DBG_LOG("<waiting for connection,mode:dl,%ds>\n", wait / REOPEN_FREQ);
-
-		for (int i = 0; ; i++) {
-#if USE_LIBUSB
-			if (bListenLibusb) {
-				if (curPort) {
-					if (libusb_open(curPort, &io->dev_handle) >= 0) call_Initialize_libusb(io);
-					else ERR_EXIT("Failed to connect\n");
-					break;
-				}
-			}
-			if (!(i % 4)) {
-				if ((ports = FindPort(0x4d00))) {
-					for (libusb_device** port = ports; *port != nullptr; port++) {
-						if (libusb_open(*port, &io->dev_handle) >= 0) {
-							call_Initialize_libusb(io);
-							curPort = *port;
-							break;
-						}
-					}
-					libusb_free_device_list(ports, 1);
-					ports = nullptr;
-					if (m_bOpened) break;
-				}
-			}
-			if (i >= wait)
-				ERR_EXIT("libusb_open_device failed\n");
-#else
-			if (io->verbose) DBG_LOG("Cost: %.1f, Found: %d\n", (float)i / REOPEN_FREQ, curPort);
-			if (curPort) {
-				if (!call_ConnectChannel(io->handle, curPort, WM_RCV_CHANNEL_DATA, io->m_dwRecvThreadID)) ERR_EXIT("Connection failed\n");
-				break;
-			}
-			if (!(i % 4)) {
-				if ((ports = FindPort("SPRD U2S Diag"))) {
-					for (DWORD* port = ports; *port != 0; port++) {
-						if (call_ConnectChannel(io->handle, *port, WM_RCV_CHANNEL_DATA, io->m_dwRecvThreadID)) {
-							curPort = *port;
-							break;
-						}
-					}
-					delete[](ports);
-					ports = nullptr;
-					if (m_bOpened) break;
-				}
-			}
-			if (i >= wait) {
-				ERR_EXIT("%s: Failed to find port.\n", o_exception);
-			}
-#endif
-			usleep(1000000 / REOPEN_FREQ);
-		}
-	}
-	io->flags |= FLAGS_TRANSCODE;
-	if (stage != -1) {
-		io->flags &= ~FLAGS_CRC16;
-		encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-	} else encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
-	//handshake
-	for (int i = 0; ; ++i) {
-		//check if device is connected correctly.
-		if (io->recv_buf[2] == BSL_REP_VER) {
-			ret = BSL_REP_VER;
-			memcpy(io->raw_buf + 4, io->recv_buf + 5, 5);
-			io->raw_buf[2] = 0;
-			io->raw_buf[3] = 5;
-			io->recv_buf[2] = 0;
-		} else if (io->recv_buf[2] == BSL_REP_VERIFY_ERROR ||
-		           io->recv_buf[2] == BSL_REP_UNSUPPORTED_COMMAND) {
-			if (!fdl1_loaded) {
-				ret = io->recv_buf[2];
-				io->recv_buf[2] = 0;
-			} else ERR_EXIT("Failed to connect to device: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n", o_exception);
-		} else {
-			//device correct, handshake operation
-			send_msg(io);
-			recv_msg(io);
-			ret = recv_type(io);
-		}
-		//device can only recv BSL_REP_ACK or BSL_REP_VER or BSL_REP_VERIFY_ERROR
-		init_stage = 1;
-		if (ret == BSL_REP_ACK || ret == BSL_REP_VER || ret == BSL_REP_VERIFY_ERROR) {
-			//check stage
-			if (ret == BSL_REP_VER) {
-				if (fdl1_loaded == 1) {
-					device_stage = FDL1;
-					DEG_LOG(OP, "FDL1 connected.");
-					if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
-					break;
-				} else {
-					device_stage = BROM;
-					DEG_LOG(OP, "Check baud BROM");
-					if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) {
-						fdl1_loaded = -1;
-						fdl2_executed = -1;
-					}
-				}
-				DBG_LOG("[INFO] Device mode version: ");
-				print_string(stdout, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
-				print_to_string(mode_str, sizeof(mode_str), io->raw_buf + 4, READ16_BE(io->raw_buf + 2), 0);
-
-				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-				if (send_and_check(io)) ERR_EXIT("FDL connect failed");
-			} else if (ret == BSL_REP_VERIFY_ERROR) {
-				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-				if (fdl1_loaded != 1) {
-					if (send_and_check(io)) ERR_EXIT("FDL connect failed");;
-				} else {
-					i = -1;
-					continue;
-				}
-			}
-			if (fdl1_loaded == 1) {
-				DEG_LOG(OP, "FDL1 connected.");
-				device_stage = FDL1;
-				if (keep_charge) {
-					encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
-					if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
-				}
-				break;
-			} else {
-				DEG_LOG(OP, "BROM connected.");
-				device_stage = BROM;
-				break;
-			}
-		}
-		//FDL2 response:UNSUPPORTED
-		else if (ret == BSL_REP_UNSUPPORTED_COMMAND) {
-			encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
-			if (!send_and_check(io)) {
-				io->flags &= ~FLAGS_TRANSCODE;
-				DEG_LOG(OP, "Try to disable transcode 0x7D.");
-				helper.disableWidget("fdl_exec");
-				EnableWidgets(helper);
-				fdl2_executed = 1;
-				device_stage = FDL2;
-				int o = io->verbose;
-				io->verbose = -1;
-				g_spl_size = check_partition(io, "splloader", 1);
-				io->verbose = o;
-				if (isUseCptable) {
-					io->Cptable = partition_list_d(io);
-					isCMethod = 1;
-				}
-				if (!isUseCptable && !io->part_count) {
-					DEG_LOG(W, "No partition table found on current device");
-					confirm_partition_c(helper);
-				}
-				if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
-				if (nand_id == DEFAULT_NAND_ID) {
-					nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
-					nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
-					nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
-				}
-				break;
-			}
-		}
-
-		//fail
-		else if (i == 4) {
-			init_stage = 1;
-			if (stage != -1) {
-				ERR_EXIT("Failed to connect: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n", o_exception);
-			} else {
-				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-				stage++;
-				i = -1;
-			}
-		}
-
-	}
-	size_t sub_len = strlen("SPRD3");
-	size_t str_len = strlen(mode_str);
-	int found = 0;
-	if (str_len >= sub_len) {
-		for (size_t i = 0; i <= str_len - sub_len; i++) {
-			if (strncmp(mode_str + i, "SPRD3", sub_len) == 0) {
-				found = 1;
-				break;
-			}
-		}
-	}
-	DEG_LOG(I, "SPRD3 Current : %d", found);
-	if (!found && isKickMode) device_mode = SPRD4;
-	else device_mode = SPRD3;
-	
-	if (fdl2_executed > 0) {
-		if (device_mode == SPRD3) {
-			DEG_LOG(I, "Device stage: FDL2/SPRD3");
-		} else DEG_LOG(I, "Device stage: FDL2/SPRD4(AutoD)");
-	} else if (fdl1_loaded > 0) {
-		if (device_mode == SPRD3) {
-			DEG_LOG(I, "Device stage: FDL1/SPRD3");
-		} else DEG_LOG(I, "Device stage: FDL1/SPRD4(AutoD)");
-	} else if (device_stage == BROM) {
-		if (device_mode == SPRD3) {
-			DEG_LOG(I, "Device stage: BROM/SPRD3");
-		} else DEG_LOG(I, "Device stage: BROM/SPRD4(AutoD)");
-	} else {
-		if (device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
-		else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
-	}
-	gui_idle_call_wait_drag([helper]() mutable {
-		showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Successfully connected 连接成功", "Device already connected! Some advanced settings opened!\n设备已成功连接！部分高级设置已开放！");
-		if (!fdl2_executed) {
-			helper.enableWidget("fdl_exec");
-			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Tips 提示", "Please execute FDL file to continue! \n请执行FDL以继续！");
-			if (device_mode == SPRD4 && isKickMode) {
-				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Tips 提示", "Since your device is in SPRD4 mode, you can choose to skip FDL setting and directly execute FDL, but not all devices support that, please proceed with caution!\n由于你的设备处于SPRD4模式，你可以选择跳过FDL设置直接执行FDL，但是不是所有设备都支持，请谨慎操作！");
-			}
-		}
-		else if (device_stage == FDL2) helper.setLabelText(helper.getWidget("con"), "Ready");
-		Enable_Startup();
-		helper.setLabelText(helper.getWidget("con"), "Connected");
-		if (device_stage == BROM) helper.setLabelText(helper.getWidget("mode"), "BROM");
-		else if (device_stage == FDL1) helper.setLabelText(helper.getWidget("mode"), "FDL1");
-		else if (device_stage == FDL2) helper.setLabelText(helper.getWidget("mode"), "FDL2");
-		if(fs::exists("fdl_info.json") && device_stage == BROM)
-		{
-			bool i_is = false;
-			i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")),"Confirm","FDL Info detected, do you want to load it?\n检测到FDL信息，是否加载？");
-			if(i_is)
-			{
-				char* execfile = NEWN char[ARGV_LEN];
-				if (!execfile) {
-					ERR_EXIT("malloc failed\n");
-				}
-				std::ifstream f("fdl_info.json");
-				json j = json::parse(f);
-				fdl1_path_json = j["fdl1_path"].get<std::string>().c_str();
-				fdl2_path_json = j["fdl2_path"].get<std::string>().c_str();
-				fdl1_addr_json = j["fdl1_addr"].get<uint32_t>();
-				fdl2_addr_json = j["fdl2_addr"].get<uint32_t>();
-				helper.setEntryText(helper.getWidget("fdl_file_path"), fdl1_path_json);
-				helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(fdl1_addr_json));
-				DEG_LOG(I, "Loaded FDL info: %s at address: %s", fdl1_path_json, uint32_to_hex_string(fdl1_addr_json).c_str());
-				on_button_clicked_fdl_exec(helper, execfile);
-				helper.setEntryText(helper.getWidget("fdl_file_path"), fdl2_path_json);
-				helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(fdl2_addr_json));
-				DEG_LOG(I, "Loaded FDL info: %s at address: %s", fdl2_path_json, uint32_to_hex_string(fdl2_addr_json).c_str());
-				on_button_clicked_fdl_exec(helper, execfile);
-				
-			}
-		}
-	},GTK_WINDOW(helper.getWidget("main_window")));
-
-}
-
-// select fdl
-void on_button_clicked_select_fdl(GtkWidgetHelper helper) {
-	GtkWindow* parentWindow = GTK_WINDOW(helper.getWidget("main_window"));
-	std::string fdlPath = showFileChooser(parentWindow, true);
-	if (!fdlPath.empty()) {
-		helper.setEntryText(helper.getWidget("fdl_file_path"), fdlPath);
-		DEG_LOG(I, "Selected FDL file: %s", fdlPath.c_str());
-	} else {
-		DEG_LOG(W, "No FDL file selected.");
-	}
-}
 //fdl exec
 const char* fdl1_path_json;
 const char* fdl2_path_json;
@@ -2526,6 +2185,348 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		}
 	}
 }
+void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
+	GtkWidget* waitBox = helper.getWidget("wait_con");
+	GtkWidget* sprd4Switch = helper.getWidget("sprd4");
+	GtkWidget* cveSwitch = helper.getWidget("exec_addr");
+	GtkWidget* cveAddr = helper.getWidget("cve_addr");
+	GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
+	GtkWidget* sprd4OneMode = helper.getWidget("sprd4_one_mode");
+	helper.setLabelText(helper.getWidget("con"), "Waiting for connection...");
+	if (argc > 1 && !strcmp(argv[1], "--reconnect")) {
+		stage = 99;
+		gui_idle_call_wait_drag([helper]() {
+			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "提示 Tips", "你已启动重连模式，重连模式下只能兼容获取分区列表，且不能获取槽位和储存类型！\nYou have entered Reconnect Mode, which only supports compatibility-method partition list retrieval, and [storage mode/slot mode] can not be gotten!");
+		},GTK_WINDOW(helper.getWidget("main_window")));
+
+	}
+#ifdef __linux__
+	check_root_permission(helper);
+#endif
+	helper.disableWidget("connect_1");
+	double wait_time = helper.getSpinValue(waitBox);
+	bool isSprd4 = helper.getSwitchState(sprd4Switch);
+	bool isOneMode = helper.getSwitchState(sprd4OneMode);
+	bool isCve = helper.getSwitchState(cveSwitch);
+	const char* cve_path = helper.getEntryText(cveAddr);
+	const char* cve_addr = helper.getEntryText(cveAddrC);
+	DEG_LOG(I, "Begin to boot...(%fs)", wait_time);
+	wait = static_cast<int>(wait_time * REOPEN_FREQ);
+	if (isSprd4) {
+		if (isOneMode) {
+			DEG_LOG(I, "Using SPRD4 one-step mode to kick device.");
+			isKickMode = 1;
+			bootmode = strtol("2", nullptr, 0);
+			at = 0;
+		} else {
+			DEG_LOG(I, "Using SPRD4 mode to kick device.");
+			isKickMode = 1;
+			at = 1;
+		}
+	}
+	if (isCve) {
+		DEG_LOG(I, "Using CVE binary: %s at address: %s", cve_path, cve_addr);
+	}
+
+#if !USE_LIBUSB
+	bListenLibusb = 0;
+	if (at || bootmode >= 0) {
+		io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
+		if (io->hThread == nullptr) return;
+		ChangeMode(io, wait / REOPEN_FREQ * 1000, bootmode, at);
+		wait = 30 * REOPEN_FREQ;
+		stage = -1;
+	}
+#else
+	if (!libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG)) {
+		DBG_LOG("hotplug unsupported on this platform\n");
+		bListenLibusb = 0;
+		bootmode = -1;
+		at = 0;
+	}
+	if (at || bootmode >= 0) {
+		startUsbEventHandle();
+		ChangeMode(io, wait / REOPEN_FREQ * 1000, bootmode, at);
+		wait = 30 * REOPEN_FREQ;
+		stage = -1;
+	}
+	if (bListenLibusb < 0) startUsbEventHandle();
+#endif
+#if _WIN32
+	if (!bListenLibusb) {
+		if (io->hThread == nullptr) io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
+		if (io->hThread == nullptr) return;
+	}
+#if !USE_LIBUSB
+	if (!m_bOpened && async) {
+		if (FALSE == CreateRecvThread(io)) {
+			io->m_dwRecvThreadID = 0;
+			DEG_LOG(E, "Create Receive Thread Fail.");
+		}
+	}
+#endif
+#endif
+	if (!m_bOpened) {
+		DBG_LOG("<waiting for connection,mode:dl,%ds>\n", wait / REOPEN_FREQ);
+
+		for (int i = 0; ; i++) {
+#if USE_LIBUSB
+			if (bListenLibusb) {
+				if (curPort) {
+					if (libusb_open(curPort, &io->dev_handle) >= 0) call_Initialize_libusb(io);
+					else ERR_EXIT("Failed to connect\n");
+					break;
+				}
+			}
+			if (!(i % 4)) {
+				if ((ports = FindPort(0x4d00))) {
+					for (libusb_device** port = ports; *port != nullptr; port++) {
+						if (libusb_open(*port, &io->dev_handle) >= 0) {
+							call_Initialize_libusb(io);
+							curPort = *port;
+							break;
+						}
+					}
+					libusb_free_device_list(ports, 1);
+					ports = nullptr;
+					if (m_bOpened) break;
+				}
+			}
+			if (i >= wait)
+				ERR_EXIT("libusb_open_device failed\n");
+#else
+			if (io->verbose) DBG_LOG("Cost: %.1f, Found: %d\n", (float)i / REOPEN_FREQ, curPort);
+			if (curPort) {
+				if (!call_ConnectChannel(io->handle, curPort, WM_RCV_CHANNEL_DATA, io->m_dwRecvThreadID)) ERR_EXIT("Connection failed\n");
+				break;
+			}
+			if (!(i % 4)) {
+				if ((ports = FindPort("SPRD U2S Diag"))) {
+					for (DWORD* port = ports; *port != 0; port++) {
+						if (call_ConnectChannel(io->handle, *port, WM_RCV_CHANNEL_DATA, io->m_dwRecvThreadID)) {
+							curPort = *port;
+							break;
+						}
+					}
+					delete[](ports);
+					ports = nullptr;
+					if (m_bOpened) break;
+				}
+			}
+			if (i >= wait) {
+				ERR_EXIT("%s: Failed to find port.\n", o_exception);
+			}
+#endif
+			usleep(1000000 / REOPEN_FREQ);
+		}
+	}
+	io->flags |= FLAGS_TRANSCODE;
+	if (stage != -1) {
+		io->flags &= ~FLAGS_CRC16;
+		encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+	} else encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
+	//handshake
+	for (int i = 0; ; ++i) {
+		//check if device is connected correctly.
+		if (io->recv_buf[2] == BSL_REP_VER) {
+			ret = BSL_REP_VER;
+			memcpy(io->raw_buf + 4, io->recv_buf + 5, 5);
+			io->raw_buf[2] = 0;
+			io->raw_buf[3] = 5;
+			io->recv_buf[2] = 0;
+		} else if (io->recv_buf[2] == BSL_REP_VERIFY_ERROR ||
+		           io->recv_buf[2] == BSL_REP_UNSUPPORTED_COMMAND) {
+			if (!fdl1_loaded) {
+				ret = io->recv_buf[2];
+				io->recv_buf[2] = 0;
+			} else ERR_EXIT("Failed to connect to device: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n", o_exception);
+		} else {
+			//device correct, handshake operation
+			send_msg(io);
+			recv_msg(io);
+			ret = recv_type(io);
+		}
+		//device can only recv BSL_REP_ACK or BSL_REP_VER or BSL_REP_VERIFY_ERROR
+		init_stage = 1;
+		if (ret == BSL_REP_ACK || ret == BSL_REP_VER || ret == BSL_REP_VERIFY_ERROR) {
+			//check stage
+			if (ret == BSL_REP_VER) {
+				if (fdl1_loaded == 1) {
+					device_stage = FDL1;
+					DEG_LOG(OP, "FDL1 connected.");
+					if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
+					break;
+				} else {
+					device_stage = BROM;
+					DEG_LOG(OP, "Check baud BROM");
+					if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) {
+						fdl1_loaded = -1;
+						fdl2_executed = -1;
+					}
+				}
+				DBG_LOG("[INFO] Device mode version: ");
+				print_string(stdout, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+				print_to_string(mode_str, sizeof(mode_str), io->raw_buf + 4, READ16_BE(io->raw_buf + 2), 0);
+
+				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+				if (send_and_check(io)) ERR_EXIT("FDL connect failed");
+			} else if (ret == BSL_REP_VERIFY_ERROR) {
+				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+				if (fdl1_loaded != 1) {
+					if (send_and_check(io)) ERR_EXIT("FDL connect failed");;
+				} else {
+					i = -1;
+					continue;
+				}
+			}
+			if (fdl1_loaded == 1) {
+				DEG_LOG(OP, "FDL1 connected.");
+				device_stage = FDL1;
+				if (keep_charge) {
+					encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
+					if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
+				}
+				break;
+			} else {
+				DEG_LOG(OP, "BROM connected.");
+				device_stage = BROM;
+				break;
+			}
+		}
+		//FDL2 response:UNSUPPORTED
+		else if (ret == BSL_REP_UNSUPPORTED_COMMAND) {
+			encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
+			if (!send_and_check(io)) {
+				io->flags &= ~FLAGS_TRANSCODE;
+				DEG_LOG(OP, "Try to disable transcode 0x7D.");
+				helper.disableWidget("fdl_exec");
+				EnableWidgets(helper);
+				fdl2_executed = 1;
+				device_stage = FDL2;
+				int o = io->verbose;
+				io->verbose = -1;
+				g_spl_size = check_partition(io, "splloader", 1);
+				io->verbose = o;
+				if (isUseCptable) {
+					io->Cptable = partition_list_d(io);
+					isCMethod = 1;
+				}
+				if (!isUseCptable && !io->part_count) {
+					DEG_LOG(W, "No partition table found on current device");
+					confirm_partition_c(helper);
+				}
+				if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
+				if (nand_id == DEFAULT_NAND_ID) {
+					nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+					nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+					nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+				}
+				break;
+			}
+		}
+
+		//fail
+		else if (i == 4) {
+			init_stage = 1;
+			if (stage != -1) {
+				ERR_EXIT("Failed to connect: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n", o_exception);
+			} else {
+				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+				stage++;
+				i = -1;
+			}
+		}
+
+	}
+	size_t sub_len = strlen("SPRD3");
+	size_t str_len = strlen(mode_str);
+	int found = 0;
+	if (str_len >= sub_len) {
+		for (size_t i = 0; i <= str_len - sub_len; i++) {
+			if (strncmp(mode_str + i, "SPRD3", sub_len) == 0) {
+				found = 1;
+				break;
+			}
+		}
+	}
+	DEG_LOG(I, "SPRD3 Current : %d", found);
+	if (!found && isKickMode) device_mode = SPRD4;
+	else device_mode = SPRD3;
+	
+	if (fdl2_executed > 0) {
+		if (device_mode == SPRD3) {
+			DEG_LOG(I, "Device stage: FDL2/SPRD3");
+		} else DEG_LOG(I, "Device stage: FDL2/SPRD4(AutoD)");
+	} else if (fdl1_loaded > 0) {
+		if (device_mode == SPRD3) {
+			DEG_LOG(I, "Device stage: FDL1/SPRD3");
+		} else DEG_LOG(I, "Device stage: FDL1/SPRD4(AutoD)");
+	} else if (device_stage == BROM) {
+		if (device_mode == SPRD3) {
+			DEG_LOG(I, "Device stage: BROM/SPRD3");
+		} else DEG_LOG(I, "Device stage: BROM/SPRD4(AutoD)");
+	} else {
+		if (device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
+		else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
+	}
+	gui_idle_call_wait_drag([helper]() mutable {
+		showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Successfully connected 连接成功", "Device already connected! Some advanced settings opened!\n设备已成功连接！部分高级设置已开放！");
+		if (!fdl2_executed) {
+			helper.enableWidget("fdl_exec");
+			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Tips 提示", "Please execute FDL file to continue! \n请执行FDL以继续！");
+			if (device_mode == SPRD4 && isKickMode) {
+				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Tips 提示", "Since your device is in SPRD4 mode, you can choose to skip FDL setting and directly execute FDL, but not all devices support that, please proceed with caution!\n由于你的设备处于SPRD4模式，你可以选择跳过FDL设置直接执行FDL，但是不是所有设备都支持，请谨慎操作！");
+			}
+		}
+		else if (device_stage == FDL2) helper.setLabelText(helper.getWidget("con"), "Ready");
+		Enable_Startup();
+		helper.setLabelText(helper.getWidget("con"), "Connected");
+		if (device_stage == BROM) helper.setLabelText(helper.getWidget("mode"), "BROM");
+		else if (device_stage == FDL1) helper.setLabelText(helper.getWidget("mode"), "FDL1");
+		else if (device_stage == FDL2) helper.setLabelText(helper.getWidget("mode"), "FDL2");
+		if(fs::exists("fdl_info.json") && device_stage == BROM)
+		{
+			bool i_is = false;
+			i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")),"Confirm","FDL Info detected, do you want to load it?\n检测到FDL信息，是否加载？");
+			if(i_is)
+			{
+				char* execfile = NEWN char[ARGV_LEN];
+				if (!execfile) {
+					ERR_EXIT("malloc failed\n");
+				}
+				std::ifstream f("fdl_info.json");
+				json j = json::parse(f);
+				fdl1_path_json = j["fdl1_path"].get<std::string>().c_str();
+				fdl2_path_json = j["fdl2_path"].get<std::string>().c_str();
+				fdl1_addr_json = j["fdl1_addr"].get<uint32_t>();
+				fdl2_addr_json = j["fdl2_addr"].get<uint32_t>();
+				helper.setEntryText(helper.getWidget("fdl_file_path"), fdl1_path_json);
+				helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(fdl1_addr_json));
+				DEG_LOG(I, "Loaded FDL info: %s at address: %s", fdl1_path_json, uint32_to_hex_string(fdl1_addr_json).c_str());
+				on_button_clicked_fdl_exec(helper, execfile);
+				helper.setEntryText(helper.getWidget("fdl_file_path"), fdl2_path_json);
+				helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(fdl2_addr_json));
+				DEG_LOG(I, "Loaded FDL info: %s at address: %s", fdl2_path_json, uint32_to_hex_string(fdl2_addr_json).c_str());
+				on_button_clicked_fdl_exec(helper, execfile);
+				
+			}
+		}
+	},GTK_WINDOW(helper.getWidget("main_window")));
+
+}
+
+// select fdl
+void on_button_clicked_select_fdl(GtkWidgetHelper helper) {
+	GtkWindow* parentWindow = GTK_WINDOW(helper.getWidget("main_window"));
+	std::string fdlPath = showFileChooser(parentWindow, true);
+	if (!fdlPath.empty()) {
+		helper.setEntryText(helper.getWidget("fdl_file_path"), fdlPath);
+		DEG_LOG(I, "Selected FDL file: %s", fdlPath.c_str());
+	} else {
+		DEG_LOG(W, "No FDL file selected.");
+	}
+}
+
 //disable widget when init
 void DisableWidgets(GtkWidgetHelper helper) {
 	helper.disableWidget("fdl_exec");
