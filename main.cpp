@@ -2533,12 +2533,12 @@ int gtk_kmain(int argc, char** argv) {
 		// ========== Connect Page ==========
 
 		GtkWidget* connectPage = helper.createGrid("connect_page", 5, 5);
-		helper.addNotebookPage(notebook, connectPage, "Connect  连接");
+		helper.addNotebookPage(notebook, connectPage, _("Connect"));
 
 		// Welcome labels
-		GtkWidget* welcomeLabel1 = helper.createLabel("Welcome to SFD Tool GUI!", "welcome_en", 0, 0, 467, 28);
-		GtkWidget* welcomeLabel2 = helper.createLabel("欢迎使用SFD Tool GUI!", "welcome_cn", 0, 30, 400, 28);
-		GtkWidget* ti_c = helper.createLabel("请将你的设备连接到BROM模式", "ti_c", 0, 60, 400, 28);
+		GtkWidget* welcomeLabel1 = helper.createLabel(_("Welcome to SFD Tool GUI!"), "welcome_en", 0, 0, 467, 28);
+		GtkWidget* welcomeLabel2 = helper.createLabel(_("Welcome to SFD Tool GUI!"), "welcome_cn", 0, 30, 400, 28);
+		GtkWidget* ti_c = helper.createLabel(_("Please connect your device with BROM mode"), "ti_c", 0, 60, 400, 28);
 		GtkWidget* ti_e = helper.createLabel(_(_("Please connect your device with BROM mode")), "ti_e", 0, 90, 500, 28);
 
 		// 设置字体大小
@@ -2551,29 +2551,29 @@ int gtk_kmain(int argc, char** argv) {
 		gtk_label_set_attributes(GTK_LABEL(ti_e), attr_list);
 
 		// 连接说明
-		GtkWidget* instruction1 = helper.createLabel("Press and hold the volume up or down keys and the power key to connect",
+		GtkWidget* instruction1 = helper.createLabel(_("Press and hold the volume up or down keys and the power key to connect"),
 		                          "instruction1", 0, 120, 600, 20);
-		GtkWidget* instruction2 = helper.createLabel("按住音量增大或减小键和电源键进行连接",
+		GtkWidget* instruction2 = helper.createLabel(_("Press and hold the volume up or down keys and the power key to connect"),
 		                          "instruction2", 0, 140, 400, 20);
 
 		// FDL Settings section
-		GtkWidget* fdlSettings = helper.createLabel("FDL Send Settings", "fdl_settings", 0, 170, 150, 20);
-		GtkWidget* fdlSettingsCn = helper.createLabel("FDL发送设置", "fdl_settings_cn", 0, 190, 150, 20);
+		GtkWidget* fdlSettings = helper.createLabel(_("FDL Send Settings"), "fdl_settings", 0, 170, 150, 20);
+		GtkWidget* fdlSettingsCn = helper.createLabel(_("FDL Send Settings"), "fdl_settings_cn", 0, 190, 150, 20);
 
 		// FDL File Path
-		GtkWidget* fdlLabel = helper.createLabel("FDL File Path  FDL文件路径 :", "fdl_label", 0, 220, 200, 20);
+		GtkWidget* fdlLabel = helper.createLabel(_("FDL File Path :"), "fdl_label", 0, 220, 200, 20);
 		GtkWidget* fdlFilePath = helper.createEntry("fdl_file_path", "", false, 200, 215, 275, 32);
 		GtkWidget* selectFdlBtn = helper.createButton("...", "select_fdl", nullptr, 485, 215, 40, 32);
 
 		// FDL Address
-		GtkWidget* fdlAddrLabel = helper.createLabel("FDL Send Address  FDL发送地址 ：", "fdl_addr_label", 0, 260, 220, 20);
+		GtkWidget* fdlAddrLabel = helper.createLabel(_("FDL Send Address :"), "fdl_addr_label", 0, 260, 220, 20);
 		GtkWidget* fdlAddr = helper.createEntry("fdl_addr", "", false, 220, 255, 185, 32);
 
 		// Execute button
-		GtkWidget* fdlExecBtn = helper.createButton("Execute   执行", "fdl_exec", nullptr, 0, 300, 157, 32);
+		GtkWidget* fdlExecBtn = helper.createButton(_("Execute"), "fdl_exec", nullptr, 0, 300, 157, 32);
 
 		// Advanced Options - 放在左边
-		GtkWidget* advLabel = helper.createLabel("Advanced   高级选项", "adv_label", 0, 350, 150, 20);
+		GtkWidget* advLabel = helper.createLabel(_("Advanced"), "adv_label", 0, 350, 150, 20);
 
 		// CVE Toggle Switch - 放在左边
 		GtkWidget* cveSwitchBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
@@ -2581,7 +2581,7 @@ int gtk_kmain(int argc, char** argv) {
 		gtk_widget_set_name(cveSwitch, "exec_addr");
 		helper.addWidget("exec_addr", cveSwitch);
 		gtk_box_pack_start(GTK_BOX(cveSwitchBox), cveSwitch, FALSE, FALSE, 0);
-		GtkWidget* cveSwitchLabel = helper.createLabel("Try to use CVE to skip FDL verification(brom stage only)   利用漏洞绕过FDL签名验证(仅BROM模式)",
+		GtkWidget* cveSwitchLabel = helper.createLabel(_("Try to use CVE to skip FDL verification"),
 		                            "exec_addr_label", 0, 0, 500, 20);
 		gtk_box_pack_start(GTK_BOX(cveSwitchBox), cveSwitchLabel, FALSE, FALSE, 0);
 
@@ -2600,7 +2600,7 @@ int gtk_kmain(int argc, char** argv) {
 		gtk_widget_set_name(sprd4Switch, "sprd4");
 		helper.addWidget("sprd4", sprd4Switch);
 		gtk_box_pack_start(GTK_BOX(sprd4SwitchBox), sprd4Switch, FALSE, FALSE, 0);
-		GtkWidget* sprd4Label = helper.createLabel("Kick device to SPRD4  使用SPRD4模式",
+		GtkWidget* sprd4Label = helper.createLabel(_("Kick device to SPRD4"),
 		                        "sprd4_label", 0, 0, 250, 20);
 		gtk_box_pack_start(GTK_BOX(sprd4SwitchBox), sprd4Label, FALSE, FALSE, 0);
 		GtkWidget* sprd4OneMode = gtk_switch_new();
@@ -2613,7 +2613,7 @@ int gtk_kmain(int argc, char** argv) {
 
 		// Addr 地址
 		GtkWidget* addrBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-		GtkWidget* cveAddrLabel2 = helper.createLabel("CVE Addr  CVE镜像地址", "cve_addr_label2", 0, 0, 100, 20);
+		GtkWidget* cveAddrLabel2 = helper.createLabel(_("CVE Addr"), "cve_addr_label2", 0, 0, 100, 20);
 		GtkWidget* cveAddrC = helper.createEntry("cve_addr_c", "", false, 0, 0, 120, 20);
 		GtkWidget* cveV2Label = helper.createLabel(_("Enable CVE v2"),"cve_v2_label", 0, 0, 150, 20);
 		GtkWidget* cveV2Switch = gtk_switch_new();
@@ -2630,20 +2630,20 @@ int gtk_kmain(int argc, char** argv) {
 		gtk_box_pack_start(GTK_BOX(CVEv2Box), cveV2Label, FALSE, FALSE, 0);
 
 		// Connect Button - 放在右边
-		GtkWidget* connectBtn = helper.createButton("CONNECT  连接", "connect_1", nullptr, 0, 0, 143, 52);
+		GtkWidget* connectBtn = helper.createButton(_("CONNECT"), "connect_1", nullptr, 0, 0, 143, 52);
 
 		// Wait connection time - 放在右边
 		GtkWidget* waitBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-		GtkWidget* waitLabel = helper.createLabel("Wait connection time  连接等待时间 (s):", "wait_label", 0, 0, 250, 20);
+		GtkWidget* waitLabel = helper.createLabel(_("Wait connection time (s):"), "wait_label", 0, 0, 250, 20);
 		GtkWidget* waitCon = helper.createSpinButton(1, 65535, 1, "wait_con", 30, 0, 0, 120, 32);
 		gtk_box_pack_start(GTK_BOX(waitBox), waitLabel, FALSE, FALSE, 0);
 		gtk_box_pack_start(GTK_BOX(waitBox), waitCon, FALSE, FALSE, 0);
 
 		// Status labels - 放在底部
-		GtkWidget* statusLabel = helper.createLabel("Status : ", "status_label", 0, 0, 70, 24);
-		GtkWidget* conStatus = helper.createLabel("Not connected", "con", 0, 0, 150, 23);
-		GtkWidget* modeLabel = helper.createLabel("   Mode : ", "mode_label", 0, 0, 50, 19);
-		GtkWidget* modeStatus = helper.createLabel("BROM Not connected!!!", "mode", 0, 0, 200, 19);
+		GtkWidget* statusLabel = helper.createLabel(_("Status : "), "status_label", 0, 0, 70, 24);
+		GtkWidget* conStatus = helper.createLabel(_("Not connected"), "con", 0, 0, 150, 23);
+		GtkWidget* modeLabel = helper.createLabel(_("   Mode : "), "mode_label", 0, 0, 50, 19);
+		GtkWidget* modeStatus = helper.createLabel(_("BROM Not connected!!!"), "mode", 0, 0, 200, 19);
 
 		// Add all widgets to connect page grid
 		// 使用4列网格：0-3列
@@ -2705,9 +2705,9 @@ int gtk_kmain(int argc, char** argv) {
 		// ========== Partition Operation Page ==========
 
 		GtkWidget* partPage = helper.createGrid("part_page", 5, 5);
-		helper.addNotebookPage(notebook, partPage, "Partition Operation  分区操作");
+		helper.addNotebookPage(notebook, partPage, _("Partition Operation"));
 
-		GtkWidget* instruction = helper.createLabel("Please check a partition        请选择一个分区", "part_instruction", 0, 0, 300, 20);
+		GtkWidget* instruction = helper.createLabel(_("Please check a partition"), "part_instruction", 0, 0, 300, 20);
 
 		// ListView for partitions
 		GtkWidget* scrolledWindow = gtk_scrolled_window_new(NULL, NULL);
@@ -2733,37 +2733,37 @@ int gtk_kmain(int argc, char** argv) {
 		gtk_container_add(GTK_CONTAINER(scrolledWindow), treeView);
 
 		// Operation buttons
-		GtkWidget* opLabel = helper.createLabel("Operation    操作：", "op_label", 0, 0, 150, 20);
-		GtkWidget* writeBtn = helper.createButton("WRITE  刷写", "list_write", nullptr, 0, 0, 117, 32);
-		GtkWidget* writeFBtn = helper.createButton("FORCE WRITE 强制刷写", "list_force_write", nullptr, 0, 0, 162, 32);
-		GtkWidget* readBtn = helper.createButton("EXTRACT  读取分区", "list_read", nullptr, 0, 0, 162, 32);
-		GtkWidget* eraseBtn = helper.createButton("ERASE  擦除分区", "list_erase", nullptr, 0, 0, 170, 32);
-		GtkWidget* backupAllBtn = helper.createButton("Backup All  备份分区", "backup_all", nullptr, 0, 0, 180, 32);
-		GtkWidget* cancelBtn = helper.createButton("Cancel  取消", "list_cancel", nullptr, 0, 0, 117, 32);
-		GtkWidget* xmlGetBtn = helper.createButton("Get partition table through scanning an Xml file  通过XML文件获取分区列表", "xml_get", nullptr, 0, 0, 250, 32);
+		GtkWidget* opLabel = helper.createLabel(_("Operation"), "op_label", 0, 0, 150, 20);
+		GtkWidget* writeBtn = helper.createButton(_("WRITE"), "list_write", nullptr, 0, 0, 117, 32);
+		GtkWidget* writeFBtn = helper.createButton(_("FORCE WRITE"), "list_force_write", nullptr, 0, 0, 162, 32);
+		GtkWidget* readBtn = helper.createButton(_("EXTRACT"), "list_read", nullptr, 0, 0, 162, 32);
+		GtkWidget* eraseBtn = helper.createButton(_("ERASE"), "list_erase", nullptr, 0, 0, 170, 32);
+		GtkWidget* backupAllBtn = helper.createButton(_("Backup All"), "backup_all", nullptr, 0, 0, 180, 32);
+		GtkWidget* cancelBtn = helper.createButton(_("Cancel"), "list_cancel", nullptr, 0, 0, 117, 32);
+		GtkWidget* xmlGetBtn = helper.createButton(_("Get partition table through scanning an Xml file"), "xml_get", nullptr, 0, 0, 250, 32);
 		
 		// 修改分区表
 		GtkWidget* ModifyLabel = helper.createLabel(_("Modify Partition Table"), "modify_label", 0, 0, 200, 20);
-		GtkWidget* SedLabel = helper.createLabel("[Change size 修改大小] Please check a partition you want to change 请选择一个欲修改大小的分区", "fff_label", 0, 0, 100, 20);
-		GtkWidget* SeLabel = helper.createLabel("Second-change partition 第二个被动修改的分区", "second_part_label", 0, 0, 200, 20);
+		GtkWidget* SedLabel = helper.createLabel(_("[Change size] Please check a partition you want to change"), "fff_label", 0, 0, 100, 20);
+		GtkWidget* SeLabel = helper.createLabel(_("Second-change partition"), "second_part_label", 0, 0, 200, 20);
 		GtkWidget* secondPart = helper.createEntry("modify_second_part", "", false, 0, 0, 200, 32);
-		GtkWidget* newSizeLabel = helper.createLabel("New size in MB 新大小（MB）", "new_size_label", 0, 0, 100, 20);
+		GtkWidget* newSizeLabel = helper.createLabel(_("New size in MB"), "new_size_label", 0, 0, 100, 20);
 		GtkWidget* newSizeEntry = helper.createEntry("modify_new_size", "", false, 0, 0, 150, 32);
-		GtkWidget* modifyBtn = helper.createButton("Modify  修改", "modify_part", nullptr, 0, 0, 117, 32);
-		GtkWidget* AddLabel = helper.createLabel("[Add partition 添加分区] Enter partition name: 输入分区名:","ff_label",0,0,100,20);
-		GtkWidget* Add2Label = helper.createLabel("Part name 分区名:","f_label",0,0,50,20);
+		GtkWidget* modifyBtn = helper.createButton(_("Modify"), "modify_part", nullptr, 0, 0, 117, 32);
+		GtkWidget* AddLabel = helper.createLabel(_("[Add partition] Enter partition name:"),"ff_label",0,0,100,20);
+		GtkWidget* Add2Label = helper.createLabel(_("Part name:"),"f_label",0,0,50,20);
 		GtkWidget* newPartEntry = helper.createEntry("new_part","",false,0,0,200,32);
-		GtkWidget* new2SizeLabel = helper.createLabel("Size 大小(MB):","f3_label",0,0,100,20);
+		GtkWidget* new2SizeLabel = helper.createLabel(_("Size(MB):"),"f3_label",0,0,100,20);
 		GtkWidget* newPartSize = helper.createEntry("modify_add_size","",false,0,0,150,32);
-		GtkWidget* afterPartLabel = helper.createLabel("Part after this new part 新分区之后的分区:","",0,0,100,20);
+		GtkWidget* afterPartLabel = helper.createLabel(_("Part after this new part:"),"",0,0,100,20);
 		GtkWidget* afterPart = helper.createEntry("before_new_part","",false,0,0,100,32);
-		GtkWidget* addNewPartBtn = helper.createButton("Modify  修改","modify_new_part",nullptr,0,0,117,32);
-		GtkWidget* RemvLabel = helper.createLabel("[Remove partition 移除分区] Please check a partition you want to remove  请选择你想要移除的分区","ffff_label",0,0,250,20);
-		GtkWidget* RemvPartBtn = helper.createButton("Modify  修改","modify_rm_part",nullptr,0,0,117,32);
-		GtkWidget* RenmLabel = helper.createLabel("[Rename partition 重命名分区] Please check a partition you want to rename  请选择一个你想要重命名的分区","f2_label",0,0,250,20);
-		GtkWidget* RenmPartLabel = helper.createLabel("New name 新名字","f4_label",0,0,100,20);
+		GtkWidget* addNewPartBtn = helper.createButton(_("Modify"),"modify_new_part",nullptr,0,0,117,32);
+		GtkWidget* RemvLabel = helper.createLabel(_("[Remove partition] Please check a partition you want to remove"),"ffff_label",0,0,250,20);
+		GtkWidget* RemvPartBtn = helper.createButton(_("Modify"),"modify_rm_part",nullptr,0,0,117,32);
+		GtkWidget* RenmLabel = helper.createLabel(_("[Rename partition] Please check a partition you want to rename"),"f2_label",0,0,250,20);
+		GtkWidget* RenmPartLabel = helper.createLabel(_("New name"),"f4_label",0,0,100,20);
 		GtkWidget* RenmPartEntry = helper.createEntry("modify_rename_part","",false,0,0,200,32);
-		GtkWidget* RenmPartBtn = helper.createButton("Modify  修改","modify_ren_part",nullptr,0,0,117,32);
+		GtkWidget* RenmPartBtn = helper.createButton(_("Modify"),"modify_ren_part",nullptr,0,0,117,32);
 
 		// 设置按钮初始状态
 		gtk_widget_set_sensitive(writeBtn, FALSE);
@@ -2831,41 +2831,41 @@ int gtk_kmain(int argc, char** argv) {
 		// ========== Manually Operate Page ==========
 
 		GtkWidget* manualPage = helper.createGrid("manual_page", 5, 5);
-		helper.addNotebookPage(notebook, manualPage, "Manually Operate  手动操作");
+		helper.addNotebookPage(notebook, manualPage, _("Manually Operate"));
 
 		// Write partition section
-		GtkWidget* writeLabel = helper.createLabel("Write partition   刷写分区", "write_label", 0, 0, 200, 20);
-		GtkWidget* writePartLabel = helper.createLabel("Partition name  分区名：", "write_part_label", 0, 0, 150, 20);
+		GtkWidget* writeLabel = helper.createLabel(_("Write partition"), "write_label", 0, 0, 200, 20);
+		GtkWidget* writePartLabel = helper.createLabel(_("Partition name:"), "write_part_label", 0, 0, 150, 20);
 		GtkWidget* mPartFlash = helper.createEntry("m_part_flash", "", false, 0, 0, 155, 32);
 
-		GtkWidget* filePathLabel = helper.createLabel("Image file path  镜像文件地址：", "file_path_label", 0, 0, 200, 20);
+		GtkWidget* filePathLabel = helper.createLabel(_("Image file path:"), "file_path_label", 0, 0, 200, 20);
 		GtkWidget* mFilePath = helper.createEntry("m_file_path", "", false, 0, 0, 245, 32);
 		GtkWidget* mSelectBtn = helper.createButton("...", "m_select", nullptr, 0, 0, 40, 32);
 
-		GtkWidget* mWriteBtn = helper.createButton("WRITE   刷写", "m_write", nullptr, 0, 0, 120, 32);
+		GtkWidget* mWriteBtn = helper.createButton(_("WRITE"), "m_write", nullptr, 0, 0, 120, 32);
 
 		// Separator
 		GtkWidget* sep1 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
 
 		// Extract partition section
-		GtkWidget* extractLabel = helper.createLabel("Extract partition  读取分区", "extract_label", 0, 0, 200, 20);
-		GtkWidget* extractPartLabel = helper.createLabel("Partition name  分区名：", "extract_part_label", 0, 0, 150, 20);
+		GtkWidget* extractLabel = helper.createLabel(_("Extract partition"), "extract_label", 0, 0, 200, 20);
+		GtkWidget* extractPartLabel = helper.createLabel(_("Partition name:"), "extract_part_label", 0, 0, 150, 20);
 		GtkWidget* mPartRead = helper.createEntry("m_part_read", "", false, 0, 0, 145, 32);
 
-		GtkWidget* mReadBtn = helper.createButton("EXTRACT  读取", "m_read", nullptr, 0, 0, 120, 32);
+		GtkWidget* mReadBtn = helper.createButton(_("EXTRACT"), "m_read", nullptr, 0, 0, 120, 32);
 
 		// Separator
 		GtkWidget* sep2 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
 
 		// Erase partition section
-		GtkWidget* eraseLabel = helper.createLabel("Erase partition  擦除分区", "erase_label", 0, 0, 200, 20);
-		GtkWidget* erasePartLabel = helper.createLabel("Partition name  分区名：", "erase_part_label", 0, 0, 150, 20);
+		GtkWidget* eraseLabel = helper.createLabel(_("Erase partition"), "erase_label", 0, 0, 200, 20);
+		GtkWidget* erasePartLabel = helper.createLabel(_("Partition name:"), "erase_part_label", 0, 0, 150, 20);
 		GtkWidget* mPartErase = helper.createEntry("m_part_erase", "", false, 0, 0, 150, 32);
 
-		GtkWidget* mEraseBtn = helper.createButton("ERASE  擦除", "m_erase", nullptr, 0, 0, 120, 32);
+		GtkWidget* mEraseBtn = helper.createButton(_("ERASE"), "m_erase", nullptr, 0, 0, 120, 32);
 
 		// Cancel button - 在Erase按钮下方两行处
-		GtkWidget* mCancelBtn = helper.createButton("Cancel  取消", "m_cancel", nullptr, 0, 0, 120, 32);
+		GtkWidget* mCancelBtn = helper.createButton(_("Cancel"), "m_cancel", nullptr, 0, 0, 120, 32);
 
 		// Add to grid
 		int row = 0;
@@ -2912,31 +2912,31 @@ int gtk_kmain(int argc, char** argv) {
 		// ========== Advanced Operation Page ==========
 
 		GtkWidget* advOpPage = helper.createGrid("adv_op_page", 5, 5);
-		helper.addNotebookPage(notebook, advOpPage, "Advanced Operation  高级操作");
+		helper.addNotebookPage(notebook, advOpPage, _("Advanced Operation"));
 
 		// A/B partition
-		GtkWidget* abLabel = helper.createLabel("Toggle the A/B partition boot settings  切换A/B分区启动设置", "ab_label", 0, 0, 400, 20);
-		GtkWidget* setActiveA = helper.createButton("Boot A partitons  启动A分区", "set_active_a", nullptr, 0, 0, 200, 32);
-		GtkWidget* setActiveB = helper.createButton("Boot B partitions  启动B分区", "set_active_b", nullptr, 0, 0, 200, 32);
+		GtkWidget* abLabel = helper.createLabel(_("Toggle the A/B partition boot settings"), "ab_label", 0, 0, 400, 20);
+		GtkWidget* setActiveA = helper.createButton(_("Boot A partitons"), "set_active_a", nullptr, 0, 0, 200, 32);
+		GtkWidget* setActiveB = helper.createButton(_("Boot B partitions"), "set_active_b", nullptr, 0, 0, 200, 32);
 
 		// Repartition
-		GtkWidget* repartLabel = helper.createLabel("Repartition  重新分区", "repart_label", 0, 0, 200, 20);
-		GtkWidget* xmlLabel = helper.createLabel("XML part info file path  XML分区表文件路径", "xml_label", 0, 0, 300, 20);
+		GtkWidget* repartLabel = helper.createLabel(_("Repartition"), "repart_label", 0, 0, 200, 20);
+		GtkWidget* xmlLabel = helper.createLabel(_("XML part info file path"), "xml_label", 0, 0, 300, 20);
 		GtkWidget* xmlPath = helper.createEntry("xml_path", "", false, 0, 0, 374, 32);
 		GtkWidget* selectXmlBtn = helper.createButton("...", "select_xml", nullptr, 0, 0, 40, 32);
-		GtkWidget* startRepartBtn = helper.createButton("START  开始", "start_repart", nullptr, 0, 0, 120, 32);
+		GtkWidget* startRepartBtn = helper.createButton(_("START"), "start_repart", nullptr, 0, 0, 120, 32);
 
-		GtkWidget* readXmlBtn = helper.createButton("Extract part info to a XML file (if support)  备份分区表到XML文件（如果支持）",
+		GtkWidget* readXmlBtn = helper.createButton(_("Extract part info to a XML file (if support)"),
 		                        "read_xml", nullptr, 0, 0, 500, 32);
 
 		// DM-verify
-		GtkWidget* dmvLabel = helper.createLabel("DM-verity and AVB Settings (if support)  DM-verity和AVB设置（如果支持）", "dmv_label", 0, 0, 400, 20);
-		GtkWidget* dmvDisable = helper.createButton("Disable DM-verity and AVB  禁用DM-verity和AVB (Android 10+)", "dmv_disable", nullptr, 0, 0, 220, 32);
-		GtkWidget* dmvEnable = helper.createButton("Enable DM-verity and AVB  启用DM-verity和AVB (Android 10+)", "dmv_enable", nullptr, 0, 0, 220, 32);
+		GtkWidget* dmvLabel = helper.createLabel(_("DM-verity and AVB Settings (if support)"), "dmv_label", 0, 0, 400, 20);
+		GtkWidget* dmvDisable = helper.createButton(_("Disable DM-verity and AVB"), "dmv_disable", nullptr, 0, 0, 220, 32);
+		GtkWidget* dmvEnable = helper.createButton(_("Enable DM-verity and AVB"), "dmv_enable", nullptr, 0, 0, 220, 32);
 
 		// No AVB
-		GtkWidget* disavbLabel = helper.createLabel("Trustos AVB Settings Trustos AVB设置", "avb_label", 0, 0, 400, 20);
-		GtkWidget* dis_avb = helper.createButton("[CAUTION 谨慎] Disable AVB verification by patching trustos(Android 9 and lower) 修补trustos禁用AVB效验(Android9及以下)", "dis_avb", nullptr, 0, 0, 230, 32);
+		GtkWidget* disavbLabel = helper.createLabel(_("Trustos AVB Settings"), "avb_label", 0, 0, 400, 20);
+		GtkWidget* dis_avb = helper.createButton(_("[CAUTION] Disable AVB verification by patching trustos(Android 9 and lower)"), "dis_avb", nullptr, 0, 0, 230, 32);
 
 		// Add to grid
 		row = 0;
@@ -2978,7 +2978,7 @@ int gtk_kmain(int argc, char** argv) {
 		// ========== Advanced Settings Page ==========
 
 		GtkWidget* advSetPage = helper.createGrid("adv_set_page", 5, 5);
-		helper.addNotebookPage(notebook, advSetPage, "Advanced Settings  高级设置");
+		helper.addNotebookPage(notebook, advSetPage, _("Advanced Settings"));
 
 		// 数据块大小设置部分
 		GtkWidget* blkLabel = helper.createLabel(_("Data block size"), "blk_label", 0, 0, 200, 20);
@@ -2998,36 +2998,36 @@ int gtk_kmain(int argc, char** argv) {
 		                       nullptr, 0, 0, 250, 32);
 		GtkWidget* rawDataDis = helper.createButton(_("Disable Rawdata mode"), "raw_data_dis",
 		                        nullptr, 0, 0, 250, 32);
-		GtkWidget* rlabel = helper.createLabel("Value 数值:", "rawLabel", 0, 0, 80, 30);
+		GtkWidget* rlabel = helper.createLabel(_("Value:"), "rawLabel", 0, 0, 80, 30);
 		GtkWidget* rawDataMk = helper.createEntry("raw_data_v", "", false, 0, 0, 50, 30);
 
 		// 转码设置部分
 		GtkWidget* transcode_en = helper.createButton(_("Enable transcode - FDL1"), "transcode_en",
 		                          nullptr, 0, 0, 220, 32);
-		GtkWidget* transcode_dis = helper.createButton("Disable transcode 禁用转码 --- FDL2", "transcode_dis",
+		GtkWidget* transcode_dis = helper.createButton(_("Disable transcode --- FDL2"), "transcode_dis",
 		                           nullptr, 0, 0, 220, 32);
 
 		// 充电模式设置部分
-		GtkWidget* charge_en = helper.createButton("Enable Charging mode 启用充电 --- BROM", "charge_en",
+		GtkWidget* charge_en = helper.createButton(_("Enable Charging mode --- BROM"), "charge_en",
 		                       nullptr, 0, 0, 240, 32);
-		GtkWidget* charge_dis = helper.createButton("Disable Charging mode 禁用充电 --- BROM", "charge_dis",
+		GtkWidget* charge_dis = helper.createButton(_("Disable Charging mode --- BROM"), "charge_dis",
 		                        nullptr, 0, 0, 240, 32);
 
 		// 发送结束数据设置部分
-		GtkWidget* end_data_en = helper.createButton("Enable sending end data 启用send_end_data",
+		GtkWidget* end_data_en = helper.createButton(_("Enable sending end data"),
 		                         "end_data_en", nullptr, 0, 0, 280, 32);
-		GtkWidget* end_data_dis = helper.createButton("Disable sending end data 禁用send_end_data",
+		GtkWidget* end_data_dis = helper.createButton(_("Disable sending end data"),
 		                          "end_data_dis", nullptr, 0, 0, 280, 32);
 
 		// 操作超时时间设置部分
-		GtkWidget* timeout_label = helper.createLabel("Operation timeout 操作超时时间",
+		GtkWidget* timeout_label = helper.createLabel(_("Operation timeout"),
 		                           "timeout_label", 0, 0, 200, 20);
 		GtkWidget* timeout_op = helper.createSpinButton(3000, 300000, 1, "timeout", 3000, 0, 0, 120, 32);
 		
 		// A/B分区设置
-		GtkWidget* abpart_auto = helper.createButton("Not VAB 不是A/B分区 --- FDL2","abpart_auto",nullptr,0,0,120,32);
-		GtkWidget* abpart_a = helper.createButton("A Parts A分区 --- FDL2","abpart_a",nullptr,0,0,130,32);
-		GtkWidget* abpart_b = helper.createButton("B Parts B分区 --- FDL2","abpart_b",nullptr,0,0,130,32);
+		GtkWidget* abpart_auto = helper.createButton(_("Not VAB --- FDL2"),"abpart_auto",nullptr,0,0,120,32);
+		GtkWidget* abpart_a = helper.createButton(_("A Parts --- FDL2"),"abpart_a",nullptr,0,0,130,32);
+		GtkWidget* abpart_b = helper.createButton(_("B Parts --- FDL2"),"abpart_b",nullptr,0,0,130,32);
 		
 		// 创建主垂直容器
 		GtkWidget* emainBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 20);
@@ -3050,7 +3050,7 @@ int gtk_kmain(int argc, char** argv) {
 
 		// 2. Rawdata模式部分
 		GtkWidget* rawDataBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-		GtkWidget* rawDataLabel = gtk_label_new("Rawdata Mode  Rawdata模式 --- Value support 支持的数值: {1, 2}");
+		GtkWidget* rawDataLabel = gtk_label_new(_("Rawdata Mode --- Value support: {1, 2}"));
 		gtk_label_set_xalign(GTK_LABEL(rawDataLabel), 0.0);
 
 		GtkWidget* rawDataButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
@@ -3064,7 +3064,7 @@ int gtk_kmain(int argc, char** argv) {
 
 		// 3. 转码设置部分
 		GtkWidget* transcodeBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-		GtkWidget* transcodeLabel = gtk_label_new("Transcode 转码设置 --- FDL1/2");
+		GtkWidget* transcodeLabel = gtk_label_new(_("Transcode --- FDL1/2"));
 		gtk_label_set_xalign(GTK_LABEL(transcodeLabel), 0.0);
 
 		GtkWidget* transcodeButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
@@ -3076,7 +3076,7 @@ int gtk_kmain(int argc, char** argv) {
 
 		// 4. 充电模式部分
 		GtkWidget* chargeBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-		GtkWidget* chargeLabel = gtk_label_new("Charging Mode 充电模式 --- BROM");
+		GtkWidget* chargeLabel = gtk_label_new(_("Charging Mode --- BROM"));
 		gtk_label_set_xalign(GTK_LABEL(chargeLabel), 0.0);
 
 		GtkWidget* chargeButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
@@ -3088,7 +3088,7 @@ int gtk_kmain(int argc, char** argv) {
 
 		// 5. 发送结束数据部分
 		GtkWidget* endDataBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-		GtkWidget* endDataLabel = gtk_label_new("Send End Data 发送结束数据");
+		GtkWidget* endDataLabel = gtk_label_new(_("Send End Data"));
 		gtk_label_set_xalign(GTK_LABEL(endDataLabel), 0.0);
 
 		GtkWidget* endDataButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
@@ -3108,7 +3108,7 @@ int gtk_kmain(int argc, char** argv) {
 
 		// 7. A/B分区设置部分
 		GtkWidget* abpartBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-		GtkWidget* abpartLabel = gtk_label_new("A/B Part read/flash manually set A/B分区读取/刷写手动设置 --- FDL2");
+		GtkWidget* abpartLabel = gtk_label_new(_("A/B Part read/flash manually set --- FDL2"));
 		gtk_label_set_xalign(GTK_LABEL(abpartLabel), 0.0);
 		GtkWidget* abpartButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
 		gtk_box_pack_start(GTK_BOX(abpartButtonBox), abpart_auto,FALSE,FALSE,0);
@@ -3180,9 +3180,9 @@ int gtk_kmain(int argc, char** argv) {
 		helper.addNotebookPage(notebook, dbgOptPage, _("Debug Options"));
 
 		// 创建三个按钮
-		GtkWidget* pactime = helper.createButton("Get pactime 获取PAC烧录时间", "pac_time", nullptr, 0, 0, 400, 32);
-		GtkWidget* chipuid = helper.createButton("Get chip UID  获取芯片UID", "chip_uid", nullptr, 0, 0, 400, 32);
-		GtkWidget* ReadNand = helper.createButton("Check if NAND Storage 检查是否为NAND机型", "check_nand", nullptr, 0, 0, 400, 32);
+		GtkWidget* pactime = helper.createButton(_("Get pactime"), "pac_time", nullptr, 0, 0, 400, 32);
+		GtkWidget* chipuid = helper.createButton(_("Get chip UID"), "chip_uid", nullptr, 0, 0, 400, 32);
+		GtkWidget* ReadNand = helper.createButton(_("Check if NAND Storage"), "check_nand", nullptr, 0, 0, 400, 32);
 
 		// 创建垂直盒子布局
 		GtkWidget* mainBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 20);
@@ -3218,10 +3218,7 @@ int gtk_kmain(int argc, char** argv) {
 		helper.addToGrid(dbgOptPage, mainBox, 0, 0, 4, 6);
 
 		// 添加说明标签
-		GtkWidget* infoLabel = gtk_label_new("调试选项页面\n"
-		                                     "此页面包含设备调试功能\n"
-		                                     "Debug Options Page\n"
-		                                     "This page contains device debugging functions");
+		GtkWidget* infoLabel = gtk_label_new(_("Debug Options Page\nThis page contains device debugging functions"));
 		gtk_label_set_justify(GTK_LABEL(infoLabel), GTK_JUSTIFY_CENTER);
 		gtk_widget_set_margin_top(infoLabel, 50);
 		gtk_widget_set_margin_bottom(infoLabel, 20);
@@ -3231,7 +3228,7 @@ int gtk_kmain(int argc, char** argv) {
 		// ========== About Page ==========
 
 		GtkWidget* aboutPage = helper.createGrid("about_page", 5, 5);
-		helper.addNotebookPage(notebook, aboutPage, "About  关于");
+		helper.addNotebookPage(notebook, aboutPage, _("About"));
 
 		GtkWidget* scrolledAbout = gtk_scrolled_window_new(NULL, NULL);
 		gtk_widget_set_size_request(scrolledAbout, 1084, 557);
@@ -3253,7 +3250,7 @@ int gtk_kmain(int argc, char** argv) {
 		// ========== Log Page ==========
 
 		GtkWidget* logPage = helper.createGrid("log_page", 5, 5);
-		helper.addNotebookPage(notebook, logPage, "Log  日志");
+		helper.addNotebookPage(notebook, logPage, _("Log"));
 
 		GtkWidget* scrolledLog = gtk_scrolled_window_new(NULL, NULL);
 		gtk_widget_set_size_request(scrolledLog, 1124, 500);
@@ -3266,8 +3263,8 @@ int gtk_kmain(int argc, char** argv) {
 		helper.addWidget("txtOutput", logTextView);
 		gtk_container_add(GTK_CONTAINER(scrolledLog), logTextView);
 
-		GtkWidget* expLogBtn = helper.createButton("Export  导出", "exp_log", nullptr, 0, 0, 120, 32);
-		GtkWidget* logClearBtn = helper.createButton("Clear  清空", "log_clear", nullptr, 0, 0, 120, 32);
+		GtkWidget* expLogBtn = helper.createButton(_("Export"), "exp_log", nullptr, 0, 0, 120, 32);
+		GtkWidget* logClearBtn = helper.createButton(_("Clear"), "log_clear", nullptr, 0, 0, 120, 32);
 
 		// Add to grid
 		helper.addToGrid(logPage, scrolledLog, 0, 0, 4, 8);
@@ -3281,7 +3278,7 @@ int gtk_kmain(int argc, char** argv) {
 		// ========== Bottom Controls ==========
 
 		// Progress section
-		GtkWidget* progressLabel = helper.createLabel("Progress  进度:", "progress_label", 0, 0, 100, 20);
+		GtkWidget* progressLabel = helper.createLabel(_("Progress:"), "progress_label", 0, 0, 100, 20);
 		GtkWidget* progressBar = gtk_progress_bar_new();
 		gtk_widget_set_name(progressBar, "progressBar_1");
 		helper.addWidget("progressBar_1", progressBar);
@@ -3290,10 +3287,10 @@ int gtk_kmain(int argc, char** argv) {
 		GtkWidget* percentLabel = helper.createLabel("0%", "percent", 0, 0, 30, 20);
 
 		// Control buttons
-		GtkWidget* poweroffBtn = helper.createButton("POWEROFF  关机", "poweroff", nullptr, 0, 0, 130, 32);
-		GtkWidget* rebootBtn = helper.createButton("REBOOT  重启", "reboot", nullptr, 0, 0, 110, 32);
-		GtkWidget* recoveryBtn = helper.createButton("BOOT TO RECOVERY  重启到恢复模式", "recovery", nullptr, 0, 0, 260, 32);
-		GtkWidget* fastbootBtn = helper.createButton("BOOT TO FASTBOOT  重启到线刷模式", "fastboot", nullptr, 0, 0, 260, 32);
+		GtkWidget* poweroffBtn = helper.createButton(_("POWEROFF"), "poweroff", nullptr, 0, 0, 130, 32);
+		GtkWidget* rebootBtn = helper.createButton(_("REBOOT"), "reboot", nullptr, 0, 0, 110, 32);
+		GtkWidget* recoveryBtn = helper.createButton(_("BOOT TO RECOVERY"), "recovery", nullptr, 0, 0, 260, 32);
+		GtkWidget* fastbootBtn = helper.createButton(_("BOOT TO FASTBOOT"), "fastboot", nullptr, 0, 0, 260, 32);
 
 		// Create bottom grid
 		GtkWidget* bottomGrid = gtk_grid_new();

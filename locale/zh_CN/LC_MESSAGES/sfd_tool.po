@@ -9,7 +9,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-06 13:52+0800\n"
+"POT-Creation-Date: 2026-03-06 14:24+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -310,25 +310,258 @@ msgstr "高速模式下请勿手动设置块大小！"
 msgid "FDL1 executed successfully!"
 msgstr "FDL1已成功执行！"
 
-#: main.cpp:2542
+#: main.cpp:2536
+msgid "Connect"
+msgstr "连接"
+
+#: main.cpp:2539 main.cpp:2540
+msgid "Welcome to SFD Tool GUI!"
+msgstr "欢迎使用SFD Tool GUI!"
+
+#: main.cpp:2541 main.cpp:2542
 msgid "Please connect your device with BROM mode"
 msgstr "请将你的设备连接到BROM模式"
+
+#: main.cpp:2554 main.cpp:2556
+msgid "Press and hold the volume up or down keys and the power key to connect"
+msgstr "按住音量增大或减小键和电源键进行连接"
+
+#: main.cpp:2560 main.cpp:2561
+msgid "FDL Send Settings"
+msgstr "FDL发送设置"
+
+#: main.cpp:2564
+msgid "FDL File Path :"
+msgstr "FDL文件路径 :"
+
+#: main.cpp:2569
+msgid "FDL Send Address :"
+msgstr "FDL发送地址 :"
+
+#: main.cpp:2573
+msgid "Execute"
+msgstr "执行"
+
+#: main.cpp:2576
+msgid "Advanced"
+msgstr "高级选项"
+
+#: main.cpp:2584
+msgid "Try to use CVE to skip FDL verification"
+msgstr "利用漏洞绕过FDL签名验证"
 
 #: main.cpp:2591
 msgid "CVE Binary File Address"
 msgstr "CVE可执行镜像"
 
+#: main.cpp:2603
+msgid "Kick device to SPRD4"
+msgstr "使用SPRD4模式"
+
 #: main.cpp:2609
 msgid "Kick One-time Mode"
 msgstr "Kick单次模式"
+
+#: main.cpp:2616
+msgid "CVE Addr"
+msgstr "CVE镜像地址"
 
 #: main.cpp:2618
 msgid "Enable CVE v2"
 msgstr "启用CVE v2"
 
+#: main.cpp:2633
+msgid "CONNECT"
+msgstr "连接"
+
+#: main.cpp:2637
+msgid "Wait connection time (s):"
+msgstr "连接等待时间 (s):"
+
+#: main.cpp:2643
+msgid "Status : "
+msgstr "Status : "
+
+#: main.cpp:2644
+msgid "Not connected"
+msgstr "未连接"
+
+#: main.cpp:2645
+msgid "   Mode : "
+msgstr "   Mode : "
+
+#: main.cpp:2646
+msgid "BROM Not connected!!!"
+msgstr "BROM 未连接!!!"
+
+#: main.cpp:2708
+msgid "Partition Operation"
+msgstr "分区操作"
+
+#: main.cpp:2710
+msgid "Please check a partition"
+msgstr "请选择一个分区"
+
+#: main.cpp:2736
+msgid "Operation"
+msgstr "操作"
+
+#: main.cpp:2737 main.cpp:2845
+msgid "WRITE"
+msgstr "刷写"
+
+#: main.cpp:2738
+msgid "FORCE WRITE"
+msgstr "强制刷写"
+
+#: main.cpp:2739 main.cpp:2855
+msgid "EXTRACT"
+msgstr "读取分区"
+
+#: main.cpp:2740 main.cpp:2865
+msgid "ERASE"
+msgstr "擦除分区"
+
+#: main.cpp:2741
+msgid "Backup All"
+msgstr "备份全部分区"
+
+#: main.cpp:2742 main.cpp:2868
+msgid "Cancel"
+msgstr "取消"
+
+#: main.cpp:2743
+msgid "Get partition table through scanning an Xml file"
+msgstr "通过XML文件获取分区列表"
+
 #: main.cpp:2746
 msgid "Modify Partition Table"
 msgstr "修改分区表"
+
+#: main.cpp:2747
+msgid "[Change size] Please check a partition you want to change"
+msgstr "欲修改大小：请选择一个你想修改大小的分区"
+
+#: main.cpp:2748
+msgid "Second-change partition"
+msgstr "连带受影响第二分区"
+
+#: main.cpp:2750
+msgid "New size in MB"
+msgstr "新大小（MB）"
+
+#: main.cpp:2752 main.cpp:2760 main.cpp:2762 main.cpp:2766
+msgid "Modify"
+msgstr "修改"
+
+#: main.cpp:2753
+msgid "[Add partition] Enter partition name:"
+msgstr "欲添加分区：请输入分区名称："
+
+#: main.cpp:2754
+msgid "Part name:"
+msgstr "分区名："
+
+#: main.cpp:2756
+msgid "Size(MB):"
+msgstr "大小（MB）："
+
+#: main.cpp:2758
+msgid "Part after this new part:"
+msgstr "新分区放置在该分区之后："
+
+#: main.cpp:2761
+msgid "[Remove partition] Please check a partition you want to remove"
+msgstr "欲移除分区：请选择一个你想要移除的分区"
+
+#: main.cpp:2763
+msgid "[Rename partition] Please check a partition you want to rename"
+msgstr "欲重命名分区：请选择一个你想重命名的分区"
+
+#: main.cpp:2764
+msgid "New name"
+msgstr "新名称"
+
+#: main.cpp:2834
+msgid "Manually Operate"
+msgstr "手动操作"
+
+#: main.cpp:2837
+msgid "Write partition"
+msgstr "刷写分区 (Write)"
+
+#: main.cpp:2838 main.cpp:2852 main.cpp:2862
+msgid "Partition name:"
+msgstr "分区名："
+
+#: main.cpp:2841
+msgid "Image file path:"
+msgstr "镜像文件路径："
+
+#: main.cpp:2851
+msgid "Extract partition"
+msgstr "读取分区 (Extract)"
+
+#: main.cpp:2861
+msgid "Erase partition"
+msgstr "擦除分区 (Erase)"
+
+#: main.cpp:2915
+msgid "Advanced Operation"
+msgstr "高级操作"
+
+#: main.cpp:2918
+msgid "Toggle the A/B partition boot settings"
+msgstr "切换A/B分区启动设置"
+
+#: main.cpp:2919
+msgid "Boot A partitons"
+msgstr "启动A分区"
+
+#: main.cpp:2920
+msgid "Boot B partitions"
+msgstr "启动B分区"
+
+#: main.cpp:2923
+msgid "Repartition"
+msgstr "重新分区"
+
+#: main.cpp:2924
+msgid "XML part info file path"
+msgstr "XML分区表文件路径"
+
+#: main.cpp:2927
+msgid "START"
+msgstr "开始"
+
+#: main.cpp:2929
+msgid "Extract part info to a XML file (if support)"
+msgstr "备份分区表到XML文件（如果支持）"
+
+#: main.cpp:2933
+msgid "DM-verity and AVB Settings (if support)"
+msgstr "DM验证和AVB设置（如果支持）"
+
+#: main.cpp:2934
+msgid "Disable DM-verity and AVB"
+msgstr "禁用DM-verity和AVB (Android 10+)"
+
+#: main.cpp:2935
+msgid "Enable DM-verity and AVB"
+msgstr "启用DM-verity和AVB (Android 10+)"
+
+#: main.cpp:2938
+msgid "Trustos AVB Settings"
+msgstr "TrustOS AVB设置"
+
+#: main.cpp:2939
+msgid ""
+"[CAUTION] Disable AVB verification by patching trustos(Android 9 and lower)"
+msgstr "【警告】修补trustos以禁用AVB校验 (Android 9及以下)"
+
+#: main.cpp:2981
+msgid "Advanced Settings"
+msgstr "高级设置"
 
 #: main.cpp:2984
 msgid "Data block size"
@@ -342,13 +575,127 @@ msgstr "启用Rawdata模式"
 msgid "Disable Rawdata mode"
 msgstr "禁用Rawdata模式"
 
+#: main.cpp:3001
+msgid "Value:"
+msgstr "数值："
+
 #: main.cpp:3005
 msgid "Enable transcode - FDL1"
 msgstr "启用转码 --- FDL1"
 
+#: main.cpp:3007
+msgid "Disable transcode --- FDL2"
+msgstr "禁用转码 --- FDL2"
+
+#: main.cpp:3011
+msgid "Enable Charging mode --- BROM"
+msgstr "启用充电模式 --- BROM"
+
+#: main.cpp:3013
+msgid "Disable Charging mode --- BROM"
+msgstr "禁用充电模式 --- BROM"
+
+#: main.cpp:3017
+msgid "Enable sending end data"
+msgstr "开启发送End Data"
+
+#: main.cpp:3019
+msgid "Disable sending end data"
+msgstr "关闭发送End Data"
+
+#: main.cpp:3023
+msgid "Operation timeout"
+msgstr "操作超时重试倒计时"
+
+#: main.cpp:3028
+msgid "Not VAB --- FDL2"
+msgstr "非A/B分区 (传统) --- FDL2"
+
+#: main.cpp:3029
+msgid "A Parts --- FDL2"
+msgstr "仅操作A分区组 --- FDL2"
+
+#: main.cpp:3030
+msgid "B Parts --- FDL2"
+msgstr "仅操作B分区组 --- FDL2"
+
+#: main.cpp:3053
+msgid "Rawdata Mode --- Value support: {1, 2}"
+msgstr "Rawdata模式支持数值：{1, 2}"
+
+#: main.cpp:3067
+msgid "Transcode --- FDL1/2"
+msgstr "转码 --- FDL1/2"
+
+#: main.cpp:3079
+msgid "Charging Mode --- BROM"
+msgstr "充电模式 --- BROM"
+
+#: main.cpp:3091
+msgid "Send End Data"
+msgstr "发送结束块数据"
+
+#: main.cpp:3111
+msgid "A/B Part read/flash manually set --- FDL2"
+msgstr "A/B分区刷写手工干预 --- FDL2"
+
 #: main.cpp:3180
 msgid "Debug Options"
 msgstr "调试设置"
+
+#: main.cpp:3183
+msgid "Get pactime"
+msgstr "读取PAC烧录时间记录"
+
+#: main.cpp:3184
+msgid "Get chip UID"
+msgstr "获取芯片硬件UID"
+
+#: main.cpp:3185
+msgid "Check if NAND Storage"
+msgstr "检查NAND存储标识"
+
+#: main.cpp:3221
+msgid ""
+"Debug Options Page\n"
+"This page contains device debugging functions"
+msgstr "调试选项页面\n此页面包含设备调试功能"
+
+#: main.cpp:3231
+msgid "About"
+msgstr "关于"
+
+#: main.cpp:3253
+msgid "Log"
+msgstr "日志"
+
+#: main.cpp:3266
+msgid "Export"
+msgstr "导出"
+
+#: main.cpp:3267
+msgid "Clear"
+msgstr "清空"
+
+#: main.cpp:3281
+msgid "Progress:"
+msgstr "进度:"
+
+#: main.cpp:3290
+msgid "POWEROFF"
+msgstr "关机"
+
+#: main.cpp:3291
+msgid "REBOOT"
+msgstr "重启"
+
+#: main.cpp:3292
+msgid "BOOT TO RECOVERY"
+msgstr "重启到恢复模式"
+
+#: main.cpp:3293
+msgid "BOOT TO FASTBOOT"
+msgstr "重启到线刷模式"
 
 #: GtkWidgetHelper.cpp:53
 msgid "Select file"

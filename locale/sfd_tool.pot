@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-06 13:52+0800\n"
+"POT-Creation-Date: 2026-03-06 14:24+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -309,24 +309,257 @@ msgstr ""
 msgid "FDL1 executed successfully!"
 msgstr ""
 
-#: main.cpp:2542
+#: main.cpp:2536
+msgid "Connect"
+msgstr ""
+
+#: main.cpp:2539 main.cpp:2540
+msgid "Welcome to SFD Tool GUI!"
+msgstr ""
+
+#: main.cpp:2541 main.cpp:2542
 msgid "Please connect your device with BROM mode"
+msgstr ""
+
+#: main.cpp:2554 main.cpp:2556
+msgid "Press and hold the volume up or down keys and the power key to connect"
+msgstr ""
+
+#: main.cpp:2560 main.cpp:2561
+msgid "FDL Send Settings"
+msgstr ""
+
+#: main.cpp:2564
+msgid "FDL File Path :"
+msgstr ""
+
+#: main.cpp:2569
+msgid "FDL Send Address :"
+msgstr ""
+
+#: main.cpp:2573
+msgid "Execute"
+msgstr ""
+
+#: main.cpp:2576
+msgid "Advanced"
+msgstr ""
+
+#: main.cpp:2584
+msgid "Try to use CVE to skip FDL verification"
 msgstr ""
 
 #: main.cpp:2591
 msgid "CVE Binary File Address"
 msgstr ""
 
+#: main.cpp:2603
+msgid "Kick device to SPRD4"
+msgstr ""
+
 #: main.cpp:2609
 msgid "Kick One-time Mode"
+msgstr ""
+
+#: main.cpp:2616
+msgid "CVE Addr"
 msgstr ""
 
 #: main.cpp:2618
 msgid "Enable CVE v2"
 msgstr ""
 
+#: main.cpp:2633
+msgid "CONNECT"
+msgstr ""
+
+#: main.cpp:2637
+msgid "Wait connection time (s):"
+msgstr ""
+
+#: main.cpp:2643
+msgid "Status : "
+msgstr ""
+
+#: main.cpp:2644
+msgid "Not connected"
+msgstr ""
+
+#: main.cpp:2645
+msgid "   Mode : "
+msgstr ""
+
+#: main.cpp:2646
+msgid "BROM Not connected!!!"
+msgstr ""
+
+#: main.cpp:2708
+msgid "Partition Operation"
+msgstr ""
+
+#: main.cpp:2710
+msgid "Please check a partition"
+msgstr ""
+
+#: main.cpp:2736
+msgid "Operation"
+msgstr ""
+
+#: main.cpp:2737 main.cpp:2845
+msgid "WRITE"
+msgstr ""
+
+#: main.cpp:2738
+msgid "FORCE WRITE"
+msgstr ""
+
+#: main.cpp:2739 main.cpp:2855
+msgid "EXTRACT"
+msgstr ""
+
+#: main.cpp:2740 main.cpp:2865
+msgid "ERASE"
+msgstr ""
+
+#: main.cpp:2741
+msgid "Backup All"
+msgstr ""
+
+#: main.cpp:2742 main.cpp:2868
+msgid "Cancel"
+msgstr ""
+
+#: main.cpp:2743
+msgid "Get partition table through scanning an Xml file"
+msgstr ""
+
 #: main.cpp:2746
 msgid "Modify Partition Table"
+msgstr ""
+
+#: main.cpp:2747
+msgid "[Change size] Please check a partition you want to change"
+msgstr ""
+
+#: main.cpp:2748
+msgid "Second-change partition"
+msgstr ""
+
+#: main.cpp:2750
+msgid "New size in MB"
+msgstr ""
+
+#: main.cpp:2752 main.cpp:2760 main.cpp:2762 main.cpp:2766
+msgid "Modify"
+msgstr ""
+
+#: main.cpp:2753
+msgid "[Add partition] Enter partition name:"
+msgstr ""
+
+#: main.cpp:2754
+msgid "Part name:"
+msgstr ""
+
+#: main.cpp:2756
+msgid "Size(MB):"
+msgstr ""
+
+#: main.cpp:2758
+msgid "Part after this new part:"
+msgstr ""
+
+#: main.cpp:2761
+msgid "[Remove partition] Please check a partition you want to remove"
+msgstr ""
+
+#: main.cpp:2763
+msgid "[Rename partition] Please check a partition you want to rename"
+msgstr ""
+
+#: main.cpp:2764
+msgid "New name"
+msgstr ""
+
+#: main.cpp:2834
+msgid "Manually Operate"
+msgstr ""
+
+#: main.cpp:2837
+msgid "Write partition"
+msgstr ""
+
+#: main.cpp:2838 main.cpp:2852 main.cpp:2862
+msgid "Partition name:"
+msgstr ""
+
+#: main.cpp:2841
+msgid "Image file path:"
+msgstr ""
+
+#: main.cpp:2851
+msgid "Extract partition"
+msgstr ""
+
+#: main.cpp:2861
+msgid "Erase partition"
+msgstr ""
+
+#: main.cpp:2915
+msgid "Advanced Operation"
+msgstr ""
+
+#: main.cpp:2918
+msgid "Toggle the A/B partition boot settings"
+msgstr ""
+
+#: main.cpp:2919
+msgid "Boot A partitons"
+msgstr ""
+
+#: main.cpp:2920
+msgid "Boot B partitions"
+msgstr ""
+
+#: main.cpp:2923
+msgid "Repartition"
+msgstr ""
+
+#: main.cpp:2924
+msgid "XML part info file path"
+msgstr ""
+
+#: main.cpp:2927
+msgid "START"
+msgstr ""
+
+#: main.cpp:2929
+msgid "Extract part info to a XML file (if support)"
+msgstr ""
+
+#: main.cpp:2933
+msgid "DM-verity and AVB Settings (if support)"
+msgstr ""
+
+#: main.cpp:2934
+msgid "Disable DM-verity and AVB"
+msgstr ""
+
+#: main.cpp:2935
+msgid "Enable DM-verity and AVB"
+msgstr ""
+
+#: main.cpp:2938
+msgid "Trustos AVB Settings"
+msgstr ""
+
+#: main.cpp:2939
+msgid ""
+"[CAUTION] Disable AVB verification by patching trustos(Android 9 and lower)"
+msgstr ""
+
+#: main.cpp:2981
+msgid "Advanced Settings"
 msgstr ""
 
 #: main.cpp:2984
@@ -341,12 +574,126 @@ msgstr ""
 msgid "Disable Rawdata mode"
 msgstr ""
 
+#: main.cpp:3001
+msgid "Value:"
+msgstr ""
+
 #: main.cpp:3005
 msgid "Enable transcode - FDL1"
 msgstr ""
 
+#: main.cpp:3007
+msgid "Disable transcode --- FDL2"
+msgstr ""
+
+#: main.cpp:3011
+msgid "Enable Charging mode --- BROM"
+msgstr ""
+
+#: main.cpp:3013
+msgid "Disable Charging mode --- BROM"
+msgstr ""
+
+#: main.cpp:3017
+msgid "Enable sending end data"
+msgstr ""
+
+#: main.cpp:3019
+msgid "Disable sending end data"
+msgstr ""
+
+#: main.cpp:3023
+msgid "Operation timeout"
+msgstr ""
+
+#: main.cpp:3028
+msgid "Not VAB --- FDL2"
+msgstr ""
+
+#: main.cpp:3029
+msgid "A Parts --- FDL2"
+msgstr ""
+
+#: main.cpp:3030
+msgid "B Parts --- FDL2"
+msgstr ""
+
+#: main.cpp:3053
+msgid "Rawdata Mode --- Value support: {1, 2}"
+msgstr ""
+
+#: main.cpp:3067
+msgid "Transcode --- FDL1/2"
+msgstr ""
+
+#: main.cpp:3079
+msgid "Charging Mode --- BROM"
+msgstr ""
+
+#: main.cpp:3091
+msgid "Send End Data"
+msgstr ""
+
+#: main.cpp:3111
+msgid "A/B Part read/flash manually set --- FDL2"
+msgstr ""
+
 #: main.cpp:3180
 msgid "Debug Options"
+msgstr ""
+
+#: main.cpp:3183
+msgid "Get pactime"
+msgstr ""
+
+#: main.cpp:3184
+msgid "Get chip UID"
+msgstr ""
+
+#: main.cpp:3185
+msgid "Check if NAND Storage"
+msgstr ""
+
+#: main.cpp:3221
+msgid ""
+"Debug Options Page\n"
+"This page contains device debugging functions"
+msgstr ""
+
+#: main.cpp:3231
+msgid "About"
+msgstr ""
+
+#: main.cpp:3253
+msgid "Log"
+msgstr ""
+
+#: main.cpp:3266
+msgid "Export"
+msgstr ""
+
+#: main.cpp:3267
+msgid "Clear"
+msgstr ""
+
+#: main.cpp:3281
+msgid "Progress:"
+msgstr ""
+
+#: main.cpp:3290
+msgid "POWEROFF"
+msgstr ""
+
+#: main.cpp:3291
+msgid "REBOOT"
+msgstr ""
+
+#: main.cpp:3292
+msgid "BOOT TO RECOVERY"
+msgstr ""
+
+#: main.cpp:3293
+msgid "BOOT TO FASTBOOT"
 msgstr ""
 
 #: GtkWidgetHelper.cpp:53
