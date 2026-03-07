@@ -810,3 +810,56 @@ msgstr "大小"
 
 msgid "Type"
 msgstr "类型"
+
+# ===== PAC Flash 页面翻译 =====
+
+msgid "PAC Flash"
+msgstr "PAC烧录"
+
+msgid "PAC File"
+msgstr "PAC文件"
+
+msgid "PAC File Path"
+msgstr "PAC文件路径"
+
+msgid "Unpack PAC"
+msgstr "解包PAC文件"
+
+msgid "Please select a partition"
+msgstr "请选择一个分区"
+
+msgid "Flash Operation"
+msgstr "烧录操作"
+
+msgid "Select slot mode:"
+msgstr "选择分区槽模式："
+
+msgid "Not VAB (Non-AB)"
+msgstr "非A/B分区（传统）"
+
+msgid "Slot A"
+msgstr "A分区组"
+
+msgid "Slot B"
+msgstr "B分区组"
+
+msgid "START PAC Flash"
+msgstr "开始PAC烧录"
+
+msgid "PAC flash time"
+msgstr "PAC烧录时间"
+
+msgid "PAC Time"
+msgstr "PAC烧录时间"
+
+msgid "Device unattached, exiting...\n设备已断开连接！正在退出..."
+msgstr "设备已断开连接！正在退出..."
+
+msgid "File does not exist.\n文件不存在！"
+msgstr "文件不存在！"
+
+msgid "Failed to unpack PAC file.\nPAC文件解包失败！"
+msgstr "PAC文件解包失败！"
+
+msgid "Device unattached, exiting...\n设备已断开连接！正在退出...\n"
+msgstr "设备已断开连接！正在退出...\n"
