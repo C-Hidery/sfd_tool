@@ -5,7 +5,23 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
-#include <unistd.h>
+#ifdef _WIN32
+    #include <io.h>
+    #include <fcntl.h>
+    #define read _read
+    #define open _open
+    #define close _close
+    #define lseek _lseek
+    #define O_RDONLY _O_RDONLY
+    #define O_WRONLY _O_WRONLY
+    #define O_RDWR   _O_RDWR
+    #define O_CREAT  _O_CREAT
+    #define O_TRUNC  _O_TRUNC
+    #define O_BINARY _O_BINARY
+    #define ssize_t int
+#else
+    #include <unistd.h>
+#endif
 #include <filesystem>  // C++17 filesystem
 #include <iostream>    // for error output
 

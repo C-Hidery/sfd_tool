@@ -6,6 +6,8 @@
 #include <thread>
 #include <chrono>
 #include <gtk/gtk.h>
+#include <sstream>  
+#include <iomanip>
 #include "GenTosNoAvb.h"
 #ifdef __linux__
 #include <unistd.h>
