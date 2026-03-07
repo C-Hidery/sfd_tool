@@ -237,7 +237,7 @@ jobs:
           export DEBEMAIL="Ryan110413@outlook.com"
           
           # 运行构建脚本
-          ./build-deb.sh
+          ./packaging/build-deb.sh
           DEB_FILE=$(find /tmp/build-sfd-tool/ -name '*.deb' | head -1)
           
       - name: Upload Linux Artifacts
@@ -313,10 +313,10 @@ jobs:
         run: |
           # 处理 Windows 文件
           cp master/*.md output/
-          cp master/Lib/Channel9.dll output/sfd_tool_x86_Release/
-          cp master/Lib/Channel.ini output/sfd_tool_x86_Release/
-          cp master/Lib/libusb-1.0.dll output/sfd_tool_x64_Release/
-          
+          cp master/third_party/Lib/Channel9.dll output/sfd_tool_x86_Release/
+          cp master/third_party/Lib/Channel.ini output/sfd_tool_x86_Release/
+          cp master/third_party/Lib/libusb-1.0.dll output/sfd_tool_x64_Release/
+
           # 重命名 Windows 目录
           cd output
           mv sfd_tool_x86_Release sfd_tool_SPRD_Release
