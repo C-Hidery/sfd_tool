@@ -19,7 +19,7 @@ extern int highspeed;
 extern unsigned exec_addr, baudrate;
 extern int no_fdl_mode;
 extern int gpt_failed;
-extern int selected_ab;
+extern AppState g_app_state;
 extern int nand_info[3];
 extern int nand_id;
 extern int conn_wait;
@@ -495,13 +495,13 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			});
 		}
 		if (gpt_failed != 1) {
-			if (selected_ab == 2) {
+			if (g_app_state.selected_ab == 2) {
 				DEG_LOG(I, "Device is using slot b\n");
 				gui_idle_call([helper]() mutable {
 					helper.setLabelText(helper.getWidget("slot_mode"),"Slot B");
 				});
 			}
-			else if (selected_ab == 1) {
+			else if (g_app_state.selected_ab == 1) {
 				DEG_LOG(I, "Device is using slot a\n");
 				gui_idle_call([helper]() mutable {
 					helper.setLabelText(helper.getWidget("slot_mode"),"Slot A");

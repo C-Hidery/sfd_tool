@@ -1029,8 +1029,8 @@ int main_console(int argc, char** argv) {
 					io->ptable = partition_list(io, fn_partlist, &io->part_count);
 				} else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
 				if (gpt_failed != 1) {
-					if (selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
-					else if (selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
+					if (g_app_state.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
+					else if (g_app_state.selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
 					else {
 						DEG_LOG(I, "Device is not using VAB\n");
 						if (Da_Info.bSupportRawData) {
@@ -1288,7 +1288,7 @@ int main_console(int argc, char** argv) {
 			}
 
 			name = str2[2];
-			if (selected_ab < 0) select_ab(io);
+			if (g_app_state.selected_ab < 0) select_ab(io);
 			int v = io->verbose;
 			io->verbose = -1;
 			DEG_LOG(I, "%s: ", name);
@@ -1306,7 +1306,7 @@ int main_console(int argc, char** argv) {
 			}
 
 			name = str2[2];
-			if (selected_ab < 0) select_ab(io);
+			if (g_app_state.selected_ab < 0) select_ab(io);
 			long long r = (long long)check_partition(io, name, 0);
 			if (r == 1) {
 				DEG_LOG(I, "%s: Exist.", name);
@@ -1401,7 +1401,7 @@ int main_console(int argc, char** argv) {
 					argv += 2;
 					continue;
 				}
-				if (selected_ab > 0) {
+				if (g_app_state.selected_ab > 0) {
 					DEG_LOG(OP, "Saving slot info");
 					dump_partition(io, "misc", 0, 1048576, "misc.bin", blk_size);
 				}
@@ -1479,8 +1479,8 @@ int main_console(int argc, char** argv) {
 						if (!strncmp((*(io->ptable + i)).name, "blackbox", 8)) continue;
 						else if (!strncmp((*(io->ptable + i)).name, "cache", 5)) continue;
 						else if (!strncmp((*(io->ptable + i)).name, "userdata", 8)) continue;
-						if (selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_b")) continue;
-						else if (selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_a")) continue;
+						if (g_app_state.selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_b")) continue;
+						else if (g_app_state.selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_a")) continue;
 						snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->ptable + i)).name);
 						dump_partition(io, (*(io->ptable + i)).name, 0, (*(io->ptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
 					}
@@ -1499,8 +1499,8 @@ int main_console(int argc, char** argv) {
 						if (!strncmp((*(io->Cptable + i)).name, "blackbox", 8)) continue;
 						else if (!strncmp((*(io->Cptable + i)).name, "cache", 5)) continue;
 						else if (!strncmp((*(io->Cptable + i)).name, "userdata", 8)) continue;
-						if (selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_b")) continue;
-						else if (selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_a")) continue;
+						if (g_app_state.selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_b")) continue;
+						else if (g_app_state.selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_a")) continue;
 						snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->Cptable + i)).name);
 						dump_partition(io, (*(io->Cptable + i)).name, 0, (*(io->Cptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
 					}
@@ -1579,7 +1579,7 @@ rloop:
 			if(check_confirm("flash pac"))
 			{
 				pac_extract(fn, "pac_extract");
-				load_partitions(io, "pac_extract", blk_size ? blk_size : DEFAULT_BLK_SIZE, selected_ab, isCMethod);
+				load_partitions(io, "pac_extract", blk_size ? blk_size : DEFAULT_BLK_SIZE, g_app_state.selected_ab, isCMethod);
 			}
 			argc -= 2;
 			argv += 2;
@@ -2086,7 +2086,7 @@ rloop:
 				argc = 1;
 				continue;
 			}
-			selected_ab = atoi(str2[2]);
+			g_app_state.selected_ab =atoi(str2[2]);
 			argc -= 2;
 			argv += 2;
 		} else if (!strcmp(str2[1], "chip_uid")) {

@@ -12,7 +12,7 @@ extern int m_bOpened;
 extern int blk_size;
 extern int isCMethod;
 extern int gpt_failed;
-extern int selected_ab;
+extern AppState g_app_state;
 
 static void on_button_clicked_set_active_a(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
@@ -23,7 +23,7 @@ static void on_button_clicked_set_active_a(GtkWidgetHelper helper) {
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
-	if(!selected_ab) {
+	if(!g_app_state.selected_ab) {
 		gui_idle_call_wait_drag([helper](){
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device is not using VAB!"));
 		},GTK_WINDOW(helper.getWidget("main_window")));
@@ -45,7 +45,7 @@ static void on_button_clicked_set_active_b(GtkWidgetHelper helper) {
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
-	if(!selected_ab) {
+	if(!g_app_state.selected_ab) {
 		gui_idle_call_wait_drag([helper](){
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device is not using VAB!"));
 		},GTK_WINDOW(helper.getWidget("main_window")));

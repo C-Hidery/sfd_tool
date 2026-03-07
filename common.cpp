@@ -583,7 +583,7 @@ int scan_xml_partitions(spdio_t *io, const char *fn, uint8_t *buf, size_t buf_si
 #define SECTOR_SIZE 512
 #define MAX_SECTORS 32
 
-extern int selected_ab;
+static int& selected_ab = g_app_state.selected_ab;
 int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
 	FILE *fp = my_oxfopen("pgpt.bin", "rb");
 	if (fp == nullptr) {
