@@ -23,7 +23,13 @@ sfd_tool/
 ├── main.cpp                    # 入口 + 连接逻辑（on_button_clicked_connect/fdl_exec）
 ├── main.h                      # 全局变量声明
 ├── main_console.cpp            # 命令行模式入口
-├── common.cpp / common.h       # 设备通信协议、数据结构、底层函数
+├── common.cpp / common.h       # 上层逻辑、结构体定义、跨模块公共接口
+├── core/                       # 拆分后的底层核心模块
+│   ├── logging.h/.cpp          # 日志与错误处理（DEG_LOG/ERR_EXIT、打印内存等）
+│   ├── file_io.h/.cpp          # 文件读写封装（xfopen/my_fopen，Windows UTF-8 路径处理）
+│   ├── pac_extract.h/.cpp      # PAC 固件解析与解包（sprd_head_t/sprd_file_t、Unpac 类）
+│   ├── usb_transport.h/.cpp    # USB 通信与端点发现（libusb / Windows Wrapper、spdio_t 缓冲区管理）
+│   └── spd_protocol.h/.cpp     # SPD/BSL 协议封装（HDLC 转码、CRC/Checksum、encode_msg/send_msg/recv_msg）
 ├── GtkWidgetHelper.cpp/.hpp    # GTK Widget 抽象封装层
 ├── ui_common.cpp / ui_common.h # 公共 UI 函数（EnableWidgets、底部控制栏）
 ├── i18n.h                      # 国际化宏定义（gettext）
@@ -39,8 +45,13 @@ sfd_tool/
 │   ├── page_about.cpp/h            # About 标签页
 │   └── page_log.cpp/h              # Log 标签页
 │
+├── assets/                     # 图标、rc 资源等
+├── packaging/                  # 打包脚本（deb/rpm、desktop 文件、man 手册）
 ├── locale/                     # 国际化翻译文件（.po / .mo）
-└── Lib/                        # 第三方库（libusb 等）
+├── third_party/                # 第三方依赖
+│   ├── Lib/                    # 预编译库（libusb 等，供 Windows 使用）
+│   └── nlohmann/               # nlohmann/json 单头文件库
+└── scripts/                    # 其他辅助脚本
 ```
 
 ---
@@ -141,7 +152,7 @@ LC_ALL=zh_CN.UTF-8 sudo -E ./sfd_tool
 
 ### Linux USB 权限
 
-Linux 默认对 USB 设备的访问需要 root 权限，因此推荐使用 `sudo -E`。  
+Linux 默认对 USB 设备的访问需要 root 权限，因此推荐使用 `sudo -E`。
 或者，可以配置 udev 规则避免每次都需要 sudo：
 
 ```bash

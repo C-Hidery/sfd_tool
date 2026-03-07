@@ -14,7 +14,7 @@ export DEBEMAIL="Ryan110413@outlook.com"
 echo "=== Building $PKGNAME version $VERSION ==="
 
 # 清理旧文件
-rm -rf dist debian/$PKGNAME
+rm -rf dist packaging/debian/$PKGNAME
 make clean 2>/dev/null || true
 
 

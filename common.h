@@ -41,7 +41,6 @@
 #include <math.h>
 #include <time.h>
 #include "GtkWidgetHelper.hpp"
-#include "third_party/nlohmann/json.hpp"
 #include <regex>
 #include <fstream>
 #define NEWN new (std::nothrow)

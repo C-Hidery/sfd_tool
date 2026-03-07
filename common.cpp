@@ -16,7 +16,6 @@ extern int bListenLibusb;
 extern int m_bOpened;
 
 
-#define RECV_BUF_LEN (0x8000)
 
 char fn_partlist[40] = { 0 };
 char savepath[ARGV_LEN] = { 0 };

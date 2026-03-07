@@ -25,7 +25,6 @@
     <ClInclude Include="spd_cmd.h" />
     <ClInclude Include="Wrapper.h" />
     <ClInclude Include="GtkWidgetHelper.hpp" />
-    <ClInclude Include="unpac.hpp" />
     <ClInclude Include="GenTosNoAvb.h" />
   </ItemGroup>
   <ItemGroup>
@@ -196,7 +195,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>
-        Lib;
+        third_party\Lib;
         $(GTK3_PATH)\include\gtk-3.0;
         $(GTK3_PATH)\include\glib-2.0;
         $(GTK3_PATH)\lib\glib-2.0\include;
@@ -227,7 +226,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>
-        Lib;
+        third_party\Lib;
         $(GTK3_PATH)\include\gtk-3.0;
         $(GTK3_PATH)\include\glib-2.0;
         $(GTK3_PATH)\lib\glib-2.0\include;

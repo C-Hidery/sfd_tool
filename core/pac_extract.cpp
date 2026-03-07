@@ -28,6 +28,8 @@
 #include <filesystem>  // C++17 filesystem
 #include <iostream>    // for error output
 
+#include "logging.h"  // 使用统一的 ERR_EXIT
+
 typedef struct {
     uint16_t pac_version[24];
     uint32_t pac_size;
@@ -70,12 +72,10 @@ static unsigned u_crc16(uint32_t crc, const void *src, unsigned len) {
     return crc;
 }
 
-#define U_ERR_EXIT(...) \
-    do { fprintf(stderr, __VA_ARGS__); exit(1); } while (0)
-
+// 使用统一的 ERR_EXIT 而不是本地 U_ERR_EXIT
 #define READ(p, n, name) \
     if (fread(p, n, 1, fi) != 1) \
-        U_ERR_EXIT("fread(%s) failed\n", #name)
+        ERR_EXIT("fread(%s) failed\n", #name)
 #define READ1(p) READ(&p, sizeof(p), #p)
 
 enum {
@@ -100,7 +100,7 @@ static size_t u16_to_u8(char *d, size_t dn, const uint16_t *s, size_t sn) {
 
 static int compare_u8_u16(int depth, char *d, const uint16_t *s, size_t sn) {
     size_t i = 0; int a, b;
-    if (depth > 10) U_ERR_EXIT("use less wildcards\n");
+    if (depth > 10) ERR_EXIT("use less wildcards\n");
     for (;;) {
         a = *d++;
         if (a == '*') goto wildcard;
@@ -141,259 +141,290 @@ private:
     uint8_t* buf;
     int argc;
     char** argv;
-    
+
 public:
     Unpac() : fi(NULL), chunk(0x1000), dir(NULL), buf(NULL), argc(0), argv(NULL) {
         memset(&head, 0, sizeof(head));
         memset(str_buf, 0, sizeof(str_buf));
     }
-    
+
     ~Unpac() {
         if (buf) free(buf);
         if (fi) fclose(fi);
     }
-    
+
     void setDirectory(const char* directory) {
         dir = directory;
     }
-    
+
     // 新增：检查和准备输出目录的函数
     void prepareOutputDirectory() {
         if (!dir) {
-            std::cerr << "Error: Output directory not set" << std::endl;
-            exit(1);
+            ERR_EXIT("Error: Output directory not set\n");
         }
-        
+
         namespace fs = std::filesystem;
         fs::path outputPath(dir);
-        
+
         try {
             if (fs::exists(outputPath)) {
                 // 如果目录存在，删除它及其所有内容
                 fs::remove_all(outputPath);
-                std::cout << "Removed existing directory: " << dir << std::endl;
+                printf("Removed existing directory: %s\n", dir);
             }
-            
+
             // 创建新目录
             if (fs::create_directories(outputPath)) {
-                std::cout << "Created directory: " << dir << std::endl;
+                printf("Created directory: %s\n", dir);
             } else {
-                std::cerr << "Failed to create directory: " << dir << std::endl;
-                exit(1);
+                ERR_EXIT("Failed to create directory: %s\n", dir);
             }
         } catch (const fs::filesystem_error& e) {
-            std::cerr << "Filesystem error: " << e.what() << std::endl;
-            exit(1);
+            ERR_EXIT("Filesystem error: %s\n", e.what());
         }
     }
-    
+
     bool openPacFile(const char* filename) {
         fi = fopen(filename, "rb");
-        if (!fi) {printf("fopen(input) failed\n"); return false;}
-        
+        if (!fi) {
+            printf("fopen(input) failed\n");
+            return false;
+        }
+
         READ1(head);
-        if (head.pac_magic != ~0x50005u)
+        if (head.pac_magic != ~0x50005u) {
             printf("bad pac_magic\n");
             return false;
-            
-        if (head.dir_offset != sizeof(head))
+        }
+
+        if (head.dir_offset != sizeof(head)) {
             printf("unexpected directory offset\n");
             return false;
-            
-        if (head.file_count >> 10)
+        }
+
+        if (head.file_count >> 10) {
             printf("too many files\n");
             return false;
+        }
+
         return true;
     }
-    
+
     void setFilter(int filter_argc, char** filter_argv) {
         argc = filter_argc;
         argv = filter_argv;
     }
-    
+
     #define CONV_STR(x) \
         u16_to_u8(str_buf, sizeof(str_buf), x, sizeof(x) / 2)
-    
-    bool listFiles() {
-        if (!fi) {printf("PAC file not opened\n"); return false;}
-        
-        CONV_STR(head.pac_version);
-        printf("pac_version: %s\n", str_buf);
-        printf("pac_size: %u\n", head.pac_size);
 
-        CONV_STR(head.fw_name);
-        printf("fw_name: %s\n", str_buf);
-        CONV_STR(head.fw_version);
-        printf("fw_version: %s\n", str_buf);
-        CONV_STR(head.fw_alias);
-        printf("fw_alias: %s\n", str_buf);
-        
-        // CRC check
-        uint32_t head_crc = u_crc16(0, &head, sizeof(head) - 4);
-        printf("head_crc: 0x%04x", head.head_crc);
-        if (head.head_crc != head_crc)
-            printf(" (expected 0x%04x)", head_crc);
-        printf("\n");
-        
-        // List files
-        for (unsigned i = 0; i < head.file_count; i++) {
-            sprd_file_t file; int j;
-            READ1(file);
-            if (file.struct_size != sizeof(sprd_file_t))
-                {printf("unexpected struct size\n"); return false;}
+    bool listFiles();
+    bool extractFiles();
+    bool checkCrc();
+    void close();
+};
 
-            long long file_size = (long long)file.size_high << 32 | file.size;
-            long long pac_offset = (long long)file.pac_offset_high << 32 | file.pac_offset;
+// 这里保留原有的 listFiles / extractFiles / checkCrc / close 实现
+// ......
 
-            // Apply filter
-            for (j = 0; j < argc; j++)
-                if (!compare_u8_u16(0, argv[j], file.name, 256) || 
-                        (file.id[0] && !compare_u8_u16(0, argv[j], file.id, 256)))
-                    break;
+bool Unpac::listFiles() {
+    if (!fi) { printf("PAC file not opened\n"); return false; }
 
-            if (argc && j == argc) continue;
+    CONV_STR(head.pac_version);
+    printf("pac_version: %s\n", str_buf);
+    printf("pac_size: %u\n", head.pac_size);
 
-            printf(file.type > 9 ? "type = 0x%x" : "type = %u", file.type);
-            if (file_size)
-                printf(", size = 0x%llx", file_size);
-            if (pac_offset)
-                printf(", offset = 0x%llx", pac_offset);
+    CONV_STR(head.fw_name);
+    printf("fw_name: %s\n", str_buf);
+    CONV_STR(head.fw_version);
+    printf("fw_version: %s\n", str_buf);
+    CONV_STR(head.fw_alias);
+    printf("fw_alias: %s\n", str_buf);
 
-            if (file.addr_num <= 5)
-                for (j = 0; j < (int)file.addr_num; j++) {
-                    if (!file.addr[j]) continue;
-                    if (!j) printf(", addr = 0x%x", file.addr[j]);
-                    else printf(", addr%u = 0x%x", j, file.addr[j]);
-                }
+    // CRC check
+    uint32_t head_crc = u_crc16(0, &head, sizeof(head) - 4);
+    printf("head_crc: 0x%04x", head.head_crc);
+    if (head.head_crc != head_crc)
+        printf(" (expected 0x%04x)", head_crc);
+    printf("\n");
 
-            if (file.id[0]) {
-                CONV_STR(file.id);
-                printf(", id = \"%s\"", str_buf);
-            }
-            if (file.name[0]) {
-                CONV_STR(file.name);
-                printf(", name = \"%s\"", str_buf);
-            }
-            printf("\n");
+    // List files
+    for (unsigned i = 0; i < head.file_count; i++) {
+        sprd_file_t file; int j;
+        READ1(file);
+        if (file.struct_size != sizeof(sprd_file_t)) {
+            printf("unexpected struct size\n");
+            return false;
         }
-        return true;
-    }
-    
-    bool extractFiles() {
-        if (!fi) {printf("PAC file not opened\n"); return false;}
-        
-        // 在提取文件前准备输出目录
-        prepareOutputDirectory();
-        
-#ifndef _WIN32
-        if (dir && chdir(dir))
-            {printf("chdir failed\n"); return false;}
-#else
-        if (dir) {
-            if (_chdir(dir))
-                {printf("chdir failed\n"); return false;}
+
+        long long file_size = (long long)file.size_high << 32 | file.size;
+        long long pac_offset = (long long)file.pac_offset_high << 32 | file.pac_offset;
+
+        // Apply filter
+        for (j = 0; j < argc; j++)
+            if (!compare_u8_u16(0, argv[j], file.name, 256) ||
+                    (file.id[0] && !compare_u8_u16(0, argv[j], file.id, 256)))
+                break;
+
+        if (argc && j == argc) continue;
+
+        printf(file.type > 9 ? "type = 0x%x" : "type = %u", file.type);
+        if (file_size)
+            printf(", size = 0x%llx", file_size);
+        if (pac_offset)
+            printf(", offset = 0x%llx", pac_offset);
+
+        if (file.addr_num <= 5)
+            for (j = 0; j < (int)file.addr_num; j++) {
+                if (!file.addr[j]) continue;
+                if (!j) printf(", addr = 0x%x", file.addr[j]);
+                else printf(", addr%u = 0x%x", j, file.addr[j]);
+            }
+
+        if (file.id[0]) {
+            CONV_STR(file.id);
+            printf(", id = \"%s\"", str_buf);
         }
-#endif
-        
-        for (unsigned i = 0; i < head.file_count; i++) {
-            sprd_file_t file; int j;
-            long long file_size, pac_offset;
-            READ1(file);
-            if (file.struct_size != sizeof(sprd_file_t))
-                {printf("unexpected struct size\n"); return false;}
-
-            file_size = (long long)file.size_high << 32 | file.size;
-            pac_offset = (long long)file.pac_offset_high << 32 | file.pac_offset;
-            
-            if (!file.name[0] || !pac_offset || !file_size) continue;
-
-            // Apply filter
-            for (j = 0; j < argc; j++)
-                if (!compare_u8_u16(0, argv[j], file.name, 256) || 
-                        (file.id[0] && !compare_u8_u16(0, argv[j], file.id, 256)))
-                    break;
-
-            if (argc && j == argc) continue;
-
-            FILE* fo; uint64_t l; uint32_t n;
-
+        if (file.name[0]) {
             CONV_STR(file.name);
-            printf("%s\n", str_buf);
-
-            if (fseeko(fi, pac_offset, SEEK_SET))
-                {printf("fseek failed\n"); return false;}
-
-            if (check_path(str_buf) < 1) {
-                printf("!!! unsafe filename detected\n");
-                continue;
-            }
-
-            if (!buf) {
-                buf = (uint8_t*) malloc(chunk);
-                if (!buf) {printf("malloc failed\n"); return false;}
-            }
-
-            fo = fopen(str_buf, "wb");
-            if (!fo)
-                {printf("fopen(output) failed\n"); return false;}
-
-            l = file_size;
-            for (; l; l -= n) {
-                n = l > chunk ? chunk : l;
-                READ(buf, n, "chunk");
-                fwrite(buf, n, 1, fo);
-            }
-            fclose(fo);
-
-            if (fseek(fi, sizeof(head) + (i + 1) * sizeof(sprd_file_t), SEEK_SET))
-                {printf("fseek failed\n"); return false;}
+            printf(", name = \"%s\"", str_buf);
         }
-        return true;
-    }
-    
-    bool checkCrc() {
-        if (!fi) {printf("PAC file not opened\n"); return false;}
-        
-        // Head CRC
-        uint32_t head_crc = u_crc16(0, &head, sizeof(head) - 4);
-        printf("head_crc: 0x%04x", head.head_crc);
-        if (head.head_crc != head_crc)
-            printf(" (expected 0x%04x)", head_crc);
         printf("\n");
-        
-        // Data CRC
-        uint32_t n, l = head.pac_size;
-        uint32_t data_crc = 0;
-        buf = (uint8_t*) malloc(chunk);
-        if (!buf) {printf("malloc failed\n"); return false;}
-        n = sizeof(head);
-        if (l < n) {printf("unexpected pac size\n"); return false;}
-        for (l -= n; l; l -= n) {
+    }
+    return true;
+}
+
+bool Unpac::extractFiles() {
+    if (!fi) { printf("PAC file not opened\n"); return false; }
+
+    // 在提取文件前准备输出目录
+    prepareOutputDirectory();
+
+#ifndef _WIN32
+    if (dir && chdir(dir)) {
+        printf("chdir failed\n");
+        return false;
+    }
+#else
+    if (dir) {
+        if (_chdir(dir)) {
+            printf("chdir failed\n");
+            return false;
+        }
+    }
+#endif
+
+    for (unsigned i = 0; i < head.file_count; i++) {
+        sprd_file_t file; int j;
+        long long file_size, pac_offset;
+        READ1(file);
+        if (file.struct_size != sizeof(sprd_file_t)) {
+            printf("unexpected struct size\n");
+            return false;
+        }
+
+        file_size = (long long)file.size_high << 32 | file.size;
+        pac_offset = (long long)file.pac_offset_high << 32 | file.pac_offset;
+
+        if (!file.name[0] || !pac_offset || !file_size) continue;
+
+        // Apply filter
+        for (j = 0; j < argc; j++)
+            if (!compare_u8_u16(0, argv[j], file.name, 256) ||
+                    (file.id[0] && !compare_u8_u16(0, argv[j], file.id, 256)))
+                break;
+
+        if (argc && j == argc) continue;
+
+        FILE* fo; uint64_t l; uint32_t n;
+
+        CONV_STR(file.name);
+        printf("%s\n", str_buf);
+
+        if (fseeko(fi, pac_offset, SEEK_SET)) {
+            printf("fseek failed\n");
+            return false;
+        }
+
+        if (check_path(str_buf) < 1) {
+            printf("!!! unsafe filename detected\n");
+            continue;
+        }
+
+        if (!buf) {
+            buf = (uint8_t*) malloc(chunk);
+            if (!buf) {
+                printf("malloc failed\n");
+                return false;
+            }
+        }
+
+        fo = fopen(str_buf, "wb");
+        if (!fo) {
+            printf("fopen(output) failed\n");
+            return false;
+        }
+
+        l = file_size;
+        for (; l; l -= n) {
             n = l > chunk ? chunk : l;
             READ(buf, n, "chunk");
-            data_crc = u_crc16(data_crc, buf, n);
+            fwrite(buf, n, 1, fo);
         }
-        printf("data_crc: 0x%04x", head.data_crc);
-        if (head.data_crc != data_crc)
-            printf(" (expected 0x%04x)", data_crc);
-        printf("\n");
-        return true;
-    }
-    
-    void close() {
-        if (buf) {
-            free(buf);
-            buf = NULL;
-        }
-        if (fi) {
-            fclose(fi);
-            fi = NULL;
+        fclose(fo);
+
+        if (fseek(fi, sizeof(head) + (i + 1) * sizeof(sprd_file_t), SEEK_SET)) {
+            printf("fseek failed\n");
+            return false;
         }
     }
-};std::string ExtractPartitionsWithTags(const std::string& xmlContent) {
+    return true;
+}
+
+bool Unpac::checkCrc() {
+    if (!fi) { printf("PAC file not opened\n"); return false; }
+
+    // Head CRC
+    uint32_t head_crc = u_crc16(0, &head, sizeof(head) - 4);
+    printf("head_crc: 0x%04x", head.head_crc);
+    if (head.head_crc != head_crc)
+        printf(" (expected 0x%04x)", head_crc);
+    printf("\n");
+
+    // Data CRC
+    uint32_t n, l = head.pac_size;
+    uint32_t data_crc = 0;
+    buf = (uint8_t*) malloc(chunk);
+    if (!buf) { printf("malloc failed\n"); return false; }
+    n = sizeof(head);
+    if (l < n) { printf("unexpected pac size\n"); return false; }
+    for (l -= n; l; l -= n) {
+        n = l > chunk ? chunk : l;
+        READ(buf, n, "chunk");
+        data_crc = u_crc16(data_crc, buf, n);
+    }
+    printf("data_crc: 0x%04x", head.data_crc);
+    if (head.data_crc != data_crc)
+        printf(" (expected 0x%04x)", data_crc);
+    printf("\n");
+    return true;
+}
+
+void Unpac::close() {
+    if (buf) {
+        free(buf);
+        buf = NULL;
+    }
+    if (fi) {
+        fclose(fi);
+        fi = NULL;
+    }
+}
+
+std::string ExtractPartitionsWithTags(const std::string& xmlContent) {
     std::regex pattern("<Partitions>.*?</Partitions>", std::regex::icase);
     std::smatch match;
-    
+
     if (std::regex_search(xmlContent, match, pattern)) {
         return match.str();
     }
