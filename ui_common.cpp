@@ -203,6 +203,85 @@ GtkWidget* create_bottom_controls(GtkWidgetHelper& helper) {
 	return bottomContainer;
 }
 
+
+void on_button_clicked_poweroff(GtkWidgetHelper helper) {
+	if (m_bOpened == -1) {
+		DEG_LOG(E, "device unattached, exiting...");
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
+		    exit(1);
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		
+	}
+	encode_msg_nocpy(io, BSL_CMD_POWER_OFF, 0);
+	if (!send_and_check(io)) {
+		spdio_free(io);
+		exit(0);
+	}
+}
+
+void on_button_clicked_reboot(GtkWidgetHelper helper) {
+	if (m_bOpened == -1) {
+		DEG_LOG(E, "device unattached, exiting...");
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
+		    exit(1);
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		
+	}
+	encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
+	if (!send_and_check(io)) {
+		spdio_free(io);
+		exit(0);
+	}
+}
+
+void on_button_clicked_recovery(GtkWidgetHelper helper) {
+	if (m_bOpened == -1) {
+		DEG_LOG(E, "device unattached, exiting...");
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
+		    exit(1);
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		
+	}
+	char* miscbuf = NEWN char[0x800];
+	if (!miscbuf) ERR_EXIT("malloc failed\n");
+	memset(miscbuf, 0, 0x800);
+	strcpy(miscbuf, "boot-recovery");
+	w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000, isCMethod);
+	delete[](miscbuf);
+	encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
+	if (!send_and_check(io)) {
+		spdio_free(io);
+		exit(0);
+	}
+}
+
+void on_button_clicked_fastboot(GtkWidgetHelper helper) {
+	if (m_bOpened == -1) {
+		DEG_LOG(E, "device unattached, exiting...");
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
+		    exit(1);
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		
+	}
+	char* miscbuf = NEWN char[0x800];
+	if (!miscbuf) ERR_EXIT("malloc failed\n");
+	memset(miscbuf, 0, 0x800);
+	strcpy(miscbuf, "boot-recovery");
+	strcpy(miscbuf + 0x40, "recovery\n--fastboot\n");
+	w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000, isCMethod);
+	delete[](miscbuf);
+	encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
+	if (!send_and_check(io)) {
+		spdio_free(io);
+		exit(0);
+	}
+}
+
+
 void bind_bottom_signals(GtkWidgetHelper& helper, GtkWidget* bottomContainer) {
 	(void)bottomContainer;
 	helper.bindClick(helper.getWidget("poweroff"), [&]() {
