@@ -91,8 +91,18 @@
     <ProjectGuid>{ae69d29d-e27e-43f4-a8ee-71df7d8c0d3b}</ProjectGuid>
     <RootNamespace>sfdtool</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+
+    <!-- vcpkg configuration for gettext/libintl -->
+    <VcpkgRoot>$(VCPKG_ROOT)</VcpkgRoot>
   </PropertyGroup>
-  
+
+  <!-- Map MSVC Platform to vcpkg triplets -->
+  <PropertyGroup Condition="'$(Platform)'=='Win32'">
+    <VcpkgTriplet>x86-windows</VcpkgTriplet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Platform)'=='x64'">
+    <VcpkgTriplet>x64-windows</VcpkgTriplet>
+  </PropertyGroup>  
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -161,6 +171,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>
+        $(VCPKG_ROOT)\installed\$(VcpkgTriplet)\include;
         $(GTK3_PATH)\include\gtk-3.0;
         $(GTK3_PATH)\include\glib-2.0;
         $(GTK3_PATH)\lib\glib-2.0\include;
@@ -176,8 +187,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>setupapi.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>intl.lib;setupapi.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(VCPKG_ROOT)\installed\$(VcpkgTriplet)\lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   
@@ -191,6 +202,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>
+        $(VCPKG_ROOT)\installed\$(VcpkgTriplet)\include;
         $(GTK3_PATH)\include\gtk-3.0;
         $(GTK3_PATH)\include\glib-2.0;
         $(GTK3_PATH)\lib\glib-2.0\include;
@@ -206,8 +218,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>setupapi.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>intl.lib;setupapi.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(VCPKG_ROOT)\installed\$(VcpkgTriplet)\lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   
@@ -221,6 +233,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>
         third_party\Lib;
+        $(VCPKG_ROOT)\installed\$(VcpkgTriplet)\include;
         $(GTK3_PATH)\include\gtk-3.0;
         $(GTK3_PATH)\include\glib-2.0;
         $(GTK3_PATH)\lib\glib-2.0\include;
@@ -236,8 +249,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>third_party\Lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libusb-1.0.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>third_party\Lib;$(VCPKG_ROOT)\installed\$(VcpkgTriplet)\lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>intl.lib;libusb-1.0.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   
@@ -252,6 +265,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>
         third_party\Lib;
+        $(VCPKG_ROOT)\installed\$(VcpkgTriplet)\include;
         $(GTK3_PATH)\include\gtk-3.0;
         $(GTK3_PATH)\include\glib-2.0;
         $(GTK3_PATH)\lib\glib-2.0\include;
@@ -267,8 +281,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>third_party\Lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libusb-1.0.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>third_party\Lib;$(VCPKG_ROOT)\installed\$(VcpkgTriplet)\lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>intl.lib;libusb-1.0.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   
