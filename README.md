@@ -21,14 +21,14 @@ Run this before making:
 ``` bash
 sudo apt update
 # Ubuntu/Debian
-sudo apt install libusb-1.0-0-dev gcc g++ libgtk-3-dev pkg-config
+sudo apt install libusb-1.0-0-dev gcc g++ libgtk-3-dev pkg-config nlohmann-json3-dev
 # Fedora/RHEL
-sudo dnf install gcc-c++ gtk3-devel libusb1-devel libusb1 pkgconf-pkg-config make 
+sudo dnf install gcc-c++ gtk3-devel libusb1-devel libusb1 pkgconf-pkg-config make nlohmann-json-devel
 # macOS
-brew install libusb gtk+3 pkg-config
+brew install libusb gtk+3 pkg-config nlohmann-json
 # Android(Termux)
 pkg install x11-repo
-pkg install termux-api libusb clang git pkg-config gtk3 glib pango libcairo gdk-pixbuf at-spi2-core xorgproto xorg-util-macros
+pkg install termux-api libusb clang git pkg-config gtk3 glib pango libcairo gdk-pixbuf at-spi2-core xorgproto xorg-util-macros nlohmann-json
 ```
 
 Then make:

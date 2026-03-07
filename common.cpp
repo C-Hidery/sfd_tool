@@ -196,7 +196,7 @@ bool pac_extract(const char* fn, const char* floder)
 		ERR_EXIT("Failed to create temporary partitions XML file.\n无法创建临时分区XML文件\n");
 	}
 	partition_t* pacptable = NEWN partition_t[128];
-	uint8_t buf_size = 0xffff;
+	uint32_t buf_size = 0xffff;
 	uint8_t* buf = NEWN uint8_t[0x4c * 128];
 	const char *part1 = "Partitions>";
 	char *src, *p; size_t fsize = 0;
@@ -518,7 +518,7 @@ DWORD *FindPort(const char *USB_DL) {
 			if (temp == nullptr) {
 				DEG_LOG(E,"Memory allocation failed.");
 				SetupDiDestroyDeviceInfoList(DeviceInfoSet);
-				delete[](ports);
+				free(ports);
 				ports = nullptr;
 				return nullptr;
 			}
@@ -558,7 +558,7 @@ libusb_device **FindPort(int pid) {
 			if (temp == nullptr) {
 				DEG_LOG(E,"Memory allocation failed.");
 				libusb_free_device_list(devs, 1);
-				delete[](ports);
+				free(ports);
 				ports = nullptr;
 				return nullptr;
 			}
@@ -573,7 +573,7 @@ libusb_device **FindPort(int pid) {
 }
 #endif
 
-#ifdef _MSC_VER || _WIN32
+#if defined(_MSC_VER) || defined(_WIN32)
 void usleep(unsigned int us) {
 	Sleep(us / 1000);
 }

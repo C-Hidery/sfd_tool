@@ -81,7 +81,8 @@ DATADIR ?= $(PREFIX)/share
 APPDIR ?= $(DATADIR)/applications
 ICONDIR ?= $(DATADIR)/icons/hicolor
 DOCDIR ?= $(DATADIR)/doc/sfd-tool
-
+CXXFLAGS += $(shell pkg-config --cflags nlohmann_json 2>/dev/null || echo "-I/usr/include/nlohmann")
+LIBS += $(shell pkg-config --libs nlohmann_json 2>/dev/null || echo "-ljson")
 # 默认目标
 .PHONY: all
 all: $(APPNAME)
@@ -165,6 +166,8 @@ endif
 ifeq ($(LIBUSB),1)
 	@pkg-config --exists $(LIBUSB_PKG) && echo "libusb: Found" || echo "libusb: Not found"
 endif
+	@pkg-config --exists nlohmann_json && echo "nlohmann_json: Found" || echo "nlohmann_json: Not found"
+	
 	@echo "Compiler: $(CXX)"
 
 # 帮助信息

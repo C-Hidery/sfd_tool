@@ -225,7 +225,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential debhelper devscripts \
             libgtk-3-dev libusb-1.0-0-dev pkg-config g++ \
-            imagemagick desktop-file-utils
+            imagemagick desktop-file-utils nlohmann-json3-dev
 
       - name: Make build-deb.sh executable
         run: chmod +x build-deb.sh
@@ -265,7 +265,7 @@ jobs:
           dnf search libusb
           dnf install -y rpm-build gcc-c++ gtk3-devel libusb1-devel libusb1\
             pkgconf-pkg-config make ImageMagick desktop-file-utils \
-            gtk-update-icon-cache which
+            gtk-update-icon-cache which nlohmann-json-devel
 
 
       - name: Build Rpm
