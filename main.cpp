@@ -1848,8 +1848,8 @@ int gtk_kmain(int argc, char** argv) {
 		create_advanced_op_page(helper, notebook);
 		create_advanced_set_page(helper, notebook);
 		create_debug_page(helper, notebook);
-		create_about_page(helper, notebook);
 		create_log_page(helper, notebook);
+		create_about_page(helper, notebook);
 
 		// ========== 底部控制栏 ==========
 		GtkWidget* bottomContainer = create_bottom_controls(helper);
