@@ -2514,7 +2514,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		if (device_stage == BROM) helper.setLabelText(helper.getWidget("mode"), "BROM");
 		else if (device_stage == FDL1) helper.setLabelText(helper.getWidget("mode"), "FDL1");
 		else if (device_stage == FDL2) helper.setLabelText(helper.getWidget("mode"), "FDL2");
-		if(fs::exists("fdl_info.json") && device_stage == BROM)
+		if(fs::exists("fdl_info.json") && device_stage == BROM && device_mode == SPRD3 && !isKickMode)
 		{
 			bool i_is = false;
 			i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")),"Confirm","FDL Info detected, do you want to load it?\n检测到FDL信息，是否加载？");
