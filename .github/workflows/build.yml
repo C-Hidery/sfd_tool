@@ -13,6 +13,8 @@ jobs:
   build-windows:
     runs-on: windows-latest
     timeout-minutes: 30
+    env:
+      VCPKG_ROOT: C:\vcpkg
     strategy:
       matrix:
         arch: [x64, x86]
