@@ -363,3 +363,6 @@ FodyWeavers.xsd
 
 # executable files
 sfd_tool
+
+.claude/
+
