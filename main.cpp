@@ -41,11 +41,7 @@ char* temp;
 char str1[(ARGC_MAX - 1) * ARGV_LEN];
 spdio_t* io = nullptr;
 int ret;
-#ifdef _WIN32
-int wait = 30 * REOPEN_FREQ;
-#else
 int conn_wait = 30 * REOPEN_FREQ;
-#endif
 int keep_charge = 1, end_data = 0, blk_size = 0, skip_confirm = 1, highspeed = 0, cve_v2 = 0;
 int nand_info[3];
 int argcount = 0, stage = -1, nand_id = DEFAULT_NAND_ID;
@@ -2267,8 +2263,8 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	if (at || bootmode >= 0) {
 		io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
 		if (io->hThread == nullptr) return;
-		ChangeMode(io, wait / REOPEN_FREQ * 1000, bootmode, at);
-		wait = 30 * REOPEN_FREQ;
+		ChangeMode(io, conn_wait / REOPEN_FREQ * 1000, bootmode, at);
+		conn_wait = 30 * REOPEN_FREQ;
 		stage = -1;
 	}
 #else
@@ -2342,12 +2338,12 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 							break;
 						}
 					}
-					delete[](ports);
+					free(ports);
 					ports = nullptr;
 					if (m_bOpened) break;
 				}
 			}
-			if (i >= wait) {
+			if (i >= conn_wait) {
 				ERR_EXIT("%s: Failed to find port.\n", o_exception);
 			}
 #endif
