@@ -1873,6 +1873,9 @@ int gtk_kmain(int argc, char** argv) {
 
 		// 显示所有组件
 		gtk_widget_show_all(window);
+		
+		// 强制默认选中第一个标签页（“连接”页）
+		gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), 0);
 
 		// ========== 模块化信号绑定 ==========
 		bind_connect_signals(helper, argc, argv);
