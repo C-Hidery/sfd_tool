@@ -23,7 +23,7 @@ rm -rf /tmp/build-$PKGNAME
 mkdir -p /tmp/build-$PKGNAME/$ARCHIVE
 
 # 复制文件
-cp -r *.cpp *.h *.hpp *.txt *.md Makefile third_party packaging scripts assets locale pages /tmp/build-$PKGNAME/$ARCHIVE/
+cp -r *.cpp *.h *.hpp *.txt *.md Makefile third_party packaging scripts assets locale core pages /tmp/build-$PKGNAME/$ARCHIVE/
 [ -f assets/icon.png ] && cp assets/icon.png /tmp/build-$PKGNAME/$ARCHIVE/
 cp packaging/sfd_tool.desktop /tmp/build-$PKGNAME/$ARCHIVE/
 

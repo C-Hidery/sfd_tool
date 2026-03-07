@@ -228,7 +228,7 @@ jobs:
             imagemagick desktop-file-utils
 
       - name: Make build-deb.sh executable
-        run: chmod +x build-deb.sh
+        run: chmod +x packaging/build-deb.sh
 
       - name: Build Linux Package
         run: |
@@ -270,8 +270,8 @@ jobs:
 
       - name: Build Rpm
         run: |
-          chmod +x build-rpm.sh
-          ./build-rpm.sh
+          chmod +x packaging/build-rpm.sh
+          ./packaging/build-rpm.sh
       - name: Upload RPM Artifacts
         uses: actions/upload-artifact@v4
         with:

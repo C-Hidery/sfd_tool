@@ -26,6 +26,21 @@
     <ClInclude Include="Wrapper.h" />
     <ClInclude Include="GtkWidgetHelper.hpp" />
     <ClInclude Include="GenTosNoAvb.h" />
+    <ClInclude Include="ui_common.h" />
+    <ClInclude Include="core\file_io.h" />
+    <ClInclude Include="core\logging.h" />
+    <ClInclude Include="core\pac_extract.h" />
+    <ClInclude Include="core\spd_protocol.h" />
+    <ClInclude Include="core\usb_transport.h" />
+    <ClInclude Include="pages\page_about.h" />
+    <ClInclude Include="pages\page_advanced_op.h" />
+    <ClInclude Include="pages\page_advanced_set.h" />
+    <ClInclude Include="pages\page_connect.h" />
+    <ClInclude Include="pages\page_debug.h" />
+    <ClInclude Include="pages\page_log.h" />
+    <ClInclude Include="pages\page_manual.h" />
+    <ClInclude Include="pages\page_pac_flash.h" />
+    <ClInclude Include="pages\page_partition.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BMPlatform.cpp" />
@@ -34,11 +49,21 @@
     <ClCompile Include="Wrapper.cpp" />
     <ClCompile Include="GtkWidgetHelper.cpp" />
     <ClCompile Include="main_console.cpp" />
+    <ClCompile Include="ui_common.cpp" />
     <ClCompile Include="core\logging.cpp" />
     <ClCompile Include="core\file_io.cpp" />
     <ClCompile Include="core\pac_extract.cpp" />
     <ClCompile Include="core\usb_transport.cpp" />
     <ClCompile Include="core\spd_protocol.cpp" />
+    <ClCompile Include="pages\page_about.cpp" />
+    <ClCompile Include="pages\page_advanced_op.cpp" />
+    <ClCompile Include="pages\page_advanced_set.cpp" />
+    <ClCompile Include="pages\page_connect.cpp" />
+    <ClCompile Include="pages\page_debug.cpp" />
+    <ClCompile Include="pages\page_log.cpp" />
+    <ClCompile Include="pages\page_manual.cpp" />
+    <ClCompile Include="pages\page_pac_flash.cpp" />
+    <ClCompile Include="pages\page_partition.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="assets\app.rc" />
