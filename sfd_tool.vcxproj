@@ -25,6 +25,8 @@
     <ClInclude Include="spd_cmd.h" />
     <ClInclude Include="Wrapper.h" />
     <ClInclude Include="GtkWidgetHelper.hpp" />
+    <ClInclude Include="unpac.hpp" />
+    <ClInclude Include="GenTosNoAvb.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BMPlatform.cpp" />

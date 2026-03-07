@@ -2,7 +2,6 @@
 #include <cstring>
 #include "common.h"
 #include "main.h"
-#include "nlohmann/json.hpp" // json for auto sending FDL
 #include "GtkWidgetHelper.hpp"
 #include <thread>
 #include <chrono>
