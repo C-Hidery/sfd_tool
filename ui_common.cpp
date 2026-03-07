@@ -43,6 +43,7 @@ void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("abpart_auto");
 	helper.enableWidget("abpart_a");
 	helper.enableWidget("abpart_b");
+	helper.enableWidget("pac_flash_start");
 }
 
 void DisableWidgets(GtkWidgetHelper helper) {
@@ -88,6 +89,7 @@ void DisableWidgets(GtkWidgetHelper helper) {
 	helper.disableWidget("abpart_auto");
 	helper.disableWidget("abpart_a");
 	helper.disableWidget("abpart_b");
+	helper.disableWidget("pac_flash_start");
 }
 
 GtkWidget* create_bottom_controls(GtkWidgetHelper& helper) {

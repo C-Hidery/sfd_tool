@@ -156,42 +156,6 @@ void update_partition_size(spdio_t* io) {
     }
    
 }
-void EnableWidgets(GtkWidgetHelper helper) {
-	helper.enableWidget("poweroff");
-	helper.enableWidget("reboot");
-	helper.enableWidget("recovery");
-	helper.enableWidget("fastboot");
-	helper.enableWidget("list_read");
-	helper.enableWidget("list_write");
-	helper.enableWidget("list_erase");
-	helper.enableWidget("m_write");
-	helper.enableWidget("m_read");
-	helper.enableWidget("m_erase");
-	helper.enableWidget("set_active_a");
-	helper.enableWidget("set_active_b");
-	helper.enableWidget("start_repart");
-	helper.enableWidget("blk_size");
-	helper.enableWidget("read_xml");
-	helper.enableWidget("dmv_enable");
-	helper.enableWidget("dmv_disable");
-	helper.enableWidget("backup_all");
-	helper.enableWidget("list_cancel");
-	helper.enableWidget("m_cancel");
-	helper.enableWidget("list_force_write");
-	helper.enableWidget("chip_uid");
-	helper.enableWidget("pac_time");
-	helper.enableWidget("check_nand");
-	helper.enableWidget("dis_avb");
-	helper.enableWidget("modify_part");
-	helper.enableWidget("modify_new_part");
-	helper.enableWidget("modify_rm_part");
-	helper.enableWidget("modify_ren_part");
-	helper.enableWidget("xml_get");
-	helper.enableWidget("abpart_auto");
-	helper.enableWidget("abpart_a");
-	helper.enableWidget("abpart_b");
-	helper.enableWidget("pac_flash_start");
-}
 void Enable_Startup() {
 	helper.enableWidget("transcode_en");
 	helper.enableWidget("transcode_dis");
