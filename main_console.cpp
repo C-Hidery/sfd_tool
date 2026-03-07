@@ -362,8 +362,8 @@ int main_console(int argc, char** argv) {
 	if (at || bootmode >= 0) {
 		io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
 		if (io->hThread == nullptr) return -1;
-		ChangeMode(io, wait / REOPEN_FREQ * 1000, bootmode, at);
-		wait = 30 * REOPEN_FREQ;
+		ChangeMode(io, conn_wait / REOPEN_FREQ * 1000, bootmode, at);
+		conn_wait = 30 * REOPEN_FREQ;
 		stage = -1;
 	}
 #else
@@ -444,7 +444,7 @@ int main_console(int argc, char** argv) {
 					if (m_bOpened) break;
 				}
 			}
-			if (i >= wait) {
+			if (i >= conn_wait) {
 				ThrowExit();
 				ERR_EXIT("%s: Failed to find port.\n", o_exception);
 			}
