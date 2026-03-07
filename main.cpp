@@ -47,6 +47,7 @@ int nand_info[3];
 int argcount = 0, stage = -1, nand_id = DEFAULT_NAND_ID;
 unsigned exec_addr = 0, baudrate = 0;
 int bootmode = -1, at = 0, async = 1;
+int waitFDL1 = -1;
 //Set up environment
 #if !USE_LIBUSB
 extern DWORD curPort;
@@ -1859,8 +1860,9 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+			exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
-		exit(1);
+		
 	}
 	if (fdl1_loaded > 0) {
 		DEG_LOG(I, "Executing FDL file: %s at address: 0x%X", fdl_path, fdl_addr);
@@ -2205,11 +2207,14 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
 			}
 			fdl1_loaded = 1;
-			gui_idle_call_wait_drag([helper]() mutable {
-				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "FDL1 Executed FDL1执行成功", "FDL1 executed successfully!\nFDL1已成功执行！");
-				helper.setLabelText(helper.getWidget("mode"), "FDL1");
-				helper.setLabelText(helper.getWidget("con"), "Connected");
-			},GTK_WINDOW(helper.getWidget("main_window")));
+			if(waitFDL1 == -1){
+				gui_idle_call_wait_drag([helper]() mutable {
+					showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "FDL1 Executed FDL1执行成功", "FDL1 executed successfully!\nFDL1已成功执行！");
+					helper.setLabelText(helper.getWidget("mode"), "FDL1");
+					helper.setLabelText(helper.getWidget("con"), "Connected");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+			}
+			waitFDL1 = 1;
 
 		}).detach();
 
@@ -2516,34 +2521,45 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		else if (device_stage == FDL1) helper.setLabelText(helper.getWidget("mode"), "FDL1");
 		else if (device_stage == FDL2) helper.setLabelText(helper.getWidget("mode"), "FDL2");
 		if(fs::exists("fdl_info.json") && device_stage == BROM && device_mode == SPRD3 && !isKickMode && !isCve)
+	{
+		bool i_is = false;
+		i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")),"Confirm","FDL Info detected, do you want to load it?\n检测到FDL信息，是否加载？");
+		if(i_is)
 		{
-			bool i_is = false;
-			i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")),"Confirm","FDL Info detected, do you want to load it?\n检测到FDL信息，是否加载？");
-			if(i_is)
-			{
-				char* execfile = NEWN char[ARGV_LEN];
-				if (!execfile) {
-					ERR_EXIT("malloc failed\n");
-				}
-				std::ifstream f("fdl_info.json");
-				json j = json::parse(f);
-				fdl1_path_json = j["fdl1_path"].get<std::string>();
-				fdl2_path_json = j["fdl2_path"].get<std::string>();
-				fdl1_addr_json = j["fdl1_addr"].get<uint32_t>();
-				fdl2_addr_json = j["fdl2_addr"].get<uint32_t>();
-				helper.setEntryText(helper.getWidget("fdl_file_path"), fdl1_path_json);
-				helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(fdl1_addr_json));
-				DEG_LOG(I, "Loaded FDL info: %s at address: %s", fdl1_path_json, uint32_to_hex_string(fdl1_addr_json).c_str());
-				on_button_clicked_fdl_exec(helper, execfile);
-				helper.setEntryText(helper.getWidget("fdl_file_path"), fdl2_path_json);
-				helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(fdl2_addr_json));
-				DEG_LOG(I, "Loaded FDL info: %s at address: %s", fdl2_path_json, uint32_to_hex_string(fdl2_addr_json).c_str());
-				on_button_clicked_fdl_exec(helper, execfile);
-				
+			char* execfile = NEWN char[ARGV_LEN];
+			if (!execfile) {
+				ERR_EXIT("malloc failed\n");
 			}
+			std::ifstream f("fdl_info.json");
+			json j = json::parse(f);
+			fdl1_path_json = j["fdl1_path"].get<std::string>();
+			fdl2_path_json = j["fdl2_path"].get<std::string>();
+			fdl1_addr_json = j["fdl1_addr"].get<uint32_t>();
+			fdl2_addr_json = j["fdl2_addr"].get<uint32_t>();
+			helper.setEntryText(helper.getWidget("fdl_file_path"), fdl1_path_json);
+			helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(fdl1_addr_json));
+			DEG_LOG(I, "Loaded FDL info: %s at address: %s", fdl1_path_json.c_str(), uint32_to_hex_string(fdl1_addr_json).c_str());
+			waitFDL1 = 0;
+			std::thread([helper, execfile]() mutable {
+				on_button_clicked_fdl_exec(helper, execfile);
+			}).detach();
+			while(1)
+			{
+				if(waitFDL1 == 1) break;
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
+				gtk_main_iteration_do(false);
+			}
+			helper.setEntryText(helper.getWidget("fdl_file_path"), fdl2_path_json);
+			helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(fdl2_addr_json));
+			DEG_LOG(I, "Loaded FDL info: %s at address: %s", fdl2_path_json.c_str(), uint32_to_hex_string(fdl2_addr_json).c_str());
+			std::thread([helper, execfile]() mutable {
+				on_button_clicked_fdl_exec(helper, execfile);
+			}).detach();
+			
 		}
+	}
 	},GTK_WINDOW(helper.getWidget("main_window")));
-
+	
 }
 
 // select fdl
@@ -3696,6 +3712,7 @@ int main(int argc, char** argv) {
 	signal(SIGILL, crash_handler);    // 非法指令
 #ifdef __linux__
 	signal(SIGKILL, crash_handler);   // 杀死进程(Linux)
+	signal(SIGIOT, crash_handler);    // IOT Trap (Linux)
 #endif
 	signal(SIGTERM, crash_handler);   // 终止信号
 	if (argc > 1 && !strcmp(argv[1], "--no-gui")) {
