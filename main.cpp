@@ -2499,7 +2499,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		if (device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
 		else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
 	}
-	gui_idle_call_wait_drag([helper]() mutable {
+	gui_idle_call_wait_drag([helper, isCve]() mutable {
 		showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Successfully connected 连接成功", "Device already connected! Some advanced settings opened!\n设备已成功连接！部分高级设置已开放！");
 		if (!fdl2_executed) {
 			helper.enableWidget("fdl_exec");
@@ -2514,7 +2514,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		if (device_stage == BROM) helper.setLabelText(helper.getWidget("mode"), "BROM");
 		else if (device_stage == FDL1) helper.setLabelText(helper.getWidget("mode"), "FDL1");
 		else if (device_stage == FDL2) helper.setLabelText(helper.getWidget("mode"), "FDL2");
-		if(fs::exists("fdl_info.json") && device_stage == BROM && device_mode == SPRD3 && !isKickMode)
+		if(fs::exists("fdl_info.json") && device_stage == BROM && device_mode == SPRD3 && !isKickMode && !isCve)
 		{
 			bool i_is = false;
 			i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")),"Confirm","FDL Info detected, do you want to load it?\n检测到FDL信息，是否加载？");
