@@ -12,9 +12,17 @@ extern int bListenLibusb;
 
 #if USE_LIBUSB
 #ifdef MACOS
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wzero-length-array"
+#pragma clang diagnostic ignored "-Wc99-extensions"
 #include "../third_party/Lib/libusb-1.0/libusb.h"
+#pragma clang diagnostic pop
 #else
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wzero-length-array"
+#pragma clang diagnostic ignored "-Wc99-extensions"
 #include <libusb-1.0/libusb.h>
+#pragma clang diagnostic pop
 #endif
 #endif
 
