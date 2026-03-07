@@ -74,8 +74,40 @@ GtkWidget* create_advanced_set_page(GtkWidgetHelper& helper, GtkWidget* notebook
 	GtkWidget* advSetPage = helper.createGrid("adv_set_page", 5, 5);
 	helper.addNotebookPage(notebook, advSetPage, _("Advanced Settings"));
 
-	// 数据块大小设置部分
-	GtkWidget* blkLabel = helper.createLabel(_("Data block size"), "blk_label", 0, 0, 200, 20);
+	GtkWidget* advScroll = gtk_scrolled_window_new(NULL, NULL);
+	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(advScroll),
+	                               GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+	gtk_widget_set_hexpand(advScroll, TRUE);
+	gtk_widget_set_vexpand(advScroll, TRUE);
+
+	GtkWidget* mainBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 32);
+	gtk_widget_set_margin_start(mainBox, 40);
+	gtk_widget_set_margin_end(mainBox, 40);
+	gtk_widget_set_margin_top(mainBox, 40);
+	gtk_widget_set_margin_bottom(mainBox, 40);
+	gtk_widget_set_halign(mainBox, GTK_ALIGN_CENTER);
+	gtk_widget_set_size_request(mainBox, 600, -1);
+
+	auto makeCardBox = [](int pad_h, int pad_v) -> GtkWidget* {
+		GtkWidget* box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
+		gtk_widget_set_margin_start(box, pad_h);
+		gtk_widget_set_margin_end(box, pad_h);
+		gtk_widget_set_margin_top(box, pad_v);
+		gtk_widget_set_margin_bottom(box, pad_v);
+		return box;
+	};
+
+	// 1. 数据块大小设置部分
+	GtkWidget* blkFrame = gtk_frame_new(NULL);
+	GtkWidget* blkTitle = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(blkTitle), (std::string("<b>") + _("Data block size") + "</b>").c_str());
+	gtk_widget_set_halign(blkTitle, GTK_ALIGN_CENTER);
+	gtk_frame_set_label_widget(GTK_FRAME(blkFrame), blkTitle);
+	gtk_frame_set_label_align(GTK_FRAME(blkFrame), 0.5, 0.5);
+	helper.addWidget("blk_label_title", blkTitle);
+
+	GtkWidget* blkBox = makeCardBox(32, 16);
+	gtk_container_add(GTK_CONTAINER(blkFrame), blkBox);
 
 	GtkWidget* blkSlider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 10000, 60000, 10000);
 	gtk_range_set_value(GTK_RANGE(blkSlider), 10000);
@@ -83,151 +115,167 @@ GtkWidget* create_advanced_set_page(GtkWidgetHelper& helper, GtkWidget* notebook
 	gtk_scale_set_value_pos(GTK_SCALE(blkSlider), GTK_POS_RIGHT);
 	gtk_widget_set_name(blkSlider, "blk_size");
 	helper.addWidget("blk_size", blkSlider);
-	gtk_widget_set_size_request(blkSlider, 1036, 30);
-
+	
+	GtkWidget* sizeConLabel = gtk_label_new(_("Value:"));
+	helper.addWidget("blk_label", sizeConLabel);
 	GtkWidget* sizeCon = helper.createLabel("10000", "size_con", 0, 0, 60, 20);
 
-	// Rawdata模式设置部分
-	GtkWidget* rawDataEn = helper.createButton(_("Enable Rawdata mode"), "raw_data_en",
-	                       nullptr, 0, 0, 250, 32);
-	GtkWidget* rawDataDis = helper.createButton(_("Disable Rawdata mode"), "raw_data_dis",
-	                        nullptr, 0, 0, 250, 32);
-	GtkWidget* rlabel = helper.createLabel(_("Value:"), "rawLabel", 0, 0, 80, 30);
-	GtkWidget* rawDataMk = helper.createEntry("raw_data_v", "", false, 0, 0, 50, 30);
-
-	// 转码设置部分
-	GtkWidget* transcode_en = helper.createButton(_("Enable transcode - FDL1"), "transcode_en",
-	                          nullptr, 0, 0, 220, 32);
-	GtkWidget* transcode_dis = helper.createButton(_("Disable transcode --- FDL2"), "transcode_dis",
-	                           nullptr, 0, 0, 220, 32);
-
-	// 充电模式设置部分
-	GtkWidget* charge_en = helper.createButton(_("Enable Charging mode --- BROM"), "charge_en",
-	                       nullptr, 0, 0, 240, 32);
-	GtkWidget* charge_dis = helper.createButton(_("Disable Charging mode --- BROM"), "charge_dis",
-	                        nullptr, 0, 0, 240, 32);
-
-	// 发送结束数据设置部分
-	GtkWidget* end_data_en_btn = helper.createButton(_("Enable sending end data"),
-	                         "end_data_en", nullptr, 0, 0, 280, 32);
-	GtkWidget* end_data_dis_btn = helper.createButton(_("Disable sending end data"),
-	                          "end_data_dis", nullptr, 0, 0, 280, 32);
-
-	// 操作超时时间设置部分
-	GtkWidget* timeout_label = helper.createLabel(_("Operation timeout"),
-	                           "timeout_label", 0, 0, 200, 20);
-	GtkWidget* timeout_op = helper.createSpinButton(3000, 300000, 1, "timeout", 3000, 0, 0, 120, 32);
-	
-	// A/B分区设置
-	GtkWidget* abpart_auto = helper.createButton(_("Not VAB --- FDL2"),"abpart_auto",nullptr,0,0,120,32);
-	GtkWidget* abpart_a = helper.createButton(_("A Parts --- FDL2"),"abpart_a",nullptr,0,0,130,32);
-	GtkWidget* abpart_b = helper.createButton(_("B Parts --- FDL2"),"abpart_b",nullptr,0,0,130,32);
-	
-	// 创建主垂直容器
-	GtkWidget* emainBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 20);
-	gtk_widget_set_margin_start(emainBox, 20);
-	gtk_widget_set_margin_end(emainBox, 20);
-	gtk_widget_set_margin_top(emainBox, 20);
-	gtk_widget_set_margin_bottom(emainBox, 20);
-
-	// 1. 数据块大小部分
-	GtkWidget* blockSizeBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-	GtkWidget* blockLabelBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-	gtk_box_pack_start(GTK_BOX(blockLabelBox), blkLabel, FALSE, FALSE, 0);
-	gtk_box_pack_end(GTK_BOX(blockLabelBox), sizeCon, FALSE, FALSE, 0);
-
-	GtkWidget* sliderBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+	GtkWidget* sliderBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
 	gtk_box_pack_start(GTK_BOX(sliderBox), blkSlider, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(sliderBox), sizeConLabel, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(sliderBox), sizeCon, FALSE, FALSE, 0);
 
-	gtk_box_pack_start(GTK_BOX(blockSizeBox), blockLabelBox, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(blockSizeBox), sliderBox, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(blkBox), sliderBox, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(mainBox), blkFrame, FALSE, FALSE, 0);
 
-	// 2. Rawdata模式部分
-	GtkWidget* rawDataBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-	GtkWidget* rawDataLabel = gtk_label_new(_("Rawdata Mode --- Value support: {1, 2}"));
-	gtk_label_set_xalign(GTK_LABEL(rawDataLabel), 0.0);
+	// 2. Rawdata模式设置部分
+	GtkWidget* rawFrame = gtk_frame_new(NULL);
+	GtkWidget* rawTitle = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(rawTitle), (std::string("<b>") + _("Rawdata Mode --- Value support: {1, 2}") + "</b>").c_str());
+	gtk_widget_set_halign(rawTitle, GTK_ALIGN_CENTER);
+	gtk_frame_set_label_widget(GTK_FRAME(rawFrame), rawTitle);
+	gtk_frame_set_label_align(GTK_FRAME(rawFrame), 0.5, 0.5);
+	helper.addWidget("raw_label", rawTitle);
 
-	GtkWidget* rawDataButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+	GtkWidget* rawBox = makeCardBox(32, 16);
+	gtk_container_add(GTK_CONTAINER(rawFrame), rawBox);
+
+	GtkWidget* rawDataEn = helper.createButton(_("Enable Rawdata mode"), "raw_data_en", nullptr, 0, 0, 210, 36);
+	GtkWidget* rawDataDis = helper.createButton(_("Disable Rawdata mode"), "raw_data_dis", nullptr, 0, 0, 210, 36);
+	GtkWidget* rlabel = helper.createLabel(_("Value:"), "rawLabel", 0, 0, 48, 36);
+	GtkWidget* rawDataMk = helper.createEntry("raw_data_v", "", false, 0, 0, 48, 36);
+
+	GtkWidget* rawDataButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+	gtk_widget_set_halign(rawDataButtonBox, GTK_ALIGN_CENTER);
 	gtk_box_pack_start(GTK_BOX(rawDataButtonBox), rawDataEn, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(rawDataButtonBox), rawDataDis, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(rawDataButtonBox), rlabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(rawDataButtonBox), rawDataMk, FALSE, FALSE, 0);
+	
+	GtkWidget* rawValLinked = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+	gtk_style_context_add_class(gtk_widget_get_style_context(rawValLinked), "linked");
+	gtk_box_pack_start(GTK_BOX(rawValLinked), rlabel, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(rawValLinked), rawDataMk, FALSE, FALSE, 0);
 
-	gtk_box_pack_start(GTK_BOX(rawDataBox), rawDataLabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(rawDataBox), rawDataButtonBox, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(rawDataButtonBox), rawValLinked, FALSE, FALSE, 0);
+
+	gtk_box_pack_start(GTK_BOX(rawBox), rawDataButtonBox, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(mainBox), rawFrame, FALSE, FALSE, 0);
 
 	// 3. 转码设置部分
-	GtkWidget* transcodeBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-	GtkWidget* transcodeLabel = gtk_label_new(_("Transcode --- FDL1/2"));
-	gtk_label_set_xalign(GTK_LABEL(transcodeLabel), 0.0);
+	GtkWidget* transcodeFrame = gtk_frame_new(NULL);
+	GtkWidget* transcodeTitle = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(transcodeTitle), (std::string("<b>") + _("Transcode --- FDL1/2") + "</b>").c_str());
+	gtk_widget_set_halign(transcodeTitle, GTK_ALIGN_CENTER);
+	gtk_frame_set_label_widget(GTK_FRAME(transcodeFrame), transcodeTitle);
+	gtk_frame_set_label_align(GTK_FRAME(transcodeFrame), 0.5, 0.5);
+	helper.addWidget("transcode_label", transcodeTitle);
 
-	GtkWidget* transcodeButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+	GtkWidget* transcodeBox = makeCardBox(32, 16);
+	gtk_container_add(GTK_CONTAINER(transcodeFrame), transcodeBox);
+
+	GtkWidget* transcode_en = helper.createButton(_("Enable transcode - FDL1"), "transcode_en", nullptr, 0, 0, 272, 36);
+	GtkWidget* transcode_dis = helper.createButton(_("Disable transcode --- FDL2"), "transcode_dis", nullptr, 0, 0, 272, 36);
+
+	GtkWidget* transcodeButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+	gtk_widget_set_halign(transcodeButtonBox, GTK_ALIGN_CENTER);
 	gtk_box_pack_start(GTK_BOX(transcodeButtonBox), transcode_en, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(transcodeButtonBox), transcode_dis, FALSE, FALSE, 0);
 
-	gtk_box_pack_start(GTK_BOX(transcodeBox), transcodeLabel, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(transcodeBox), transcodeButtonBox, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(mainBox), transcodeFrame, FALSE, FALSE, 0);
 
 	// 4. 充电模式部分
-	GtkWidget* chargeBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-	GtkWidget* chargeLabel = gtk_label_new(_("Charging Mode --- BROM"));
-	gtk_label_set_xalign(GTK_LABEL(chargeLabel), 0.0);
+	GtkWidget* chargeFrame = gtk_frame_new(NULL);
+	GtkWidget* chargeTitle = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(chargeTitle), (std::string("<b>") + _("Charging Mode --- BROM") + "</b>").c_str());
+	gtk_widget_set_halign(chargeTitle, GTK_ALIGN_CENTER);
+	gtk_frame_set_label_widget(GTK_FRAME(chargeFrame), chargeTitle);
+	gtk_frame_set_label_align(GTK_FRAME(chargeFrame), 0.5, 0.5);
+	helper.addWidget("charge_label", chargeTitle);
 
-	GtkWidget* chargeButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+	GtkWidget* chargeBox = makeCardBox(32, 16);
+	gtk_container_add(GTK_CONTAINER(chargeFrame), chargeBox);
+
+	GtkWidget* charge_en = helper.createButton(_("Enable Charging mode --- BROM"), "charge_en", nullptr, 0, 0, 272, 36);
+	GtkWidget* charge_dis = helper.createButton(_("Disable Charging mode --- BROM"), "charge_dis", nullptr, 0, 0, 272, 36);
+
+	GtkWidget* chargeButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+	gtk_widget_set_halign(chargeButtonBox, GTK_ALIGN_CENTER);
 	gtk_box_pack_start(GTK_BOX(chargeButtonBox), charge_en, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(chargeButtonBox), charge_dis, FALSE, FALSE, 0);
 
-	gtk_box_pack_start(GTK_BOX(chargeBox), chargeLabel, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(chargeBox), chargeButtonBox, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(mainBox), chargeFrame, FALSE, FALSE, 0);
 
 	// 5. 发送结束数据部分
-	GtkWidget* endDataBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-	GtkWidget* endDataLabel = gtk_label_new(_("Send End Data"));
-	gtk_label_set_xalign(GTK_LABEL(endDataLabel), 0.0);
+	GtkWidget* endDataFrame = gtk_frame_new(NULL);
+	GtkWidget* endDataTitle = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(endDataTitle), (std::string("<b>") + _("Send End Data") + "</b>").c_str());
+	gtk_widget_set_halign(endDataTitle, GTK_ALIGN_CENTER);
+	gtk_frame_set_label_widget(GTK_FRAME(endDataFrame), endDataTitle);
+	gtk_frame_set_label_align(GTK_FRAME(endDataFrame), 0.5, 0.5);
+	helper.addWidget("end_data_label", endDataTitle);
 
-	GtkWidget* endDataButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+	GtkWidget* endDataBoxItem = makeCardBox(32, 16);
+	gtk_container_add(GTK_CONTAINER(endDataFrame), endDataBoxItem);
+
+	GtkWidget* end_data_en_btn = helper.createButton(_("Enable sending end data"), "end_data_en", nullptr, 0, 0, 272, 36);
+	GtkWidget* end_data_dis_btn = helper.createButton(_("Disable sending end data"), "end_data_dis", nullptr, 0, 0, 272, 36);
+
+	GtkWidget* endDataButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+	gtk_widget_set_halign(endDataButtonBox, GTK_ALIGN_CENTER);
 	gtk_box_pack_start(GTK_BOX(endDataButtonBox), end_data_en_btn, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(endDataButtonBox), end_data_dis_btn, FALSE, FALSE, 0);
 
-	gtk_box_pack_start(GTK_BOX(endDataBox), endDataLabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(endDataBox), endDataButtonBox, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(endDataBoxItem), endDataButtonBox, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(mainBox), endDataFrame, FALSE, FALSE, 0);
 
 	// 6. 操作超时时间部分
-	GtkWidget* timeoutBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-	GtkWidget* timeoutTopBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-	gtk_box_pack_start(GTK_BOX(timeoutTopBox), timeout_label, FALSE, FALSE, 0);
-	gtk_box_pack_end(GTK_BOX(timeoutTopBox), timeout_op, FALSE, FALSE, 0);
+	GtkWidget* timeoutFrame = gtk_frame_new(NULL);
+	GtkWidget* timeoutTitle = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(timeoutTitle), (std::string("<b>") + _("Operation timeout") + "</b>").c_str());
+	gtk_widget_set_halign(timeoutTitle, GTK_ALIGN_CENTER);
+	gtk_frame_set_label_widget(GTK_FRAME(timeoutFrame), timeoutTitle);
+	gtk_frame_set_label_align(GTK_FRAME(timeoutFrame), 0.5, 0.5);
+	helper.addWidget("timeout_label", timeoutTitle);
 
-	gtk_box_pack_start(GTK_BOX(timeoutBox), timeoutTopBox, FALSE, FALSE, 0);
+	GtkWidget* timeoutBox = makeCardBox(32, 16);
+	gtk_container_add(GTK_CONTAINER(timeoutFrame), timeoutBox);
+
+	GtkWidget* timeout_op = helper.createSpinButton(3000, 300000, 1, "timeout", 3000, 0, 0, 160, 36);
+	GtkWidget* timeoutWrap = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+	gtk_widget_set_halign(timeoutWrap, GTK_ALIGN_CENTER);
+	gtk_box_pack_start(GTK_BOX(timeoutWrap), timeout_op, FALSE, FALSE, 0);
+
+	gtk_box_pack_start(GTK_BOX(timeoutBox), timeoutWrap, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(mainBox), timeoutFrame, FALSE, FALSE, 0);
 
 	// 7. A/B分区设置部分
-	GtkWidget* abpartBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-	GtkWidget* abpartLabel = gtk_label_new(_("A/B Part read/flash manually set --- FDL2"));
-	gtk_label_set_xalign(GTK_LABEL(abpartLabel), 0.0);
-	GtkWidget* abpartButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+	GtkWidget* abpartFrame = gtk_frame_new(NULL);
+	GtkWidget* abpartTitle = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(abpartTitle), (std::string("<b>") + _("A/B Part read/flash manually set --- FDL2") + "</b>").c_str());
+	gtk_widget_set_halign(abpartTitle, GTK_ALIGN_CENTER);
+	gtk_frame_set_label_widget(GTK_FRAME(abpartFrame), abpartTitle);
+	gtk_frame_set_label_align(GTK_FRAME(abpartFrame), 0.5, 0.5);
+	helper.addWidget("abpart_label", abpartTitle);
+	
+	GtkWidget* abpartBox = makeCardBox(32, 16);
+	gtk_container_add(GTK_CONTAINER(abpartFrame), abpartBox);
+
+	GtkWidget* abpart_auto = helper.createButton(_("Not VAB --- FDL2"),"abpart_auto",nullptr,0,0,176,36);
+	GtkWidget* abpart_a = helper.createButton(_("A Parts --- FDL2"),"abpart_a",nullptr,0,0,176,36);
+	GtkWidget* abpart_b = helper.createButton(_("B Parts --- FDL2"),"abpart_b",nullptr,0,0,176,36);
+	
+	GtkWidget* abpartButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+	gtk_widget_set_halign(abpartButtonBox, GTK_ALIGN_CENTER);
 	gtk_box_pack_start(GTK_BOX(abpartButtonBox), abpart_auto,FALSE,FALSE,0);
 	gtk_box_pack_start(GTK_BOX(abpartButtonBox), abpart_a,FALSE,FALSE,0);
 	gtk_box_pack_start(GTK_BOX(abpartButtonBox), abpart_b, FALSE,FALSE,0);
 
-	gtk_box_pack_start(GTK_BOX(abpartBox), abpartLabel, FALSE,FALSE,0);
 	gtk_box_pack_start(GTK_BOX(abpartBox), abpartButtonBox,FALSE,FALSE,0);
+	gtk_box_pack_start(GTK_BOX(mainBox), abpartFrame, FALSE, FALSE, 0);
 
-	// 将所有部分添加到主容器
-	gtk_box_pack_start(GTK_BOX(emainBox), blockSizeBox, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(emainBox), rawDataBox, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(emainBox), transcodeBox, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(emainBox), chargeBox, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(emainBox), endDataBox, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(emainBox), abpartBox,FALSE,FALSE,0);
-	gtk_box_pack_start(GTK_BOX(emainBox), timeoutBox, FALSE, FALSE, 0);
-
-	// 添加弹性空间使内容顶部对齐
-	GtkWidget* bottomSpacer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-	gtk_widget_set_vexpand(bottomSpacer, TRUE);
-	gtk_box_pack_end(GTK_BOX(emainBox), bottomSpacer, TRUE, TRUE, 0);
-
-	// 添加到网格
-	helper.addToGrid(advSetPage, emainBox, 0, 0, 4, 6);
+	gtk_container_add(GTK_CONTAINER(advScroll), mainBox);
+	helper.addToGrid(advSetPage, advScroll, 0, 0, 4, 6);
 
 	return advSetPage;
 }
