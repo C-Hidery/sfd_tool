@@ -31,12 +31,14 @@ jobs:
       - name: Install gettext (libintl) via vcpkg
         shell: pwsh
         run: |
-          Write-Host "VCPKG_ROOT = $env:VCPKG_ROOT"
-          $vcpkgExe = Join-Path $env:VCPKG_ROOT 'vcpkg.exe'
+          # 优先使用 GitHub 镜像自带的经典 vcpkg 实例
+          $vcpkgExe = "C:\vcpkg\vcpkg.exe"
           if (-not (Test-Path $vcpkgExe)) {
             Write-Error "vcpkg.exe not found at $vcpkgExe"
+            Get-ChildItem C:\ | Select-Object -First 20
             exit 1
           }
+          Write-Host "Using vcpkg: $vcpkgExe"
           # 安装 x86 / x64 的 gettext（包含 libintl）
           & $vcpkgExe install gettext:x86-windows gettext:x64-windows
 
@@ -65,19 +67,20 @@ jobs:
       - name: Build sfd_tool (${{ matrix.arch }} - ${{ matrix.config }})
         run: |
           $platform = if ("${{ matrix.arch }}" -eq "x64") { "x64" } else { "Win32" }
-          
+
           Write-Host "=== 构建配置 ==="
           Write-Host "架构: ${{ matrix.arch }}"
           Write-Host "配置: ${{ matrix.config }}"
           Write-Host "平台: $platform"
           Write-Host "================"
-          
+
           # 简单构建 - 所有配置已在 vcxproj 中
           msbuild sfd_tool.vcxproj `
             /p:Configuration=${{ matrix.config }} `
             /p:Platform=$platform `
             /p:PlatformToolset=v143 `
             /p:OutDir=./build/${{ matrix.arch }}/${{ matrix.config }}/ `
+            /p:VCPKG_ROOT=C:\vcpkg `
             /verbosity:minimal
 
       - name: Verify GTK3 DLLs Exist
