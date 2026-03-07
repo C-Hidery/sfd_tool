@@ -1,6 +1,6 @@
 # sfd_tool
 
-![Logo](icon.png)
+![Logo](/assets/icon.png)
 
 ![License](https://img.shields.io/github/license/C-Hidery/sfd_tool)
 
