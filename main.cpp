@@ -79,6 +79,7 @@ void check_root_permission(GtkWidgetHelper helper) {
 
 bool isCrashed = false;
 void crash_handler(int sig) {
+	(void)sig;
 	if (isCrashed) return;
 	isCrashed = true;
 	if (isHelperInit){
@@ -1818,7 +1819,7 @@ int gtk_kmain(int argc, char** argv) {
 	io->handle = createClass();
 	call_Initialize(io->handle);
 #endif
-	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(nullptr));
+	snprintf(fn_partlist, sizeof(fn_partlist), "partition_%lld.xml", (long long)time(nullptr));
 
 	// Window Setup
 	GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);

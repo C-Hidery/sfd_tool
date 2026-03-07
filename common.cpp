@@ -105,15 +105,15 @@ FILE* xfopen(const char* fn, const char* mode) {
 }
 
 FILE *my_fopen(const char *fn, const char *mode) {
-	if (savepath && savepath[0]) {
+	if (savepath[0]) {
 		size_t fn_len = strlen(fn);
         size_t path_len = strlen(savepath);
 		char* fix_fn = NEWN char[path_len + fn_len + 2]; // +2 for '/' and '\0'
         if (!fix_fn) return nullptr;
 		char* ch;
-		if ((ch = const_cast<char*>(strrchr(fn, '/')))) sprintf(fix_fn, "%s/%s", savepath, ch + 1);
-		else if ((ch = const_cast<char*>(strrchr(fn, '\\')))) sprintf(fix_fn, "%s/%s", savepath, ch + 1);
-		else sprintf(fix_fn, "%s/%s", savepath, fn);
+		if ((ch = const_cast<char*>(strrchr(fn, '/')))) snprintf(fix_fn, path_len + fn_len + 2, "%s/%s", savepath, ch + 1);
+		else if ((ch = const_cast<char*>(strrchr(fn, '\\')))) snprintf(fix_fn, path_len + fn_len + 2, "%s/%s", savepath, ch + 1);
+		else snprintf(fix_fn, path_len + fn_len + 2, "%s/%s", savepath, fn);
 		FILE* fe = fopen(fix_fn, mode);
 		delete[] fix_fn;
 		return fe;
@@ -125,7 +125,7 @@ FILE* my_xfopen(const char* fn, const char* mode) {
     FILE* file = nullptr;
     char* fix_fn = nullptr;
     
-    if (savepath && savepath[0]) {
+    if (savepath[0]) {
         // 分配内存
         size_t fn_len = strlen(fn);
         size_t path_len = strlen(savepath);
@@ -289,7 +289,7 @@ libusb_device **FindPort(int pid) {
 }
 #endif
 
-#ifdef _MSC_VER || _WIN32
+#if defined(_MSC_VER) || defined(_WIN32)
 void usleep(unsigned int us) {
 	Sleep(us / 1000);
 }
@@ -458,7 +458,7 @@ int print_to_string(char* dest, size_t dest_size,
         }
 
         // 检查空间是否足够
-        if (needed > remaining) {
+        if ((size_t)needed > remaining) {
             // 空间不足，部分写入
             dest[offset] = '\0';
             return offset;
@@ -840,7 +840,7 @@ int send_msg(spdio_t *io) {
 
 	return ret;
 }
-extern const char* CommonPartitions[] = {
+const char* CommonPartitions[] = {
 	"splloader", "prodnv", "miscdata", "recovery", "misc", "trustos", "trustos_bak",
 	"sml", "sml_bak", "uboot", "uboot_bak", "logo", "logo_1", "logo_2", "logo_3",
 	"logo_4", "logo_5", "logo_6", "fbootlogo",
@@ -1017,6 +1017,7 @@ int recv_msg_async(spdio_t *io) {
 }
 #else
 int recv_msg_async(spdio_t *io) {
+	(void)io;
 	return 0;
 }
 #endif
@@ -2137,13 +2138,13 @@ partition_t* partition_list_d(spdio_t* io) {
 			size = check_partition(io, part, 1);
 			
 		
-			if (part != "splloader") {
+			if (strcmp(part, "splloader") != 0) {
 				strncpy(ptable[n].name, part, sizeof(ptable[n].name) - 1);
 				ptable[n].name[sizeof(ptable[n].name) - 1] = '\0'; 
 				ptable[n].size = size;
 				n++;
 			}
-			if (part != "splloader") { size = size >> 20; DBG_LOG("  %d %36s  %lldMB\n", n, part, size); }
+			if (strcmp(part, "splloader") != 0) { size = size >> 20; DBG_LOG("  %d %36s  %lldMB\n", n, part, size); }
 			
 		}
 	}
@@ -2541,6 +2542,7 @@ void load_nv_partition(spdio_t *io, const char *name,
 	}
 }
 void signal_handler(int sig) {
+	(void)sig;
 	//Cancallation handler
 	isCancel = 1;
 	signal(SIGINT, SIG_DFL);
@@ -2576,7 +2578,7 @@ void find_partition_size_new(spdio_t *io, const char *name, unsigned long long *
 	int ret;
 	char *name_tmp = NEWN char[strlen(name) + 5 + 1];
 	if (name_tmp == nullptr) return;
-	sprintf(name_tmp, "%s_size", name);
+	snprintf(name_tmp, strlen(name) + 5 + 1, "%s_size", name);
 	select_partition(io, name_tmp, 0x80, 0, BSL_CMD_READ_START);
 	delete[](name_tmp);
 	if (send_and_check(io)) {
@@ -2918,7 +2920,7 @@ void dump_partitions(spdio_t *io, const char *fn, int *nand_info, unsigned step)
 	}
 	if (selected_ab > 0) { DBG_LOG("saving slot info\n"); dump_partition(io, "misc", 0, 1048576, "misc.bin", step); }
 
-	if (savepath && savepath[0]) {
+	if (savepath[0]) {
 		DEG_LOG(OP,"Saving dump list");
 		FILE *fo = my_oxfopen(fn, "wb");
 		if (fo) { fwrite(src, 1, size, fo); fclose(fo); }
@@ -3236,7 +3238,7 @@ void w_mem_to_part_offset(spdio_t *io, const char *name, size_t offset, uint8_t 
 	snprintf(dfile, sizeof(dfile), "%s.bin", name);
 
 	char fix_fn[1024];
-	if (savepath && savepath[0]) sprintf(fix_fn, "%s/%s", savepath, dfile);
+	if (savepath[0]) snprintf(fix_fn, sizeof(fix_fn), "%s/%s", savepath, dfile);
 	else strcpy(fix_fn, dfile);
 
 	FILE *fi;
@@ -3655,12 +3657,14 @@ libusb_hotplug_callback_handle gHotplugCbHandle = 0;
 // SPRD LOG, bInterfaceNumber 1
 // Since find_endpoints() ignored bInterfaceNumber 1, 0x4d03 works in HotplugCbFunc()
 int HotplugCbFunc(libusb_context *ctx, libusb_device *device, libusb_hotplug_event event, void *user_data) {
+	(void)ctx; (void)user_data;
 	if (event == LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED) { if (!curPort) curPort = device; }
 	else { if (curPort == device) m_bOpened = -1; }
 	return 0;
 }
 
 void *UsbThrdFunc(void *param) {
+	(void)param;
 	int ret;
 	while (bListenLibusb) {
 		ret = libusb_handle_events(nullptr);

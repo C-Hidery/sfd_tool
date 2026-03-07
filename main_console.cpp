@@ -238,7 +238,7 @@ int main_console(int argc, char** argv) {
 	io->handle = createClass();
 	call_Initialize(io->handle);
 #endif
-	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(nullptr));
+	snprintf(fn_partlist, sizeof(fn_partlist), "partition_%lld.xml", (long long)time(nullptr));
 	printf("sfd_tool Long-time version 1.7.5.2 Console mode\n");
 	printf("Copyright 2026 Ryan Crepa\n");
 #if _DEBUG
@@ -722,7 +722,7 @@ int main_console(int argc, char** argv) {
 			FILE* fi;
 			if (0 == fdl1_loaded && argcount > 2) {
 				exec_addr = strtoul(str2[3], nullptr, 0);
-				sprintf(execfile, str2[2]);
+				snprintf(execfile, ARGV_LEN, "%s", str2[2]);
 				fi = oxfopen(execfile, "r");
 				if (fi == nullptr) {
 					DEG_LOG(W, "%s does not exist", execfile);
@@ -2078,7 +2078,7 @@ rloop:
 			argv += 1;
 		} else if (!strcmp(str2[1], "transcode")) {
 			const char* se = str2[2];
-			if (se == "1") {
+			if (strcmp(se, "1") == 0) {
 				unsigned a, f;
 				if (argcount <= 2) {
 					DEG_LOG(W, "transcode {0,1}");
@@ -2094,7 +2094,7 @@ rloop:
 				}
 				f = (io->flags & ~FLAGS_TRANSCODE);
 				io->flags = f | (a ? FLAGS_TRANSCODE : 0);
-			} else if (se == "0") {
+			} else if (strcmp(se, "0") == 0) {
 				unsigned a;
 				if (argcount <= 2) {
 					DEG_LOG(E, "transcode {0,1}");

@@ -59,14 +59,17 @@ static void on_button_clicked_end_data_dis(GtkWidgetHelper helper) {
 }
 
 static void on_button_clicked_abpart_auto(GtkWidgetHelper helper) {
+	(void)helper;
 	selected_ab = 0;
 }
 
 static void on_button_clicked_abpart_a(GtkWidgetHelper helper) {
+	(void)helper;
 	selected_ab = 1;
 }
 
 static void on_button_clicked_abpart_b(GtkWidgetHelper helper) {
+	(void)helper;
 	selected_ab = 2;
 }
 

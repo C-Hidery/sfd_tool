@@ -13,10 +13,13 @@ bool isWindowDragging(GtkWindow* window) {
     
     // 获取鼠标状态
     GdkModifierType mask;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     gdk_window_get_device_position(gdk_window, 
         gdk_device_manager_get_client_pointer(
             gdk_display_get_device_manager(gdk_window_get_display(gdk_window))),
         nullptr, nullptr, &mask);
+#pragma clang diagnostic pop
     
     // 检查左键是否按下（拖动标志）
     return (mask & GDK_BUTTON1_MASK) != 0;
@@ -1235,6 +1238,7 @@ void GtkWidgetHelper::bindRowActivated(GtkWidget* treeview,
         g_signal_connect(treeview, "row-activated",
             G_CALLBACK(+[](GtkTreeView* view, GtkTreePath* path, 
                           GtkTreeViewColumn* col, gpointer data) {
+				(void)view; (void)col;
                 auto func = static_cast<std::function<void(int)>*>(data);
                 if (func) {
                     gint* indices = gtk_tree_path_get_indices(path);

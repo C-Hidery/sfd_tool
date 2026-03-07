@@ -62,7 +62,11 @@ DWORD WINAPI ThrdFunc(LPVOID lpParam);
 #endif
 
 #if USE_LIBUSB
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wzero-length-array"
+#pragma clang diagnostic ignored "-Wc99-extensions"
 #include "Lib/libusb-1.0/libusb.h"
+#pragma clang diagnostic pop
 #ifndef _MSC_VER
 #include <pthread.h>
 #include <unistd.h>

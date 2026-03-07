@@ -193,6 +193,7 @@ GtkWidget* create_bottom_controls(GtkWidgetHelper& helper) {
 }
 
 void bind_bottom_signals(GtkWidgetHelper& helper, GtkWidget* bottomContainer) {
+	(void)bottomContainer;
 	helper.bindClick(helper.getWidget("poweroff"), [&]() {
 		on_button_clicked_poweroff(helper);
 	});
