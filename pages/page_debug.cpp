@@ -118,51 +118,92 @@ GtkWidget* create_debug_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* dbgOptPage = helper.createGrid("dbg_opt_page", 5, 5);
 	helper.addNotebookPage(notebook, dbgOptPage, _("Debug Options"));
 
-	// 创建三个按钮
-	GtkWidget* pactime = helper.createButton(_("Get pactime"), "pac_time", nullptr, 0, 0, 400, 32);
-	GtkWidget* chipuid = helper.createButton(_("Get chip UID"), "chip_uid", nullptr, 0, 0, 400, 32);
-	GtkWidget* ReadNand = helper.createButton(_("Check if NAND Storage"), "check_nand", nullptr, 0, 0, 400, 32);
+	GtkWidget* dbgScroll = gtk_scrolled_window_new(NULL, NULL);
+	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(dbgScroll),
+	                               GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+	gtk_widget_set_hexpand(dbgScroll, TRUE);
+	gtk_widget_set_vexpand(dbgScroll, TRUE);
 
-	// 创建垂直盒子布局
-	GtkWidget* mainBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 20);
-	gtk_box_set_homogeneous(GTK_BOX(mainBox), FALSE);
+	GtkWidget* mainBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 32);
+	gtk_widget_set_margin_start(mainBox, 40);
+	gtk_widget_set_margin_end(mainBox, 40);
+	gtk_widget_set_margin_top(mainBox, 40);
+	gtk_widget_set_margin_bottom(mainBox, 40);
+	gtk_widget_set_halign(mainBox, GTK_ALIGN_CENTER);
+	gtk_widget_set_valign(mainBox, GTK_ALIGN_CENTER);
+	gtk_widget_set_size_request(mainBox, 600, -1);
 
-	// 添加第一个按钮行
-	GtkWidget* row1Box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-	gtk_box_pack_start(GTK_BOX(row1Box), pactime, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(row1Box), gtk_label_new(""), TRUE, TRUE, 0);
+	auto makeCardBox = [](int pad_h, int pad_v) -> GtkWidget* {
+		GtkWidget* box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
+		gtk_widget_set_margin_start(box, pad_h);
+		gtk_widget_set_margin_end(box, pad_h);
+		gtk_widget_set_margin_top(box, pad_v);
+		gtk_widget_set_margin_bottom(box, pad_v);
+		return box;
+	};
 
-	// 添加第二个按钮行
-	GtkWidget* row2Box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-	gtk_box_pack_start(GTK_BOX(row2Box), gtk_label_new(""), TRUE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX(row2Box), chipuid, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(row2Box), gtk_label_new(""), TRUE, TRUE, 0);
+	// 1. 获取 Pactime
+	GtkWidget* pactimeFrame = gtk_frame_new(NULL);
+	GtkWidget* pactimeTitle = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(pactimeTitle), (std::string("<b>") + _("Pactime") + "</b>").c_str());
+	gtk_widget_set_halign(pactimeTitle, GTK_ALIGN_CENTER);
+	gtk_frame_set_label_widget(GTK_FRAME(pactimeFrame), pactimeTitle);
+	gtk_frame_set_label_align(GTK_FRAME(pactimeFrame), 0.5, 0.5);
+	helper.addWidget("pactime_label", pactimeTitle);
 
-	// 添加第三个按钮行
-	GtkWidget* row3Box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-	gtk_box_pack_start(GTK_BOX(row3Box), gtk_label_new(""), TRUE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX(row3Box), ReadNand, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(row3Box), gtk_label_new(""), TRUE, TRUE, 0);
+	GtkWidget* pactimeBox = makeCardBox(32, 16);
+	gtk_container_add(GTK_CONTAINER(pactimeFrame), pactimeBox);
 
-	// 将各行添加到主盒子
-	gtk_box_pack_start(GTK_BOX(mainBox), gtk_label_new(""), TRUE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX(mainBox), row1Box, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(mainBox), gtk_label_new(""), FALSE, FALSE, 20);
-	gtk_box_pack_start(GTK_BOX(mainBox), row2Box, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(mainBox), gtk_label_new(""), FALSE, FALSE, 20);
-	gtk_box_pack_start(GTK_BOX(mainBox), row3Box, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(mainBox), gtk_label_new(""), TRUE, TRUE, 0);
+	GtkWidget* pactime = helper.createButton(_("Get pactime"), "pac_time", nullptr, 0, 0, 560, 36);
+	gtk_widget_set_halign(pactime, GTK_ALIGN_CENTER);
 
-	// 添加到网格布局
-	helper.addToGrid(dbgOptPage, mainBox, 0, 0, 4, 6);
+	gtk_box_pack_start(GTK_BOX(pactimeBox), pactime, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(mainBox), pactimeFrame, FALSE, FALSE, 0);
 
-	// 添加说明标签
+	// 2. 获取芯片 UID
+	GtkWidget* uidFrame = gtk_frame_new(NULL);
+	GtkWidget* uidTitle = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(uidTitle), (std::string("<b>") + _("Chip UID") + "</b>").c_str());
+	gtk_widget_set_halign(uidTitle, GTK_ALIGN_CENTER);
+	gtk_frame_set_label_widget(GTK_FRAME(uidFrame), uidTitle);
+	gtk_frame_set_label_align(GTK_FRAME(uidFrame), 0.5, 0.5);
+	helper.addWidget("uid_label", uidTitle);
+
+	GtkWidget* uidBox = makeCardBox(32, 16);
+	gtk_container_add(GTK_CONTAINER(uidFrame), uidBox);
+
+	GtkWidget* chipuid = helper.createButton(_("Get chip UID"), "chip_uid", nullptr, 0, 0, 560, 36);
+	gtk_widget_set_halign(chipuid, GTK_ALIGN_CENTER);
+
+	gtk_box_pack_start(GTK_BOX(uidBox), chipuid, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(mainBox), uidFrame, FALSE, FALSE, 0);
+
+	// 3. NAND 检测
+	GtkWidget* nandFrame = gtk_frame_new(NULL);
+	GtkWidget* nandTitle = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(nandTitle), (std::string("<b>") + _("Storage Check") + "</b>").c_str());
+	gtk_widget_set_halign(nandTitle, GTK_ALIGN_CENTER);
+	gtk_frame_set_label_widget(GTK_FRAME(nandFrame), nandTitle);
+	gtk_frame_set_label_align(GTK_FRAME(nandFrame), 0.5, 0.5);
+	helper.addWidget("nand_label", nandTitle);
+
+	GtkWidget* nandBox = makeCardBox(32, 16);
+	gtk_container_add(GTK_CONTAINER(nandFrame), nandBox);
+
+	GtkWidget* ReadNand = helper.createButton(_("Check if NAND Storage"), "check_nand", nullptr, 0, 0, 560, 36);
+	gtk_widget_set_halign(ReadNand, GTK_ALIGN_CENTER);
+
+	gtk_box_pack_start(GTK_BOX(nandBox), ReadNand, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(mainBox), nandFrame, FALSE, FALSE, 0);
+
+	// 添加说明文本
 	GtkWidget* infoLabel = gtk_label_new(_("Debug Options Page\nThis page contains device debugging functions"));
 	gtk_label_set_justify(GTK_LABEL(infoLabel), GTK_JUSTIFY_CENTER);
-	gtk_widget_set_margin_top(infoLabel, 50);
-	gtk_widget_set_margin_bottom(infoLabel, 20);
+	gtk_widget_set_margin_top(infoLabel, 20);
+	gtk_box_pack_start(GTK_BOX(mainBox), infoLabel, FALSE, FALSE, 0);
 
-	helper.addToGrid(dbgOptPage, infoLabel, 0, 6, 4, 1);
+	gtk_container_add(GTK_CONTAINER(dbgScroll), mainBox);
+	helper.addToGrid(dbgOptPage, dbgScroll, 0, 0, 5, 5);
 
 	return dbgOptPage;
 }
