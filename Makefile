@@ -98,7 +98,8 @@ SOURCES = main.cpp main_console.cpp common.cpp GtkWidgetHelper.cpp \
           pages/page_connect.cpp pages/page_partition.cpp \
           pages/page_manual.cpp pages/page_advanced_op.cpp \
           pages/page_advanced_set.cpp pages/page_debug.cpp \
-          pages/page_about.cpp pages/page_log.cpp
+          pages/page_about.cpp pages/page_log.cpp \
+          pages/page_pac_flash.cpp
 
 $(APPNAME): $(SOURCES)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LIBS)

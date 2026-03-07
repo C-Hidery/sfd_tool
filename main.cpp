@@ -14,6 +14,7 @@
 #include "pages/page_debug.h"
 #include "pages/page_about.h"
 #include "pages/page_log.h"
+#include "pages/page_pac_flash.h"
 #include <thread>
 #include <chrono>
 #include <gtk/gtk.h>
@@ -25,7 +26,7 @@
 #include <windows.h>
 #include <dbghelp.h>
 #endif
-const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.5.2 LTV Edition\n\nCopyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n---v 1.7.2.1---\nAdd root permission check for Linux\n---v 1.7.2.2---\nAdd dis_avb function\n---v 1.7.2.3---\nFix some bugs\n---v 1.7.3.0---\nAdd some advanced settings\n---v 1.7.3.1---\nAdd SPRD4 one-time kick mode\n---v 1.7.3.2---\nFix some bugs\n---v 1.7.3.3---\nFix dis_avb func\n---v 1.7.3.4---\nFix some bugs, improved UI\n---v 1.7.3.5---\nFix some bugs\n---v 1.7.4.0---\nAdd window dragging detection for Windows dialog-showing issue\n---v 1.7.4.1---\nAdd CVE v2 function, fix some bugs\n---v 1.7.4.2---\nFix some bugs, add crash info displaying\n---v 1.7.4.3---\nFix some bugs\n---v 1.7.5.0---\nFix some bugs, improved console\n---v 1.7.5.1---\nFix some bugs, add partition table modify function, add DHTB Signature read for ums9117\n---v 1.7.5.2---\nAdd slot flash/read manually set, add storage/slot showing\n\n\nUnder GPL v3 License\nGithub: C-Hidery/sfd_tool\nLTV means Long-time-version";
+const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.6.0 LTV Edition\n\nCopyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n---v 1.7.2.1---\nAdd root permission check for Linux\n---v 1.7.2.2---\nAdd dis_avb function\n---v 1.7.2.3---\nFix some bugs\n---v 1.7.3.0---\nAdd some advanced settings\n---v 1.7.3.1---\nAdd SPRD4 one-time kick mode\n---v 1.7.3.2---\nFix some bugs\n---v 1.7.3.3---\nFix dis_avb func\n---v 1.7.3.4---\nFix some bugs, improved UI\n---v 1.7.3.5---\nFix some bugs\n---v 1.7.4.0---\nAdd window dragging detection for Windows dialog-showing issue\n---v 1.7.4.1---\nAdd CVE v2 function, fix some bugs\n---v 1.7.4.2---\nFix some bugs, add crash info displaying\n---v 1.7.4.3---\nFix some bugs\n---v 1.7.5.0---\nFix some bugs, improved console\n---v 1.7.5.1---\nFix some bugs, add partition table modify function, add DHTB Signature read for ums9117\n---v 1.7.5.2---\nAdd slot flash/read manually set, add storage/slot showing\n---v 1.7.6.0---\nAdd PAC flash func, auto FDL send\n\n\nUnder GPL v3 License\nGithub: C-Hidery/sfd_tool\nLTV means Long-time-version";
 const char* Version = "[1.2.2.0@_250726]";
 int bListenLibusb = -1;
 int gpt_failed = 1;
@@ -55,6 +56,7 @@ int nand_info[3];
 int argcount = 0, stage = -1, nand_id = DEFAULT_NAND_ID;
 unsigned exec_addr = 0, baudrate = 0;
 int bootmode = -1, at = 0, async = 1;
+int waitFDL1 = -1;
 //Set up environment
 #if !USE_LIBUSB
 extern DWORD curPort;
@@ -1847,6 +1849,7 @@ int gtk_kmain(int argc, char** argv) {
 		create_partition_page(helper, notebook);
 		create_manual_page(helper, notebook);
 		create_advanced_op_page(helper, notebook);
+		create_pac_flash_page(helper, notebook);
 		create_advanced_set_page(helper, notebook);
 		create_debug_page(helper, notebook);
 		create_log_page(helper, notebook);
@@ -1891,6 +1894,7 @@ int gtk_kmain(int argc, char** argv) {
 		bind_partition_signals(helper);
 		bind_manual_signals(helper);
 		bind_advanced_op_signals(helper);
+		bind_pac_flash_signals(helper);
 		bind_advanced_set_signals(helper);
 		bind_debug_signals(helper);
 		bind_log_signals(helper);
