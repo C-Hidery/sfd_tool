@@ -1759,17 +1759,45 @@ void on_button_clicked_pac_select(GtkWidgetHelper helper)
 }
 void on_button_clicked_pac_unpack(GtkWidgetHelper helper)
 {
-	std::thread([helper]() mutable
+	if (m_bOpened == -1) {
+		DEG_LOG(E, "device unattached, exiting...");
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+		    exit(1);
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		
+	}
+	const char* pac_path = helper.getEntryText(helper.getWidget("pac_file_path"));
+	FILE *fi = oxfopen(pac_path, "r");
+	if (fi == nullptr) {
+		DEG_LOG(E, "File does not exist.");
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "File does not exist.\n文件不存在！");
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		return;
+	}
+	fclose(fi);
+	
+	if(!pac_extract(pac_path, "pac_unpack_output"))
 	{
-		pac_extract(
-		helper.getEntryText(helper.getWidget("pac_file_path")),
-		"pac_unpack_output"// default
-		);
-	}).detach();
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Failed to unpack PAC file.\nPAC文件解包失败！");
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		DEG_LOG(E, "Failed to unpack PAC file.");
+		return;
+	}
 	
 }
 void on_button_clicked_pac_flash_start(GtkWidgetHelper helper)
 {
+	if (m_bOpened == -1) {
+		DEG_LOG(E, "device unattached, exiting...");
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error 错误", "Device unattached, exiting...\n设备已断开连接！正在退出...");
+		    exit(1);
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		
+	}
 	load_partitions(
 		io, 
 		"pac_unpack_output", // default

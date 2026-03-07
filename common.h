@@ -321,4 +321,4 @@ FILE* my_xfopen(const char* fn, const char* mode);
 FILE* my_oxfopen(const char* fn, const char* mode);
 FILE* oxfopen(const char* fn, const char* mode);
 int scan_xml_partitions(spdio_t *io, const char *fn, uint8_t *buf, size_t buf_size);
-void pac_extract(const char* fn, const char* floder);
+bool pac_extract(const char* fn, const char* floder);
