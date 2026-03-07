@@ -166,10 +166,19 @@ GtkWidget* create_bottom_controls(GtkWidgetHelper& helper) {
 	gtk_box_pack_start(GTK_BOX(stgBoxLabel), storageLabel, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(stgBoxLabel), storageMode, FALSE, FALSE, 0);
 
-	// 将左侧三段状态添加至最底层横行
+	GtkWidget* sltBoxLabel = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+	GtkWidget* slotLabel = helper.createLabel("Slot:", "", 0, 0, 40, 20);
+	GtkWidget* slotMode = helper.createLabel("Unknown", "slot_mode", 0, 0, 100, 20);
+	gtk_label_set_xalign(GTK_LABEL(slotLabel), 0.0);
+	gtk_label_set_xalign(GTK_LABEL(slotMode), 0.0);
+	gtk_box_pack_start(GTK_BOX(sltBoxLabel), slotLabel, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(sltBoxLabel), slotMode, FALSE, FALSE, 0);
+
+	// 将左侧四段状态添加至最底层横行
 	gtk_box_pack_start(GTK_BOX(bottomStatusBox), stBoxLabel, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(bottomStatusBox), mdBoxLabel, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(bottomStatusBox), stgBoxLabel, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(bottomStatusBox), sltBoxLabel, FALSE, FALSE, 0);
 
 	// 将中间弹性撑开
 	GtkWidget* stSpacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
