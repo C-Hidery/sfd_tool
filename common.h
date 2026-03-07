@@ -12,6 +12,11 @@
 #include <stdio.h>
 #include <thread>
 #include <stddef.h>
+#include "core/logging.h"
+#include "core/file_io.h"
+#include "core/pac_extract.h"
+#include "core/usb_transport.h"
+#include "core/spd_protocol.h"
 #include "third_party/nlohmann/json.hpp" // json for auto sending FDL
 #include <stdint.h>
 
@@ -140,7 +145,7 @@ typedef struct {
 	long long size;
 } partition_t;
 
-typedef struct {
+typedef struct spdio_t {
 	uint8_t *raw_buf, *enc_buf, *recv_buf, *temp_buf, *untranscode_buf, *send_buf;
 #if USE_LIBUSB
 	libusb_device_handle *dev_handle;
@@ -228,21 +233,9 @@ typedef struct {
 #pragma pack()
 extern DA_INFO_T Da_Info;
 extern partition_t gPartInfo;
-#if USE_LIBUSB
-libusb_device **FindPort(int pid);
-void startUsbEventHandle(void);
-void stopUsbEventHandle(void);
-void find_endpoints(libusb_device_handle *dev_handle, int result[4]);
-void call_Initialize_libusb(spdio_t *io);
-#else
-DWORD *FindPort(const char *USB_DL);
-BOOL CreateRecvThread(spdio_t *io);
-void DestroyRecvThread(spdio_t *io);
-#endif
+
 extern GtkWidgetHelper helper;
 extern bool isHelperInit;
-void print_string(FILE *f, const void *src, size_t n);
-void ChangeMode(spdio_t *io, int ms, int bootmode, int at);
 
 enum msg_type{
 	I = 1,
@@ -251,34 +244,20 @@ enum msg_type{
 	OP = 4,
 	DE = 5
 };
-enum Stages {
-	Nothing = -1,
-	BROM = 0,
-	FDL1 = 1,
-	FDL2 = 2,
-	SPRD3 = 3,
-	SPRD4 = 4
-};
 #define REOPEN_FREQ 2
-void ERR_EXIT(const char* format, ...);
+
 extern int isCancel;
 extern uint64_t g_spl_size;
-spdio_t *spdio_init(int flags);
-void spdio_free(spdio_t *io);
+
 extern const char* CommonPartitions[];
 extern const size_t CommonPartitionsCount;
-void encode_msg(spdio_t *io, int type, const void *data, size_t len);
-void encode_msg_nocpy(spdio_t *io, int type, size_t len);
-int send_msg(spdio_t *io);
-int recv_msg(spdio_t *io);
-int recv_msg_timeout(spdio_t *io, int timeout);
-unsigned recv_type(spdio_t *io);
-int send_and_check(spdio_t *io);
+extern int fdl1_loaded;
+extern int fdl2_executed;
 int check_confirm(const char *name);
 uint8_t *loadfile(const char *fn, size_t *num, size_t extra);
 void send_buf(spdio_t *io, uint32_t start_addr, int end_data, unsigned step, uint8_t *mem, unsigned size);
 size_t send_file(spdio_t *io, const char *fn, uint32_t start_addr, int end_data, unsigned step, unsigned src_offs, unsigned src_size);
-FILE *my_fopen(const char *fn, const char *mode);
+
 unsigned dump_flash(spdio_t *io, uint32_t addr, uint32_t start, uint32_t len, const char *fn, unsigned step, int mode);
 unsigned read_flash(spdio_t *io,
 		uint32_t addr, uint32_t start, uint32_t len,
@@ -305,11 +284,11 @@ void dm_avb_enable(spdio_t *io, unsigned step, int CMethod);
 void avb_dm_disable(spdio_t *io, unsigned step, int CMethod);
 void w_mem_to_part_offset(spdio_t *io, const char *name, size_t offset, uint8_t *mem, size_t length, unsigned step, int CMethod);
 void set_active(spdio_t *io, const char *arg, int CMethod);
-void DEG_LOG(int type, const char* format, ...);
+
 partition_t* partition_list_d(spdio_t* io);
 int set_bootloader_status(spdio_t* io,int status);
 void add_partition(spdio_t* io, const char* name, long long size);
-int print_to_string(char* dest, size_t dest_size, const void* src, size_t n,int o);
+
 //void send_buf_1(spdio_t* io,
 //	uint32_t start_addr, int end_data,
 //	unsigned step, uint8_t* mem, unsigned size);
@@ -321,9 +300,5 @@ void signal_handler(int sig);
 void start_signal();
 void select_partition(spdio_t *io, const char *name,
 	uint64_t size, int mode64, int cmd);
-FILE* xfopen(const char* fn, const char* mode);
-FILE* my_xfopen(const char* fn, const char* mode);
-FILE* my_oxfopen(const char* fn, const char* mode);
-FILE* oxfopen(const char* fn, const char* mode);
+
 int scan_xml_partitions(spdio_t *io, const char *fn, uint8_t *buf, size_t buf_size);
-bool pac_extract(const char* fn, const char* folder);

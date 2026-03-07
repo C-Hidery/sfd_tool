@@ -35,6 +35,11 @@
     <ClCompile Include="Wrapper.cpp" />
     <ClCompile Include="GtkWidgetHelper.cpp" />
     <ClCompile Include="main_console.cpp" />
+    <ClCompile Include="core\logging.cpp" />
+    <ClCompile Include="core\file_io.cpp" />
+    <ClCompile Include="core\pac_extract.cpp" />
+    <ClCompile Include="core\usb_transport.cpp" />
+    <ClCompile Include="core\spd_protocol.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="assets\app.rc" />
