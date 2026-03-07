@@ -8,7 +8,8 @@ GtkWidget* create_about_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	helper.addNotebookPage(notebook, aboutPage, _("About"));
 
 	GtkWidget* scrolledAbout = gtk_scrolled_window_new(NULL, NULL);
-	gtk_widget_set_size_request(scrolledAbout, 1084, 557);
+	gtk_widget_set_hexpand(scrolledAbout, TRUE);
+	gtk_widget_set_vexpand(scrolledAbout, TRUE);
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolledAbout),
 	                               GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
