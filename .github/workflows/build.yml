@@ -26,6 +26,18 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
 
+      - name: Install gettext (libintl) via vcpkg
+        shell: pwsh
+        run: |
+          Write-Host "VCPKG_ROOT = $env:VCPKG_ROOT"
+          $vcpkgExe = Join-Path $env:VCPKG_ROOT 'vcpkg.exe'
+          if (-not (Test-Path $vcpkgExe)) {
+            Write-Error "vcpkg.exe not found at $vcpkgExe"
+            exit 1
+          }
+          # 安装 x86 / x64 的 gettext（包含 libintl）
+          & $vcpkgExe install gettext:x86-windows gettext:x64-windows
+
       - name: Install MSYS2 and GTK3
         run: |
           # GitHub Actions Windows 镜像已预装 MSYS2
