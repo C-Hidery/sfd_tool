@@ -3,6 +3,8 @@
 #include "main.h"
 #include "i18n.h"
 
+extern spdio_t* io;
+
 // 前向声明回调函数（来自其他页面模块）
 void on_button_clicked_poweroff(GtkWidgetHelper helper);
 void on_button_clicked_reboot(GtkWidgetHelper helper);

@@ -28,6 +28,23 @@ extern int fdl2_executed;
 extern int isKickMode;
 extern int device_stage, device_mode;
 extern bool isUseCptable;
+extern int stage;
+extern int bootmode;
+extern int at;
+extern int async;
+extern uint64_t g_spl_size;
+extern int waitFDL1;
+extern std::string fdl1_path_json;
+extern std::string fdl2_path_json;
+extern uint32_t fdl1_addr_json;
+extern uint32_t fdl2_addr_json;
+#if !USE_LIBUSB
+extern DWORD curPort;
+extern DWORD* ports;
+#else
+extern libusb_device* curPort;
+extern libusb_device** ports;
+#endif
 
 using nlohmann::json;
 
@@ -348,7 +365,6 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 			}
 		}
 		else if (device_stage == FDL2) helper.setLabelText(helper.getWidget("con"), "Ready");
-		Enable_Startup();
 		helper.setLabelText(helper.getWidget("con"), "Connected");
 		if (device_stage == BROM) helper.setLabelText(helper.getWidget("mode"), "BROM");
 		else if (device_stage == FDL1) helper.setLabelText(helper.getWidget("mode"), "FDL1");
