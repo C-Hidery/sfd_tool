@@ -231,65 +231,134 @@ GtkWidget* create_advanced_op_page(GtkWidgetHelper& helper, GtkWidget* notebook)
 	GtkWidget* advOpPage = helper.createGrid("adv_op_page", 5, 5);
 	helper.addNotebookPage(notebook, advOpPage, _("Advanced Operation"));
 
+	GtkWidget* advScroll = gtk_scrolled_window_new(NULL, NULL);
+	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(advScroll),
+	                               GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+	gtk_widget_set_hexpand(advScroll, TRUE);
+	gtk_widget_set_vexpand(advScroll, TRUE);
+
+	GtkWidget* mainBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 32);
+	gtk_widget_set_margin_start(mainBox, 40);
+	gtk_widget_set_margin_end(mainBox, 40);
+	gtk_widget_set_margin_top(mainBox, 40);
+	gtk_widget_set_margin_bottom(mainBox, 40);
+	gtk_widget_set_halign(mainBox, GTK_ALIGN_CENTER);
+	gtk_widget_set_size_request(mainBox, 600, -1);
+
+	auto makeCardBox = [](int pad_h, int pad_v) -> GtkWidget* {
+		GtkWidget* box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
+		gtk_widget_set_margin_start(box, pad_h);
+		gtk_widget_set_margin_end(box, pad_h);
+		gtk_widget_set_margin_top(box, pad_v);
+		gtk_widget_set_margin_bottom(box, pad_v);
+		return box;
+	};
+
 	// A/B partition
-	GtkWidget* abLabel = helper.createLabel(_("Toggle the A/B partition boot settings"), "ab_label", 0, 0, 400, 20);
-	GtkWidget* setActiveA = helper.createButton(_("Boot A partitons"), "set_active_a", nullptr, 0, 0, 200, 32);
-	GtkWidget* setActiveB = helper.createButton(_("Boot B partitions"), "set_active_b", nullptr, 0, 0, 200, 32);
+	GtkWidget* abFrame = gtk_frame_new(NULL);
+	GtkWidget* abLabel = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(abLabel), (std::string("<b>") + _("Toggle the A/B partition boot settings") + "</b>").c_str());
+	gtk_widget_set_halign(abLabel, GTK_ALIGN_CENTER);
+	gtk_frame_set_label_widget(GTK_FRAME(abFrame), abLabel);
+	gtk_frame_set_label_align(GTK_FRAME(abFrame), 0.5, 0.5);
+	helper.addWidget("ab_label", abLabel);
 
-	// Repartition
-	GtkWidget* repartLabel = helper.createLabel(_("Repartition"), "repart_label", 0, 0, 200, 20);
-	GtkWidget* xmlLabel = helper.createLabel(_("XML part info file path"), "xml_label", 0, 0, 300, 20);
-	GtkWidget* xmlPath = helper.createEntry("xml_path", "", false, 0, 0, 374, 32);
-	GtkWidget* selectXmlBtn = helper.createButton("...", "select_xml", nullptr, 0, 0, 40, 32);
-	GtkWidget* startRepartBtn = helper.createButton(_("START"), "start_repart", nullptr, 0, 0, 120, 32);
+	GtkWidget* abBox = makeCardBox(32, 16);
+	gtk_container_add(GTK_CONTAINER(abFrame), abBox);
 
-	GtkWidget* readXmlBtn = helper.createButton(_("Extract part info to a XML file (if support)"),
-	                        "read_xml", nullptr, 0, 0, 500, 32);
-
-	// DM-verify
-	GtkWidget* dmvLabel = helper.createLabel(_("DM-verity and AVB Settings (if support)"), "dmv_label", 0, 0, 400, 20);
-	GtkWidget* dmvDisable = helper.createButton(_("Disable DM-verity and AVB"), "dmv_disable", nullptr, 0, 0, 220, 32);
-	GtkWidget* dmvEnable = helper.createButton(_("Enable DM-verity and AVB"), "dmv_enable", nullptr, 0, 0, 220, 32);
-
-	// No AVB
-	GtkWidget* disavbLabel = helper.createLabel(_("Trustos AVB Settings"), "avb_label", 0, 0, 400, 20);
-	GtkWidget* dis_avb = helper.createButton(_("[CAUTION] Disable AVB verification by patching trustos(Android 9 and lower)"), "dis_avb", nullptr, 0, 0, 230, 32);
-
-	// Add to grid
-	int row = 0;
-	helper.addToGrid(advOpPage, abLabel, 0, row++, 3, 1);
-
-	GtkWidget* abButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 20);
+	GtkWidget* abButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+	gtk_widget_set_halign(abButtonBox, GTK_ALIGN_CENTER);
+	GtkWidget* setActiveA = helper.createButton(_("Boot A partitons"), "set_active_a", nullptr, 0, 0, 272, 36);
+	GtkWidget* setActiveB = helper.createButton(_("Boot B partitions"), "set_active_b", nullptr, 0, 0, 272, 36);
 	gtk_box_pack_start(GTK_BOX(abButtonBox), setActiveA, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(abButtonBox), setActiveB, FALSE, FALSE, 0);
-	helper.addToGrid(advOpPage, abButtonBox, 0, row++, 3, 1);
 
-	row += 2;
+	gtk_box_pack_start(GTK_BOX(abBox), abButtonBox, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(mainBox), abFrame, FALSE, FALSE, 0);
 
-	helper.addToGrid(advOpPage, repartLabel, 0, row++, 3, 1);
-	helper.addToGrid(advOpPage, xmlLabel, 0, row++, 3, 1);
+	// Repartition
+	GtkWidget* repartFrame = gtk_frame_new(NULL);
+	GtkWidget* repartLabel = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(repartLabel), (std::string("<b>") + _("Repartition") + "</b>").c_str());
+	gtk_widget_set_halign(repartLabel, GTK_ALIGN_CENTER);
+	gtk_frame_set_label_widget(GTK_FRAME(repartFrame), repartLabel);
+	gtk_frame_set_label_align(GTK_FRAME(repartFrame), 0.5, 0.5);
+	helper.addWidget("repart_label", repartLabel);
 
-	GtkWidget* xmlBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-	gtk_box_pack_start(GTK_BOX(xmlBox), xmlPath, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(xmlBox), selectXmlBtn, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(xmlBox), startRepartBtn, FALSE, FALSE, 0);
-	helper.addToGrid(advOpPage, xmlBox, 0, row++, 3, 1);
+	GtkWidget* repartBox = makeCardBox(32, 16);
+	gtk_container_add(GTK_CONTAINER(repartFrame), repartBox);
 
-	helper.addToGrid(advOpPage, readXmlBtn, 0, row++, 3, 1);
+	GtkWidget* xmlLabel = gtk_label_new(_("XML part info file path"));
+	gtk_widget_set_halign(xmlLabel, GTK_ALIGN_CENTER);
+	helper.addWidget("xml_label", xmlLabel);
 
-	row += 2;
+	GtkWidget* xmlInputWrap = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+	gtk_widget_set_halign(xmlInputWrap, GTK_ALIGN_CENTER);
 
-	helper.addToGrid(advOpPage, dmvLabel, 0, row++, 3, 1);
+	GtkWidget* xmlInputLinked = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+	gtk_style_context_add_class(gtk_widget_get_style_context(xmlInputLinked), "linked");
+	
+	GtkWidget* xmlPath = helper.createEntry("xml_path", "", false, 0, 0, 400, 36);
+	GtkWidget* selectXmlBtn = helper.createButton("...", "select_xml", nullptr, 0, 0, 48, 36);
+	
+	gtk_box_pack_start(GTK_BOX(xmlInputLinked), xmlPath, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(xmlInputLinked), selectXmlBtn, FALSE, FALSE, 0);
 
-	GtkWidget* dmvButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 20);
+	GtkWidget* startRepartBtn = helper.createButton(_("START"), "start_repart", nullptr, 0, 0, 96, 36);
+
+	gtk_box_pack_start(GTK_BOX(xmlInputWrap), xmlInputLinked, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(xmlInputWrap), startRepartBtn, FALSE, FALSE, 0);
+
+	GtkWidget* readXmlBtn = helper.createButton(_("Extract part info to a XML file (if support)"), "read_xml", nullptr, 0, 0, 560, 36);
+	gtk_widget_set_halign(readXmlBtn, GTK_ALIGN_CENTER);
+
+	gtk_box_pack_start(GTK_BOX(repartBox), xmlLabel, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(repartBox), xmlInputWrap, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(repartBox), readXmlBtn, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(mainBox), repartFrame, FALSE, FALSE, 0);
+
+	// DM-verify
+	GtkWidget* dmvFrame = gtk_frame_new(NULL);
+	GtkWidget* dmvLabel = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(dmvLabel), (std::string("<b>") + _("DM-verity and AVB Settings (if support)") + "</b>").c_str());
+	gtk_widget_set_halign(dmvLabel, GTK_ALIGN_CENTER);
+	gtk_frame_set_label_widget(GTK_FRAME(dmvFrame), dmvLabel);
+	gtk_frame_set_label_align(GTK_FRAME(dmvFrame), 0.5, 0.5);
+	helper.addWidget("dmv_label", dmvLabel);
+
+	GtkWidget* dmvBox = makeCardBox(32, 16);
+	gtk_container_add(GTK_CONTAINER(dmvFrame), dmvBox);
+
+	GtkWidget* dmvButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+	gtk_widget_set_halign(dmvButtonBox, GTK_ALIGN_CENTER);
+	GtkWidget* dmvDisable = helper.createButton(_("Disable DM-verity and AVB"), "dmv_disable", nullptr, 0, 0, 272, 36);
+	GtkWidget* dmvEnable = helper.createButton(_("Enable DM-verity and AVB"), "dmv_enable", nullptr, 0, 0, 272, 36);
 	gtk_box_pack_start(GTK_BOX(dmvButtonBox), dmvDisable, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(dmvButtonBox), dmvEnable, FALSE, FALSE, 0);
-	helper.addToGrid(advOpPage, dmvButtonBox, 0, row++, 3, 1);
 
-	row += 2;
+	gtk_box_pack_start(GTK_BOX(dmvBox), dmvButtonBox, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(mainBox), dmvFrame, FALSE, FALSE, 0);
 
-	helper.addToGrid(advOpPage, disavbLabel, 0, row++, 3, 1);
-	helper.addToGrid(advOpPage, dis_avb, 0, row++, 3, 1);
+	// No AVB
+	GtkWidget* avbFrame = gtk_frame_new(NULL);
+	GtkWidget* disavbLabel = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(disavbLabel), (std::string("<b>") + _("Trustos AVB Settings") + "</b>").c_str());
+	gtk_widget_set_halign(disavbLabel, GTK_ALIGN_CENTER);
+	gtk_frame_set_label_widget(GTK_FRAME(avbFrame), disavbLabel);
+	gtk_frame_set_label_align(GTK_FRAME(avbFrame), 0.5, 0.5);
+	helper.addWidget("avb_label", disavbLabel);
+
+	GtkWidget* avbBox = makeCardBox(32, 16);
+	gtk_container_add(GTK_CONTAINER(avbFrame), avbBox);
+
+	GtkWidget* dis_avb = helper.createButton(_("[CAUTION] Disable AVB verification by patching trustos(Android 9 and lower)"), "dis_avb", nullptr, 0, 0, 560, 36);
+	gtk_widget_set_halign(dis_avb, GTK_ALIGN_CENTER);
+
+	gtk_box_pack_start(GTK_BOX(avbBox), dis_avb, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(mainBox), avbFrame, FALSE, FALSE, 0);
+
+	gtk_container_add(GTK_CONTAINER(advScroll), mainBox);
+	helper.addToGrid(advOpPage, advScroll, 0, 0, 5, 5);
 
 	return advOpPage;
 }
