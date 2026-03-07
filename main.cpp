@@ -1845,8 +1845,8 @@ std::string uint32_to_hex_string(uint32_t value) {
     return ss.str();
 }
 //fdl exec
-const char* fdl1_path_json;
-const char* fdl2_path_json;
+std::string fdl1_path_json;
+std::string fdl2_path_json;
 uint32_t fdl1_addr_json;
 uint32_t fdl2_addr_json;
 void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
@@ -2030,9 +2030,9 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			if (json_file) 
 			{
 				json j = {
-					{"fdl1_path", fdl1_path_json ? fdl1_path_json : ""},
+					{"fdl1_path", fdl1_path_json},
 					{"fdl1_addr", fdl1_addr_json},
-					{"fdl2_path", fdl2_path_json ? fdl2_path_json : ""},
+					{"fdl2_path", fdl2_path_json},
 					{"fdl2_addr", fdl2_addr_json}
 				};
 				fprintf(json_file, "%s\n", j.dump().c_str());
@@ -2527,8 +2527,8 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 				}
 				std::ifstream f("fdl_info.json");
 				json j = json::parse(f);
-				fdl1_path_json = j["fdl1_path"].get<std::string>().c_str();
-				fdl2_path_json = j["fdl2_path"].get<std::string>().c_str();
+				fdl1_path_json = j["fdl1_path"].get<std::string>();
+				fdl2_path_json = j["fdl2_path"].get<std::string>();
 				fdl1_addr_json = j["fdl1_addr"].get<uint32_t>();
 				fdl2_addr_json = j["fdl2_addr"].get<uint32_t>();
 				helper.setEntryText(helper.getWidget("fdl_file_path"), fdl1_path_json);
