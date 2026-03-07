@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <thread>
 #include <stddef.h>
-#include "nlohmann/json.hpp" // json for auto sending FDL
+#include "third_party/nlohmann/json.hpp" // json for auto sending FDL
 #include <stdint.h>
 
 #ifdef _MSC_VER
@@ -36,7 +36,7 @@
 #include <math.h>
 #include <time.h>
 #include "GtkWidgetHelper.hpp"
-#include "nlohmann/json.hpp"
+#include "third_party/nlohmann/json.hpp"
 #include <regex>
 #include <fstream>
 #define NEWN new (std::nothrow)
@@ -68,7 +68,7 @@ DWORD WINAPI ThrdFunc(LPVOID lpParam);
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wzero-length-array"
 #pragma clang diagnostic ignored "-Wc99-extensions"
-#include "Lib/libusb-1.0/libusb.h"
+#include "third_party/Lib/libusb-1.0/libusb.h"
 #pragma clang diagnostic pop
 #ifndef _MSC_VER
 #include <pthread.h>

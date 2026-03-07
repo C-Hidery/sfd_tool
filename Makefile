@@ -143,15 +143,15 @@ install: $(APPNAME)
 	install -m 755 $(APPNAME) $(DESTDIR)$(BINDIR)/
 	
 	# 安装桌面文件
-	sed 's|Icon=sfd_tool|Icon=sfd-tool|' sfd_tool.desktop > $(DESTDIR)$(APPDIR)/sfd-tool.desktop
+	sed 's|Icon=sfd_tool|Icon=sfd-tool|' packaging/sfd_tool.desktop > $(DESTDIR)$(APPDIR)/sfd-tool.desktop
 	chmod 644 $(DESTDIR)$(APPDIR)/sfd-tool.desktop
 	
 	# 安装图标（从 icon.png 转换不同尺寸）
-	if [ -f icon.png ]; then \
-		convert icon.png -resize 16x16 $(DESTDIR)$(ICONDIR)/16x16/apps/sfd-tool.png; \
-		convert icon.png -resize 32x32 $(DESTDIR)$(ICONDIR)/32x32/apps/sfd-tool.png; \
-		convert icon.png -resize 48x48 $(DESTDIR)$(ICONDIR)/48x48/apps/sfd-tool.png; \
-		convert icon.png -resize 256x256 $(DESTDIR)$(ICONDIR)/256x256/apps/sfd-tool.png; \
+	if [ -f assets/icon.png ]; then \
+		convert assets/icon.png -resize 16x16 $(DESTDIR)$(ICONDIR)/16x16/apps/sfd-tool.png; \
+		convert assets/icon.png -resize 32x32 $(DESTDIR)$(ICONDIR)/32x32/apps/sfd-tool.png; \
+		convert assets/icon.png -resize 48x48 $(DESTDIR)$(ICONDIR)/48x48/apps/sfd-tool.png; \
+		convert assets/icon.png -resize 256x256 $(DESTDIR)$(ICONDIR)/256x256/apps/sfd-tool.png; \
 	fi
 	
 	# 安装文档

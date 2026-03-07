@@ -3,7 +3,7 @@
 #include "../main.h"
 #include "../i18n.h"
 #include "../ui_common.h"
-#include "../nlohmann/json.hpp"
+#include "../third_party/nlohmann/json.hpp"
 #include "page_partition.h"
 #include <thread>
 #include <chrono>

@@ -23,13 +23,14 @@ rm -rf /tmp/build-$PKGNAME
 mkdir -p /tmp/build-$PKGNAME/$ARCHIVE
 
 # 复制文件
-cp -r *.cpp *.h *.hpp *.txt *.md *.desktop Makefile nlohmann Lib locale pages /tmp/build-$PKGNAME/$ARCHIVE/
-[ -f icon.png ] && cp icon.png /tmp/build-$PKGNAME/$ARCHIVE/
+cp -r *.cpp *.h *.hpp *.txt *.md Makefile third_party packaging scripts assets locale pages /tmp/build-$PKGNAME/$ARCHIVE/
+[ -f assets/icon.png ] && cp assets/icon.png /tmp/build-$PKGNAME/$ARCHIVE/
+cp packaging/sfd_tool.desktop /tmp/build-$PKGNAME/$ARCHIVE/
 
 # 复制debian目录
-if [ -d debian ]; then
-    cp -r debian /tmp/build-$PKGNAME/$ARCHIVE/
-    cp man_sfd-tool.1 /tmp/build-$PKGNAME/$ARCHIVE/
+if [ -d packaging/debian ]; then
+    cp -r packaging/debian /tmp/build-$PKGNAME/$ARCHIVE/
+    cp packaging/man_sfd-tool.1 /tmp/build-$PKGNAME/$ARCHIVE/
 else
     echo "Error: No debian directory found"
     exit 1
