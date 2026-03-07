@@ -8,6 +8,7 @@
 #ifdef _WIN32
     #include <io.h>
     #include <fcntl.h>
+    #include <direct.h> // for chdir
     #define read _read
     #define open _open
     #define close _close
@@ -282,8 +283,15 @@ public:
         // 在提取文件前准备输出目录
         prepareOutputDirectory();
         
+#ifndef _WIN32
         if (dir && chdir(dir))
             {printf("chdir failed\n"); return false;}
+#else
+        if (dir) {
+            if (_chdir(dir))
+                {printf("chdir failed\n"); return false;}
+        }
+#endif
         
         for (unsigned i = 0; i < head.file_count; i++) {
             sprd_file_t file; int j;
