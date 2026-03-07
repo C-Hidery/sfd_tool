@@ -321,7 +321,7 @@ void bind_advanced_set_signals(GtkWidgetHelper& helper) {
 	});
 	helper.bindValueChanged(timeout_op, [&]() {
 		GtkWidget* to = helper.getWidget("timeout");
-		io->timeout = helper.getSpinValue(to);
+		io->timeout = static_cast<int>(helper.getSpinValue(to));
 	});
 	helper.bindClick(helper.getWidget("abpart_auto"),[&](){
 		on_button_clicked_abpart_auto(helper);

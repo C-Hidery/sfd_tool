@@ -367,7 +367,7 @@ bool Unpac::extractFiles() {
 
         l = file_size;
         for (; l; l -= n) {
-            n = l > chunk ? chunk : l;
+            n = (uint32_t)(l > chunk ? chunk : l);
             READ(buf, n, "chunk");
             fwrite(buf, n, 1, fo);
         }
@@ -601,7 +601,7 @@ bool pac_extract(const char* fn, const char* floder)
 			},GTK_WINDOW(helper.getWidget("main_window")));
 			return false;
 		}
-		WRITE32_LE(buf + 0x48, size);
+		WRITE32_LE(buf + 0x48, (uint32_t)size);
 		buf += 0x4c;
 		DBG_LOG("[%d] %s, %d\n", found + 1, (*(pacptable + found)).name, (int)size);
 		(*(pacptable + found)).size = size << 20;

@@ -24,6 +24,8 @@ unsigned spd_checksum(unsigned crc, const void *src, int len, int final);
 void encode_msg(spdio_t *io, int type, const void *data, size_t len);
 void encode_msg_nocpy(spdio_t *io, int type, size_t len);
 int send_msg(spdio_t *io);
+int recv_transcode(spdio_t *io, const uint8_t *buf, int buf_len, int *plen);
+int recv_check_crc(spdio_t *io);
 int recv_msg(spdio_t *io);
 int recv_msg_timeout(spdio_t *io, int timeout);
 unsigned recv_type(spdio_t *io);

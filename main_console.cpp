@@ -1202,7 +1202,7 @@ int main_console(int argc, char** argv) {
 				continue;
 			}
 			//func
-			dump_flash(io, addr, offset, size, fn, blk_size ? blk_size : 1024, isReadDHTB);
+			dump_flash(io, (uint32_t)addr, (uint32_t)offset, (uint32_t)size, fn, blk_size ? blk_size : 1024, isReadDHTB);
 			argc -= 5;
 			argv += 5;
 
@@ -1307,7 +1307,7 @@ int main_console(int argc, char** argv) {
 
 			name = str2[2];
 			if (selected_ab < 0) select_ab(io);
-			long r = (long long)check_partition(io, name, 0);
+			long long r = (long long)check_partition(io, name, 0);
 			if (r == 1) {
 				DEG_LOG(I, "%s: Exist.", name);
 			} else if (r == 0) {
@@ -1918,7 +1918,7 @@ rloop:
 					continue;
 				}
 			}
-			w_mem_to_part_offset(io, name, offset, src, length, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
+			w_mem_to_part_offset(io, name, (size_t)offset, src, length, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 			delete[](src);
 			argc -= 4;
 			argv += 4;

@@ -73,7 +73,7 @@ void encode_msg(spdio_t *io, int type, const void *data, size_t len) {
 
 	p = p0 = io->untranscode_buf + 1;
 	WRITE16_BE(p, type); p += 2;
-	WRITE16_BE(p, len); p += 2;
+	WRITE16_BE(p, (uint16_t)len); p += 2;
 	memcpy(p, data, len); p += len;
 
 	len = p - p0;
@@ -117,7 +117,7 @@ void encode_msg_nocpy(spdio_t *io, int type, size_t len) {
 
 	p = p0 = io->untranscode_buf + 1;
 	WRITE16_BE(p, type); p += 2;
-	WRITE16_BE(p, len); p += 2;
+	WRITE16_BE(p, (uint16_t)len); p += 2;
 	p += len;
 
 	len = p - p0;
