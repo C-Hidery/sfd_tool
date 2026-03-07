@@ -2,7 +2,7 @@
 # sfd_tool RPM build script
 set -e
 
-VERSION="1.7.5.2"
+VERSION="1.7.6.0"
 APPNAME="sfd_tool"
 PKGNAME="sfd-tool"
 
@@ -17,7 +17,7 @@ mkdir -p ~/rpmbuild/{SOURCES,SPECS,RPMS,SRPMS,BUILD}
 
 # 创建源码包
 mkdir -p /tmp/$PKGNAME-$VERSION
-cp -r *.cpp *.h *.hpp *.txt *.md *.desktop *.1 Makefile Lib locale /tmp/$PKGNAME-$VERSION/
+cp -r *.cpp *.h *.hpp *.txt *.md *.desktop *.1 Makefile nlohmann Lib locale pages /tmp/$PKGNAME-$VERSION/
 [ -f icon.png ] && cp icon.png /tmp/$PKGNAME-$VERSION/
 
 # 复制 spec 文件

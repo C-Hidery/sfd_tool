@@ -2,7 +2,6 @@
 #include <cstring>
 #include "common.h"
 #include "main.h"
-#include "nlohmann/json.hpp" // json for auto sending FDL
 #include "GtkWidgetHelper.hpp"
 #include "i18n.h"
 #include "ui_common.h"
@@ -18,6 +17,8 @@
 #include <thread>
 #include <chrono>
 #include <gtk/gtk.h>
+#include <sstream>  
+#include <iomanip>
 #include "GenTosNoAvb.h"
 #ifdef __linux__
 #include <unistd.h>
@@ -50,7 +51,8 @@ int in_quote;
 char* temp;
 char str1[(ARGC_MAX - 1) * ARGV_LEN];
 spdio_t* io = nullptr;
-int ret, conn_wait = 30 * REOPEN_FREQ;
+int ret;
+int conn_wait = 30 * REOPEN_FREQ;
 int keep_charge = 1, end_data = 0, blk_size = 0, skip_confirm = 1, highspeed = 0, cve_v2 = 0;
 int nand_info[3];
 int argcount = 0, stage = -1, nand_id = DEFAULT_NAND_ID;
@@ -153,6 +155,42 @@ void update_partition_size(spdio_t* io) {
         }
     }
    
+}
+void EnableWidgets(GtkWidgetHelper helper) {
+	helper.enableWidget("poweroff");
+	helper.enableWidget("reboot");
+	helper.enableWidget("recovery");
+	helper.enableWidget("fastboot");
+	helper.enableWidget("list_read");
+	helper.enableWidget("list_write");
+	helper.enableWidget("list_erase");
+	helper.enableWidget("m_write");
+	helper.enableWidget("m_read");
+	helper.enableWidget("m_erase");
+	helper.enableWidget("set_active_a");
+	helper.enableWidget("set_active_b");
+	helper.enableWidget("start_repart");
+	helper.enableWidget("blk_size");
+	helper.enableWidget("read_xml");
+	helper.enableWidget("dmv_enable");
+	helper.enableWidget("dmv_disable");
+	helper.enableWidget("backup_all");
+	helper.enableWidget("list_cancel");
+	helper.enableWidget("m_cancel");
+	helper.enableWidget("list_force_write");
+	helper.enableWidget("chip_uid");
+	helper.enableWidget("pac_time");
+	helper.enableWidget("check_nand");
+	helper.enableWidget("dis_avb");
+	helper.enableWidget("modify_part");
+	helper.enableWidget("modify_new_part");
+	helper.enableWidget("modify_rm_part");
+	helper.enableWidget("modify_ren_part");
+	helper.enableWidget("xml_get");
+	helper.enableWidget("abpart_auto");
+	helper.enableWidget("abpart_a");
+	helper.enableWidget("abpart_b");
+	helper.enableWidget("pac_flash_start");
 }
 void Enable_Startup() {
 	helper.enableWidget("transcode_en");
@@ -1455,6 +1493,10 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 }
 
 //fdl exec
+std::string fdl1_path_json;
+std::string fdl2_path_json;
+uint32_t fdl1_addr_json;
+uint32_t fdl2_addr_json;
 void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 	GtkWidget *fdlEntry = helper.getWidget("fdl_file_path");
 	GtkWidget *addrEntry = helper.getWidget("fdl_addr");
@@ -1466,10 +1508,12 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		gui_idle_call_wait_drag([helper]() {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		},GTK_WINDOW(helper.getWidget("main_window")));
-		exit(1);
+		
 	}
 	if (fdl1_loaded > 0) {
 		DEG_LOG(I, "Executing FDL file: %s at address: 0x%X", fdl_path, fdl_addr);
+		fdl2_path_json = fdl_path;
+		fdl2_addr_json = fdl_addr;
 		std::string dtxt = helper.getLabelText(helper.getWidget("con"));
 		helper.setLabelText(helper.getWidget("con"), dtxt + " -> FDL Executing");
 		//Send fdl2
@@ -1628,8 +1672,25 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			helper.setLabelText(helper.getWidget("mode"), "FDL2");
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
+		if(!(helper.getSwitchState(helper.getWidget("exec_addr"))) && device_mode == SPRD3) 
+		{
+			FILE* json_file = oxfopen("fdl_info.json", "w");
+			if (json_file) 
+			{
+				json j = {
+					{"fdl1_path", fdl1_path_json},
+					{"fdl1_addr", fdl1_addr_json},
+					{"fdl2_path", fdl2_path_json},
+					{"fdl2_addr", fdl2_addr_json}
+				};
+				fprintf(json_file, "%s\n", j.dump().c_str());
+				fclose(json_file);
+			}
+		}
 
 	} else {
+		fdl1_path_json = fdl_path;
+		fdl1_addr_json = fdl_addr;
 		DEG_LOG(I, "Executing FDL file: %s at address: 0x%X", fdl_path, fdl_addr);
 		std::string dtxt = helper.getLabelText(helper.getWidget("con"));
 		helper.setLabelText(helper.getWidget("con"), dtxt + " -> FDL Executing");
@@ -1792,17 +1853,21 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
 			}
 			fdl1_loaded = 1;
-			gui_idle_call_wait_drag([helper]() mutable {
-				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("FDL1 Executed"), _("FDL1 executed successfully!"));
-				helper.setLabelText(helper.getWidget("mode"), "FDL1");
-				helper.setLabelText(helper.getWidget("con"), "Connected");
-			},GTK_WINDOW(helper.getWidget("main_window")));
+			if(waitFDL1 == -1){
+				gui_idle_call_wait_drag([helper]() mutable {
+					showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("FDL1 Executed"), _("FDL1 executed successfully!"));
+					helper.setLabelText(helper.getWidget("mode"), "FDL1");
+					helper.setLabelText(helper.getWidget("con"), "Connected");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+			}
+			waitFDL1 = 1;
 
 		}).detach();
 
 	}
-
+	
 }
+
 
 int gtk_kmain(int argc, char** argv) {
 	DEG_LOG(I, "Starting GUI mode...");
@@ -1918,6 +1983,7 @@ int main(int argc, char** argv) {
 	signal(SIGILL, crash_handler);    // 非法指令
 #ifdef __linux__
 	signal(SIGKILL, crash_handler);   // 杀死进程(Linux)
+	signal(SIGIOT, crash_handler);    // IOT Trap (Linux)
 #endif
 	signal(SIGTERM, crash_handler);   // 终止信号
 	if (argc > 1 && !strcmp(argv[1], "--no-gui")) {

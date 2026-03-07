@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <thread>
 #include <stddef.h>
-
+#include "nlohmann/json.hpp" // json for auto sending FDL
 #include <stdint.h>
 
 #ifdef _MSC_VER

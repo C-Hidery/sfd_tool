@@ -3,6 +3,8 @@ int isCancel = 0;
 bool isHelperInit = false;
 GtkWidgetHelper helper;
 #include "unpac.hpp"
+#include <iostream>
+#include <filesystem>
 bool Err_Showed = false;
 void ERR_EXIT(const char* format, ...) {
 	va_list args;
@@ -57,6 +59,7 @@ void ERR_EXIT(const char* format, ...) {
     	helper.disableWidget("abpart_auto");
     	helper.disableWidget("abpart_a");
     	helper.disableWidget("abpart_b");
+		helper.disableWidget("pac_flash_start");
 	}
 	std::thread([](){
 #ifdef _WIN32
@@ -102,6 +105,287 @@ FILE* xfopen(const char* fn, const char* mode) {
     // Linux/macOS等系统直接使用fopen，因为这些系统默认使用UTF-8
     return fopen(fn, mode);
 #endif
+}
+std::string ExtractPartitionsWithTags(const std::string& xmlContent) {
+    std::regex pattern("<Partitions>.*?</Partitions>", std::regex::icase);
+    std::smatch match;
+    
+    if (std::regex_search(xmlContent, match, pattern)) {
+        return match.str();
+    }
+    return "";
+}
+std::string FindFirstXMLFile(const std::string& folderPath) {
+	namespace fs = std::filesystem;
+    try {
+        if (!fs::exists(folderPath)) {
+            std::cerr << "Floder not found: " << folderPath << std::endl;
+            return "";
+        }
+        
+        for (const auto& entry : fs::directory_iterator(folderPath)) {
+            if (entry.is_regular_file()) {
+                std::string filename = entry.path().filename().string();
+                // 检查扩展名是否为.xml（不区分大小写）
+                std::string ext = entry.path().extension().string();
+                if (ext == ".xml" || ext == ".XML") {
+                    return entry.path().string(); // 返回完整路径
+                }
+            }
+        }
+    } catch (const fs::filesystem_error& e) {
+        std::cerr << "File system error: " << e.what() << std::endl;
+    }
+    
+    return ""; // 没找到
+}
+bool pac_extract(const char* fn, const char* floder)
+{	
+	int pac_part_count;
+	Unpac unpac;
+	unpac.setDirectory(floder);
+	if(!unpac.openPacFile(fn)) {
+		DEG_LOG(E,"Failed to open PAC file.\n");
+		if(isHelperInit) {
+			gui_idle_call_wait_drag([](){
+				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Failed to open PAC file.\n无法打开PAC文件\n");
+			},GTK_WINDOW(helper.getWidget("main_window")));
+		}
+		return false;
+	}
+	unpac.setFilter(0, NULL);
+	if(!unpac.extractFiles()) {
+		DEG_LOG(E,"Failed to extract files from PAC file.\n");
+		if(isHelperInit) {
+			gui_idle_call_wait_drag([](){
+				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Failed to extract files from PAC file.\n无法从PAC文件中提取文件\n");
+			},GTK_WINDOW(helper.getWidget("main_window")));
+		}
+		return false;
+	}
+	unpac.listFiles();
+	unpac.close();
+	std::string xmlPath = FindFirstXMLFile(floder);
+	if(xmlPath.empty()) {
+		if(isHelperInit) gui_idle_call_wait_drag([](){
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "No XML file found in the extracted folder.\n在解压后的文件夹中未找到XML文件\n");
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		DEG_LOG(E, "No XML file found in the extracted folder.");
+		return false;
+	}
+	std::ifstream file(xmlPath);
+    std::string content((std::istreambuf_iterator<char>(file)), 
+                        std::istreambuf_iterator<char>());
+    
+    std::string partxml = ExtractPartitionsWithTags(content);
+    if (partxml.empty())
+    {
+        if(isHelperInit) gui_idle_call_wait_drag([](){
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "No partition info found in xml\n不能在xml中找到分区信息\n");
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		DEG_LOG(E, "No partition info found in xml");
+		return false;
+    }
+	FILE* fi = oxfopen("partitions_temp.xml","w");
+	if(fi) {
+		fwrite(partxml.c_str(), 1, partxml.size(), fi);
+		fclose(fi);
+	}
+	else {
+		DEG_LOG(E, "Failed to create temporary partitions XML file.");
+		ERR_EXIT("Failed to create temporary partitions XML file.\n无法创建临时分区XML文件\n");
+	}
+	partition_t* pacptable = NEWN partition_t[128];
+	uint32_t buf_size = 0xffff;
+	uint8_t* buf = NEWN uint8_t[0x4c * 128];
+	const char *part1 = "Partitions>";
+	char *src, *p; size_t fsize = 0;
+	int part1_len = strlen(part1), found = 0, stage = 0;
+	src = (char *)loadfile("partitions_temp.xml", &fsize, 1);
+	if (!src) ERR_EXIT("loadfile failed\n");
+	src[fsize] = 0;
+	p = src;
+	for (;;) {
+		int i, a = *p++, n; char c; long long size;
+		if (a == ' ' || a == '\t' || a == '\n' || a == '\r') continue;
+		if (a != '<') {
+			if (!a) break;
+			if (stage != 1) continue;
+			DEG_LOG(E,"xml: unexpected symbol\n");
+			if(isHelperInit) gui_idle_call_wait_drag([](){
+				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Unexpected symbol in XML file.\nXML文件中出现了意外的符号\n");
+			},GTK_WINDOW(helper.getWidget("main_window")));
+			return false;
+		}
+		if (!memcmp(p, "!--", 3)) {
+			p = strstr(p + 3, "--");
+			if (!p || !((p[-1] - '!') | (p[-2] - '<')) || p[2] != '>')
+			{
+				DEG_LOG(E,"xml: unexpected syntax\n");
+				if(isHelperInit) gui_idle_call_wait_drag([](){
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Unexpected syntax in XML file.\nXML文件中出现了意外的语法\n");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				return false;
+			}
+			p += 3;
+			continue;
+		}
+		if (stage != 1) {
+			stage += !memcmp(p, part1, part1_len);
+			if (stage > 2)
+			{
+				DEG_LOG(E,"xml: more than one partition lists\n");
+				if(isHelperInit) gui_idle_call_wait_drag([](){
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "More than one partition list found in XML file.\nXML文件中找到多个分区列表\n");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				return false;
+			}
+			p = strchr(p, '>');
+			if (!p) {
+				DEG_LOG(E,"xml: unexpected syntax\n");
+				if(isHelperInit) gui_idle_call_wait_drag([](){
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Unexpected syntax in XML file.\nXML文件中出现了意外的语法\n");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				return false;
+			}
+			p++;
+			continue;
+		}
+		if (*p == '/' && !memcmp(p + 1, part1, part1_len)) {
+			p = p + 1 + part1_len;
+			stage++;
+			continue;
+		}
+		i = sscanf(p, "Partition id=\"%35[^\"]\" size=\"%lli\"/%n%c", (*(pacptable + found)).name, &size, &n, &c);
+		if (i != 3 || c != '>')
+		{
+			DEG_LOG(E,"xml: unexpected syntax\n");
+			if(isHelperInit) gui_idle_call_wait_drag([](){
+				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Unexpected syntax in XML file.\nXML文件中出现了意外的语法\n");
+			},GTK_WINDOW(helper.getWidget("main_window")));
+			return false;
+		}
+		p += n + 1;
+		if (buf_size < 0x4c)
+		{
+			DEG_LOG(E,"xml: too many partitions\n");
+			if(isHelperInit) gui_idle_call_wait_drag([](){
+				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Too many partitions in XML file.\nXML文件中的分区数量过多\n");
+			},GTK_WINDOW(helper.getWidget("main_window")));
+			return false;
+		}
+			
+		buf_size -= 0x4c;
+		memset(buf, 0, 36 * 2);
+		for (i = 0; (a = (*(pacptable + found)).name[i]); i++) buf[i * 2] = a;
+		if (!i) 
+		{
+			DEG_LOG(E,"xml: empty partition name\n");
+			if(isHelperInit) gui_idle_call_wait_drag([](){
+				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Empty partition name found in XML file.\nXML文件中发现了空的分区名称\n");
+			},GTK_WINDOW(helper.getWidget("main_window")));
+			return false;
+		}
+		WRITE32_LE(buf + 0x48, size);
+		buf += 0x4c;
+		DBG_LOG("[%d] %s, %d\n", found + 1, (*(pacptable + found)).name, (int)size);
+		(*(pacptable + found)).size = size << 20;
+		found++;
+	}
+	pac_part_count = found;
+	if (p - 1 != src + fsize) {
+		DEG_LOG(E,"xml: zero byte\n");
+		if(isHelperInit) gui_idle_call_wait_drag([](){
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Zero byte found in XML file.\nXML文件中发现了零字节\n");
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		return false;
+	}
+	if (stage != 2) {
+		DEG_LOG(E,"xml: unexpected syntax\n");
+		if(isHelperInit) gui_idle_call_wait_drag([](){
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Unexpected syntax in XML file.\nXML文件中出现了意外的语法\n");
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		return false;
+	}
+	delete[] src;
+	delete[] buf;
+	const std::vector<partition_t>& partitions = std::vector<partition_t>(pacptable, pacptable + pac_part_count);
+	// 获取列表视图
+	GtkWidget* part_list = helper.getWidget("pac_list");
+	if (!part_list || !GTK_IS_TREE_VIEW(part_list)) {
+		std::cerr << "pac_list not found or not a TreeView" << std::endl;
+		if(isHelperInit) gui_idle_call_wait_drag([](){
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Partition list view not found.\n未找到分区列表视图\n");
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		return false;
+	}
+
+	// 获取列表存储模型
+	GtkTreeModel* model = gtk_tree_view_get_model(GTK_TREE_VIEW(part_list));
+	if (!model) {
+		std::cerr << "TreeView model not found" << std::endl;
+		if(isHelperInit) gui_idle_call_wait_drag([](){
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Partition list model not found.\n未找到分区列表模型\n");
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		return false;
+	}
+
+	// 清空现有数据
+	GtkListStore* store = GTK_LIST_STORE(model);
+	gtk_list_store_clear(store);
+
+	// 添加分区数据
+	int index = 1;
+	GtkTreeIter iter_spl;
+	gtk_list_store_append(store, &iter_spl);
+	long long spl_size = g_spl_size > 0 ? g_spl_size : 0;
+	std::string display_name = std::to_string(index) + ". splloader";
+	std::string size_str;
+	if (spl_size < 1024) {
+		size_str = std::to_string(spl_size) + " B";
+	} else {
+		size_str = std::to_string(spl_size / 1024) + " KB";
+	}
+	gtk_list_store_set(store, &iter_spl,
+	                   0, display_name.c_str(),   // 显示名称（带序号）
+	                   1, size_str.c_str(),       // 格式化的大小
+	                   2, "splloader",            // 原始分区名
+	                   -1);
+
+	index++;  // 递增序号
+	for (const auto& partition : partitions) {
+		GtkTreeIter iter;
+		gtk_list_store_append(store, &iter);
+
+		// 格式化显示文本
+		std::string display_name = std::to_string(index) + ". " + partition.name;
+
+		// 格式化大小显示
+		std::string size_str;
+		if (partition.size < 1024) {
+			size_str = std::to_string(partition.size) + " B";
+		} else if (partition.size < 1024 * 1024) {
+			size_str = std::to_string(partition.size / 1024) + " KB";
+		} else if (partition.size < 1024 * 1024 * 1024) {
+			size_str = std::to_string(partition.size / (1024 * 1024)) + " MB";
+		} else {
+			size_str = std::to_string(partition.size / (1024 * 1024 * 1024.0)) + " GB";
+		}
+
+		// 设置行数据
+		gtk_list_store_set(store, &iter,
+		                   0, display_name.c_str(),  // 显示名称（带序号）
+		                   1, size_str.c_str(),      // 格式化的大小
+		                   2, partition.name,        // 原始分区名（隐藏列，可选）
+		                   -1);
+
+		index++;
+	}
+
+	// 更新显示
+	gtk_widget_queue_draw(part_list);
+	delete[] pacptable;
+	return true;
 }
 
 FILE *my_fopen(const char *fn, const char *mode) {
@@ -234,7 +518,7 @@ DWORD *FindPort(const char *USB_DL) {
 			if (temp == nullptr) {
 				DEG_LOG(E,"Memory allocation failed.");
 				SetupDiDestroyDeviceInfoList(DeviceInfoSet);
-				delete[](ports);
+				free(ports);
 				ports = nullptr;
 				return nullptr;
 			}
@@ -274,7 +558,7 @@ libusb_device **FindPort(int pid) {
 			if (temp == nullptr) {
 				DEG_LOG(E,"Memory allocation failed.");
 				libusb_free_device_list(devs, 1);
-				delete[](ports);
+				free(ports);
 				ports = nullptr;
 				return nullptr;
 			}

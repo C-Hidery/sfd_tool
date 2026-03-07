@@ -2,7 +2,7 @@
 # sfd_tool DEB build script
 set -e
 
-VERSION="1.7.5.2"
+VERSION="1.7.6.0"
 APPNAME="sfd_tool"
 PKGNAME="sfd-tool"
 ARCHIVE="${PKGNAME}-${VERSION}"
@@ -23,7 +23,7 @@ rm -rf /tmp/build-$PKGNAME
 mkdir -p /tmp/build-$PKGNAME/$ARCHIVE
 
 # 复制文件
-cp -r *.cpp *.h *.hpp *.txt *.md *.desktop Makefile Lib locale /tmp/build-$PKGNAME/$ARCHIVE/
+cp -r *.cpp *.h *.hpp *.txt *.md *.desktop Makefile nlohmann Lib locale pages /tmp/build-$PKGNAME/$ARCHIVE/
 [ -f icon.png ] && cp icon.png /tmp/build-$PKGNAME/$ARCHIVE/
 
 # 复制debian目录

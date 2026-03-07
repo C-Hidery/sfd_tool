@@ -138,38 +138,40 @@ void print_help() {
 	    "\t\tDisable AVB verification by patching trustos(FDL2 only)\n"
 		"\t36.scan_partition [PARTITION TABLE XML]\n"
 		"\tGet partition table through scanning a partition xml file\n"
+		"\t37.pac [PAC FILE]\n"
+		"\t\tFlash PAC firmware to the device\n"
 	    "Debug commands:\n"
-	    "\t37.skip_confirm {0,1}\n"
+	    "\t38.skip_confirm {0,1}\n"
 	    "\t\tSkips all confirmation prompts(use with caution!)\n"
-	    "\t38.keep_charge\n"
+	    "\t39.keep_charge\n"
 	    "\t\tKeep charge in FDL1/FDL2 stage.\n"
-	    "\t39.send_end_data {0,1}\n"
+	    "\t40.send_end_data {0,1}\n"
 	    "\t\tSends end data after file transfer.\n"
-	    "\t40.rawdata {0,1,2}\n"
+	    "\t41.rawdata {0,1,2}\n"
 	    "\t\tEnable raw_data mode for file sending to get better speed.\n"
 	    "\t\t(Not all FDL2 support.)\n"
-	    "\t41.slot {0,1,2}\n"
+	    "\t42.slot {0,1,2}\n"
 	    "\t\tSelect slot auto|a|b on VAB devices.\n"
-	    "\t42.chip_uid\n"
+	    "\t43.chip_uid\n"
 	    "\t\tReads the chip UID (FDL2 stage only).\n"
-	    "\t43.transcode {0,1}\n"
+	    "\t44.transcode {0,1}\n"
 	    "\t\tEnable or disable transcode mode (FDL2 stage only).\n"
-	    "\t44.sendloop [ADDR]\n"
+	    "\t45.sendloop [ADDR]\n"
 	    "\t\tSend [0, 0, 0, 0] packet to a specified address, then send addresses in a loop of [0, 0, 0, 0] packet to sequentially decrease by 8\n"
-	    "\t45.write_word\n"
+	    "\t46.write_word\n"
 	    "\t\tWrite a HEX number word to a specified address.\n"
-	    "\t46.read_nand\n"
+	    "\t47.read_nand\n"
 	    "\t\tDetermine whether the current device is a NAND model; not all devices are supported.(through 0x0D)\n"
-	    "\t47.sendcmd [TYPE] <FILE>\n"
+	    "\t48.sendcmd [TYPE] <FILE>\n"
 	    "\t\tSend a specified command (with a file)\n"
-	    "\t48.pactime\n"
+	    "\t49.pactime\n"
 	    "\t\tRead the last time the PAC firmware was flashed.\n"
-		"\t49.read_flash [ADDR] [OFFSET] [SIZE] [FILE]\n"
+		"\t50.read_flash [ADDR] [OFFSET] [SIZE] [FILE]\n"
 		"\t\tRead flash content to a file\n"
 		"\t\t`read_flash_dhtb` for reading DHTB Signature for ums9117\n"
-		"\t50.read_mem [ADDR] [SIZE] [FILE]\n"
+		"\t51.read_mem [ADDR] [SIZE] [FILE]\n"
 		"\t\tRead memory content to a file\n"
-		"\t51.erase_flash [ADDR] [SIZE]\n"
+		"\t52.erase_flash [ADDR] [SIZE]\n"
 		"\t\tErase flash content\n"
 	    "Notice:\n"
 	    "\t1.The compatibility method to get part table sometimes can not get all partitions on your device\n"
@@ -178,10 +180,10 @@ void print_help() {
 	);
 	DBG_LOG(
 	    "\nExit Commands\n"
-	    "\t52.reboot-recovery\n\t\tFDL2 only\n"
-	    "\t53.reboot-fastboot\n\t\tFDL2 only\n"
-	    "\t54.reset\n\t\tFDL2 and new FDL1\n"
-	    "\t55.poweroff\n\t\tFDL2 and new FDL1\n"
+	    "\t53.reboot-recovery\n\t\tFDL2 only\n"
+	    "\t54.reboot-fastboot\n\t\tFDL2 only\n"
+	    "\t55.reset\n\t\tFDL2 and new FDL1\n"
+	    "\t56.poweroff\n,\t\tFDL2 and new FDL1\n"
 	);
 }
 void ThrowExit() {
@@ -200,7 +202,8 @@ void ThrowExit() {
 int main_console(int argc, char** argv) {
 	ThrowExit();
 	spdio_t* io = nullptr;
-	int ret, conn_wait = 30 * REOPEN_FREQ;
+	int ret;
+	int conn_wait = 30 * REOPEN_FREQ;
 	int keep_charge = 1, end_data = 0, blk_size = 0, skip_confirm = 1, highspeed = 0, cve_v2 = 0;
 	int nand_info[3];
 	int argcount = 0, stage = -1, nand_id = DEFAULT_NAND_ID;
@@ -239,7 +242,7 @@ int main_console(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	snprintf(fn_partlist, sizeof(fn_partlist), "partition_%lld.xml", (long long)time(nullptr));
-	printf("sfd_tool Long-time version 1.7.5.2 Console mode\n");
+	printf("sfd_tool Long-time version 1.7.6.0 Console mode\n");
 	printf("Copyright 2026 Ryan Crepa\n");
 #if _DEBUG
 	DBG_LOG("version:debug, core version:%s\n", Version);
@@ -618,7 +621,7 @@ int main_console(int argc, char** argv) {
 	//get in interaction
 
 	while (1) {
-		//TODO
+		signal(SIGINT, SIG_DFL);
 		if (argc > 1) {
 			str2 = NEWN char*[argc * sizeof(char*)];
 			if (fdl1_loaded == -1) {
@@ -1555,7 +1558,32 @@ rloop:
 			argc -= 2;
 			argv += 2;
 
-		} else if (!strcmp(str2[1], "part_table")) {
+		} 
+		else if(!strcmp(str2[1], "pac")){
+			const char* fn;
+			FILE* fi;
+			if (argcount <= 2) {
+				DEG_LOG(W, "pac FILE");
+				argc = 1;
+				continue;
+			}
+			fn = str2[2];
+			fi = oxfopen(fn, "r");
+			if (fi == nullptr) {
+				DEG_LOG(E, "File does not exist.");
+				argc -= 2;
+				argv += 2;
+				continue;
+			} else fclose(fi);
+			if(check_confirm("flash pac"))
+			{
+				pac_extract(fn, "pac_extract");
+				load_partitions(io, "pac_extract", blk_size ? blk_size : DEFAULT_BLK_SIZE, selected_ab, isCMethod);
+			}
+			argc -= 2;
+			argv += 2;
+		}
+		else if (!strcmp(str2[1], "part_table")) {
 			if (!isCMethod) {
 				if (argcount <= 2) {
 					DEG_LOG(W, "part_table FILE");
