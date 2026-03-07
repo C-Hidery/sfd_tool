@@ -144,9 +144,15 @@ void pac_extract(const char* fn, const char* floder)
 	int pac_part_count;
 	Unpac unpac;
 	unpac.setDirectory(floder);
-	unpac.openPacFile(fn);
+	if(!unpac.openPacFile(fn)) {
+		ERR_EXIT("Failed to open PAC file.\n");
+	}
 	unpac.setFilter(0, NULL);
-	unpac.extractFiles();
+	if(!unpac.extractFiles()) {
+		ERR_EXIT("Failed to extract files from PAC file.\n");
+	}
+	unpac.listFiles();
+	unpac.close();
 	std::string xmlPath = FindFirstXMLFile(floder);
 	if(xmlPath.empty()) {
 		gui_idle_call_wait_drag([](){
@@ -158,7 +164,7 @@ void pac_extract(const char* fn, const char* floder)
     std::string content((std::istreambuf_iterator<char>(file)), 
                         std::istreambuf_iterator<char>());
     
-    std::string partxml = ExtractPartitionsContent(content);
+    std::string partxml = ExtractPartitionsWithTags(content);
     if (partxml.empty())
     {
         gui_idle_call_wait_drag([](){
@@ -303,7 +309,7 @@ void pac_extract(const char* fn, const char* floder)
 
 	// 更新显示
 	gtk_widget_queue_draw(part_list);
-	delete[] pacptable
+	delete[] pacptable;
 }
 
 FILE *my_fopen(const char *fn, const char *mode) {

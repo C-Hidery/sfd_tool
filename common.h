@@ -36,6 +36,7 @@
 #include <math.h>
 #include <time.h>
 #include "GtkWidgetHelper.hpp"
+#include <regex>
 #include <fstream>
 #define NEWN new (std::nothrow)
 #ifndef LIBUSB_DETACH
