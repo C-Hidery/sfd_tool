@@ -13,6 +13,10 @@ enum Stages {
 	SPRD4 = 4
 };
 
+// Checksum finalization modes for spd_checksum
+#define CHK_FIXZERO 1
+#define CHK_ORIG 2
+
 int spd_transcode(uint8_t *dst, uint8_t *src, int len);
 int spd_transcode_max(uint8_t *src, int len, int n);
 unsigned spd_crc16(unsigned crc, const void *src, unsigned len);

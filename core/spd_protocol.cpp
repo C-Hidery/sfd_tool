@@ -38,8 +38,6 @@ unsigned spd_crc16(unsigned crc, const void *src, unsigned len) {
 	return crc;
 }
 
-#define CHK_FIXZERO 1
-#define CHK_ORIG 2
 
 unsigned spd_checksum(unsigned crc, const void *src, int len, int final) {
 	uint8_t *s = (uint8_t *)src;
