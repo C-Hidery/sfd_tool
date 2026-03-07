@@ -2,7 +2,7 @@
 
 [**中文文档**](https://github.com/RockerHX/sfd_tool/blob/master/README_ZH.md)
 
-![Logo](icon.png)
+![Logo](/assets/icon.png)
 
 ![License](https://img.shields.io/github/license/C-Hidery/sfd_tool)
 
