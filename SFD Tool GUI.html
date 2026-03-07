@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SFD Tool GUI By Ryan Crepa - GTK3</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* GTK+3 Adwaita Dark Theme CSS Variables */
+        :root {
+            --gtk-bg-color: #353535;
+            --gtk-base-color: #2d2d2d;
+            --gtk-fg-color: #eeeeee;
+            --gtk-border-color: #1b1b1b;
+            --gtk-button-bg: #414141;
+            --gtk-button-hover: #4e4e4e;
+            --gtk-button-active: #2d2d2d;
+            --gtk-accent-bg: #3584e4;
+            --gtk-accent-hover: #4a90d9;
+            --gtk-accent-active: #15539e;
+            --gtk-headerbar-bg: #2d2d2d;
+            --gtk-tab-inactive: #2d2d2d;
+        }
+
+        body {
+            font-family: "Cantarell", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--gtk-bg-color);
+            color: var(--gtk-fg-color);
+            font-size: 14px;
+            user-select: none;
+        }
+
+        /* HeaderBar */
+        .gtk-headerbar {
+            background-color: var(--gtk-headerbar-bg);
+            border-bottom: 1px solid var(--gtk-border-color);
+            box-shadow: inset 0 1px rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 8px;
+            height: 46px;
+        }
+
+        .gtk-window-controls {
+            display: flex;
+            gap: 6px;
+        }
+
+        .gtk-win-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--gtk-button-bg);
+            border: 1px solid var(--gtk-border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: inset 0 1px rgba(255, 255, 255, 0.02);
+        }
+
+        .gtk-win-btn:hover {
+            background: var(--gtk-button-hover);
+        }
+
+        /* Notebook (Tabs) */
+        .gtk-notebook-header {
+            display: flex;
+            background-color: var(--gtk-base-color);
+            padding: 8px 8px 0 8px;
+            border-bottom: 1px solid var(--gtk-border-color);
+            box-shadow: inset 0 1px rgba(255, 255, 255, 0.02);
+            overflow-x: auto;
+        }
+
+        .gtk-notebook-header::-webkit-scrollbar {
+            display: none;
+        }
+
+        .gtk-tab {
+            padding: 6px 16px;
+            border: 1px solid transparent;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            color: #9a9a9a;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.1s;
+            white-space: nowrap;
+        }
+
+        .gtk-tab:hover {
+            color: var(--gtk-fg-color);
+        }
+
+        .gtk-tab.active {
+            background-color: var(--gtk-bg-color);
+            border-color: var(--gtk-border-color);
+            color: var(--gtk-fg-color);
+            margin-bottom: -1px;
+            padding-bottom: 7px;
+        }
+
+        /* Generic Controls */
+        .gtk-button {
+            background-color: var(--gtk-button-bg);
+            border: 1px solid var(--gtk-border-color);
+            color: var(--gtk-fg-color);
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: inset 0 1px rgba(255, 255, 255, 0.02), 0 1px 1px rgba(0, 0, 0, 0.1);
+            transition: all 0.1s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .gtk-button:hover {
+            background-color: var(--gtk-button-hover);
+        }
+
+        .gtk-button:active {
+            background-color: var(--gtk-button-active);
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        .gtk-button.suggested-action {
+            background-color: var(--gtk-accent-bg);
+            border-color: #11407a;
+            color: #ffffff;
+            font-weight: bold;
+        }
+
+        .gtk-button.suggested-action:hover {
+            background-color: var(--gtk-accent-hover);
+        }
+
+        .gtk-button.suggested-action:active {
+            background-color: var(--gtk-accent-active);
+        }
+
+        .gtk-button.destructive-action {
+            background-color: #a51d2d;
+            border-color: #7a1622;
+            color: #ffffff;
+        }
+
+        .gtk-button.destructive-action:hover {
+            background-color: #c01c28;
+        }
+
+        .gtk-button.destructive-action:active {
+            background-color: #7a1622;
+        }
+
+        .gtk-entry {
+            background-color: var(--gtk-base-color);
+            border: 1px solid var(--gtk-border-color);
+            color: var(--gtk-fg-color);
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-size: 14px;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+            outline: none;
+        }
+
+        .gtk-entry:focus {
+            border-color: var(--gtk-accent-bg);
+            box-shadow: inset 0 0 0 1px var(--gtk-accent-bg);
+        }
+
+        /* GTK Slider (GtkScale) */
+        .gtk-scale {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            margin: 10px 0;
+        }
+
+        .gtk-scale:focus {
+            outline: none;
+        }
+
+        .gtk-scale::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: var(--gtk-border-color);
+            border-radius: 2px;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        .gtk-scale::-webkit-slider-thumb {
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: var(--gtk-fg-color);
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -7px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--gtk-border-color);
+        }
+
+        /* Linked Controls (GtkBox.linked) */
+        .gtk-linked {
+            display: flex;
+        }
+
+        .gtk-linked>*:not(:first-child) {
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+            border-left: none;
+        }
+
+        .gtk-linked>*:not(:last-child) {
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .gtk-linked>.gtk-entry:focus {
+            z-index: 1;
+        }
+
+        /* ======== 核心修改：GtkFrame 居中标签样式 ======== */
+        .gtk-frame {
+            border: 1px solid var(--gtk-border-color);
+            border-radius: 4px;
+            padding: 16px;
+            position: relative;
+            margin-top: 16px;
+            width: 100%;
+        }
+
+        .gtk-frame-label {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--gtk-bg-color);
+            padding: 0 10px;
+            font-weight: bold;
+            color: var(--gtk-fg-color);
+            white-space: nowrap;
+            font-size: 13.5px;
+        }
+
+        /* GtkTreeView */
+        .gtk-treeview {
+            background-color: var(--gtk-base-color);
+            border: 1px solid var(--gtk-border-color);
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .gtk-treeview-header {
+            background-color: var(--gtk-bg-color);
+            border-bottom: 1px solid var(--gtk-border-color);
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        .gtk-treeview-row {
+            border-bottom: 1px solid var(--gtk-border-color);
+            cursor: pointer;
+            transition: background-color 0.1s;
+        }
+
+        .gtk-treeview-row:hover {
+            background-color: var(--gtk-button-hover);
+        }
+
+        .gtk-treeview-row.selected {
+            background-color: var(--gtk-accent-bg);
+            color: white;
+        }
+
+        /* GtkSwitch */
+        .gtk-switch-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 0;
+        }
+
+        .gtk-switch {
+            appearance: none;
+            width: 44px;
+            height: 24px;
+            background-color: var(--gtk-button-bg);
+            border: 1px solid var(--gtk-border-color);
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+            outline: none;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.2s;
+        }
+
+        .gtk-switch::after {
+            content: '';
+            position: absolute;
+            top: 1px;
+            left: 1px;
+            width: 20px;
+            height: 20px;
+            background-color: #dfdfdf;
+            border: 1px solid var(--gtk-border-color);
+            border-radius: 50%;
+            transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        .gtk-switch:checked {
+            background-color: var(--gtk-accent-bg);
+            border-color: var(--gtk-accent-active);
+        }
+
+        .gtk-switch:checked::after {
+            transform: translateX(20px);
+            background-color: #ffffff;
+        }
+
+        /* GtkProgressBar */
+        .gtk-progressbar {
+            height: 6px;
+            background-color: var(--gtk-base-color);
+            border: 1px solid var(--gtk-border-color);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .gtk-progressbar-fill {
+            height: 100%;
+            background-color: var(--gtk-accent-bg);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--gtk-bg-color);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--gtk-button-bg);
+            border: 1px solid var(--gtk-border-color);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--gtk-button-hover);
+        }
+
+        .hidden-pane {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- GTK HeaderBar -->
+    <header class="gtk-headerbar shrink-0">
+        <div class="w-24"></div>
+        <div class="font-bold tracking-wide text-[15px]">SFD Tool GUI <span class="font-normal opacity-70">By Ryan
+                Crepa</span></div>
+        <div class="gtk-window-controls w-24 justify-end">
+            <button class="gtk-win-btn" title="Minimize"><i data-lucide="minus" class="w-3 h-3"></i></button>
+            <button class="gtk-win-btn" title="Maximize"><i data-lucide="square" class="w-3 h-3"></i></button>
+            <button class="gtk-win-btn" title="Close"><i data-lucide="x" class="w-3 h-3"></i></button>
+        </div>
+    </header>
+
+    <!-- GTK Notebook (Tabs) -->
+    <nav class="gtk-notebook-header shrink-0">
+        <div class="gtk-tab active" data-target="pane-0">连接</div>
+        <div class="gtk-tab" data-target="pane-1">分区操作</div>
+        <div class="gtk-tab" data-target="pane-2">手动操作</div>
+        <div class="gtk-tab" data-target="pane-3">高级操作</div>
+        <div class="gtk-tab" data-target="pane-4">高级设置</div>
+        <div class="gtk-tab" data-target="pane-5">调试设置</div>
+        <div class="gtk-tab" data-target="pane-7">日志</div>
+        <div class="gtk-tab" data-target="pane-6">关于</div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-y-auto p-6 flex justify-center">
+
+        <!-- ================= Pane 0: 连接 ================= -->
+        <div id="pane-0" class="tab-pane w-full max-w-4xl flex flex-col gap-6">
+            <div class="text-center py-2">
+                <h1 class="text-2xl font-bold mb-2">欢迎使用SFD Tool GUI!</h1>
+                <p class="text-[15px] font-bold text-[#3584e4] mb-1">请将你的设备连接到BROM模式</p>
+                <p class="text-sm opacity-70">按住音量增大或减小键和电源键进行连接</p>
+            </div>
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">FDL发送设置</div>
+                <div class="flex flex-col gap-4 mt-2">
+                    <div class="flex items-center gap-3">
+                        <label class="w-24 text-right">FDL文件路径 :</label>
+                        <div class="gtk-linked flex-1">
+                            <input type="text" class="gtk-entry flex-1" readonly placeholder="未选择文件...">
+                            <button class="gtk-button px-3" title="浏览文件"><i data-lucide="folder-open"
+                                    class="w-4 h-4"></i></button>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <label class="w-24 text-right">FDL发送地址 :</label>
+                        <input type="text" class="gtk-entry flex-1 font-mono" placeholder="0x00000000">
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="w-24"></div>
+                        <button class="gtk-button flex-1 justify-center py-2">执行</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-6">
+                <div class="gtk-frame">
+                    <div class="gtk-frame-label">CVE Bypass Options</div>
+                    <div class="flex flex-col gap-3 mt-2">
+                        <label class="gtk-switch-container">
+                            <span>利用漏洞绕过FDL签名验证</span>
+                            <input type="checkbox" class="gtk-switch">
+                        </label>
+                        <label class="gtk-switch-container">
+                            <span>启用CVE v2</span>
+                            <input type="checkbox" class="gtk-switch">
+                        </label>
+                        <div class="flex items-center gap-3 py-1 mt-auto">
+                            <label class="whitespace-nowrap">CVE可执行镜像</label>
+                            <div class="gtk-linked flex-1">
+                                <input type="text" class="gtk-entry w-full" readonly>
+                                <button class="gtk-button px-3"><i data-lucide="more-horizontal"
+                                        class="w-4 h-4"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="gtk-frame">
+                    <div class="gtk-frame-label">SPRD4 Options</div>
+                    <div class="flex flex-col gap-3 mt-2">
+                        <label class="gtk-switch-container">
+                            <span>使用SPRD4模式</span>
+                            <input type="checkbox" class="gtk-switch">
+                        </label>
+                        <label class="gtk-switch-container">
+                            <span>Kick单次模式</span>
+                            <input type="checkbox" class="gtk-switch">
+                        </label>
+                        <div class="flex items-center gap-3 py-1 mt-auto">
+                            <label class="whitespace-nowrap">CVE镜像地址</label>
+                            <input type="text" class="gtk-entry flex-1 font-mono">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col items-center gap-4 mt-6 pb-8">
+                <button class="gtk-button suggested-action w-full max-w-sm py-3 text-base">连 接</button>
+                <div class="flex items-center gap-3 mt-2">
+                    <span>连接等待时间 (s):</span>
+                    <div class="gtk-linked">
+                        <input type="text" value="30" class="gtk-entry w-16 text-center" id="spin-input">
+                        <button class="gtk-button px-2" id="spin-up"><i data-lucide="chevron-up"
+                                class="w-4 h-4"></i></button>
+                        <button class="gtk-button px-2" id="spin-down"><i data-lucide="chevron-down"
+                                class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= Pane 1: 分区操作 ================= -->
+        <div id="pane-1" class="tab-pane hidden-pane w-full max-w-5xl flex flex-col gap-4 pb-8">
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">请选择一个分区</div>
+                <div class="gtk-treeview min-h-[300px] mt-2 shadow-inner">
+                    <div class="gtk-treeview-header grid grid-cols-3">
+                        <div class="px-4 py-2 border-r border-[var(--gtk-border-color)] font-bold text-left opacity-70">
+                            分区名称</div>
+                        <div class="px-4 py-2 border-r border-[var(--gtk-border-color)] font-bold text-left opacity-70">
+                            大小</div>
+                        <div class="px-4 py-2 font-bold text-left opacity-70">类型</div>
+                    </div>
+                    <div class="flex-1 bg-[var(--gtk-base-color)]"></div>
+                </div>
+            </div>
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">操作</div>
+                <div class="flex flex-col gap-2 mt-1">
+                    <div class="flex gap-2">
+                        <button class="gtk-button flex-1 py-2">刷写</button>
+                        <button class="gtk-button flex-1 py-2">强制刷写</button>
+                        <button class="gtk-button flex-1 py-2">读取分区</button>
+                        <button class="gtk-button flex-1 py-2">擦除分区</button>
+                        <button class="gtk-button flex-1 py-2">备份全部分区</button>
+                    </div>
+                    <div class="flex gap-2 mt-1">
+                        <button class="gtk-button w-[140px] py-2">取消</button>
+                        <button class="gtk-button flex-1 py-2">通过XML文件获取分区列表</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="gtk-frame pb-6">
+                <div class="gtk-frame-label">修改分区表</div>
+                <div class="flex flex-col gap-4 mt-2">
+
+                    <div class="gtk-frame !mt-4">
+                        <div class="gtk-frame-label">修改分区大小</div>
+                        <div class="flex flex-col gap-3 mt-1">
+                            <span class="text-[13px] opacity-80">请选择你想修改大小的分区</span>
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <label class="whitespace-nowrap text-[13px]">连带受影响第二分区</label>
+                                <input type="text" class="gtk-entry w-48">
+                                <label class="whitespace-nowrap ml-2 text-[13px]">新大小 (MB)</label>
+                                <input type="text" class="gtk-entry w-32">
+                                <button class="gtk-button w-24 ml-2">修改</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="gtk-frame !mt-4">
+                        <div class="gtk-frame-label">添加分区</div>
+                        <div class="flex flex-col gap-3 mt-1">
+                            <span class="text-[13px] opacity-80">输入分区名称：</span>
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <label class="whitespace-nowrap text-[13px]">分区名:</label>
+                                <input type="text" class="gtk-entry w-32">
+                                <label class="whitespace-nowrap ml-2 text-[13px]">大小 (MB) :</label>
+                                <input type="text" class="gtk-entry w-24">
+                                <label class="whitespace-nowrap ml-2 text-[13px]">新分区放置在该分区之后:</label>
+                                <input type="text" class="gtk-entry w-40">
+                                <button class="gtk-button w-24 ml-2">修改</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="gtk-frame !mt-4">
+                        <div class="gtk-frame-label">移除分区</div>
+                        <div class="flex flex-col gap-3 mt-1">
+                            <span class="text-[13px] opacity-80">请选择一个你想要移除的分区</span>
+                            <div class="flex items-center gap-3">
+                                <button class="gtk-button destructive-action w-24">删除</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="gtk-frame !mt-4">
+                        <div class="gtk-frame-label">重命名分区</div>
+                        <div class="flex flex-col gap-3 mt-1">
+                            <span class="text-[13px] opacity-80">请选择一个你想重命名的分区</span>
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <label class="whitespace-nowrap text-[13px]">新名称</label>
+                                <input type="text" class="gtk-entry w-48">
+                                <button class="gtk-button w-24 ml-2">修改</button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= Pane 2: 手动操作 ================= -->
+        <div id="pane-2" class="tab-pane hidden-pane w-full max-w-4xl flex flex-col gap-6 pt-4 pb-8">
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">刷写分区 (Write)</div>
+                <div class="flex flex-col gap-4 mt-2 px-8">
+                    <div class="flex items-center gap-4">
+                        <label class="w-28 text-right">分区名 :</label>
+                        <input type="text" class="gtk-entry flex-1">
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <label class="w-28 text-right">镜像文件路径 :</label>
+                        <div class="gtk-linked flex-1">
+                            <input type="text" class="gtk-entry flex-1" readonly>
+                            <button class="gtk-button px-3">...</button>
+                        </div>
+                    </div>
+                    <button class="gtk-button w-full mt-2 py-2">刷写</button>
+                </div>
+            </div>
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">读取分区 (Extract)</div>
+                <div class="flex flex-col gap-4 mt-2 px-8">
+                    <div class="flex items-center gap-4">
+                        <label class="w-28 text-right">分区名 :</label>
+                        <input type="text" class="gtk-entry flex-1">
+                    </div>
+                    <button class="gtk-button w-full mt-2 py-2">读取分区</button>
+                </div>
+            </div>
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">擦除分区 (Erase)</div>
+                <div class="flex flex-col gap-4 mt-2 px-8">
+                    <div class="flex items-center gap-4">
+                        <label class="w-28 text-right">分区名 :</label>
+                        <input type="text" class="gtk-entry flex-1">
+                    </div>
+                    <button class="gtk-button w-full mt-2 py-2">擦除分区</button>
+                </div>
+            </div>
+
+            <div class="px-8 mt-2">
+                <button class="gtk-button w-full py-2">取消</button>
+            </div>
+        </div>
+
+        <!-- ================= Pane 3: 高级操作 ================= -->
+        <div id="pane-3" class="tab-pane hidden-pane w-full max-w-4xl flex flex-col gap-6 pt-6 pb-8">
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">切换A/B分区启动设置</div>
+                <div class="flex gap-6 w-full justify-center mt-2 py-2">
+                    <button class="gtk-button py-2 w-64">启动A分区</button>
+                    <button class="gtk-button py-2 w-64">启动B分区</button>
+                </div>
+            </div>
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">重新分区</div>
+                <div class="flex flex-col items-center gap-4 mt-2">
+                    <span class="text-[14px]">XML分区表文件路径</span>
+                    <div class="flex gap-3 w-full justify-center">
+                        <div class="gtk-linked w-[400px]">
+                            <input type="text" class="gtk-entry flex-1" readonly>
+                            <button class="gtk-button px-3">...</button>
+                        </div>
+                        <button class="gtk-button w-24">开始</button>
+                    </div>
+                    <button class="gtk-button w-full max-w-[508px] py-2 mt-2">备份分区表到XML文件（如果支持）</button>
+                </div>
+            </div>
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">DM验证和AVB设置（如果支持）</div>
+                <div class="flex gap-6 w-full justify-center mt-2 py-2">
+                    <button class="gtk-button py-2 w-64">禁用DM-verity和AVB (Android 10+)</button>
+                    <button class="gtk-button py-2 w-64">启用DM-verity和AVB (Android 10+)</button>
+                </div>
+            </div>
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">TrustOS AVB设置</div>
+                <div class="flex justify-center mt-2 py-2">
+                    <button class="gtk-button py-2 w-full max-w-[528px]">【警告】修补trustos以禁用AVB校验 (Android 9及以下)</button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ================= Pane 4: 高级设置 ================= -->
+        <div id="pane-4" class="tab-pane hidden-pane w-full max-w-5xl flex flex-col gap-5 pt-4 pb-8">
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">数据块大小</div>
+                <div class="flex flex-col gap-2 mt-2">
+                    <div class="flex justify-end items-center px-4">
+                        <span class="font-mono">10000</span>
+                    </div>
+                    <div class="flex items-center gap-4 px-4">
+                        <input type="range" class="gtk-scale" min="1000" max="20000" value="10000">
+                        <span class="font-mono text-[13px] opacity-70">10000</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">Rawdata模式支持数值：{1, 2}</div>
+                <div class="flex items-center gap-6 px-4 py-2 justify-center">
+                    <button class="gtk-button w-48 py-2">启用Rawdata模式</button>
+                    <button class="gtk-button w-48 py-2">禁用Rawdata模式</button>
+                    <div class="flex items-center gap-2 ml-4">
+                        <span class="font-bold">数值：</span>
+                        <input type="text" class="gtk-entry w-32">
+                    </div>
+                </div>
+            </div>
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">转码 --- FDL1/2</div>
+                <div class="flex items-center gap-6 px-4 py-2 justify-center">
+                    <button class="gtk-button w-48 py-2">启用转码 --- FDL1</button>
+                    <button class="gtk-button w-48 py-2">禁用转码 --- FDL2</button>
+                </div>
+            </div>
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">充电模式 --- BROM</div>
+                <div class="flex items-center gap-6 px-4 py-2 justify-center">
+                    <button class="gtk-button w-48 py-2">启用充电模式 --- BROM</button>
+                    <button class="gtk-button w-48 py-2">禁用充电模式 --- BROM</button>
+                </div>
+            </div>
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">发送结束块数据</div>
+                <div class="flex items-center gap-6 px-4 py-2 justify-center">
+                    <button class="gtk-button w-48 py-2">开启发送End Data</button>
+                    <button class="gtk-button w-48 py-2">关闭发送End Data</button>
+                </div>
+            </div>
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">A/B分区刷写手工干预 --- FDL2</div>
+                <div class="flex items-center gap-6 px-4 py-2 justify-center">
+                    <button class="gtk-button w-48 py-2">非A/B分区（传统）--- FDL2</button>
+                    <button class="gtk-button w-48 py-2">仅操作A分区组 --- FDL2</button>
+                    <button class="gtk-button w-48 py-2">仅操作B分区组 --- FDL2</button>
+                </div>
+            </div>
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">操作超时重试倒计时</div>
+                <div class="flex justify-center items-center gap-4 px-4 py-2">
+                    <div class="gtk-linked">
+                        <input type="text" value="3000" class="gtk-entry w-24 text-center">
+                        <button class="gtk-button px-2"><i data-lucide="minus" class="w-4 h-4"></i></button>
+                        <button class="gtk-button px-2"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ================= Pane 5: 调试设置 ================= -->
+        <div id="pane-5" class="tab-pane hidden-pane w-full max-w-4xl flex flex-col pt-8 pb-8 h-full relative gap-8">
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">Pactime</div>
+                <div class="flex justify-center py-4">
+                    <button class="gtk-button py-3 w-[80%] max-w-[500px]">读取PAC烧录时间记录</button>
+                </div>
+            </div>
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">Chip UID</div>
+                <div class="flex justify-center py-4">
+                    <button class="gtk-button py-3 w-[80%] max-w-[500px]">获取芯片硬件UID</button>
+                </div>
+            </div>
+
+            <div class="gtk-frame">
+                <div class="gtk-frame-label">Storage Check</div>
+                <div class="flex justify-center py-4">
+                    <button class="gtk-button py-3 w-[80%] max-w-[500px]">检查NAND存储标识</button>
+                </div>
+            </div>
+
+            <div class="mt-auto text-center text-[13px] pb-12">
+                <p class="font-bold">调试选项页面</p>
+                <p class="opacity-80">此页面包含设备调试功能</p>
+            </div>
+        </div>
+
+        <!-- ================= Pane 6: 日志 ================= -->
+        <div id="pane-7" class="tab-pane hidden-pane w-full max-w-5xl flex flex-col gap-4 h-full pb-6">
+            <textarea class="gtk-entry flex-1 resize-none font-mono p-4" readonly></textarea>
+            <div class="flex gap-4">
+                <button class="gtk-button py-2 w-32">导出</button>
+                <button class="gtk-button py-2 w-32">清空</button>
+            </div>
+        </div>
+
+        <!-- ================= Pane 7: 关于 ================= -->
+        <div id="pane-6" class="tab-pane hidden-pane w-full max-w-5xl flex flex-col h-full">
+            <textarea
+                class="gtk-entry flex-1 resize-none font-mono text-[13px] leading-relaxed p-4 bg-transparent border-transparent shadow-none"
+                readonly>SFD Tool GUI
+
+Version 1.7.5.2 LTV Edition
+
+Copyright 2026 Ryan Crepa  QQ:3285087232  @Bilibili RyanCrepa
+
+Version logs:
+
+---v 1.7.1.0---
+First GUI Version
+---v 1.7.1.1---
+Fix check_confirm issue
+---v 1.7.1.2---
+Add Force write function when partition list is available
+---v 1.7.2.0---
+Add debug options
+---v 1.7.2.1---
+Add root permission check for Linux
+---v 1.7.2.2---
+Add dis_avb function
+---v 1.7.2.3---
+Fix some bugs
+---v 1.7.3.0---
+Add some advanced settings
+---v 1.7.3.1---
+Add SPRD4 one-time kick mode
+---v 1.7.3.2---
+Fix some bugs
+---v 1.7.3.3---
+Fix dis_avb func
+---v 1.7.3.4---
+Fix some bugs, improved UI
+---v 1.7.3.5---
+Fix some bugs
+---v 1.7.4.0---
+Add window dragging detection for Windows dialog-showing issue
+---v 1.7.4.1---
+Add CVE v2 function, fix some bugs</textarea>
+        </div>
+
+    </main>
+
+    <!-- Bottom Action & Status Area -->
+    <footer class="shrink-0 flex flex-col mt-auto z-10">
+        <!-- Device Action Buttons -->
+        <div
+            class="flex gap-2 justify-center py-3 border-t border-[var(--gtk-border-color)] bg-[var(--gtk-base-color)]">
+            <button class="gtk-button min-w-[120px]">关机</button>
+            <button class="gtk-button min-w-[120px]">重启</button>
+            <button class="gtk-button min-w-[120px]">重启到恢复模式</button>
+            <button class="gtk-button min-w-[120px]">重启到线刷模式</button>
+        </div>
+
+        <!-- StatusBar -->
+        <div class="bg-[var(--gtk-bg-color)] border-t border-[var(--gtk-border-color)] p-2">
+            <!-- Progress Bar -->
+            <div class="gtk-progressbar mb-2 mx-2">
+                <div class="gtk-progressbar-fill" style="width: 0%;"></div>
+            </div>
+
+            <div class="flex justify-between items-center px-2 text-xs font-mono">
+                <div class="flex gap-6">
+                    <span class="flex items-center gap-2">
+                        <span class="opacity-70">Status:</span> 未连接
+                    </span>
+                    <span class="flex items-center gap-2">
+                        <span class="opacity-70">Mode:</span>
+                        <span class="text-red-400 font-bold">BROM 未连接!!!</span>
+                    </span>
+                    <span class="flex items-center gap-2">
+                        <span class="opacity-70">Storage:</span> Unknown
+                    </span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="opacity-70 font-sans">进度:</span> 0%
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // 初始化 Icons
+        lucide.createIcons();
+
+        // Tabs 切换逻辑
+        const tabs = document.querySelectorAll('.gtk-tab[data-target]');
+        const panes = document.querySelectorAll('.tab-pane');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                panes.forEach(p => p.classList.add('hidden-pane'));
+
+                tab.classList.add('active');
+                const targetId = tab.getAttribute('data-target');
+                if (targetId) {
+                    const pane = document.getElementById(targetId);
+                    if (pane) pane.classList.remove('hidden-pane');
+                }
+            });
+        });
+
+        // 模拟连接页面中的 SpinButton 逻辑
+        const spinInput = document.getElementById('spin-input');
+        if (spinInput) {
+            document.getElementById('spin-up').addEventListener('click', () => {
+                spinInput.value = parseInt(spinInput.value || 0) + 1;
+            });
+            document.getElementById('spin-down').addEventListener('click', () => {
+                let val = parseInt(spinInput.value || 0);
+                if (val > 0) spinInput.value = val - 1;
+            });
+        }
+    </script>
+</body>
+
+</html>

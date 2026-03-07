@@ -241,7 +241,7 @@ int main_console(int argc, char** argv) {
 	io->handle = createClass();
 	call_Initialize(io->handle);
 #endif
-	sprintf(fn_partlist, "partition_%lld.xml", (long long)time(nullptr));
+	snprintf(fn_partlist, sizeof(fn_partlist), "partition_%lld.xml", (long long)time(nullptr));
 	printf("sfd_tool Long-time version 1.7.6.0 Console mode\n");
 	printf("Copyright 2026 Ryan Crepa\n");
 #if _DEBUG
@@ -725,7 +725,7 @@ int main_console(int argc, char** argv) {
 			FILE* fi;
 			if (0 == fdl1_loaded && argcount > 2) {
 				exec_addr = strtoul(str2[3], nullptr, 0);
-				sprintf(execfile, str2[2]);
+				snprintf(execfile, ARGV_LEN, "%s", str2[2]);
 				fi = oxfopen(execfile, "r");
 				if (fi == nullptr) {
 					DEG_LOG(W, "%s does not exist", execfile);
@@ -1202,7 +1202,7 @@ int main_console(int argc, char** argv) {
 				continue;
 			}
 			//func
-			dump_flash(io, addr, offset, size, fn, blk_size ? blk_size : 1024, isReadDHTB);
+			dump_flash(io, (uint32_t)addr, (uint32_t)offset, (uint32_t)size, fn, blk_size ? blk_size : 1024, isReadDHTB);
 			argc -= 5;
 			argv += 5;
 
@@ -1307,7 +1307,7 @@ int main_console(int argc, char** argv) {
 
 			name = str2[2];
 			if (selected_ab < 0) select_ab(io);
-			long r = (long long)check_partition(io, name, 0);
+			long long r = (long long)check_partition(io, name, 0);
 			if (r == 1) {
 				DEG_LOG(I, "%s: Exist.", name);
 			} else if (r == 0) {
@@ -1330,7 +1330,8 @@ int main_console(int argc, char** argv) {
 				length = ftell(fi);
 				if (length) {
 					fseek(fi, 0, SEEK_SET);
-					fread(io->temp_buf, 1, length, fi);
+					size_t temp_fread_res = fread(io->temp_buf, 1, length, fi);
+					(void)temp_fread_res;
 				}
 				fclose(fi);
 			}
@@ -1918,7 +1919,7 @@ rloop:
 					continue;
 				}
 			}
-			w_mem_to_part_offset(io, name, offset, src, length, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
+			w_mem_to_part_offset(io, name, (size_t)offset, src, length, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 			delete[](src);
 			argc -= 4;
 			argv += 4;
@@ -2106,7 +2107,7 @@ rloop:
 			argv += 1;
 		} else if (!strcmp(str2[1], "transcode")) {
 			const char* se = str2[2];
-			if (se == "1") {
+			if (strcmp(se, "1") == 0) {
 				unsigned a, f;
 				if (argcount <= 2) {
 					DEG_LOG(W, "transcode {0,1}");
@@ -2122,7 +2123,7 @@ rloop:
 				}
 				f = (io->flags & ~FLAGS_TRANSCODE);
 				io->flags = f | (a ? FLAGS_TRANSCODE : 0);
-			} else if (se == "0") {
+			} else if (strcmp(se, "0") == 0) {
 				unsigned a;
 				if (argcount <= 2) {
 					DEG_LOG(E, "transcode {0,1}");

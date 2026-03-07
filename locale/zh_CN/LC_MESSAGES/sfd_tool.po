@@ -1,0 +1,865 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-06 14:43+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: main.cpp:66 main.cpp:371 main.cpp:491 main.cpp:677 main.cpp:845 main.cpp:998
+#: main.cpp:1678
+msgid "Warning"
+msgstr "警告"
+
+#: main.cpp:66
+msgid ""
+"You are running this tool without root permission!\n"
+"It may cause device connecting issue\n"
+"Recommanded to open this tool with root permission!\n"
+"\n"
+"sudo -E /path/to/sfd_tool"
+msgstr "检测到未使用ROOT权限运行此工具\n可能会引起设备连接问题\n建议在ROOT环境下运行此工具\n\nsudo -E /path/to/sfd_tool"
+
+#: main.cpp:77
+msgid "Program Crash"
+msgstr "程序崩溃"
+
+#: main.cpp:77
+msgid ""
+"The program encountered an unhandled exception, which may be caused by "
+"device connection issues or a bug in the program.\n"
+"\n"
+"It is recommended to check the device connection, ensure the correct options "
+"are used, and try running the tool again."
+msgstr "程序发生了未处理的异常，可能是由于设备连接问题或程序错误引起的。\n\n建议检查设备连接，确保使用了正确的选项，并尝试重新运行工具。"
+
+#: main.cpp:298 main.cpp:304 main.cpp:308 main.cpp:339 main.cpp:345
+#: main.cpp:349 main.cpp:367 main.cpp:408 main.cpp:414 main.cpp:418
+#: main.cpp:443 main.cpp:465 main.cpp:473 main.cpp:481 main.cpp:486
+#: main.cpp:504 main.cpp:516 main.cpp:538 main.cpp:557 main.cpp:569
+#: main.cpp:591 main.cpp:625 main.cpp:651 main.cpp:658 main.cpp:667
+#: main.cpp:672 main.cpp:687 main.cpp:698 main.cpp:737 main.cpp:752
+#: main.cpp:763 main.cpp:802 main.cpp:831 main.cpp:839 main.cpp:857
+#: main.cpp:894 main.cpp:912 main.cpp:949 main.cpp:978 main.cpp:987
+#: main.cpp:993 main.cpp:1010 main.cpp:1033 main.cpp:1052 main.cpp:1075
+#: main.cpp:1106 main.cpp:1121 main.cpp:1136 main.cpp:1157 main.cpp:1179
+#: main.cpp:1191 main.cpp:1203 main.cpp:1224 main.cpp:1256 main.cpp:1265
+#: main.cpp:1269 main.cpp:1296 main.cpp:1305 main.cpp:1309 main.cpp:1330
+#: main.cpp:1338 main.cpp:1359 main.cpp:1371 main.cpp:1378 main.cpp:1392
+#: main.cpp:1399 main.cpp:1413 main.cpp:1445 main.cpp:1453 main.cpp:1509
+#: main.cpp:1522 main.cpp:1543 main.cpp:1549 main.cpp:1564 main.cpp:1591
+#: main.cpp:1643 main.cpp:1671 main.cpp:1695 main.cpp:1757 main.cpp:2109
+msgid "Error"
+msgstr "错误"
+
+#: main.cpp:298 main.cpp:339 main.cpp:408 main.cpp:443 main.cpp:473
+#: main.cpp:625 main.cpp:658 main.cpp:839 main.cpp:987 main.cpp:1106
+#: main.cpp:1121 main.cpp:1136 main.cpp:1157 main.cpp:1179 main.cpp:1191
+#: main.cpp:1256 main.cpp:1296 main.cpp:1330 main.cpp:1359 main.cpp:1371
+#: main.cpp:1392 main.cpp:1413 main.cpp:1445 main.cpp:1509 main.cpp:1522
+#: main.cpp:1564 main.cpp:1591 main.cpp:1643 main.cpp:1671 main.cpp:1757
+#: main.cpp:2109
+msgid "Device unattached, exiting..."
+msgstr "设备已断开连接！正在退出..."
+
+#: main.cpp:304 main.cpp:345
+msgid "No partition list file selected!"
+msgstr "未选择分区列表文件！"
+
+#: main.cpp:308 main.cpp:349 main.cpp:418
+msgid "No partition table loaded, cannot write partition list!"
+msgstr "当前未加载分区表，无法写入分区列表！"
+
+#: main.cpp:326 main.cpp:382 main.cpp:394 main.cpp:431 main.cpp:457
+#: main.cpp:599 main.cpp:810 main.cpp:957 main.cpp:1083 main.cpp:1287
+#: main.cpp:1321 main.cpp:1350 main.cpp:1426 main.cpp:1502 main.cpp:1516
+#: main.cpp:1529 main.cpp:1554
+msgid "Completed"
+msgstr "完成"
+
+#: main.cpp:326 main.cpp:1287
+msgid "Partition write completed!"
+msgstr "分区写入完成！"
+
+#: main.cpp:364 main.cpp:1764 main.cpp:2130 main.cpp:2331
+msgid "Confirm"
+msgstr "确认"
+
+#: main.cpp:364
+msgid "Force writing partitions may brick the device, do you want to continue?"
+msgstr "强制写入分区可能会导致设备变砖，是否继续？"
+
+#: main.cpp:367
+msgid "Force write mode does not allow writing to splloader partition!"
+msgstr "强制写入模式下不允许写入splloader分区！"
+
+#: main.cpp:371
+msgid ""
+"Currently in compatibility-method-PartList mode, force writing may brick the "
+"device!"
+msgstr "当前处于兼容分区表模式，强制写入可能会导致设备变砖！"
+
+#: main.cpp:382 main.cpp:394
+msgid "Partition force write completed!"
+msgstr "分区强制写入完成！"
+
+#: main.cpp:414 main.cpp:1305 main.cpp:1453 main.cpp:1543
+msgid "No save path selected!"
+msgstr "未选择保存路径！"
+
+#: main.cpp:431 main.cpp:1321
+msgid "Partition read completed!"
+msgstr "分区读取完成！"
+
+#: main.cpp:457 main.cpp:1350
+msgid "Partition erase completed!"
+msgstr "分区擦除完成！"
+
+#: main.cpp:465 main.cpp:651 main.cpp:831 main.cpp:978
+msgid "No partition table loaded, cannot modify partition size!"
+msgstr "当前未加载分区表，无法修改分区大小！"
+
+#: main.cpp:481 main.cpp:667 main.cpp:993
+msgid "Please fill in complete modification info!"
+msgstr "请填写完整的修改信息！"
+
+#: main.cpp:486 main.cpp:672
+msgid "Please enter a valid new size!"
+msgstr "请输入合法的新大小！"
+
+#: main.cpp:489 main.cpp:675 main.cpp:843 main.cpp:996
+msgid "Modify partition table"
+msgstr "修改分区表"
+
+#: main.cpp:491 main.cpp:677 main.cpp:845 main.cpp:998
+msgid ""
+"Currently in compatibility-method-PartList mode, modifying partition may "
+"brick the device!"
+msgstr "当前处于兼容分区表模式，修改分区可能会导致设备变砖！"
+
+#: main.cpp:504 main.cpp:557
+msgid "Partition does not exist!"
+msgstr "欲修改分区不存在！"
+
+#: main.cpp:516 main.cpp:569 main.cpp:857 main.cpp:912 main.cpp:1010
+#: main.cpp:1052
+msgid "Second partition does not exist!"
+msgstr "第二分区不存在！"
+
+#: main.cpp:538 main.cpp:591 main.cpp:737 main.cpp:802 main.cpp:894
+#: main.cpp:949 main.cpp:1033 main.cpp:1075
+msgid "Failed to parse modified partition table!"
+msgstr "解析修改后的分区表失败！"
+
+#: main.cpp:599 main.cpp:810 main.cpp:957 main.cpp:1083
+msgid "Partition modification completed!"
+msgstr "分区修改完成！"
+
+#: main.cpp:687 main.cpp:752
+msgid "Partition already exists!"
+msgstr "分区已存在！"
+
+#: main.cpp:698 main.cpp:763
+msgid "Partition after does not exist!"
+msgstr "后一个指定的分区不存在！"
+
+#: main.cpp:1185 main.cpp:1365 main.cpp:1383 main.cpp:1404 main.cpp:1796
+#: main.cpp:2073 main.cpp:2075
+msgid "Tips"
+msgstr "提示"
+
+#: main.cpp:1185 main.cpp:1365
+msgid "Current partition operation cancelled!"
+msgstr "已取消当前分区操作！"
+
+#: main.cpp:1203 main.cpp:1224
+msgid "Partition table not available!"
+msgstr "分区表不可用！"
+
+#: main.cpp:1265
+msgid "No partition image file selected!"
+msgstr "未选择分区镜像文件！"
+
+#: main.cpp:1269 main.cpp:1309 main.cpp:1338
+msgid "No partition name specified!"
+msgstr "未指定分区名称！"
+
+#: main.cpp:1378 main.cpp:1399
+msgid "Device is not using VAB!"
+msgstr "设备不是VAB分区表！"
+
+#: main.cpp:1383
+msgid "Current active partition set to Slot A!"
+msgstr "已设置当前分区为A槽！"
+
+#: main.cpp:1404
+msgid "Current active partition set to Slot B!"
+msgstr "已设置当前分区为B槽！"
+
+#: main.cpp:1426
+msgid "Repartition completed!"
+msgstr "重新分区完成！"
+
+#: main.cpp:1451
+msgid "XML files (*.xml)"
+msgstr "XML文件 (*.xml)"
+
+#: main.cpp:1502
+msgid "Partition table export completed!"
+msgstr "分区表导出完成！"
+
+#: main.cpp:1516
+msgid "DM-Verity and AVB protection enabled!"
+msgstr "已启用DM-Verity和AVB保护！"
+
+#: main.cpp:1529
+msgid "DM-Verity and AVB protection disabled!"
+msgstr "已禁用DM-Verity和AVB保护！"
+
+#: main.cpp:1541
+msgid "Text files (*.txt)"
+msgstr "文本文件 (*.txt)"
+
+#: main.cpp:1549
+msgid "Failed to save log file!"
+msgstr "无法保存日志文件！"
+
+#: main.cpp:1554
+msgid "Log export completed!"
+msgstr "日志导出完成！"
+
+#: main.cpp:1583 main.cpp:1636 main.cpp:1661 main.cpp:1664 main.cpp:1691
+#: main.cpp:1707 main.cpp:1708 main.cpp:1712 main.cpp:1719 main.cpp:1725
+#: main.cpp:1729 main.cpp:1733 main.cpp:1737 main.cpp:1741
+msgid "Info"
+msgstr "信息"
+
+#: main.cpp:1678
+msgid ""
+"This operation may break your device, and not all devices support this, if "
+"your device is broken, flash backup in backup_tos, continue?"
+msgstr "此操作可能会使你的设备损坏，并且不是所有设备都支持此操作，如果设备损坏，请刷回backup_tos里的备份，是否继续？"
+
+#: main.cpp:1691
+msgid "Disabled AVB successfully, the backup trustos is tos_bak.bin"
+msgstr "禁用AVB成功，原版trustos是tos_bak.bin"
+
+#: main.cpp:1695
+msgid "Disabled AVB failed, go to console window to see why"
+msgstr "禁用AVB失败，请检查控制台窗口输出内容"
+
+#: main.cpp:1707
+msgid "Successfully enabled raw data mode"
+msgstr "启用RawData模式成功"
+
+#: main.cpp:1708
+msgid "Failed to enable raw data mode, please set value!"
+msgstr "启用RawData模式失败，请设置数值！"
+
+#: main.cpp:1712
+msgid "Successfully disabled raw data mode"
+msgstr "禁用RawData模式成功"
+
+#: main.cpp:1719
+msgid "Enabled transcode successfully"
+msgstr "启用转码成功"
+
+#: main.cpp:1725
+msgid "Disabled transcode successfully"
+msgstr "禁用转码成功"
+
+#: main.cpp:1729 main.cpp:1733 main.cpp:1737 main.cpp:1741
+msgid "Set successfully"
+msgstr "设置成功"
+
+#: main.cpp:1764
+msgid ""
+"No partition table found on current device, read partition list through "
+"compatibility method?\n"
+"Warn: This mode may not find all partitions on your device, use caution with "
+"force write or editing partition table!"
+msgstr "当前设备未找到分区表，是否通过兼容方式读取分区列表？\n警告：此模式可能无法找到设备上的所有分区，强制写入或修改分区表时请谨慎使用！"
+
+#: main.cpp:1796
+msgid ""
+"You have entered Reconnect Mode, which only supports compatibility-method "
+"partition list retrieval, and [storage mode/slot mode] can not be gotten!"
+msgstr "你已启动重连模式，重连模式下只能兼容获取分区列表，且不能获取槽位和储存类型！"
+
+#: main.cpp:2070
+msgid "Successfully connected"
+msgstr "连接成功"
+
+#: main.cpp:2070
+msgid "Device already connected! Some advanced settings opened!"
+msgstr "设备已成功连接！部分高级设置已开放！"
+
+#: main.cpp:2073
+msgid "Please execute FDL file to continue!"
+msgstr "请执行FDL以继续！"
+
+#: main.cpp:2075
+msgid ""
+"Since your device is in SPRD4 mode, you can choose to skip FDL setting and "
+"directly execute FDL, but not all devices support that, please proceed with "
+"caution!"
+msgstr "由于你的设备处于SPRD4模式，你可以选择跳过FDL设置直接执行FDL，但是不是所有设备都支持，请谨慎操作！"
+
+#: main.cpp:2130 main.cpp:2331
+msgid "Device can be booted without FDL in SPRD4 mode, continue?"
+msgstr "设备在SPRD4模式下可以无需FDL启动，是否继续？"
+
+#: main.cpp:2267
+msgid "FDL2 Executed"
+msgstr "FDL2执行成功"
+
+#: main.cpp:2267
+msgid "FDL2 executed successfully!"
+msgstr "FDL2已成功执行！"
+
+#: main.cpp:2395
+msgid "High Speed Mode Enabled"
+msgstr "高速模式已启用"
+
+#: main.cpp:2395
+msgid "Do not set block size manually in high speed mode!"
+msgstr "高速模式下请勿手动设置块大小！"
+
+#: main.cpp:2438
+msgid "FDL1 Executed"
+msgstr "FDL1执行成功"
+
+#: main.cpp:2438
+msgid "FDL1 executed successfully!"
+msgstr "FDL1已成功执行！"
+
+#: main.cpp:2536
+msgid "Connect"
+msgstr "连接"
+
+#: main.cpp:2539 main.cpp:2540
+msgid "Welcome to SFD Tool GUI!"
+msgstr "欢迎使用SFD Tool GUI!"
+
+#: main.cpp:2541 main.cpp:2542
+msgid "Please connect your device with BROM mode"
+msgstr "请将你的设备连接到BROM模式"
+
+#: main.cpp:2554 main.cpp:2556
+msgid "Press and hold the volume up or down keys and the power key to connect"
+msgstr "按住音量增大或减小键和电源键进行连接"
+
+#: main.cpp:2560 main.cpp:2561
+msgid "FDL Send Settings"
+msgstr "FDL发送设置"
+
+#: main.cpp:2564
+msgid "FDL File Path :"
+msgstr "FDL文件路径 :"
+
+#: main.cpp:2569
+msgid "FDL Send Address :"
+msgstr "FDL发送地址 :"
+
+#: main.cpp:2573
+msgid "Execute"
+msgstr "执行"
+
+#: main.cpp:2576
+msgid "Advanced"
+msgstr "高级选项"
+
+#: main.cpp:2584
+msgid "Try to use CVE to skip FDL verification"
+msgstr "利用漏洞绕过FDL签名验证"
+
+#: main.cpp:2591
+msgid "CVE Binary File Address"
+msgstr "CVE可执行镜像"
+
+#: main.cpp:2603
+msgid "Kick device to SPRD4"
+msgstr "使用SPRD4模式"
+
+#: main.cpp:2609
+msgid "Kick One-time Mode"
+msgstr "Kick单次模式"
+
+#: main.cpp:2616
+msgid "CVE Addr"
+msgstr "CVE镜像地址"
+
+#: main.cpp:2618
+msgid "Enable CVE v2"
+msgstr "启用CVE v2"
+
+#: main.cpp:2633
+msgid "CONNECT"
+msgstr "连接"
+
+#: main.cpp:2637
+msgid "Wait connection time (s):"
+msgstr "连接等待时间 (s):"
+
+#: main.cpp:2643
+msgid "Status : "
+msgstr "Status : "
+
+#: main.cpp:2644
+msgid "Not connected"
+msgstr "未连接"
+
+#: main.cpp:2645
+msgid "   Mode : "
+msgstr "   Mode : "
+
+#: main.cpp:2646
+msgid "BROM Not connected!!!"
+msgstr "BROM 未连接!!!"
+
+#: main.cpp:2708
+msgid "Partition Operation"
+msgstr "分区操作"
+
+#: main.cpp:2710
+msgid "Please check a partition"
+msgstr "请选择一个分区"
+
+#: main.cpp:2736
+msgid "Operation"
+msgstr "操作"
+
+#: main.cpp:2737 main.cpp:2845
+msgid "WRITE"
+msgstr "刷写"
+
+#: main.cpp:2738
+msgid "FORCE WRITE"
+msgstr "强制刷写"
+
+#: main.cpp:2739 main.cpp:2855
+msgid "EXTRACT"
+msgstr "读取分区"
+
+#: main.cpp:2740 main.cpp:2865
+msgid "ERASE"
+msgstr "擦除分区"
+
+#: main.cpp:2741
+msgid "Backup All"
+msgstr "备份全部分区"
+
+#: main.cpp:2742 main.cpp:2868
+msgid "Cancel"
+msgstr "取消"
+
+#: main.cpp:2743
+msgid "Get partition table through scanning an Xml file"
+msgstr "通过XML文件获取分区列表"
+
+#: main.cpp:2746
+msgid "Modify Partition Table"
+msgstr "修改分区表"
+
+#: main.cpp:2747
+msgid "[Change size] Please check a partition you want to change"
+msgstr "欲修改大小：请选择一个你想修改大小的分区"
+
+#: main.cpp:2748
+msgid "Second-change partition"
+msgstr "连带受影响第二分区"
+
+#: main.cpp:2750
+msgid "New size in MB"
+msgstr "新大小（MB）"
+
+#: main.cpp:2752 main.cpp:2760 main.cpp:2762 main.cpp:2766
+msgid "Modify"
+msgstr "修改"
+
+#: main.cpp:2753
+msgid "[Add partition] Enter partition name:"
+msgstr "欲添加分区：请输入分区名称："
+
+#: main.cpp:2754
+msgid "Part name:"
+msgstr "分区名："
+
+#: main.cpp:2756
+msgid "Size(MB):"
+msgstr "大小（MB）："
+
+#: main.cpp:2758
+msgid "Part after this new part:"
+msgstr "新分区放置在该分区之后："
+
+#: main.cpp:2761
+msgid "[Remove partition] Please check a partition you want to remove"
+msgstr "欲移除分区：请选择一个你想要移除的分区"
+
+#: main.cpp:2763
+msgid "[Rename partition] Please check a partition you want to rename"
+msgstr "欲重命名分区：请选择一个你想重命名的分区"
+
+#: main.cpp:2764
+msgid "New name"
+msgstr "新名称"
+
+#: main.cpp:2834
+msgid "Manually Operate"
+msgstr "手动操作"
+
+#: main.cpp:2837
+msgid "Write partition"
+msgstr "刷写分区 (Write)"
+
+#: main.cpp:2838 main.cpp:2852 main.cpp:2862
+msgid "Partition name:"
+msgstr "分区名："
+
+#: main.cpp:2841
+msgid "Image file path:"
+msgstr "镜像文件路径："
+
+#: main.cpp:2851
+msgid "Extract partition"
+msgstr "读取分区 (Extract)"
+
+#: main.cpp:2861
+msgid "Erase partition"
+msgstr "擦除分区 (Erase)"
+
+#: main.cpp:2915
+msgid "Advanced Operation"
+msgstr "高级操作"
+
+#: main.cpp:2918
+msgid "Toggle the A/B partition boot settings"
+msgstr "切换A/B分区启动设置"
+
+#: main.cpp:2919
+msgid "Boot A partitons"
+msgstr "启动A分区"
+
+#: main.cpp:2920
+msgid "Boot B partitions"
+msgstr "启动B分区"
+
+#: main.cpp:2923
+msgid "Repartition"
+msgstr "重新分区"
+
+#: main.cpp:2924
+msgid "XML part info file path"
+msgstr "XML分区表文件路径"
+
+#: main.cpp:2927
+msgid "START"
+msgstr "开始"
+
+#: main.cpp:2929
+msgid "Extract part info to a XML file (if support)"
+msgstr "备份分区表到XML文件（如果支持）"
+
+#: main.cpp:2933
+msgid "DM-verity and AVB Settings (if support)"
+msgstr "DM验证和AVB设置（如果支持）"
+
+#: main.cpp:2934
+msgid "Disable DM-verity and AVB"
+msgstr "禁用DM-verity和AVB (Android 10+)"
+
+#: main.cpp:2935
+msgid "Enable DM-verity and AVB"
+msgstr "启用DM-verity和AVB (Android 10+)"
+
+#: main.cpp:2938
+msgid "Trustos AVB Settings"
+msgstr "TrustOS AVB设置"
+
+#: main.cpp:2939
+msgid ""
+"[CAUTION] Disable AVB verification by patching trustos(Android 9 and lower)"
+msgstr "【警告】修补trustos以禁用AVB校验 (Android 9及以下)"
+
+#: main.cpp:2981
+msgid "Advanced Settings"
+msgstr "高级设置"
+
+#: main.cpp:2984
+msgid "Data block size"
+msgstr "数据块大小"
+
+#: main.cpp:2997
+msgid "Enable Rawdata mode"
+msgstr "启用Rawdata模式"
+
+#: main.cpp:2999
+msgid "Disable Rawdata mode"
+msgstr "禁用Rawdata模式"
+
+#: main.cpp:3001
+msgid "Value:"
+msgstr "数值："
+
+#: main.cpp:3005
+msgid "Enable transcode - FDL1"
+msgstr "启用转码 --- FDL1"
+
+#: main.cpp:3007
+msgid "Disable transcode --- FDL2"
+msgstr "禁用转码 --- FDL2"
+
+#: main.cpp:3011
+msgid "Enable Charging mode --- BROM"
+msgstr "启用充电模式 --- BROM"
+
+#: main.cpp:3013
+msgid "Disable Charging mode --- BROM"
+msgstr "禁用充电模式 --- BROM"
+
+#: main.cpp:3017
+msgid "Enable sending end data"
+msgstr "开启发送End Data"
+
+#: main.cpp:3019
+msgid "Disable sending end data"
+msgstr "关闭发送End Data"
+
+#: main.cpp:3023
+msgid "Operation timeout"
+msgstr "操作超时重试倒计时"
+
+#: main.cpp:3028
+msgid "Not VAB --- FDL2"
+msgstr "非A/B分区 (传统) --- FDL2"
+
+#: main.cpp:3029
+msgid "A Parts --- FDL2"
+msgstr "仅操作A分区组 --- FDL2"
+
+#: main.cpp:3030
+msgid "B Parts --- FDL2"
+msgstr "仅操作B分区组 --- FDL2"
+
+#: main.cpp:3053
+msgid "Rawdata Mode --- Value support: {1, 2}"
+msgstr "Rawdata模式支持数值：{1, 2}"
+
+#: main.cpp:3067
+msgid "Transcode --- FDL1/2"
+msgstr "转码 --- FDL1/2"
+
+#: main.cpp:3079
+msgid "Charging Mode --- BROM"
+msgstr "充电模式 --- BROM"
+
+#: main.cpp:3091
+msgid "Send End Data"
+msgstr "发送结束块数据"
+
+#: main.cpp:3111
+msgid "A/B Part read/flash manually set --- FDL2"
+msgstr "A/B分区刷写手工干预 --- FDL2"
+
+#: main.cpp:3180
+msgid "Debug Options"
+msgstr "调试设置"
+
+#: main.cpp:3183
+msgid "Get pactime"
+msgstr "读取PAC烧录时间记录"
+
+#: main.cpp:3184
+msgid "Get chip UID"
+msgstr "获取芯片硬件UID"
+
+#: main.cpp:3185
+msgid "Check if NAND Storage"
+msgstr "检查NAND存储标识"
+
+#: main.cpp:3221
+msgid ""
+"Debug Options Page\n"
+"This page contains device debugging functions"
+msgstr "调试选项页面\n此页面包含设备调试功能"
+
+#: main.cpp:3231
+msgid "About"
+msgstr "关于"
+
+#: main.cpp:3253
+msgid "Log"
+msgstr "日志"
+
+#: main.cpp:3266
+msgid "Export"
+msgstr "导出"
+
+#: main.cpp:3267
+msgid "Clear"
+msgstr "清空"
+
+#: main.cpp:3281
+msgid "Progress:"
+msgstr "进度:"
+
+#: main.cpp:3290
+msgid "POWEROFF"
+msgstr "关机"
+
+#: main.cpp:3291
+msgid "REBOOT"
+msgstr "重启"
+
+#: main.cpp:3292
+msgid "BOOT TO RECOVERY"
+msgstr "重启到恢复模式"
+
+#: main.cpp:3293
+msgid "BOOT TO FASTBOOT"
+msgstr "重启到线刷模式"
+
+#: GtkWidgetHelper.cpp:53
+msgid "Select file"
+msgstr "选择文件"
+
+#: GtkWidgetHelper.cpp:56 GtkWidgetHelper.cpp:63 GtkWidgetHelper.cpp:94
+#: GtkWidgetHelper.cpp:169
+msgid "_Cancel"
+msgstr "_取消"
+
+#: GtkWidgetHelper.cpp:57
+msgid "_Open"
+msgstr "_打开"
+
+#: GtkWidgetHelper.cpp:60
+msgid "Save file"
+msgstr "保存文件"
+
+#: GtkWidgetHelper.cpp:64 GtkWidgetHelper.cpp:170
+msgid "_Save"
+msgstr "_保存"
+
+#: GtkWidgetHelper.cpp:70 GtkWidgetHelper.cpp:188
+msgid "All files (*.*)"
+msgstr "所有文件 (*.*)"
+
+#: GtkWidgetHelper.cpp:91
+msgid "Select folder"
+msgstr "选择文件夹"
+
+#: GtkWidgetHelper.cpp:95
+msgid "_Select"
+msgstr "_选择"
+
+#: GtkWidgetHelper.cpp:166
+msgid "Saving files"
+msgstr "保存文件"
+
+msgid "Change size"
+msgstr "修改分区大小"
+
+msgid "Please check a partition you want to change"
+msgstr "请选择你想要修改大小的分区"
+
+msgid "New size (MB)"
+msgstr "新大小 (MB)"
+
+msgid "Add partition"
+msgstr "添加分区"
+
+msgid "Enter partition name:"
+msgstr "输入分区名称:"
+
+msgid "Size (MB):"
+msgstr "大小 (MB):"
+
+msgid "Remove partition"
+msgstr "移除分区"
+
+msgid "Please check a partition you want to remove"
+msgstr "请选择你想要移除的分区"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "Rename partition"
+msgstr "重构分区名"
+
+msgid "Please check a partition you want to rename"
+msgstr "请选择你想重命名的分区"
+
+msgid "Partition Name"
+msgstr "分区名称"
+
+msgid "Size"
+msgstr "大小"
+
+msgid "Type"
+msgstr "类型"
+
+# ===== PAC Flash 页面翻译 =====
+
+msgid "PAC Flash"
+msgstr "PAC烧录"
+
+msgid "PAC File"
+msgstr "PAC文件"
+
+msgid "PAC File Path"
+msgstr "PAC文件路径"
+
+msgid "Unpack PAC"
+msgstr "解包PAC文件"
+
+msgid "Please select a partition"
+msgstr "请选择一个分区"
+
+msgid "Flash Operation"
+msgstr "烧录操作"
+
+msgid "Select slot mode:"
+msgstr "选择分区槽模式："
+
+msgid "Not VAB (Non-AB)"
+msgstr "非A/B分区（传统）"
+
+msgid "Slot A"
+msgstr "A分区组"
+
+msgid "Slot B"
+msgstr "B分区组"
+
+msgid "START PAC Flash"
+msgstr "开始PAC烧录"
+
+msgid "PAC flash time"
+msgstr "PAC烧录时间"
+
+msgid "PAC Time"
+msgstr "PAC烧录时间"
+
+msgid "Device unattached, exiting...\n设备已断开连接！正在退出..."
+msgstr "设备已断开连接！正在退出..."
+
+msgid "File does not exist.\n文件不存在！"
+msgstr "文件不存在！"
+
+msgid "Failed to unpack PAC file.\nPAC文件解包失败！"
+msgstr "PAC文件解包失败！"
+
+msgid "Device unattached, exiting...\n设备已断开连接！正在退出...\n"
+msgstr "设备已断开连接！正在退出...\n"

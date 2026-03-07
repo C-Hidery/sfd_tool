@@ -1,5 +1,6 @@
 // GtkWidgetHelper.cpp
 #include "GtkWidgetHelper.hpp"
+#include "i18n.h"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -12,10 +13,10 @@ bool isWindowDragging(GtkWindow* window) {
     
     // 获取鼠标状态
     GdkModifierType mask;
-    gdk_window_get_device_position(gdk_window, 
-        gdk_device_manager_get_client_pointer(
-            gdk_display_get_device_manager(gdk_window_get_display(gdk_window))),
-        nullptr, nullptr, &mask);
+    GdkDisplay* display = gdk_window_get_display(gdk_window);
+    GdkSeat* seat = gdk_display_get_default_seat(display);
+    GdkDevice* pointer = gdk_seat_get_pointer(seat);
+    gdk_window_get_device_position(gdk_window, pointer, nullptr, nullptr, &mask);
     
     // 检查左键是否按下（拖动标志）
     return (mask & GDK_BUTTON1_MASK) != 0;
@@ -49,24 +50,24 @@ std::string showFileChooser(GtkWindow* parent, bool open) {
 	GtkWidget* dialog;
 
 	if (open) {
-		dialog = gtk_file_chooser_dialog_new("Select file 选择文件",
+		dialog = gtk_file_chooser_dialog_new(_("Select file"),
 		                                     parent,
 		                                     GTK_FILE_CHOOSER_ACTION_OPEN,
-		                                     "_Cancel取消", GTK_RESPONSE_CANCEL,
-		                                     "_Open打开", GTK_RESPONSE_ACCEPT,
+		                                     _("_Cancel"), GTK_RESPONSE_CANCEL,
+		                                     _("_Open"), GTK_RESPONSE_ACCEPT,
 		                                     NULL);
 	} else {
-		dialog = gtk_file_chooser_dialog_new("Save file 保存文件",
+		dialog = gtk_file_chooser_dialog_new(_("Save file"),
 		                                     parent,
 		                                     GTK_FILE_CHOOSER_ACTION_SAVE,
-		                                     "_Cancel取消", GTK_RESPONSE_CANCEL,
-		                                     "_Save保存", GTK_RESPONSE_ACCEPT,
+		                                     _("_Cancel"), GTK_RESPONSE_CANCEL,
+		                                     _("_Save"), GTK_RESPONSE_ACCEPT,
 		                                     NULL);
 	}
 
 	// 设置过滤器
 	GtkFileFilter* filter = gtk_file_filter_new();
-	gtk_file_filter_set_name(filter, "All files 所有文件 (*.*)");
+	gtk_file_filter_set_name(filter, _("All files (*.*)"));
 	gtk_file_filter_add_pattern(filter, "*");
 	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
 
@@ -87,11 +88,11 @@ std::string showFileChooser(GtkWindow* parent, bool open) {
 
 // 选择文件夹
 const char* showFolderChooser(GtkWindow* parent) {
-	GtkWidget* dialog = gtk_file_chooser_dialog_new("Select folder 选择文件夹",
+	GtkWidget* dialog = gtk_file_chooser_dialog_new(_("Select folder"),
 	                    parent,
 	                    GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER,
-	                    "_Cancel取消", GTK_RESPONSE_CANCEL,
-	                    "_Select选择", GTK_RESPONSE_ACCEPT,
+	                    _("_Cancel"), GTK_RESPONSE_CANCEL,
+	                    _("_Select"), GTK_RESPONSE_ACCEPT,
 	                    NULL);
 
 	gint result = gtk_dialog_run(GTK_DIALOG(dialog));
@@ -162,11 +163,11 @@ bool showConfirmDialog(GtkWindow* parent, const char* title, const char* message
 std::string showSaveFileDialog(GtkWindow* parent,
                                const std::string& default_filename,
                                const std::vector<std::pair<std::string, std::string>>& filters) {
-	GtkWidget* dialog = gtk_file_chooser_dialog_new("Saving files 保存文件",
+	GtkWidget* dialog = gtk_file_chooser_dialog_new(_("Saving files"),
 	                    parent,
 	                    GTK_FILE_CHOOSER_ACTION_SAVE,
-	                    "_Cancel取消", GTK_RESPONSE_CANCEL,
-	                    "_Save保存", GTK_RESPONSE_ACCEPT,
+	                    _("_Cancel"), GTK_RESPONSE_CANCEL,
+	                    _("_Save"), GTK_RESPONSE_ACCEPT,
 	                    NULL);
 
 	// 设置默认文件名
@@ -184,7 +185,7 @@ std::string showSaveFileDialog(GtkWindow* parent,
 
 	// 默认添加"所有文件"过滤器
 	GtkFileFilter* all_filter = gtk_file_filter_new();
-	gtk_file_filter_set_name(all_filter, "All files 所有文件 (*.*)");
+	gtk_file_filter_set_name(all_filter, _("All files (*.*)"));
 	gtk_file_filter_add_pattern(all_filter, "*");
 	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), all_filter);
 
@@ -1234,6 +1235,7 @@ void GtkWidgetHelper::bindRowActivated(GtkWidget* treeview,
         g_signal_connect(treeview, "row-activated",
             G_CALLBACK(+[](GtkTreeView* view, GtkTreePath* path, 
                           GtkTreeViewColumn* col, gpointer data) {
+				(void)view; (void)col;
                 auto func = static_cast<std::function<void(int)>*>(data);
                 if (func) {
                     gint* indices = gtk_tree_path_get_indices(path);

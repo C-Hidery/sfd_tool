@@ -30,6 +30,57 @@
     <ClInclude Include="resource.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="GtkWidgetHelper.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="GenTosNoAvb.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ui_common.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="core\file_io.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="core\logging.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="core\pac_extract.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="core\spd_protocol.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="core\usb_transport.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="pages\page_about.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="pages\page_advanced_op.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="pages\page_advanced_set.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="pages\page_connect.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="pages\page_debug.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="pages\page_log.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="pages\page_manual.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="pages\page_pac_flash.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="pages\page_partition.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="common.cpp">
@@ -44,14 +95,65 @@
     <ClCompile Include="BMPlatform.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="GtkWidgetHelper.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="main_console.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ui_common.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="core\logging.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="core\file_io.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="core\pac_extract.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="core\usb_transport.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="core\spd_protocol.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="pages\page_about.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="pages\page_advanced_op.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="pages\page_advanced_set.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="pages\page_connect.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="pages\page_debug.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="pages\page_log.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="pages\page_manual.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="pages\page_pac_flash.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="pages\page_partition.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="app.rc">
+    <ResourceCompile Include="assets\app.rc">
       <Filter>资源文件</Filter>
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="icon.ico">
+    <Image Include="assets\icon.ico">
       <Filter>资源文件</Filter>
     </Image>
   </ItemGroup>

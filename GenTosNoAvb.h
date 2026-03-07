@@ -132,7 +132,7 @@ public:
                     {
                         if (*(uint16_t *)&mem[i - 4] == 0x3E0 && *(uint8_t *)&mem[i - 7] == 0x3)
                         {
-                            for (int m = start_pos; m < i; m += 4)
+                            for (size_t m = start_pos; m < i; m += 4)
                             {
                                 if (*(uint32_t *)&mem[m] >> 16 == 0x9400)
                                 {
