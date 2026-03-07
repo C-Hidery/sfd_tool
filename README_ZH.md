@@ -19,14 +19,14 @@ sfd_tool是它的一个维护版本（原仓库已存档）
 ``` bash
 sudo apt update
 # Ubuntu/Debian
-sudo apt install libusb-1.0-0-dev gcc g++ libgtk-3-dev pkg-config nlohmann-json3-dev
+sudo apt install libusb-1.0-0-dev gcc g++ libgtk-3-dev pkg-config
 # Fedora/RHEL
-sudo dnf install gcc-c++ gtk3-devel libusb1-devel libusb1 pkgconf-pkg-config make nlohmann-json-devel
+sudo dnf install gcc-c++ gtk3-devel libusb1-devel libusb1 pkgconf-pkg-config make
 # macOS
-brew install libusb gtk+3 pkg-config nlohmann-json
+brew install libusb gtk+3 pkg-config
 # Android(Termux)
 pkg install x11-repo
-pkg install termux-api libusb clang git pkg-config gtk3 glib pango libcairo gdk-pixbuf at-spi2-core xorgproto xorg-util-macros nlohmann-json
+pkg install termux-api libusb clang git pkg-config gtk3 glib pango libcairo gdk-pixbuf at-spi2-core xorgproto xorg-util-macros
 ```
 
 然后make:

@@ -23,7 +23,7 @@ rm -rf /tmp/build-$PKGNAME
 mkdir -p /tmp/build-$PKGNAME/$ARCHIVE
 
 # 复制文件
-cp -r *.cpp *.h *.hpp *.txt *.md *.desktop Makefile Lib /tmp/build-$PKGNAME/$ARCHIVE/
+cp -r *.cpp *.h *.hpp *.txt *.md *.desktop Makefile nlohmann Lib /tmp/build-$PKGNAME/$ARCHIVE/
 [ -f icon.png ] && cp icon.png /tmp/build-$PKGNAME/$ARCHIVE/
 
 # 复制debian目录
