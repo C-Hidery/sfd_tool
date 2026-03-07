@@ -2024,6 +2024,21 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			helper.setLabelText(helper.getWidget("mode"), "FDL2");
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
+		if(!(helper.getSwitchState(helper.getWidget("exec_addr"))) && device_mode == SPRD3) 
+		{
+			FILE* json_file = oxfopen("fdl_info.json", "w");
+			if (json_file) 
+			{
+				json j = {
+					{"fdl1_path", fdl1_path_json ? fdl1_path_json : ""},
+					{"fdl1_addr", fdl1_addr_json},
+					{"fdl2_path", fdl2_path_json ? fdl2_path_json : ""},
+					{"fdl2_addr", fdl2_addr_json}
+				};
+				fprintf(json_file, "%s\n", j.dump().c_str());
+				fclose(json_file);
+			}
+		}
 
 	} else {
 		fdl1_path_json = fdl_path;
@@ -2199,21 +2214,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		}).detach();
 
 	}
-	if(!(helper.getSwitchState(helper.getWidget("exec_addr"))) && device_mode == SPRD3) 
-	{
-		FILE* json_file = oxfopen("fdl_info.json", "w");
-		if (json_file) 
-		{
-			json j = {
-				{"fdl1_path", fdl1_path_json ? fdl1_path_json : ""},
-				{"fdl1_addr", fdl1_addr_json},
-				{"fdl2_path", fdl2_path_json ? fdl2_path_json : ""},
-				{"fdl2_addr", fdl2_addr_json}
-			};
-			fprintf(json_file, "%s\n", j.dump().c_str());
-			fclose(json_file);
-		}
-	}
+	
 }
 void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	GtkWidget* waitBox = helper.getWidget("wait_con");
