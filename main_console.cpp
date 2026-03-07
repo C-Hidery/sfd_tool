@@ -1330,7 +1330,8 @@ int main_console(int argc, char** argv) {
 				length = ftell(fi);
 				if (length) {
 					fseek(fi, 0, SEEK_SET);
-					fread(io->temp_buf, 1, length, fi);
+					size_t temp_fread_res = fread(io->temp_buf, 1, length, fi);
+					(void)temp_fread_res;
 				}
 				fclose(fi);
 			}

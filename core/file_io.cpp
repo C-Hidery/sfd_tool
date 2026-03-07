@@ -117,7 +117,7 @@ FILE* my_xfopen(const char* fn, const char* mode) {
     }
 #else
     // Linux/Mac等系统直接使用fopen
-    file = file = fopen(path_to_open, mode);
+    file = fopen(path_to_open, mode);
 #endif
     
     // 释放临时路径内存
