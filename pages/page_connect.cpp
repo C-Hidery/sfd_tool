@@ -94,7 +94,11 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* fdlCenterBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 	gtk_widget_set_halign(fdlCenterBox, GTK_ALIGN_CENTER);
 
-	GtkWidget* fdlFrame = gtk_frame_new(_("FDL Send Settings"));
+	GtkWidget* fdlFrame = gtk_frame_new(NULL);
+	GtkWidget* fdlLabelTitle = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(fdlLabelTitle), (std::string("<b>") + _("FDL Send Settings") + "</b>").c_str());
+	gtk_frame_set_label_widget(GTK_FRAME(fdlFrame), fdlLabelTitle);
+	gtk_frame_set_label_align(GTK_FRAME(fdlFrame), 0.5, 0.5);
 	gtk_widget_set_size_request(fdlFrame, 600, -1);
 
 	GtkWidget* fdlGrid = gtk_grid_new();
@@ -139,7 +143,11 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_box_set_homogeneous(GTK_BOX(advContainer), TRUE);
 
 	// Left frame for CVE options
-	GtkWidget* cveFrame = gtk_frame_new(_("CVE Bypass Options"));
+	GtkWidget* cveFrame = gtk_frame_new(NULL);
+	GtkWidget* cveLabelTitle = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(cveLabelTitle), (std::string("<b>") + _("CVE Bypass Options") + "</b>").c_str());
+	gtk_frame_set_label_widget(GTK_FRAME(cveFrame), cveLabelTitle);
+	gtk_frame_set_label_align(GTK_FRAME(cveFrame), 0.5, 0.5);
 	GtkWidget* cveGrid = gtk_grid_new();
 	gtk_grid_set_row_spacing(GTK_GRID(cveGrid), 15);
 	gtk_grid_set_column_spacing(GTK_GRID(cveGrid), 10);
@@ -192,7 +200,11 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_grid_attach(GTK_GRID(cveGrid), cveInputBox, 1, 2, 1, 1);
 
 	// Right frame for SPRD4 options
-	GtkWidget* sprdFrame = gtk_frame_new(_("SPRD4 Options"));
+	GtkWidget* sprdFrame = gtk_frame_new(NULL);
+	GtkWidget* sprdLabelTitle = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(sprdLabelTitle), (std::string("<b>") + _("SPRD4 Options") + "</b>").c_str());
+	gtk_frame_set_label_widget(GTK_FRAME(sprdFrame), sprdLabelTitle);
+	gtk_frame_set_label_align(GTK_FRAME(sprdFrame), 0.5, 0.5);
 	GtkWidget* sprdGrid = gtk_grid_new();
 	gtk_grid_set_row_spacing(GTK_GRID(sprdGrid), 15);
 	gtk_grid_set_column_spacing(GTK_GRID(sprdGrid), 10);
