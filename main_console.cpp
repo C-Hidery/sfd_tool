@@ -183,7 +183,7 @@ void print_help() {
 	    "\t53.reboot-recovery\n\t\tFDL2 only\n"
 	    "\t54.reboot-fastboot\n\t\tFDL2 only\n"
 	    "\t55.reset\n\t\tFDL2 and new FDL1\n"
-	    "\t56.poweroff\n\t\tFDL2 and new FDL1\n"
+	    "\t56.poweroff\n,\t\tFDL2 and new FDL1\n"
 	);
 }
 void ThrowExit() {
@@ -202,7 +202,12 @@ void ThrowExit() {
 int main_console(int argc, char** argv) {
 	ThrowExit();
 	spdio_t* io = nullptr;
-	int ret, conn_wait = 30 * REOPEN_FREQ;
+	int ret;
+#ifdef _WIN32
+	int wait = 30 * REOPEN_FREQ;
+#else
+	int conn_wait = 30 * REOPEN_FREQ;
+#endif
 	int keep_charge = 1, end_data = 0, blk_size = 0, skip_confirm = 1, highspeed = 0, cve_v2 = 0;
 	int nand_info[3];
 	int argcount = 0, stage = -1, nand_id = DEFAULT_NAND_ID;
