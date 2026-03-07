@@ -7,7 +7,7 @@ extern spdio_t* io;
 extern int blk_size;
 extern int keep_charge;
 extern int end_data;
-extern int selected_ab;
+extern AppState g_app_state;
 
 static void on_button_clicked_raw_data_en(GtkWidgetHelper helper) {
 	int rawdatay = atoi(helper.getEntryText(helper.getWidget("raw_data_v")));
@@ -60,17 +60,17 @@ static void on_button_clicked_end_data_dis(GtkWidgetHelper helper) {
 
 static void on_button_clicked_abpart_auto(GtkWidgetHelper helper) {
 	(void)helper;
-	selected_ab = 0;
+	g_app_state.selected_ab = 0;
 }
 
 static void on_button_clicked_abpart_a(GtkWidgetHelper helper) {
 	(void)helper;
-	selected_ab = 1;
+	g_app_state.selected_ab = 1;
 }
 
 static void on_button_clicked_abpart_b(GtkWidgetHelper helper) {
 	(void)helper;
-	selected_ab = 2;
+	g_app_state.selected_ab = 2;
 }
 
 GtkWidget* create_advanced_set_page(GtkWidgetHelper& helper, GtkWidget* notebook) {

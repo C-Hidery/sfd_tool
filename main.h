@@ -1,5 +1,6 @@
 #include <cstdint>
-extern int selected_ab;
+#include "core/app_state.h"
+extern AppState g_app_state;
 extern const char* o_exception;
 extern int init_stage;
 extern int bListenLibusb;

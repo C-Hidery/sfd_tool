@@ -5,7 +5,7 @@
 #include <thread>
 
 extern int m_bOpened;
-extern int selected_ab;
+extern AppState g_app_state;
 extern int blk_size;
 extern int isCMethod;
 extern int waitFDL1;
@@ -31,17 +31,17 @@ void on_button_clicked_pac_time(GtkWidgetHelper helper) {
 
 void on_button_clicked_abpart_auto(GtkWidgetHelper helper) {
 	(void)helper;
-	selected_ab = 0;
+	g_app_state.selected_ab = 0;
 }
 
 void on_button_clicked_abpart_a(GtkWidgetHelper helper) {
 	(void)helper;
-	selected_ab = 1;
+	g_app_state.selected_ab = 1;
 }
 
 void on_button_clicked_abpart_b(GtkWidgetHelper helper) {
 	(void)helper;
-	selected_ab = 2;
+	g_app_state.selected_ab = 2;
 }
 
 void on_button_clicked_pac_select(GtkWidgetHelper helper) {
@@ -93,7 +93,7 @@ void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 		io,
 		"pac_unpack_output",
 		blk_size ? blk_size : DEFAULT_BLK_SIZE,
-		selected_ab,
+		g_app_state.selected_ab,
 		isCMethod
 	);
 }

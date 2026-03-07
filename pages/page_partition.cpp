@@ -11,7 +11,7 @@ extern int m_bOpened;
 extern int blk_size;
 extern int isCMethod;
 extern int gpt_failed;
-extern int selected_ab;
+extern AppState g_app_state;
 
 void populatePartitionList(GtkWidgetHelper& helper, const std::vector<partition_t>& partitions) {
 	GtkWidget* part_list = helper.getWidget("part_list");
@@ -980,8 +980,8 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 				if (!strncmp((*(io->ptable + i)).name, "blackbox", 8)) continue;
 				else if (!strncmp((*(io->ptable + i)).name, "cache", 5)) continue;
 				else if (!strncmp((*(io->ptable + i)).name, "userdata", 8)) continue;
-				if (selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_b")) continue;
-				else if (selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_a")) continue;
+				if (g_app_state.selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_b")) continue;
+				else if (g_app_state.selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_a")) continue;
 				snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->ptable + i)).name);
 				dump_partition(io, (*(io->ptable + i)).name, 0, (*(io->ptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
 			}
@@ -1001,8 +1001,8 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 				if (!strncmp((*(io->Cptable + i)).name, "blackbox", 8)) continue;
 				else if (!strncmp((*(io->Cptable + i)).name, "cache", 5)) continue;
 				else if (!strncmp((*(io->Cptable + i)).name, "userdata", 8)) continue;
-				if (selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_b")) continue;
-				else if (selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_a")) continue;
+				if (g_app_state.selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_b")) continue;
+				else if (g_app_state.selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_a")) continue;
 				snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->Cptable + i)).name);
 				dump_partition(io, (*(io->Cptable + i)).name, 0, (*(io->Cptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
 			}
