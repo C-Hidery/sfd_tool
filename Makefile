@@ -85,7 +85,6 @@ LOCALEDIR ?= $(DATADIR)/locale
 
 # CXXFLAGS += $(shell pkg-config --cflags nlohmann_json 2>/dev/null || echo "-I/usr/include/nlohmann")
 # LIBS += $(shell pkg-config --libs nlohmann_json 2>/dev/null || echo "-ljson")
-LIBS += -lexecinfo
 # 默认目标
 .PHONY: all locales
 all: $(APPNAME) locales
