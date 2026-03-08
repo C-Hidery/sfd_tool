@@ -43,6 +43,9 @@ target_link_libraries(sfd_tool
         pages_lib
 )
 
+# 公共目标列表，方便批量设置编译选项
+set(SFD_COMMON_TARGETS sfd_tool core_lib pages_lib)
+
 # 头文件路径
 target_include_directories(sfd_tool
     PRIVATE
@@ -53,14 +56,19 @@ target_include_directories(sfd_tool
 
 # ================= 平台宏 & 基础库 =================
 if (APPLE)
-    target_compile_definitions(sfd_tool PRIVATE MACOS)
+    foreach(tgt IN LISTS SFD_COMMON_TARGETS)
+        target_compile_definitions(${tgt} PRIVATE MACOS)
+    endforeach()
+
     # 对标 Makefile 中的 CoreFoundation / IOKit
     target_link_libraries(sfd_tool PRIVATE
         "-framework CoreFoundation"
         "-framework IOKit"
     )
 elseif (UNIX)
-    target_compile_definitions(sfd_tool PRIVATE LINUX)
+    foreach(tgt IN LISTS SFD_COMMON_TARGETS)
+        target_compile_definitions(${tgt} PRIVATE LINUX)
+    endforeach()
 endif()
 
 # 对标 LIBS = -lm -lpthread
@@ -78,11 +86,18 @@ if (USE_GTK)
 
     pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
 
-    target_compile_definitions(sfd_tool PRIVATE USE_GTK=1)
-    target_include_directories(sfd_tool PRIVATE ${GTK3_INCLUDE_DIRS})
+    foreach(tgt IN LISTS SFD_COMMON_TARGETS)
+        target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
+        target_include_directories(${tgt} PRIVATE ${GTK3_INCLUDE_DIRS})
+        target_link_directories(${tgt} PRIVATE ${GTK3_LIBRARY_DIRS})
+    endforeach()
+
+    # 只在最终可执行文件上链接 GTK 库
     target_link_libraries(sfd_tool PRIVATE ${GTK3_LIBRARIES})
 else()
-    target_compile_definitions(sfd_tool PRIVATE USE_GTK=0)
+    foreach(tgt IN LISTS SFD_COMMON_TARGETS)
+        target_compile_definitions(${tgt} PRIVATE USE_GTK=0)
+    endforeach()
 endif()
 
 # --- libusb ---
@@ -93,11 +108,18 @@ if (USE_LIBUSB)
 
     pkg_check_modules(LIBUSB REQUIRED libusb-1.0)
 
-    target_compile_definitions(sfd_tool PRIVATE USE_LIBUSB=1)
-    target_include_directories(sfd_tool PRIVATE ${LIBUSB_INCLUDE_DIRS})
+    foreach(tgt IN LISTS SFD_COMMON_TARGETS)
+        target_compile_definitions(${tgt} PRIVATE USE_LIBUSB=1)
+        target_include_directories(${tgt} PRIVATE ${LIBUSB_INCLUDE_DIRS})
+        target_link_directories(${tgt} PRIVATE ${LIBUSB_LIBRARY_DIRS})
+    endforeach()
+
+    # 同样只在最终可执行文件上链接 libusb 库
     target_link_libraries(sfd_tool PRIVATE ${LIBUSB_LIBRARIES})
 else()
-    target_compile_definitions(sfd_tool PRIVATE USE_LIBUSB=0)
+    foreach(tgt IN LISTS SFD_COMMON_TARGETS)
+        target_compile_definitions(${tgt} PRIVATE USE_LIBUSB=0)
+    endforeach()
 endif()
 
 # ================= locales 生成 =================
