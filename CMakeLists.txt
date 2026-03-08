@@ -9,7 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # 对标 Makefile: -Wall -Wextra -pedantic -Wno-unused
 if (MSVC)
-    # 留空，当前项目主要面向 *nix / macOS
+    # Windows 下使用 MSVC，保持告警级别，但不强行添加 GCC/Clang 专用选项
 else()
     add_compile_options(-Wall -Wextra -pedantic -Wno-unused)
 endif()
@@ -17,6 +17,9 @@ endif()
 # 对标 Makefile: LIBUSB / GTK 开关
 option(USE_LIBUSB "Enable libusb backend" ON)
 option(USE_GTK "Enable GTK3 UI" ON)
+
+# Termux 支持：与 Makefile 的 termux 目标对应
+option(TERMUX "Enable Termux specific build options" OFF)
 
 # 编译类型对应 make debug/release
 if (NOT CMAKE_BUILD_TYPE)
@@ -65,35 +68,60 @@ if (APPLE)
         "-framework CoreFoundation"
         "-framework IOKit"
     )
+elseif (WIN32)
+    foreach(tgt IN LISTS SFD_COMMON_TARGETS)
+        target_compile_definitions(${tgt} PRIVATE WINDOWS)
+    endforeach()
+
+    # Windows 下不需要显式链接 libm，C 运行库已包含
 elseif (UNIX)
     foreach(tgt IN LISTS SFD_COMMON_TARGETS)
         target_compile_definitions(${tgt} PRIVATE LINUX)
     endforeach()
 endif()
 
+# Termux 额外链接选项（与 Makefile 的 termux 目标对应）
+if (TERMUX)
+    target_compile_definitions(sfd_tool PRIVATE TERMUX)
+    target_link_libraries(sfd_tool PRIVATE execinfo)
+endif()
+
 # 对标 LIBS = -lm -lpthread
 find_package(Threads REQUIRED)
-target_link_libraries(sfd_tool PRIVATE Threads::Threads m)
+# m 库仅在类 Unix 平台需要；Windows 使用 MSVC 运行库
+if (NOT WIN32)
+    target_link_libraries(sfd_tool PRIVATE Threads::Threads m)
+else()
+    target_link_libraries(sfd_tool PRIVATE Threads::Threads)
+endif()
 
 # ================= 依赖：GTK3 / libusb =================
 find_package(PkgConfig QUIET)
 
 # --- GTK3 ---
 if (USE_GTK)
-    if (NOT PKG_CONFIG_FOUND)
-        message(FATAL_ERROR "PkgConfig is required when USE_GTK=ON")
+    if (WIN32)
+        # Windows 下不依赖 pkg-config，由 CI 通过 MSYS2 提供 GTK 路径，
+        # 后续在 CI 中通过环境变量/工具链文件补充 include/lib 目录。
+        foreach(tgt IN LISTS SFD_COMMON_TARGETS)
+            target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
+        endforeach()
+    else()
+        if (NOT PKG_CONFIG_FOUND)
+            message(FATAL_ERROR "PkgConfig is required when USE_GTK=ON")
+        endif()
+
+        pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
+
+        foreach(tgt IN LISTS SFD_COMMON_TARGETS)
+            target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
+            target_include_directories(${tgt} PRIVATE ${GTK3_INCLUDE_DIRS})
+            target_link_directories(${tgt} PRIVATE ${GTK3_LIBRARY_DIRS})
+        endforeach()
+
+        # 只在最终可执行文件上链接 GTK 库
+        target_link_libraries(sfd_tool PRIVATE ${GTK3_LIBRARIES})
     endif()
-
-    pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
-
-    foreach(tgt IN LISTS SFD_COMMON_TARGETS)
-        target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
-        target_include_directories(${tgt} PRIVATE ${GTK3_INCLUDE_DIRS})
-        target_link_directories(${tgt} PRIVATE ${GTK3_LIBRARY_DIRS})
-    endforeach()
-
-    # 只在最终可执行文件上链接 GTK 库
-    target_link_libraries(sfd_tool PRIVATE ${GTK3_LIBRARIES})
 else()
     foreach(tgt IN LISTS SFD_COMMON_TARGETS)
         target_compile_definitions(${tgt} PRIVATE USE_GTK=0)
@@ -102,20 +130,28 @@ endif()
 
 # --- libusb ---
 if (USE_LIBUSB)
-    if (NOT PKG_CONFIG_FOUND)
-        message(FATAL_ERROR "PkgConfig is required when USE_LIBUSB=ON")
+    if (WIN32)
+        # Windows 下 libusb 由 third_party/Lib 提供，链接在 CI 中补充库目录
+        foreach(tgt IN LISTS SFD_COMMON_TARGETS)
+            target_compile_definitions(${tgt} PRIVATE USE_LIBUSB=1)
+            target_include_directories(${tgt} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Lib)
+        endforeach()
+    else()
+        if (NOT PKG_CONFIG_FOUND)
+            message(FATAL_ERROR "PkgConfig is required when USE_LIBUSB=ON")
+        endif()
+
+        pkg_check_modules(LIBUSB REQUIRED libusb-1.0)
+
+        foreach(tgt IN LISTS SFD_COMMON_TARGETS)
+            target_compile_definitions(${tgt} PRIVATE USE_LIBUSB=1)
+            target_include_directories(${tgt} PRIVATE ${LIBUSB_INCLUDE_DIRS})
+            target_link_directories(${tgt} PRIVATE ${LIBUSB_LIBRARY_DIRS})
+        endforeach()
+
+        # 同样只在最终可执行文件上链接 libusb 库
+        target_link_libraries(sfd_tool PRIVATE ${LIBUSB_LIBRARIES})
     endif()
-
-    pkg_check_modules(LIBUSB REQUIRED libusb-1.0)
-
-    foreach(tgt IN LISTS SFD_COMMON_TARGETS)
-        target_compile_definitions(${tgt} PRIVATE USE_LIBUSB=1)
-        target_include_directories(${tgt} PRIVATE ${LIBUSB_INCLUDE_DIRS})
-        target_link_directories(${tgt} PRIVATE ${LIBUSB_LIBRARY_DIRS})
-    endforeach()
-
-    # 同样只在最终可执行文件上链接 libusb 库
-    target_link_libraries(sfd_tool PRIVATE ${LIBUSB_LIBRARIES})
 else()
     foreach(tgt IN LISTS SFD_COMMON_TARGETS)
         target_compile_definitions(${tgt} PRIVATE USE_LIBUSB=0)
