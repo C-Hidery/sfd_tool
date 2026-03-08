@@ -14,6 +14,7 @@ extern int isCMethod;
 extern AppState g_app_state;
 extern int gpt_failed;
 
+
 static void on_button_clicked_set_active_a(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
@@ -107,7 +108,7 @@ static void on_button_clicked_read_xml(GtkWidgetHelper helper) {
 		return;
 	}
 	if (!isCMethod) {
-		if (gpt_failed == 1) io->ptable = partition_list(io, savePath.c_str(), &io->part_count);
+		if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, savePath.c_str(), &io->part_count);
 		if (!io->part_count) {
 			DEG_LOG(E, "Partition table not available");
 			return;

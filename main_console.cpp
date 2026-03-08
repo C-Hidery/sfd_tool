@@ -337,7 +337,7 @@ int main_console(int argc, char** argv) {
 		at = 0;
 	}
 #ifdef __ANDROID__
-	bListenLibusb = 0;
+	g_app_state.bListenLibusb = 0;
 	DEG_LOG(OP, "Try to convert termux transfered usb port fd.");
 	// handle
 	if (xfd < 0)
@@ -358,7 +358,7 @@ int main_console(int argc, char** argv) {
 	call_Initialize_libusb(io);
 #else
 #if !USE_LIBUSB
-	bListenLibusb = 0;
+	g_app_state.bListenLibusb = 0;
 	if (at || bootmode >= 0) {
 		io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
 		if (io->hThread == nullptr) return -1;
@@ -369,7 +369,7 @@ int main_console(int argc, char** argv) {
 #else
 	if (!libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG)) {
 		DBG_LOG("hotplug unsupported on this platform\n");
-		bListenLibusb = 0;
+		g_app_state.bListenLibusb = 0;
 		bootmode = -1;
 		at = 0;
 	}
@@ -379,10 +379,10 @@ int main_console(int argc, char** argv) {
 		conn_wait = 30 * REOPEN_FREQ;
 		stage = -1;
 	}
-	if (bListenLibusb < 0) startUsbEventHandle();
+	if (!g_app_state.bListenLibusb) startUsbEventHandle();
 #endif
 #if _WIN32
-	if (!bListenLibusb) {
+	if (!g_app_state.bListenLibusb) {
 		if (io->hThread == nullptr) io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
 		if (io->hThread == nullptr) return -1;
 	}
@@ -402,7 +402,7 @@ int main_console(int argc, char** argv) {
 		ThrowExit();
 		for (i = 0; ; i++) {
 #if USE_LIBUSB
-			if (bListenLibusb) {
+			if (g_app_state.bListenLibusb) {
 				if (curPort) {
 					if (libusb_open(curPort, &io->dev_handle) >= 0) call_Initialize_libusb(io);
 					else ERR_EXIT("Failed to connect\n");
@@ -1028,7 +1028,7 @@ int main_console(int argc, char** argv) {
 				} else if (Da_Info.dwStorageType == 0x102) {
 					io->ptable = partition_list(io, fn_partlist, &io->part_count);
 				} else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
-				if (gpt_failed != 1) {
+				if (g_app_state.gpt_failed != 1) {
 					if (g_app_state.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
 					else if (g_app_state.selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
 					else {
@@ -1394,7 +1394,7 @@ int main_console(int argc, char** argv) {
 			}
 			if (!strcmp(name, "preset_modem")) {
 				start_signal();
-				if (gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+				if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 				if (!io->part_count) {
 					DEG_LOG(W, "Partition table not available");
 					argc -= 2;
@@ -1419,7 +1419,7 @@ int main_console(int argc, char** argv) {
 				start_signal();
 
 				if (!isCMethod) {
-					if (gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+					if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 					if (!io->part_count) {
 						DEG_LOG(W, "Partition table not available\n");
 						argc -= 2;
@@ -1464,7 +1464,7 @@ int main_console(int argc, char** argv) {
 				start_signal();
 
 				if (!isCMethod) {
-					if (gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+					if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 					if (!io->part_count) {
 						DEG_LOG(E, "Partition table not available\n");
 						argc -= 2;
@@ -1591,7 +1591,7 @@ rloop:
 					argc = 1;
 					continue;
 				}
-				if (gpt_failed == 1) io->ptable = partition_list(io, str2[2], &io->part_count);
+				if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, str2[2], &io->part_count);
 				if (!io->part_count) {
 					DEG_LOG(E, "Partition table not available");
 					argc -= 2;

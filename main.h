@@ -3,8 +3,6 @@
 extern AppState g_app_state;
 extern const char* o_exception;
 extern int init_stage;
-extern int bListenLibusb;
-extern int init_stage;
 extern uint64_t fblk_size;
 extern char str1[2688];
 extern char *temp;
@@ -14,8 +12,6 @@ extern const char* Version;
 extern int fdl1_loaded;
 extern int fdl2_executed;
 extern char mode_str[256];
-extern int device_mode;
-extern int device_stage;
 extern int isCMethod;
 extern int in_quote;
 extern char **str2;

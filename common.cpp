@@ -12,7 +12,6 @@ void usleep(unsigned int us) {
 #endif
 
 
-extern int bListenLibusb;
 extern int m_bOpened;
 extern int& gpt_failed;
 

@@ -115,7 +115,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	}
 
 #if !USE_LIBUSB
-	bListenLibusb = 0;
+	g_app_state.bListenLibusb = 0;
 	if (at || bootmode >= 0) {
 		io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
 		if (io->hThread == nullptr) return;
@@ -126,7 +126,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 #else
 	if (!libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG)) {
 		DBG_LOG("hotplug unsupported on this platform\n");
-		bListenLibusb = 0;
+		g_app_state.bListenLibusb = 0;
 		bootmode = -1;
 		at = 0;
 	}
@@ -136,10 +136,10 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		conn_wait = 30 * REOPEN_FREQ;
 		stage = -1;
 	}
-	if (bListenLibusb < 0) startUsbEventHandle();
+	if (!g_app_state.bListenLibusb) startUsbEventHandle();
 #endif
 #if _WIN32
-	if (!bListenLibusb) {
+	if (!g_app_state.bListenLibusb) {
 		if (io->hThread == nullptr) io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
 		if (io->hThread == nullptr) return;
 	}
@@ -157,7 +157,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 
 		for (int i = 0; ; i++) {
 #if USE_LIBUSB
-			if (bListenLibusb) {
+			if (g_app_state.bListenLibusb) {
 				if (curPort) {
 					if (libusb_open(curPort, &io->dev_handle) >= 0) call_Initialize_libusb(io);
 					else ERR_EXIT("Failed to connect\n");
