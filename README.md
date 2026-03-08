@@ -1,6 +1,6 @@
 # sfd_tool
 
-[**中文文档**](https://github.com/RockerHX/sfd_tool/blob/master/README_ZH.md)
+[**中文文档**](https://github.com/C-Hidery/sfd_tool/blob/master/README_ZH.md)
 
 ![Logo](/assets/icon.png)
 
@@ -36,6 +36,8 @@ Then make:
 make
 # Compile and load i18n translations (Optional)
 make locales
+# Termux
+make termux
 ```
 
 ### Internationalization (i18n)
