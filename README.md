@@ -36,6 +36,8 @@ Then make:
 make
 # Compile and load i18n translations (Optional)
 make locales
+# Termux
+make termux
 ```
 
 ### Internationalization (i18n)
