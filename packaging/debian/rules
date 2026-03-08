@@ -1,17 +1,16 @@
 #!/usr/bin/make -f
 
 %:
-	dh $@ --buildsystem=makefile --parallel
+	dh $@ --buildsystem=cmake --parallel
 
 override_dh_auto_configure:
-	# 在打包时总是启用 GTK 和 libusb
-	$(MAKE) GTK=1 LIBUSB=1
+	# 使用 CMake 构建，始终启用 GTK 和 libusb
+	dh_auto_configure -- \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DUSE_GTK=ON \
+		-DUSE_LIBUSB=ON
 
-override_dh_auto_build:
-	$(MAKE) GTK=1 LIBUSB=1 release
-
-override_dh_auto_install:
-	$(MAKE) GTK=1 LIBUSB=1 DESTDIR=$$(pwd)/debian/sfd-tool PREFIX=/usr install
+# 构建与安装步骤交给 dh_auto_build / dh_auto_install 的 CMake 集成处理
 
 override_dh_missing:
 	dh_missing --fail-missing
