@@ -257,7 +257,7 @@ endif()
 # 安装 locale .mo（如果已成功生成）
 if (MSGFMT_EXECUTABLE)
     install(FILES ${CMAKE_BINARY_DIR}/locale/zh_CN/LC_MESSAGES/sfd_tool.mo
-        DESTINATION ${CMAKE_INSTALL_FULL_LOCALEDIR}/zh_CN/LC_MESSAGES
+        DESTINATION ${CMAKE_INSTALL_LOCALEDIR}/zh_CN/LC_MESSAGES
     )
 endif()
 
