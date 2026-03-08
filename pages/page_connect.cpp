@@ -19,7 +19,6 @@ extern int highspeed;
 extern unsigned exec_addr, baudrate;
 extern int no_fdl_mode;
 extern AppState g_app_state;
-extern int gpt_failed;
 extern int nand_info[3];
 extern int nand_id;
 extern int conn_wait;

@@ -9,6 +9,11 @@
 #ifdef __linux__
 #include <unistd.h>
 #endif
+
+extern AppState g_app_state;
+#define device_stage g_app_state.device_stage
+#define device_mode  g_app_state.device_mode
+
 void print_help() {
 	//TODO
 	DBG_LOG("Usage:\n"

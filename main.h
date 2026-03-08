@@ -16,6 +16,5 @@ extern int isCMethod;
 extern int in_quote;
 extern char **str2;
 extern int no_fdl_mode;
-extern int gpt_failed;
 extern int m_bOpened;
 int main_console(int argc, char** argv);
