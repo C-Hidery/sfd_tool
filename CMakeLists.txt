@@ -221,35 +221,37 @@ if (EXISTS ${DESKTOP_IN})
     )
 endif()
 
-# 安装图标（需要 ImageMagick convert，行为与 Makefile 类似）
-find_program(CONVERT_EXECUTABLE convert)
-set(ICON_SRC ${CMAKE_CURRENT_SOURCE_DIR}/assets/icon.png)
+# 安装图标（需要 ImageMagick convert，行为与 Makefile 类似；Windows 上跳过）
+if (NOT WIN32)
+    find_program(CONVERT_EXECUTABLE convert)
+    set(ICON_SRC ${CMAKE_CURRENT_SOURCE_DIR}/assets/icon.png)
 
-if (EXISTS ${ICON_SRC} AND CONVERT_EXECUTABLE)
-    set(ICON_SIZES 16 32 48 256)
-    set(GENERATED_ICONS)
+    if (EXISTS ${ICON_SRC} AND CONVERT_EXECUTABLE)
+        set(ICON_SIZES 16 32 48 256)
+        set(GENERATED_ICONS)
 
-    foreach(size IN LISTS ICON_SIZES)
-        set(OUT_ICON ${CMAKE_CURRENT_BINARY_DIR}/sfd-tool-${size}.png)
-        add_custom_command(
-            OUTPUT ${OUT_ICON}
-            COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}
-            COMMAND ${CONVERT_EXECUTABLE} ${ICON_SRC} -resize ${size}x${size} ${OUT_ICON}
-            DEPENDS ${ICON_SRC}
-            COMMENT "Generating icon ${size}x${size}"
-            VERBATIM
+        foreach(size IN LISTS ICON_SIZES)
+            set(OUT_ICON ${CMAKE_CURRENT_BINARY_DIR}/sfd-tool-${size}.png)
+            add_custom_command(
+                OUTPUT ${OUT_ICON}
+                COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}
+                COMMAND ${CONVERT_EXECUTABLE} ${ICON_SRC} -resize ${size}x${size} ${OUT_ICON}
+                DEPENDS ${ICON_SRC}
+                COMMENT "Generating icon ${size}x${size}"
+                VERBATIM
+            )
+            list(APPEND GENERATED_ICONS ${OUT_ICON})
+
+            install(FILES ${OUT_ICON}
+                DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${size}x${size}/apps
+                RENAME sfd-tool.png
+            )
+        endforeach()
+
+        add_custom_target(icons ALL
+            DEPENDS ${GENERATED_ICONS}
         )
-        list(APPEND GENERATED_ICONS ${OUT_ICON})
-
-        install(FILES ${OUT_ICON}
-            DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${size}x${size}/apps
-            RENAME sfd-tool.png
-        )
-    endforeach()
-
-    add_custom_target(icons ALL
-        DEPENDS ${GENERATED_ICONS}
-    )
+    endif()
 endif()
 
 # 安装 locale .mo（如果已成功生成）
