@@ -95,6 +95,32 @@ else()
     target_link_libraries(sfd_tool PRIVATE Threads::Threads)
 endif()
 
+# Windows: libintl (gettext) via vcpkg
+if (WIN32)
+    if (DEFINED ENV{VCPKG_ROOT})
+        if (CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
+            set(_vcpkg_triplet "x64-windows")
+        else()
+            set(_vcpkg_triplet "x86-windows")
+        endif()
+        set(_vcpkg_include "$ENV{VCPKG_ROOT}/installed/${_vcpkg_triplet}/include")
+        set(_vcpkg_lib_dir "$ENV{VCPKG_ROOT}/installed/${_vcpkg_triplet}/lib")
+
+        foreach(tgt IN LISTS SFD_COMMON_TARGETS)
+            target_include_directories(${tgt} PRIVATE "${_vcpkg_include}")
+        endforeach()
+
+        find_library(INTL_LIBRARY NAMES intl PATHS "${_vcpkg_lib_dir}")
+        if (INTL_LIBRARY)
+            target_link_libraries(sfd_tool PRIVATE "${INTL_LIBRARY}")
+        else()
+            message(WARNING "intl library not found in ${_vcpkg_lib_dir}; gettext may fail to link")
+        endif()
+    else()
+        message(WARNING "VCPKG_ROOT is not set; libintl headers/libraries may be missing on Windows")
+    endif()
+endif()
+
 # ================= 依赖：GTK3 / libusb =================
 find_package(PkgConfig QUIET)
 
