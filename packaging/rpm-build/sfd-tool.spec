@@ -35,7 +35,7 @@ cmake -S . -B build_cmake -G "Ninja" \
   -DCMAKE_BUILD_TYPE=Release \
   -DUSE_GTK=ON \
   -DUSE_LIBUSB=ON
-cmake --build build_cmake -- -j
+cmake --build build_cmake
 
 %install
 # 使用 CMake 的安装规则安装到 RPM 构建根目录
