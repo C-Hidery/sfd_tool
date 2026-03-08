@@ -13,13 +13,10 @@ bool isWindowDragging(GtkWindow* window) {
     
     // 获取鼠标状态
     GdkModifierType mask;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    gdk_window_get_device_position(gdk_window, 
-        gdk_device_manager_get_client_pointer(
-            gdk_display_get_device_manager(gdk_window_get_display(gdk_window))),
-        nullptr, nullptr, &mask);
-#pragma clang diagnostic pop
+    GdkDisplay* display = gdk_window_get_display(gdk_window);
+    GdkSeat* seat = gdk_display_get_default_seat(display);
+    GdkDevice* pointer = gdk_seat_get_pointer(seat);
+    gdk_window_get_device_position(gdk_window, pointer, nullptr, nullptr, &mask);
     
     // 检查左键是否按下（拖动标志）
     return (mask & GDK_BUTTON1_MASK) != 0;

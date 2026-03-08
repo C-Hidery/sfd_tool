@@ -538,20 +538,17 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			int i_op = 0;
 			for (i_op = 0; i_op < io->part_count; i_op++) {
 				if(strcmp(beforePart,(*(io->ptable + i_op)).name) != 0){
-					strncpy(ptable[i_op].name, io->ptable[i_op].name, sizeof(ptable[i_op].name) - 1);
-					ptable[i_op].name[sizeof(ptable[i_op].name) - 1] = '\0';
+					snprintf(ptable[i_op].name, sizeof(ptable[i_op].name), "%s", io->ptable[i_op].name);
 					ptable[i_op].size = io->ptable[i_op].size;
 				}
 				else{
 					break;
 				}
 			}
-			strncpy(ptable[i_op].name, newPartName.c_str(), sizeof(ptable[i_op].name) - 1);
-			ptable[i_op].name[sizeof(ptable[i_op].name) - 1] = '\0';
+			snprintf(ptable[i_op].name, sizeof(ptable[i_op].name), "%s", newPartName.c_str());
 			ptable[i_op].size = newPartSize << 20;
-			for (i_op; i_op < io->part_count; i_op++) {
-				strncpy(ptable[i_op + 1].name, io->ptable[i_op].name, sizeof(ptable[i_op + 1].name) - 1);
-				ptable[i_op + 1].name[sizeof(ptable[i_op + 1].name) - 1] = '\0';
+			for (; i_op < io->part_count; i_op++) {
+				snprintf(ptable[i_op + 1].name, sizeof(ptable[i_op + 1].name), "%s", io->ptable[i_op].name);
 				ptable[i_op + 1].size = io->ptable[i_op].size;
 			}
 			io->ptable = ptable;
@@ -603,21 +600,18 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			int i_op = 0;
 			for (i_op = 0; i_op < io->part_count_c; i_op++) {
 				if(strcmp(beforePart,(*(io->Cptable + i_op)).name) != 0){
-					strncpy(ptable[i_op].name, io->Cptable[i_op].name, sizeof(ptable[i_op].name) - 1);
-					ptable[i_op].name[sizeof(ptable[i_op].name) - 1] = '\0';
+					snprintf(ptable[i_op].name, sizeof(ptable[i_op].name), "%s", io->Cptable[i_op].name);
 					ptable[i_op].size = io->Cptable[i_op].size;
 				}
 				else{
 					break;
 				}
 			}
-			strncpy(ptable[i_op].name, newPartName.c_str(), sizeof(ptable[i_op].name) - 1);
-			ptable[i_op].name[sizeof(ptable[i_op].name) - 1] = '\0';
+			snprintf(ptable[i_op].name, sizeof(ptable[i_op].name), "%s", newPartName.c_str());
 			ptable[i_op].size = newPartSize << 20;
-			for (i_op; i_op < io->part_count_c; i_op++) {
-				strncpy(ptable[i_op + 1].name, io->ptable[i_op].name, sizeof(ptable[i_op + 1].name) - 1);
-				ptable[i_op + 1].name[sizeof(ptable[i_op + 1].name) - 1] = '\0';
-				ptable[i_op + 1].size = io->ptable[i_op].size;
+			for (; i_op < io->part_count_c; i_op++) {
+				snprintf(ptable[i_op + 1].name, sizeof(ptable[i_op + 1].name), "%s", io->Cptable[i_op].name);
+				ptable[i_op + 1].size = io->Cptable[i_op].size;
 			}
 			io->Cptable = ptable;
 			io->part_count_c++;
@@ -702,8 +696,7 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 				// 使用 strcmp 比较字符串内容
 				if (strcmp(io->ptable[j].name, part_name.c_str()) != 0) {
 					// 复制不需要删除的分区到新表
-					strncpy(ptable[new_index].name, io->ptable[j].name, sizeof(ptable[new_index].name) - 1);
-					ptable[new_index].name[sizeof(ptable[new_index].name) - 1] = '\0';
+					snprintf(ptable[new_index].name, sizeof(ptable[new_index].name), "%s", io->ptable[j].name);
 					ptable[new_index].size = io->ptable[j].size;
 					new_index++;
 				}
@@ -755,10 +748,9 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 			int new_index = 0;
 			for (int j = 0; j < io->part_count_c; j++) {
 				// 使用 strcmp 比较字符串内容
-				if (strcmp(io->ptable[j].name, part_name.c_str()) != 0) {
+				if (strcmp(io->Cptable[j].name, part_name.c_str()) != 0) {
 					// 复制不需要删除的分区到新表
-					strncpy(ptable[new_index].name, io->Cptable[j].name, sizeof(ptable[new_index].name) - 1);
-					ptable[new_index].name[sizeof(ptable[new_index].name) - 1] = '\0';
+					snprintf(ptable[new_index].name, sizeof(ptable[new_index].name), "%s", io->Cptable[j].name);
 					ptable[new_index].size = io->Cptable[j].size;
 					new_index++;
 				}
@@ -851,8 +843,7 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 				return;
 			}
 
-			strncpy(io->ptable[i].name, new_part_name.c_str(), sizeof(io->ptable[i].name) - 1);
-			io->ptable[i].name[sizeof(io->ptable[i].name) - 1] = '\0';
+			snprintf(io->ptable[i].name, sizeof(io->ptable[i].name), "%s", new_part_name.c_str());
 
 			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");
@@ -893,8 +884,7 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 				return;
 			}
 
-			strncpy(io->Cptable[i].name, part_name.c_str(), sizeof(io->Cptable[i].name) - 1);
-			io->Cptable[i].name[sizeof(io->ptable[i].name) - 1] = '\0';
+			snprintf(io->Cptable[i].name, sizeof(io->Cptable[i].name), "%s", new_part_name.c_str());
 
 			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");

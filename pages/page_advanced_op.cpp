@@ -11,8 +11,8 @@ extern int ret;
 extern int m_bOpened;
 extern int blk_size;
 extern int isCMethod;
-extern int gpt_failed;
 extern AppState g_app_state;
+extern int gpt_failed;
 
 static void on_button_clicked_set_active_a(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {

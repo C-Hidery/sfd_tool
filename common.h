@@ -24,12 +24,16 @@
 #ifdef _MSC_VER
     #include <stdlib.h>
     // Windows 为小端，直接返回原值，无需转换
+    #ifndef htole32
     #define htole32(x) (x)
+    #endif
 #elif defined(__GNUC__) || defined(__clang__)
+    #ifndef htole32
     #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
         #define htole32(x) (x)
     #else
         #define htole32(x) __builtin_bswap32(x)
+    #endif
     #endif
 #else
     #error "Unsupported compiler"
