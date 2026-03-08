@@ -101,11 +101,39 @@ find_package(PkgConfig QUIET)
 # --- GTK3 ---
 if (USE_GTK)
     if (WIN32)
-        # Windows 下不依赖 pkg-config，由 CI 通过 MSYS2 提供 GTK 路径，
-        # 后续在 CI 中通过环境变量/工具链文件补充 include/lib 目录。
-        foreach(tgt IN LISTS SFD_COMMON_TARGETS)
-            target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
-        endforeach()
+        # Windows: headers/libraries are provided by MSYS2 GTK in the CI image.
+        # Include path differs for x64/x86 (mingw64 vs mingw32).
+        if (CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
+            # x64: use mingw64
+            foreach(tgt IN LISTS SFD_COMMON_TARGETS)
+                target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
+                target_include_directories(${tgt} PRIVATE
+                    "C:/msys64/mingw64/include/gtk-3.0"
+                    "C:/msys64/mingw64/include/glib-2.0"
+                    "C:/msys64/mingw64/lib/glib-2.0/include"
+                    "C:/msys64/mingw64/include/pango-1.0"
+                    "C:/msys64/mingw64/include/cairo"
+                    "C:/msys64/mingw64/include/gdk-pixbuf-2.0"
+                    "C:/msys64/mingw64/include/atk-1.0"
+                    "C:/msys64/mingw64/include/harfbuzz"
+                )
+            endforeach()
+        else()
+            # Win32: use mingw32
+            foreach(tgt IN LISTS SFD_COMMON_TARGETS)
+                target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
+                target_include_directories(${tgt} PRIVATE
+                    "C:/msys64/mingw32/include/gtk-3.0"
+                    "C:/msys64/mingw32/include/glib-2.0"
+                    "C:/msys64/mingw32/lib/glib-2.0/include"
+                    "C:/msys64/mingw32/include/pango-1.0"
+                    "C:/msys64/mingw32/include/cairo"
+                    "C:/msys64/mingw32/include/gdk-pixbuf-2.0"
+                    "C:/msys64/mingw32/include/atk-1.0"
+                    "C:/msys64/mingw32/include/harfbuzz"
+                )
+            endforeach()
+        endif()
     else()
         if (NOT PKG_CONFIG_FOUND)
             message(FATAL_ERROR "PkgConfig is required when USE_GTK=ON")
