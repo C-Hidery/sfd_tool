@@ -359,49 +359,46 @@ cpack -G NSIS -C Release
 
 生成的安装包会放在 `build/` 下（例如 `sfd_tool-1.0.0-Linux.tar.gz`、`sfd_tool-1.0.0-win64.exe`）。
 
----
 
-## 9. 三个平台常用命令一览
+## 10. 语言与中文界面
 
-### macOS / Linux（Ninja + Debug 示例）
+本项目使用 gettext 做多语言支持，相关初始化代码在 `main.cpp` 中：
+
+```cpp
+setlocale(LC_ALL, "");
+bindtextdomain("sfd_tool", "./locale");
+textdomain("sfd_tool");
+bind_textdomain_codeset("sfd_tool", "UTF-8");
+```
+
+中文翻译文件为 `locale/zh_CN/LC_MESSAGES/sfd_tool.mo`，由 CMake 在构建时自动生成到 `build_cmake/locale/zh_CN/LC_MESSAGES/`，运行时通过 `bindtextdomain` 的 `./locale` 路径加载。
+
+在 macOS 上实测：
+
+- 直接运行：界面为英文
+  ```bash
+  ./build_cmake/sfd_tool
+  ```
+- 仅设置 `LANG`：仍为英文
+  ```bash
+  LANG=zh_CN ./build_cmake/sfd_tool
+  LANG=zh_CN.UTF-8 ./build_cmake/sfd_tool
+  ```
+- 设置 `LC_ALL` 为中文：界面切换为中文（推荐）
+  ```bash
+  LC_ALL=zh_CN.UTF-8 ./build_cmake/sfd_tool
+  ```
+
+因此，在 macOS 上如果希望**临时**以中文界面启动，推荐命令为：
 
 ```bash
-# 配置
-cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-
-# 构建
-cmake --build build -- -j
-
-# 运行测试
-cd build
-ctest --output-on-failure
-
-# 安装（可选）
-cmake --install . --prefix /opt/sfd_tool
-
-# 打包（如果启用 CPack）
-cpack
+LC_ALL=zh_CN.UTF-8 ./build_cmake/sfd_tool
 ```
 
-### Windows（Visual Studio + Debug/Release 示例）
+如果你希望在当前 shell 中默认使用中文，也可以在 `~/.zshrc` 中加入：
 
-```powershell
-# 配置
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-
-# Debug 构建
-cmake --build build --config Debug -- /m
-
-# Release 构建
-cmake --build build --config Release -- /m
-
-# 运行测试（Debug）
-cd build
-ctest -C Debug --output-on-failure
-
-# 安装（Release）
-cmake --install . --config Release --prefix "C:/Program Files/sfd_tool"
-
-# 打包（Release，若启用 CPack）
-cpack -C Release
+```bash
+export LC_ALL=zh_CN.UTF-8
 ```
+
+然后重新打开终端再运行程序即可始终以中文界面启动。
