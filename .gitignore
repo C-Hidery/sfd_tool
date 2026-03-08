@@ -366,4 +366,5 @@ sfd_tool
 
 .claude/
 task/
+build_cmake/
 
