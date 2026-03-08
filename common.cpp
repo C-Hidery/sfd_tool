@@ -14,6 +14,7 @@ void usleep(unsigned int us) {
 
 extern int bListenLibusb;
 extern int m_bOpened;
+extern int& gpt_failed;
 
 
 
@@ -670,7 +671,7 @@ int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
 	return 0;
 }
 
-extern int gpt_failed;
+extern int& gpt_failed;
 partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 	long size;
 	unsigned i, n = 0;
