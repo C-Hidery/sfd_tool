@@ -1,8 +1,8 @@
 # sfd_tool
 
-[**中文文档**](https://github.com/C-Hidery/sfd_tool/blob/master/README_ZH.md)
+[**中文文档**](https://github.com/RockerHX/sfd_tool/blob/master/README_ZH.md)
 
-![Logo](icon.png)
+![Logo](/assets/icon.png)
 
 ![License](https://img.shields.io/github/license/C-Hidery/sfd_tool)
 
@@ -34,7 +34,15 @@ pkg install termux-api libusb clang git pkg-config gtk3 glib pango libcairo gdk-
 Then make:
 ``` bash
 make
+# Compile and load i18n translations (Optional)
+make locales
 ```
+
+### Internationalization (i18n)
+This tool supports multi-language adaptation:
+* `make` will build the core application in English.
+* `make locales` will compile the translation file `locale/zh_CN/LC_MESSAGES/sfd_tool.po`. The program will automatically display Chinese when running in a Chinese-supported locale environment.
+* **Adding translations for a new language**: You can use the generated `locale/sfd_tool.pot` template file to translate and place the `.po` file into the corresponding `locale/<Language Code>/LC_MESSAGES/` directory.
 
 Use on Termux(No GUI):
 

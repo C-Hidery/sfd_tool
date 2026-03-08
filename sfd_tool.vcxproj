@@ -25,8 +25,22 @@
     <ClInclude Include="spd_cmd.h" />
     <ClInclude Include="Wrapper.h" />
     <ClInclude Include="GtkWidgetHelper.hpp" />
-    <ClInclude Include="unpac.hpp" />
     <ClInclude Include="GenTosNoAvb.h" />
+    <ClInclude Include="ui_common.h" />
+    <ClInclude Include="core\file_io.h" />
+    <ClInclude Include="core\logging.h" />
+    <ClInclude Include="core\pac_extract.h" />
+    <ClInclude Include="core\spd_protocol.h" />
+    <ClInclude Include="core\usb_transport.h" />
+    <ClInclude Include="pages\page_about.h" />
+    <ClInclude Include="pages\page_advanced_op.h" />
+    <ClInclude Include="pages\page_advanced_set.h" />
+    <ClInclude Include="pages\page_connect.h" />
+    <ClInclude Include="pages\page_debug.h" />
+    <ClInclude Include="pages\page_log.h" />
+    <ClInclude Include="pages\page_manual.h" />
+    <ClInclude Include="pages\page_pac_flash.h" />
+    <ClInclude Include="pages\page_partition.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BMPlatform.cpp" />
@@ -35,12 +49,27 @@
     <ClCompile Include="Wrapper.cpp" />
     <ClCompile Include="GtkWidgetHelper.cpp" />
     <ClCompile Include="main_console.cpp" />
+    <ClCompile Include="ui_common.cpp" />
+    <ClCompile Include="core\logging.cpp" />
+    <ClCompile Include="core\file_io.cpp" />
+    <ClCompile Include="core\pac_extract.cpp" />
+    <ClCompile Include="core\usb_transport.cpp" />
+    <ClCompile Include="core\spd_protocol.cpp" />
+    <ClCompile Include="pages\page_about.cpp" />
+    <ClCompile Include="pages\page_advanced_op.cpp" />
+    <ClCompile Include="pages\page_advanced_set.cpp" />
+    <ClCompile Include="pages\page_connect.cpp" />
+    <ClCompile Include="pages\page_debug.cpp" />
+    <ClCompile Include="pages\page_log.cpp" />
+    <ClCompile Include="pages\page_manual.cpp" />
+    <ClCompile Include="pages\page_pac_flash.cpp" />
+    <ClCompile Include="pages\page_partition.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="app.rc" />
+    <ResourceCompile Include="assets\app.rc" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="icon.ico" />
+    <Image Include="assets\icon.ico" />
   </ItemGroup>
   
   <!-- 定义 GTK3 基础路径 -->
@@ -62,8 +91,18 @@
     <ProjectGuid>{ae69d29d-e27e-43f4-a8ee-71df7d8c0d3b}</ProjectGuid>
     <RootNamespace>sfdtool</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+
+    <!-- vcpkg configuration for gettext/libintl -->
+    <VcpkgRoot>$(VCPKG_ROOT)</VcpkgRoot>
   </PropertyGroup>
-  
+
+  <!-- Map MSVC Platform to vcpkg triplets -->
+  <PropertyGroup Condition="'$(Platform)'=='Win32'">
+    <VcpkgTriplet>x86-windows</VcpkgTriplet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Platform)'=='x64'">
+    <VcpkgTriplet>x64-windows</VcpkgTriplet>
+  </PropertyGroup>  
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -132,6 +171,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>
+        $(VCPKG_ROOT)\installed\$(VcpkgTriplet)\include;
         $(GTK3_PATH)\include\gtk-3.0;
         $(GTK3_PATH)\include\glib-2.0;
         $(GTK3_PATH)\lib\glib-2.0\include;
@@ -147,8 +187,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>setupapi.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>intl.lib;setupapi.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(VCPKG_ROOT)\installed\$(VcpkgTriplet)\lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   
@@ -162,6 +202,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>
+        $(VCPKG_ROOT)\installed\$(VcpkgTriplet)\include;
         $(GTK3_PATH)\include\gtk-3.0;
         $(GTK3_PATH)\include\glib-2.0;
         $(GTK3_PATH)\lib\glib-2.0\include;
@@ -177,8 +218,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>setupapi.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>intl.lib;setupapi.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(VCPKG_ROOT)\installed\$(VcpkgTriplet)\lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   
@@ -191,7 +232,8 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>
-        Lib;
+        third_party\Lib;
+        $(VCPKG_ROOT)\installed\$(VcpkgTriplet)\include;
         $(GTK3_PATH)\include\gtk-3.0;
         $(GTK3_PATH)\include\glib-2.0;
         $(GTK3_PATH)\lib\glib-2.0\include;
@@ -207,8 +249,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>Lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libusb-1.0.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>third_party\Lib;$(VCPKG_ROOT)\installed\$(VcpkgTriplet)\lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>intl.lib;libusb-1.0.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   
@@ -222,7 +264,8 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>
-        Lib;
+        third_party\Lib;
+        $(VCPKG_ROOT)\installed\$(VcpkgTriplet)\include;
         $(GTK3_PATH)\include\gtk-3.0;
         $(GTK3_PATH)\include\glib-2.0;
         $(GTK3_PATH)\lib\glib-2.0\include;
@@ -238,8 +281,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>Lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libusb-1.0.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>third_party\Lib;$(VCPKG_ROOT)\installed\$(VcpkgTriplet)\lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>intl.lib;libusb-1.0.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   

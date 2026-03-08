@@ -81,15 +81,31 @@ DATADIR ?= $(PREFIX)/share
 APPDIR ?= $(DATADIR)/applications
 ICONDIR ?= $(DATADIR)/icons/hicolor
 DOCDIR ?= $(DATADIR)/doc/sfd-tool
+LOCALEDIR ?= $(DATADIR)/locale
 
 # CXXFLAGS += $(shell pkg-config --cflags nlohmann_json 2>/dev/null || echo "-I/usr/include/nlohmann")
 # LIBS += $(shell pkg-config --libs nlohmann_json 2>/dev/null || echo "-ljson")
 # 默认目标
-.PHONY: all
-all: $(APPNAME)
+.PHONY: all locales
+all: $(APPNAME) locales
+
+locales: locale/zh_CN/LC_MESSAGES/sfd_tool.mo
+
+locale/zh_CN/LC_MESSAGES/sfd_tool.mo: locale/zh_CN/LC_MESSAGES/sfd_tool.po
+	msgfmt $< -o $@
 
 # 主目标
-$(APPNAME): main.cpp main_console.cpp common.cpp GtkWidgetHelper.cpp
+SOURCES = main.cpp main_console.cpp common.cpp GtkWidgetHelper.cpp \
+          ui_common.cpp \
+          core/logging.cpp core/file_io.cpp core/pac_extract.cpp \
+          core/usb_transport.cpp core/spd_protocol.cpp \
+          pages/page_connect.cpp pages/page_partition.cpp \
+          pages/page_manual.cpp pages/page_advanced_op.cpp \
+          pages/page_advanced_set.cpp pages/page_debug.cpp \
+          pages/page_about.cpp pages/page_log.cpp \
+          pages/page_pac_flash.cpp
+
+$(APPNAME): $(SOURCES)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LIBS)
 
 # 调试版本
@@ -111,6 +127,7 @@ analyze: debug
 .PHONY: clean
 clean:
 	rm -f $(APPNAME) *.o *.dSYM
+	rm -f locale/zh_CN/LC_MESSAGES/sfd_tool.mo
 
 # 安装目标
 .PHONY: install
@@ -122,26 +139,30 @@ install: $(APPNAME)
 	install -d $(DESTDIR)$(ICONDIR)/48x48/apps
 	install -d $(DESTDIR)$(ICONDIR)/32x32/apps
 	install -d $(DESTDIR)$(ICONDIR)/16x16/apps
+	install -d $(DESTDIR)$(LOCALEDIR)/zh_CN/LC_MESSAGES
 	
 	# 安装二进制
 	install -m 755 $(APPNAME) $(DESTDIR)$(BINDIR)/
 	
 	# 安装桌面文件
-	sed 's|Icon=sfd_tool|Icon=sfd-tool|' sfd_tool.desktop > $(DESTDIR)$(APPDIR)/sfd-tool.desktop
+	sed 's|Icon=sfd_tool|Icon=sfd-tool|' packaging/sfd_tool.desktop > $(DESTDIR)$(APPDIR)/sfd-tool.desktop
 	chmod 644 $(DESTDIR)$(APPDIR)/sfd-tool.desktop
 	
 	# 安装图标（从 icon.png 转换不同尺寸）
-	if [ -f icon.png ]; then \
-		convert icon.png -resize 16x16 $(DESTDIR)$(ICONDIR)/16x16/apps/sfd-tool.png; \
-		convert icon.png -resize 32x32 $(DESTDIR)$(ICONDIR)/32x32/apps/sfd-tool.png; \
-		convert icon.png -resize 48x48 $(DESTDIR)$(ICONDIR)/48x48/apps/sfd-tool.png; \
-		convert icon.png -resize 256x256 $(DESTDIR)$(ICONDIR)/256x256/apps/sfd-tool.png; \
+	if [ -f assets/icon.png ]; then \
+		convert assets/icon.png -resize 16x16 $(DESTDIR)$(ICONDIR)/16x16/apps/sfd-tool.png; \
+		convert assets/icon.png -resize 32x32 $(DESTDIR)$(ICONDIR)/32x32/apps/sfd-tool.png; \
+		convert assets/icon.png -resize 48x48 $(DESTDIR)$(ICONDIR)/48x48/apps/sfd-tool.png; \
+		convert assets/icon.png -resize 256x256 $(DESTDIR)$(ICONDIR)/256x256/apps/sfd-tool.png; \
 	fi
 	
 	# 安装文档
 	install -m 644 LICENSE.txt $(DESTDIR)$(DOCDIR)/copyright
 	install -m 644 README.md $(DESTDIR)$(DOCDIR)/
 	install -m 644 README_ZH.md $(DESTDIR)$(DOCDIR)/
+	
+	# 安装国际化文件
+	install -m 644 locale/zh_CN/LC_MESSAGES/sfd_tool.mo $(DESTDIR)$(LOCALEDIR)/zh_CN/LC_MESSAGES/
 	
 	# 更新图标缓存
 	if [ -x /usr/bin/gtk-update-icon-cache ] && [ -z "$(DESTDIR)" ]; then \
@@ -154,6 +175,7 @@ uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/$(APPNAME)
 	rm -f $(DESTDIR)$(APPDIR)/sfd-tool.desktop
 	rm -rf $(DESTDIR)$(DOCDIR)
+	rm -f $(DESTDIR)$(LOCALEDIR)/zh_CN/LC_MESSAGES/sfd_tool.mo
 	find $(DESTDIR)$(ICONDIR) -name "sfd-tool.png" -delete
 
 # 依赖检查

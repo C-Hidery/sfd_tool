@@ -13,6 +13,8 @@ jobs:
   build-windows:
     runs-on: windows-latest
     timeout-minutes: 30
+    env:
+      VCPKG_ROOT: C:\vcpkg
     strategy:
       matrix:
         arch: [x64, x86]
@@ -25,6 +27,20 @@ jobs:
         uses: TheMrMilchmann/setup-msvc-dev@v3
         with:
           arch: ${{ matrix.arch }}
+
+      - name: Install gettext (libintl) via vcpkg
+        shell: pwsh
+        run: |
+          # 优先使用 GitHub 镜像自带的经典 vcpkg 实例
+          $vcpkgExe = "C:\vcpkg\vcpkg.exe"
+          if (-not (Test-Path $vcpkgExe)) {
+            Write-Error "vcpkg.exe not found at $vcpkgExe"
+            Get-ChildItem C:\ | Select-Object -First 20
+            exit 1
+          }
+          Write-Host "Using vcpkg: $vcpkgExe"
+          # 安装 x86 / x64 的 gettext（包含 libintl）
+          & $vcpkgExe install gettext:x86-windows gettext:x64-windows
 
       - name: Install MSYS2 and GTK3
         run: |
@@ -51,19 +67,20 @@ jobs:
       - name: Build sfd_tool (${{ matrix.arch }} - ${{ matrix.config }})
         run: |
           $platform = if ("${{ matrix.arch }}" -eq "x64") { "x64" } else { "Win32" }
-          
+
           Write-Host "=== 构建配置 ==="
           Write-Host "架构: ${{ matrix.arch }}"
           Write-Host "配置: ${{ matrix.config }}"
           Write-Host "平台: $platform"
           Write-Host "================"
-          
+
           # 简单构建 - 所有配置已在 vcxproj 中
           msbuild sfd_tool.vcxproj `
             /p:Configuration=${{ matrix.config }} `
             /p:Platform=$platform `
             /p:PlatformToolset=v143 `
             /p:OutDir=./build/${{ matrix.arch }}/${{ matrix.config }}/ `
+            /p:VCPKG_ROOT=C:\vcpkg `
             /verbosity:minimal
 
       - name: Verify GTK3 DLLs Exist
@@ -228,7 +245,7 @@ jobs:
             imagemagick desktop-file-utils
 
       - name: Make build-deb.sh executable
-        run: chmod +x build-deb.sh
+        run: chmod +x packaging/build-deb.sh
 
       - name: Build Linux Package
         run: |
@@ -237,7 +254,7 @@ jobs:
           export DEBEMAIL="Ryan110413@outlook.com"
           
           # 运行构建脚本
-          ./build-deb.sh
+          ./packaging/build-deb.sh
           DEB_FILE=$(find /tmp/build-sfd-tool/ -name '*.deb' | head -1)
           
       - name: Upload Linux Artifacts
@@ -270,8 +287,8 @@ jobs:
 
       - name: Build Rpm
         run: |
-          chmod +x build-rpm.sh
-          ./build-rpm.sh
+          chmod +x packaging/build-rpm.sh
+          ./packaging/build-rpm.sh
       - name: Upload RPM Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -313,10 +330,10 @@ jobs:
         run: |
           # 处理 Windows 文件
           cp master/*.md output/
-          cp master/Lib/Channel9.dll output/sfd_tool_x86_Release/
-          cp master/Lib/Channel.ini output/sfd_tool_x86_Release/
-          cp master/Lib/libusb-1.0.dll output/sfd_tool_x64_Release/
-          
+          cp master/third_party/Lib/Channel9.dll output/sfd_tool_x86_Release/
+          cp master/third_party/Lib/Channel.ini output/sfd_tool_x86_Release/
+          cp master/third_party/Lib/libusb-1.0.dll output/sfd_tool_x64_Release/
+
           # 重命名 Windows 目录
           cd output
           mv sfd_tool_x86_Release sfd_tool_SPRD_Release

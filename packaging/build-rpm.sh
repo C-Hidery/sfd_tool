@@ -17,12 +17,14 @@ mkdir -p ~/rpmbuild/{SOURCES,SPECS,RPMS,SRPMS,BUILD}
 
 # 创建源码包
 mkdir -p /tmp/$PKGNAME-$VERSION
-cp -r *.cpp *.h *.hpp *.txt *.md *.desktop *.1 Makefile nlohmann Lib /tmp/$PKGNAME-$VERSION/
-[ -f icon.png ] && cp icon.png /tmp/$PKGNAME-$VERSION/
+cp -r *.cpp *.h *.hpp *.txt *.md Makefile third_party packaging scripts assets locale core pages /tmp/$PKGNAME-$VERSION/
+[ -f assets/icon.png ] && cp assets/icon.png /tmp/$PKGNAME-$VERSION/
+cp packaging/sfd_tool.desktop /tmp/$PKGNAME-$VERSION/
+cp packaging/man_sfd-tool.1 /tmp/$PKGNAME-$VERSION/
 
 # 复制 spec 文件
-if [ -f rpm-build/$PKGNAME.spec ]; then
-    cp rpm-build/$PKGNAME.spec ~/rpmbuild/SPECS/
+if [ -f packaging/rpm-build/$PKGNAME.spec ]; then
+    cp packaging/rpm-build/$PKGNAME.spec ~/rpmbuild/SPECS/
 else
     echo "Error: $PKGNAME.spec not found"
     exit 1

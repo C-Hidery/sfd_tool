@@ -1,0 +1,165 @@
+# SFD Tool — 架构文档
+
+## 项目简介
+
+SFD Tool 是一个用于操作展讯（Spreadtrum/UNISOC）芯片的 GUI 工具，支持分区读写、分区表修改、AVB 操作等。底层通过 USB（libusb）与设备的 BROM/FDL 引导程序通信。
+
+## 技术栈
+
+| 层次 | 技术 |
+|------|------|
+| UI 框架 | GTK+ 3.0 |
+| 语言 | C++17 |
+| USB 通信 | libusb-1.0 |
+| 构建系统 | Makefile |
+| 国际化 | gettext（libintl） |
+
+---
+
+## 目录结构
+
+```
+sfd_tool/
+├── main.cpp                    # 入口 + 连接逻辑（on_button_clicked_connect/fdl_exec）
+├── main.h                      # 全局变量声明
+├── main_console.cpp            # 命令行模式入口
+├── common.cpp / common.h       # 上层逻辑、结构体定义、跨模块公共接口
+├── core/                       # 拆分后的底层核心模块
+│   ├── logging.h/.cpp          # 日志与错误处理（DEG_LOG/ERR_EXIT、打印内存等）
+│   ├── file_io.h/.cpp          # 文件读写封装（xfopen/my_fopen，Windows UTF-8 路径处理）
+│   ├── pac_extract.h/.cpp      # PAC 固件解析与解包（sprd_head_t/sprd_file_t、Unpac 类）
+│   ├── usb_transport.h/.cpp    # USB 通信与端点发现（libusb / Windows Wrapper、spdio_t 缓冲区管理）
+│   └── spd_protocol.h/.cpp     # SPD/BSL 协议封装（HDLC 转码、CRC/Checksum、encode_msg/send_msg/recv_msg）
+├── GtkWidgetHelper.cpp/.hpp    # GTK Widget 抽象封装层
+├── ui_common.cpp / ui_common.h # 公共 UI 函数（EnableWidgets、底部控制栏）
+├── i18n.h                      # 国际化宏定义（gettext）
+├── GenTosNoAvb.h               # TrustOS AVB 补丁工具
+│
+├── pages/                      # 各标签页独立模块
+│   ├── page_connect.cpp/h          # Connect 标签页
+│   ├── page_partition.cpp/h        # Partition Operation 标签页
+│   ├── page_manual.cpp/h           # Manually Operate 标签页
+│   ├── page_advanced_op.cpp/h      # Advanced Operation 标签页
+│   ├── page_advanced_set.cpp/h     # Advanced Settings 标签页
+│   ├── page_debug.cpp/h            # Debug Options 标签页
+│   ├── page_about.cpp/h            # About 标签页
+│   └── page_log.cpp/h              # Log 标签页
+│
+├── assets/                     # 图标、rc 资源等
+├── packaging/                  # 打包脚本（deb/rpm、desktop 文件、man 手册）
+├── locale/                     # 国际化翻译文件（.po / .mo）
+├── third_party/                # 第三方依赖
+│   ├── Lib/                    # 预编译库（libusb 等，供 Windows 使用）
+│   └── nlohmann/               # nlohmann/json 单头文件库
+└── scripts/                    # 其他辅助脚本
+```
+
+---
+
+## 模块化设计
+
+### 页面模块接口规范
+
+每个 `pages/page_xxx.cpp` 遵循统一接口：
+
+```cpp
+// 创建 UI，将标签页添加到 notebook
+GtkWidget* create_xxx_page(GtkWidgetHelper& helper, GtkWidget* notebook);
+
+// 绑定该页面的所有按钮信号
+void bind_xxx_signals(GtkWidgetHelper& helper);
+```
+
+`gtk_kmain`（在 `main.cpp`）只负责依次调用这些函数：
+
+```cpp
+create_connect_page(helper, notebook);
+create_partition_page(helper, notebook);
+// ...
+bind_connect_signals(helper, argc, argv);
+bind_partition_signals(helper);
+// ...
+```
+
+### GtkWidgetHelper
+
+`GtkWidgetHelper` 是对 GTK 的统一封装，核心能力：
+
+- `addWidget(name, widget)` / `getWidget(name)` — 用字符串 name 管理所有 widget（避免散乱的全局指针）
+- `createButton / createEntry / createLabel / createGrid` — 快捷创建 widget
+- `bindClick(widget, lambda)` — 绑定点击回调
+- `setLabelText / setEntryText / getEntryText` — 读写控件值
+
+### 全局状态
+
+以下全局变量在 `main.h` 中声明，各模块通过 `extern` 引用：
+
+| 变量 | 说明 |
+|------|------|
+| `io` | spdio_t*，设备通信上下文 |
+| `helper` | GtkWidgetHelper，全局 widget 管理器 |
+| `m_bOpened` | 设备连接状态（-1 = 未连接） |
+| `isCMethod` | 是否使用兼容模式读取分区表 |
+| `blk_size` | 数据块大小 |
+| `selected_ab` | A/B 分区选择（0=auto, 1=A, 2=B） |
+
+---
+
+## 新增标签页指南
+
+1. 在 `pages/` 新建 `page_myfeat.cpp` 和 `page_myfeat.h`
+2. 在 `.h` 中声明 `create_myfeat_page` 和 `bind_myfeat_signals`
+3. 在 `.cpp` 中实现 UI 构建和回调函数
+4. 在 `main.cpp` 的 `gtk_kmain` 中添加两行调用
+5. 在 `Makefile` 的 `SOURCES` 中添加 `pages/page_myfeat.cpp`
+
+---
+
+## 编译
+
+```bash
+# 完整编译
+make
+
+# Debug 版本
+make debug
+
+# 清理
+make clean
+```
+
+**依赖：** GTK+ 3.0、libusb-1.0、gettext（libintl）
+
+---
+
+## 运行
+
+### 国际化说明
+
+程序已集成 gettext 国际化。直接运行（或 `sudo ./sfd_tool`）时，语言跟随系统默认 locale，部分环境下 `sudo` 会重置环境变量导致显示英文界面。
+
+**推荐运行方式：**
+
+```bash
+# 不需要 root 权限的情况（macOS 或已配置 udev 规则的 Linux）
+LC_ALL=zh_CN.UTF-8 ./sfd_tool
+
+# Linux — 需要 USB 访问权限时（推荐）
+LC_ALL=zh_CN.UTF-8 sudo -E ./sfd_tool
+```
+
+> `-E` 参数让 `sudo` 保留当前用户的环境变量（包括 `LC_ALL`），避免界面回退为英文。
+
+### Linux USB 权限
+
+Linux 默认对 USB 设备的访问需要 root 权限，因此推荐使用 `sudo -E`。
+或者，可以配置 udev 规则避免每次都需要 sudo：
+
+```bash
+# 示例：允许所有用户访问展讯 USB 设备
+echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="1782", MODE="0666"' \
+  | sudo tee /etc/udev/rules.d/99-sprd.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+配置后即可直接用 `LC_ALL=zh_CN.UTF-8 ./sfd_tool` 运行。
