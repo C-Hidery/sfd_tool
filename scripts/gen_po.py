@@ -179,7 +179,7 @@ translation_dict = {
     "[Add partition] Enter partition name:": "欲添加分区：请输入分区名称：",
     "Part name:": "分区名：",
     "Size(MB):": "大小（MB）：",
-    "Part after this new part:": "新分区放置在该分区之后：",
+    "Part after this new part:": "新分区放置在该分区之前：",
     "[Remove partition] Please check a partition you want to remove": "欲移除分区：请选择一个你想要移除的分区",
     "[Rename partition] Please check a partition you want to rename": "欲重命名分区：请选择一个你想重命名的分区",
     "New name": "新名称",
