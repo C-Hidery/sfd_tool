@@ -10,8 +10,7 @@ extern int ret;
 extern int m_bOpened;
 extern int blk_size;
 extern int isCMethod;
-extern int gpt_failed;
-extern int selected_ab;
+extern AppState g_app_state;
 
 void populatePartitionList(GtkWidgetHelper& helper, const std::vector<partition_t>& partitions) {
 	GtkWidget* part_list = helper.getWidget("part_list");
@@ -376,7 +375,7 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 				return;
 			}
 			encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-			if (!send_and_check(io)) gpt_failed = 0;
+			if (!send_and_check(io)) g_app_state.gpt_failed = 0;
 		}
 		else {
 
@@ -429,7 +428,7 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 				return;
 			}
 			encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-			if (!send_and_check(io)) gpt_failed = 0;
+			if (!send_and_check(io)) g_app_state.gpt_failed = 0;
 		}
 		gui_idle_call_wait_drag([window, helper]() mutable {
 			showInfoDialog(window, _(_(_("Completed"))), _("Partition modification completed!"));
@@ -573,7 +572,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 				return;
 			}
 			encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-			if (!send_and_check(io)) gpt_failed = 0;
+			if (!send_and_check(io)) g_app_state.gpt_failed = 0;
 		}
 		else {
 		    if(!i_is) return;
@@ -635,7 +634,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 				return;
 			}
 			encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-			if (!send_and_check(io)) gpt_failed = 0;
+			if (!send_and_check(io)) g_app_state.gpt_failed = 0;
 		}
 		gui_idle_call_wait_drag([window, helper]() mutable {
 			showInfoDialog(window, _(_(_("Completed"))), _("Partition modification completed!"));
@@ -727,7 +726,7 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 				return;
 			}
 			encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-			if (!send_and_check(io)) gpt_failed = 0;
+			if (!send_and_check(io)) g_app_state.gpt_failed = 0;
 		}
 		else{
 
@@ -781,7 +780,7 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 				return;
 			}
 			encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-			if (!send_and_check(io)) gpt_failed = 0;
+			if (!send_and_check(io)) g_app_state.gpt_failed = 0;
 		}
 		gui_idle_call_wait_drag([window, helper]() mutable {
 			showInfoDialog(window, _(_(_("Completed"))), _("Partition modification completed!"));
@@ -865,7 +864,7 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 				return;
 			}
 			encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-			if (!send_and_check(io)) gpt_failed = 0;
+			if (!send_and_check(io)) g_app_state.gpt_failed = 0;
 		}
 		else{
 
@@ -906,7 +905,7 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 				return;
 			}
 			encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-			if (!send_and_check(io)) gpt_failed = 0;
+			if (!send_and_check(io)) g_app_state.gpt_failed = 0;
 		}
 		gui_idle_call_wait_drag([window, helper]() mutable {
 			showInfoDialog(window, _(_(_("Completed"))), _("Partition modification completed!"));
@@ -954,7 +953,7 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 	helper.setLabelText(helper.getWidget("con"), "Backup partitions");
 	std::thread([helper]() {
 		if (!isCMethod) {
-			if (gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+			if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 			if (!io->part_count) {
 				DEG_LOG(E, "Partition table not available\n");
 				gui_idle_call_wait_drag([helper]() {
@@ -970,8 +969,8 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 				if (!strncmp((*(io->ptable + i)).name, "blackbox", 8)) continue;
 				else if (!strncmp((*(io->ptable + i)).name, "cache", 5)) continue;
 				else if (!strncmp((*(io->ptable + i)).name, "userdata", 8)) continue;
-				if (selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_b")) continue;
-				else if (selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_a")) continue;
+				if (g_app_state.selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_b")) continue;
+				else if (g_app_state.selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_a")) continue;
 				snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->ptable + i)).name);
 				dump_partition(io, (*(io->ptable + i)).name, 0, (*(io->ptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
 			}
@@ -991,8 +990,8 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 				if (!strncmp((*(io->Cptable + i)).name, "blackbox", 8)) continue;
 				else if (!strncmp((*(io->Cptable + i)).name, "cache", 5)) continue;
 				else if (!strncmp((*(io->Cptable + i)).name, "userdata", 8)) continue;
-				if (selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_b")) continue;
-				else if (selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_a")) continue;
+				if (g_app_state.selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_b")) continue;
+				else if (g_app_state.selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_a")) continue;
 				snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->Cptable + i)).name);
 				dump_partition(io, (*(io->Cptable + i)).name, 0, (*(io->Cptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
 			}

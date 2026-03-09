@@ -192,14 +192,14 @@ spdio_t *spdio_init(int flags) {
 void spdio_free(spdio_t *io) {
 	if (!io) return;
 #if _WIN32
-	if (!bListenLibusb) {
+	if (!g_app_state.bListenLibusb) {
 		PostThreadMessage(io->iThread, WM_QUIT, 0, 0);
 		WaitForSingleObject(io->hThread, INFINITE);
 		CloseHandle(io->hThread);
 	}
 #endif
 #if USE_LIBUSB
-	if (bListenLibusb) stopUsbEventHandle();
+	if (g_app_state.bListenLibusb) stopUsbEventHandle();
 	libusb_close(io->dev_handle);
 	libusb_exit(nullptr);
 #else
@@ -460,7 +460,7 @@ int HotplugCbFunc(libusb_context *ctx, libusb_device *device, libusb_hotplug_eve
 void *UsbThrdFunc(void *param) {
 	(void)param;
 	int ret;
-	while (bListenLibusb) {
+	while (g_app_state.bListenLibusb) {
 		ret = libusb_handle_events(nullptr);
 		if (ret < 0)
 			DEG_LOG(E,"libusb_handle_events() failed: %s", libusb_error_name(ret));
@@ -487,11 +487,11 @@ void startUsbEventHandle(void) {
 		ERR_EXIT("Failed to create thread, error: %d\n", ret);
 	}
 
-	bListenLibusb = 1;
+	g_app_state.bListenLibusb = 1;
 }
 
 void stopUsbEventHandle(void) {
-	bListenLibusb = 0;
+	g_app_state.bListenLibusb = 0;
 	libusb_hotplug_deregister_callback(nullptr, gHotplugCbHandle);
 
 	int ret = pthread_join(gUsbEventThrd, nullptr);

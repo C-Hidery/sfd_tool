@@ -4,7 +4,6 @@
 
 #define RECV_BUF_LEN (0x8000)
 extern int m_bOpened;
-extern int bListenLibusb;
 
 #if _WIN32
 #include <Windows.h>
