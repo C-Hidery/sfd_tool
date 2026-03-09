@@ -98,7 +98,7 @@ locale/zh_CN/LC_MESSAGES/sfd_tool.mo: locale/zh_CN/LC_MESSAGES/sfd_tool.po
 SOURCES = main.cpp main_console.cpp common.cpp GtkWidgetHelper.cpp \
           ui_common.cpp \
           core/logging.cpp core/file_io.cpp core/pac_extract.cpp \
-          core/usb_transport.cpp core/spd_protocol.cpp \
+          core/usb_transport.cpp core/spd_protocol.cpp core/flash_service.cpp core/device_service.cpp core/config_service.cpp \
           pages/page_connect.cpp pages/page_partition.cpp \
           pages/page_manual.cpp pages/page_advanced_op.cpp \
           pages/page_advanced_set.cpp pages/page_debug.cpp \

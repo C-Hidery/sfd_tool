@@ -1,11 +1,12 @@
 #pragma once
 
 #include <string>
+#include "device_service.h"  // 提供 ConnectionConfig 定义
+#include "flash_service.h"   // 提供 FlashPacOptions 定义
 
 namespace sfd {
 
-struct ConnectionConfig;  // 来自 device_service.h 的前向声明
-struct FlashPacOptions;   // 来自 flash_service.h 的前向声明
+// 这里直接使用完整类型定义，避免前向声明不完整导致的问题
 
 enum class ConfigErrorCode {
     Ok = 0,
