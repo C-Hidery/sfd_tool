@@ -2,6 +2,8 @@
 %global debug_package %{nil}
 %global _enable_debug_package 0
 
+# 禁用 LTO，避免 ld 在 .debug_* 段对 nlohmann/json 和内部静态符号报 undefined
+%global _lto_cflags %{nil}
 
 Name:           sfd-tool
 Version:        1.7.6.0
