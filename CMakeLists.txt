@@ -173,16 +173,15 @@ if (USE_GTK)
         endforeach()
 
         # Link against GTK/glib import libraries from MSYS2
-        target_link_directories(sfd_tool PRIVATE "${_gtk_root}/lib")
         target_link_libraries(sfd_tool PRIVATE
-            libgtk-3.dll.a
-            libgdk-3.dll.a
-            libglib-2.0.dll.a
-            libgobject-2.0.dll.a
-            libgio-2.0.dll.a
-            libharfbuzz.dll.a
-            libpango-1.0.dll.a
-            libpangocairo-1.0.dll.a
+            "${_gtk_root}/lib/libgtk-3.dll.a"
+            "${_gtk_root}/lib/libgdk-3.dll.a"
+            "${_gtk_root}/lib/libglib-2.0.dll.a"
+            "${_gtk_root}/lib/libgobject-2.0.dll.a"
+            "${_gtk_root}/lib/libgio-2.0.dll.a"
+            "${_gtk_root}/lib/libharfbuzz.dll.a"
+            "${_gtk_root}/lib/libpango-1.0.dll.a"
+            "${_gtk_root}/lib/libpangocairo-1.0.dll.a"
         )
     else()
         if (NOT PKG_CONFIG_FOUND)
