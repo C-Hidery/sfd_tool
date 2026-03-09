@@ -133,6 +133,9 @@ public:
     virtual FlashStatus verifyPartition(const std::string& partition_name,
                                         SlotSelection slot_selection = SlotSelection::Auto) = 0;
 
+    // 擦除指定分区
+    virtual FlashStatus erasePartition(const std::string& partition_name) = 0;
+
     // 查询 PAC 刷机时间（映射现有 read_pactime(io) 行为）
     virtual FlashStatus queryPacFlashTime(std::uint64_t& out_seconds) = 0;
 };

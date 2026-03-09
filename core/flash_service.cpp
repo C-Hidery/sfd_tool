@@ -347,6 +347,34 @@ public:
         return make_error(FlashErrorCode::UnsupportedOperation, "verifyPartition not implemented");
     }
 
+    FlashStatus erasePartition(const std::string& partition_name) override {
+        if (!io_ || !app_) {
+            DEG_LOG(E, "erasePartition: context not set");
+            return make_error(FlashErrorCode::InternalError, "context not set");
+        }
+
+        if (partition_name.empty()) {
+            DEG_LOG(E, "erasePartition: empty partition name");
+            return make_error(FlashErrorCode::PartitionNotFound, "empty partition name");
+        }
+
+        // 确保分区表存在
+        if (!io_->part_count && !io_->part_count_c) {
+            DEG_LOG(E, "erasePartition: no partition table loaded");
+            return make_error(FlashErrorCode::PartitionTableNotLoaded, "no partition table loaded");
+        }
+
+        get_partition_info(io_, partition_name.c_str(), 0);
+        if (!gPartInfo.size) {
+            DEG_LOG(E, "erasePartition: partition %s not found", partition_name.c_str());
+            return make_error(FlashErrorCode::PartitionNotFound, "partition not found");
+        }
+
+        DEG_LOG(OP, "erasePartition: %s, CMethod=%d", gPartInfo.name, app_->flash.isCMethod);
+        erase_partition(io_, gPartInfo.name, app_->flash.isCMethod);
+        return make_ok();
+    }
+
     FlashStatus queryPacFlashTime(std::uint64_t& out_seconds) override {
         if (!io_) {
             DEG_LOG(E, "queryPacFlashTime: io not set");
