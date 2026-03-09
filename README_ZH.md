@@ -34,6 +34,8 @@ pkg install termux-api libusb clang git pkg-config gtk3 glib pango libcairo gdk-
 make
 # 编译及加载国际化多语言支持（可选）
 make locales
+# Termux
+make termux
 ```
 
 ### 多语言国际化 (i18n)

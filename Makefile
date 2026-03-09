@@ -113,6 +113,11 @@ $(APPNAME): $(SOURCES)
 debug: CXXFLAGS += -g -D_DEBUG -O0
 debug: $(APPNAME)
 
+# Termux
+.PHONY: termux
+termux: LIBS += -lexecinfo
+termux: $(APPNAME)
+
 # 发布版本
 .PHONY: release
 release: CXXFLAGS += -O3 -DNDEBUG
