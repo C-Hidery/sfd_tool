@@ -53,10 +53,11 @@ if (WIN32)
 endif()
 
 # 链接子模块
+# pages_lib 依赖 core_lib（在静态链接下，依赖方需排在被依赖库之前）
 target_link_libraries(sfd_tool
     PRIVATE
-        core_lib
         pages_lib
+        core_lib
 )
 
 # 公共目标列表，方便批量设置编译选项
