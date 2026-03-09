@@ -5,7 +5,7 @@
 #include <thread>
 #include <iostream>
 
-extern spdio_t* io;
+extern spdio_t*& io;
 extern int ret;
 extern int& m_bOpened;
 extern int blk_size;

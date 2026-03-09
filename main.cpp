@@ -49,7 +49,7 @@ char mode_str[256];
 int in_quote;
 char* temp;
 char str1[(ARGC_MAX - 1) * ARGV_LEN];
-spdio_t* io = nullptr;
+spdio_t*& io = g_app_state.transport.io;
 int ret;
 int conn_wait = 30 * REOPEN_FREQ;
 int keep_charge = 1, end_data = 0, blk_size = 0, skip_confirm = 1, highspeed = 0, cve_v2 = 0;

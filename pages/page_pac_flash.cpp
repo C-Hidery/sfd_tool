@@ -10,7 +10,7 @@ extern AppState g_app_state;
 // 兼容旧逻辑：isCMethod 始终映射到 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
 extern int waitFDL1;
-extern spdio_t* io;
+extern spdio_t*& io;
 
 // ===== 按钮回调函数 =====
 

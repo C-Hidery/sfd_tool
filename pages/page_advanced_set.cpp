@@ -3,7 +3,7 @@
 #include "../main.h"
 #include "../i18n.h"
 
-extern spdio_t* io;
+extern spdio_t*& io;
 extern int blk_size;
 extern int keep_charge;
 extern int end_data;

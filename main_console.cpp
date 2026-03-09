@@ -207,7 +207,7 @@ void ThrowExit() {
 
 int main_console(int argc, char** argv) {
 	ThrowExit();
-	spdio_t* io = nullptr;
+	spdio_t*& io = g_app_state.transport.io;
 	int ret;
 	int conn_wait = 30 * REOPEN_FREQ;
 	int keep_charge = 1, end_data = 0, blk_size = 0, skip_confirm = 1, highspeed = 0, cve_v2 = 0;

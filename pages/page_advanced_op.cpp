@@ -6,7 +6,7 @@
 #include "page_partition.h"
 #include <thread>
 
-extern spdio_t* io;
+extern spdio_t*& io;
 extern int ret;
 extern int& m_bOpened;
 extern int blk_size;

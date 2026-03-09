@@ -4,7 +4,7 @@
 #include "../i18n.h"
 #include <thread>
 
-extern spdio_t* io;
+extern spdio_t*& io;
 extern int ret;
 extern int& m_bOpened;
 
