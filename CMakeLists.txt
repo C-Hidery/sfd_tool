@@ -44,6 +44,14 @@ add_executable(sfd_tool
     ui_common.cpp
 )
 
+# Windows: Channel9 封装（x86 使用，不依赖 libusb）
+if (WIN32)
+    target_sources(sfd_tool PRIVATE
+        BMPlatform.cpp
+        Wrapper.cpp
+    )
+endif()
+
 # 链接子模块
 target_link_libraries(sfd_tool
     PRIVATE
@@ -140,6 +148,9 @@ if (WIN32)
     else()
         message(WARNING "intl library not found in ${_vcpkg_lib_dir}; gettext may fail to link")
     endif()
+
+    # Windows 平台：崩溃堆栈 (dbghelp) + 串口枚举 (setupapi)
+    target_link_libraries(sfd_tool PRIVATE dbghelp setupapi)
 endif()
 
 # ================= 依赖：GTK3 / libusb =================
