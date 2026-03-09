@@ -5,6 +5,7 @@
 #include "file_io.h"
 
 #include <filesystem>
+#include <memory>
 
 using namespace std;
 
@@ -362,5 +363,9 @@ private:
     AppState* app_ = nullptr;
     std::vector<DevicePartitionInfo> cached_partitions_;
 };
+
+std::unique_ptr<FlashService> createFlashService() {
+    return std::unique_ptr<FlashService>(new DefaultFlashService());
+}
 
 } // namespace sfd

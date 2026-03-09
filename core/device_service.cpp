@@ -4,6 +4,8 @@
 #include "usb_transport.h"
 #include "../common.h"
 
+#include <memory>
+
 namespace sfd {
 
 namespace {
@@ -204,5 +206,9 @@ private:
     AppState* app_ = nullptr;
     DeviceInfo cached_info_{};
 };
+
+std::unique_ptr<DeviceService> createDeviceService() {
+    return std::unique_ptr<DeviceService>(new DefaultDeviceService());
+}
 
 } // namespace sfd

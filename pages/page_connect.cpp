@@ -3,7 +3,8 @@
 #include "../main.h"
 #include "../i18n.h"
 #include "../ui_common.h"
-#include "../third_party/nlohmann/json.hpp"
+#include "../core/device_service.h"
+#include "../core/config_service.h"
 #include "page_partition.h"
 #include <thread>
 #include <chrono>
@@ -47,6 +48,25 @@ extern libusb_device** ports;
 static int& isCMethod = g_app_state.flash.isCMethod;
 
 using nlohmann::json;
+
+// 通过 Service 层封装设备与配置访问
+static std::unique_ptr<sfd::DeviceService> g_device_service;
+static std::unique_ptr<sfd::ConfigService> g_config_service;
+
+static sfd::DeviceService* ensure_device_service() {
+    if (!g_device_service) {
+        g_device_service = sfd::createDeviceService();
+    }
+    g_device_service->setContext(io, &g_app_state);
+    return g_device_service.get();
+}
+
+static sfd::ConfigService* ensure_config_service() {
+    if (!g_config_service) {
+        g_config_service = sfd::createConfigService();
+    }
+    return g_config_service.get();
+}
 
 // 前向声明 — 这些回调定义在本文件中
 extern void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv);
@@ -553,8 +573,9 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		if(!(helper.getSwitchState(helper.getWidget("exec_addr"))) && g_app_state.device.device_mode == SPRD3)
 		{
+			// 1) 保留原有 fdl_info.json 写入逻辑，兼容旧行为
 			FILE* json_file = oxfopen("fdl_info.json", "w");
-			if (json_file) 
+			if (json_file)
 			{
 				json j = {
 					{"fdl1_path", fdl1_path_json},
@@ -564,6 +585,17 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				};
 				fprintf(json_file, "%s\n", j.dump().c_str());
 				fclose(json_file);
+			}
+
+			// 2) 同步写入 AppConfig，交由 ConfigService 管理“最近使用的 FDL”
+			auto* cfgSvc = ensure_config_service();
+			if (cfgSvc) {
+				sfd::AppConfig cfg{};
+				// NotFound 时返回错误码，但我们可以继续使用默认配置
+				cfgSvc->loadAppConfig(cfg);
+				cfg.last_fdl1_path = fdl1_path_json;
+				cfg.last_fdl2_path = fdl2_path_json;
+				cfgSvc->saveAppConfig(cfg);
 			}
 		}
 

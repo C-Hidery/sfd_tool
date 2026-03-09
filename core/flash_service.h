@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <memory>
 
 struct spdio_t;   // 前向声明，避免头文件循环依赖
 struct AppState;  // 来自 core/app_state.h
@@ -135,5 +136,8 @@ public:
     // 查询 PAC 刷机时间（映射现有 read_pactime(io) 行为）
     virtual FlashStatus queryPacFlashTime(std::uint64_t& out_seconds) = 0;
 };
+
+// 默认 FlashService 工厂方法，供 UI 层通过接口获取实现
+std::unique_ptr<FlashService> createFlashService();
 
 } // namespace sfd

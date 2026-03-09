@@ -1,21 +1,30 @@
 #include "page_pac_flash.h"
-#include "../main.h"
+#include "../core/flash_service.h"
+#include "../core/app_state.h"
+#include "../core/usb_transport.h"
 #include "../i18n.h"
 #include <string>
 #include <thread>
 
-extern int& m_bOpened;
 extern AppState g_app_state;
-
-// 兼容旧逻辑：isCMethod 始终映射到 AppState::flash.isCMethod
-static int& isCMethod = g_app_state.flash.isCMethod;
-extern int waitFDL1;
 extern spdio_t*& io;
+
+// 全局持有一个 FlashService 实例，复用底层 io/app_state
+static std::unique_ptr<sfd::FlashService> g_flash_service;
+
+static sfd::FlashService* ensure_flash_service() {
+	if (!g_flash_service) {
+		g_flash_service = sfd::createFlashService();
+	}
+	g_flash_service->setContext(io, &g_app_state);
+	return g_flash_service.get();
+}
 
 // ===== 按钮回调函数 =====
 
 void on_button_clicked_pac_time(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
+	auto* service = ensure_flash_service();
+	if (g_app_state.device.m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Device unattached, exiting...\n设备已断开连接！正在退出..."));
@@ -23,7 +32,15 @@ void on_button_clicked_pac_time(GtkWidgetHelper helper) {
 		}, GTK_WINDOW(helper.getWidget("main_window")));
 		return;
 	}
-	uint64_t pt = read_pactime(io);
+	std::uint64_t pt = 0;
+	sfd::FlashStatus st = service->queryPacFlashTime(pt);
+	if (!st.success) {
+		DEG_LOG(E, "queryPacFlashTime failed: %s", st.message.c_str());
+		gui_idle_call_wait_drag([helper, msg = st.message]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), msg.c_str());
+		}, GTK_WINDOW(helper.getWidget("main_window")));
+		return;
+	}
 	std::string msg = std::string(_("PAC flash time")) + ": " + std::to_string(pt) + " s";
 	gui_idle_call_wait_drag([msg, helper]() {
 		showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("PAC Time"), msg.c_str());
@@ -54,7 +71,8 @@ void on_button_clicked_pac_select(GtkWidgetHelper helper) {
 }
 
 void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
+	auto* service = ensure_flash_service();
+	if (g_app_state.device.m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Device unattached, exiting...\n设备已断开连接！正在退出..."));
@@ -63,26 +81,29 @@ void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 		return;
 	}
 	const char* pac_path = helper.getEntryText(helper.getWidget("pac_file_path"));
-	FILE *fi = oxfopen(pac_path, "r");
-	if (fi == nullptr) {
-		DEG_LOG(E, "File does not exist.");
+	if (!pac_path || !*pac_path) {
 		gui_idle_call_wait_drag([helper]() {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist.\n文件不存在！"));
 		}, GTK_WINDOW(helper.getWidget("main_window")));
 		return;
 	}
-	fclose(fi);
-	if (!pac_extract(pac_path, "pac_unpack_output")) {
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Failed to unpack PAC file.\nPAC文件解包失败！"));
+
+	sfd::PacMetadata meta;
+	std::vector<sfd::PacPartitionEntry> entries;
+	sfd::FlashStatus st = service->loadPacMetadata(pac_path, meta, entries);
+	if (!st.success) {
+		DEG_LOG(E, "loadPacMetadata failed: %s", st.message.c_str());
+		gui_idle_call_wait_drag([helper, msg = st.message]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), msg.c_str());
 		}, GTK_WINDOW(helper.getWidget("main_window")));
-		DEG_LOG(E, "Failed to unpack PAC file.");
+		return;
 	}
+	// 分区列表仍由 pac_extract 在 core 层直接填充 pac_list，后续 T2/T3 再下沉
 }
 
 void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
-	(void)helper;
-	if (m_bOpened == -1) {
+	auto* service = ensure_flash_service();
+	if (g_app_state.device.m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Device unattached, exiting...\n设备已断开连接！正在退出..."));
@@ -90,13 +111,37 @@ void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 		}, GTK_WINDOW(helper.getWidget("main_window")));
 		return;
 	}
-	load_partitions(
-		io,
-		"pac_unpack_output",
-		fblk_size ? fblk_size : DEFAULT_BLK_SIZE,
-		g_app_state.flash.selected_ab,
-		isCMethod
-	);
+
+	const char* pac_path_c = helper.getEntryText(helper.getWidget("pac_file_path"));
+	if (!pac_path_c || !*pac_path_c) {
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist.\n文件不存在！"));
+		}, GTK_WINDOW(helper.getWidget("main_window")));
+		return;
+	}
+
+	sfd::FlashPacOptions opts;
+	opts.pac_path = pac_path_c;
+	opts.slot_selection = static_cast<sfd::SlotSelection>(g_app_state.flash.selected_ab <= 0 ? 0 : g_app_state.flash.selected_ab);
+	opts.compatibility_mode = g_app_state.flash.isCMethod != 0;
+
+	// block size 仍然从全局 fblk_size 读取，保持行为一致
+	// 真正的分区写入逻辑仍在 FlashService/核心模块中
+
+	std::thread([helper, opts]() {
+		auto* svc = ensure_flash_service();
+		sfd::FlashStatus st = svc->flashPac(opts);
+		if (!st.success) {
+			DEG_LOG(E, "flashPac failed: %s", st.message.c_str());
+			gui_idle_call_wait_drag([helper, msg = st.message]() {
+				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), msg.c_str());
+			}, GTK_WINDOW(helper.getWidget("main_window")));
+		} else {
+			gui_idle_call_wait_drag([helper]() {
+				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC flash completed successfully."));
+			}, GTK_WINDOW(helper.getWidget("main_window")));
+		}
+	}).detach();
 }
 
 // ===== UI 构建 =====
@@ -129,9 +174,7 @@ GtkWidget* create_pac_flash_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 		return box;
 	};
 
-	// ══════════════════════════════════════════════
 	//  第一部分：选择 PAC 文件
-	// ══════════════════════════════════════════════
 	GtkWidget* fileFrame = gtk_frame_new(NULL);
 	gtk_widget_set_margin_bottom(fileFrame, 16);
 	GtkWidget* fileTitleLabel = gtk_label_new(NULL);
@@ -144,7 +187,6 @@ GtkWidget* create_pac_flash_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* fileCardBox = makeCardBox(12, 10);
 	gtk_container_add(GTK_CONTAINER(fileFrame), fileCardBox);
 
-	// 文件路径行
 	GtkWidget* fileRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
 	GtkWidget* pacFileLabel = gtk_label_new(_("PAC File Path"));
 	helper.addWidget("pac_file_label", pacFileLabel);
@@ -159,9 +201,7 @@ GtkWidget* create_pac_flash_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
 	gtk_box_pack_start(GTK_BOX(mainBox), fileFrame, FALSE, FALSE, 0);
 
-	// ══════════════════════════════════════════════
 	//  第二部分：PAC 分区列表
-	// ══════════════════════════════════════════════
 	GtkWidget* listTitle = gtk_label_new(_("Please select a partition"));
 	helper.addWidget("pac_list_title", listTitle);
 	gtk_widget_set_halign(listTitle, GTK_ALIGN_CENTER);
@@ -189,9 +229,7 @@ GtkWidget* create_pac_flash_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_container_add(GTK_CONTAINER(listScroll), p_treeView);
 	gtk_box_pack_start(GTK_BOX(mainBox), listScroll, FALSE, FALSE, 0);
 
-	// ══════════════════════════════════════════════
 	//  第三部分：烧录操作卡片
-	// ══════════════════════════════════════════════
 	GtkWidget* flashFrame = gtk_frame_new(NULL);
 	gtk_widget_set_margin_top(flashFrame, 16);
 	gtk_widget_set_margin_bottom(flashFrame, 16);
@@ -205,7 +243,6 @@ GtkWidget* create_pac_flash_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* flashCardBox = makeCardBox(12, 10);
 	gtk_container_add(GTK_CONTAINER(flashFrame), flashCardBox);
 
-	// AB 分区选择行（三个同宽按钮）
 	GtkWidget* abDescLabel = gtk_label_new(_("Select slot mode:"));
 	helper.addWidget("pac_ab_desc_label", abDescLabel);
 	gtk_widget_set_halign(abDescLabel, GTK_ALIGN_START);
@@ -222,7 +259,6 @@ GtkWidget* create_pac_flash_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_box_pack_start(GTK_BOX(abRow), abpart_b,    TRUE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(flashCardBox), abRow, FALSE, FALSE, 0);
 
-	// 开始烧录按钮
 	GtkWidget* pacFlashBtn = helper.createButton(_("START PAC Flash"), "pac_flash_start", nullptr, 0, 0, -1, 36);
 	gtk_widget_set_hexpand(pacFlashBtn, TRUE);
 	gtk_box_pack_start(GTK_BOX(flashCardBox), pacFlashBtn, TRUE, TRUE, 0);

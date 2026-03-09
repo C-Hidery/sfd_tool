@@ -189,4 +189,8 @@ public:
     }
 };
 
+std::unique_ptr<ConfigService> createConfigService() {
+    return std::unique_ptr<ConfigService>(new DefaultConfigService());
+}
+
 } // namespace sfd

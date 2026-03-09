@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <memory>
 #include "device_service.h"  // 提供 ConnectionConfig 定义
 #include "flash_service.h"   // 提供 FlashPacOptions 定义
 
@@ -85,5 +86,8 @@ public:
     virtual void applyDefaultsToFlashOptions(AppConfig& config,
                                              FlashPacOptions& inout_flash_options) = 0;
 };
+
+// 默认 ConfigService 工厂
+std::unique_ptr<ConfigService> createConfigService();
 
 } // namespace sfd

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <memory>
 
 struct spdio_t;   // 来自 core/usb_transport.h
 struct AppState;  // 来自 core/app_state.h
@@ -137,5 +138,7 @@ public:
 
     virtual bool isEventLoopRunning() const = 0;
 };
+
+std::unique_ptr<DeviceService> createDeviceService();
 
 } // namespace sfd
