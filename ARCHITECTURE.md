@@ -56,52 +56,96 @@ sfd_tool/
 
 ---
 
-## 模块化设计
+## 当前架构问题概览
 
-### 页面模块接口规范
+> 本小节从高层结构视角概括当前架构在“模块边界、职责分配、可测试性、可维护性”等方面存在的主要问题。更细致的函数级分析见 [`task/工程结构分析与整理计划.md`](task/工程结构分析与整理计划.md)。
 
-每个 `pages/page_xxx.cpp` 遵循统一接口：
+1. **核心逻辑与 UI 层耦合度高**
+   - `main.cpp` 中包含大量业务流程（设备连接、FDL 执行、分区读写等），这些流程直接操作 GTK 控件或依赖 UI 细节。
+   - 部分页面（如 `page_connect`, `page_partition`）的回调函数仍然实现在 `main.cpp`，导致页面模块与主入口强耦合。
 
-```cpp
-// 创建 UI，将标签页添加到 notebook
-GtkWidget* create_xxx_page(GtkWidgetHelper& helper, GtkWidget* notebook);
+2. **协议/传输与平台细节混杂**
+   - 历史上大量逻辑集中在 `common.cpp` 中，包括：SPD 协议编解码、USB 传输、文件 I/O、PAC 解包、日志输出等。
+   - 协议层直接依赖 libusb / Windows Channel9 等平台细节，缺乏清晰的抽象层，使得后续想引入测试或替换底层实现的成本很高。
 
-// 绑定该页面的所有按钮信号
-void bind_xxx_signals(GtkWidgetHelper& helper);
-```
+3. **全局状态分散且以 `extern` 形式暴露**
+   - 设备连接状态、块大小、A/B 分区选择等关键状态通过多个 `extern` 变量散落在不同源文件中。
+   - 这增加了理解成本，也使得重构过程中很难保证所有状态在一个一致的生命周期内被正确管理。
 
-`gtk_kmain`（在 `main.cpp`）只负责依次调用这些函数：
+4. **配置与 JSON 操作直接暴露在 UI 中**
+   - 当前 UI 代码直接操作 `nlohmann::json`，不同页面自行解析/拼装配置结构，缺乏统一的配置域模型。
+   - 随着功能增加，配置项的演化难以集中治理，容易产生隐性依赖和行为差异。
 
-```cpp
-create_connect_page(helper, notebook);
-create_partition_page(helper, notebook);
-// ...
-bind_connect_signals(helper, argc, argv);
-bind_partition_signals(helper);
-// ...
-```
+5. **日志与长任务处理模式不统一**
+   - 各处自行使用日志输出宏/函数，缺乏统一接口和等级管理；
+   - 刷机、备份等长时间运行任务在不同页面中以不同方式禁用按钮、更新进度条、处理取消操作，不利于用户体验一致性与后续维护。
 
-### GtkWidgetHelper
+6. **测试与构建体系对重构不友好**
+   - 协议/解析等核心逻辑缺少单元测试，任何非局部性改动都需要依赖人工回归；
+   - 构建系统以 Makefile 为主，VS 工程与 CMake 的角色界限尚不清晰，不利于在多平台、多 IDE 环境下协同开发。
 
-`GtkWidgetHelper` 是对 GTK 的统一封装，核心能力：
+上述问题在《工程重构执行计划》中被进一步拆解为可操作的任务（例如 T1-01～T1-05、T2-01～T2-03 等），这里以“问题清单”的方式帮助读者从整体上把握架构痛点。
 
-- `addWidget(name, widget)` / `getWidget(name)` — 用字符串 name 管理所有 widget（避免散乱的全局指针）
-- `createButton / createEntry / createLabel / createGrid` — 快捷创建 widget
-- `bindClick(widget, lambda)` — 绑定点击回调
-- `setLabelText / setEntryText / getEntryText` — 读写控件值
+---
 
-### 全局状态
+## 目标架构轮廓
 
-以下全局变量在 `main.h` 中声明，各模块通过 `extern` 引用：
+> 本小节描述期望达到的目标架构形态，用于指导具体重构任务的取舍与优先级。对应的实施步骤与里程碑请参考 [`task/工程重构执行计划.md`](task/工程重构执行计划.md)。
 
-| 变量 | 说明 |
-|------|------|
-| `io` | spdio_t*，设备通信上下文 |
-| `helper` | GtkWidgetHelper，全局 widget 管理器 |
-| `m_bOpened` | 设备连接状态（-1 = 未连接） |
-| `isCMethod` | 是否使用兼容模式读取分区表 |
-| `blk_size` | 数据块大小 |
-| `selected_ab` | A/B 分区选择（0=auto, 1=A, 2=B） |
+### 1. 分层结构与边界
+
+目标是形成一个**UI ← Service ← Core ← 平台** 的分层结构，每一层的职责大致如下：
+
+- **UI 层（pages/*, GtkWidgetHelper, ui_common）**
+  - 负责界面展示、用户交互、输入校验和简单的状态管理；
+  - 通过 Service 接口调用业务能力，不直接操作 USB、协议、文件或 JSON；
+  - 页面之间通过清晰的接口（例如初始化、应用配置、执行操作）进行协作。
+
+- **Service 层（core/flash_service, device_service, config_service 等）**
+  - 对上提供面向用例的高层接口（例如“刷一个 PAC 包”、“探测设备信息”、“加载/保存配置”）；
+  - 对下组合使用 core 模块（协议/传输、PAC 解析、文件 I/O 等），并负责将底层错误转换为统一的 Result/ErrorCode；
+  - 是未来测试与监控的重点入口层。
+
+- **Core 层（core/spd_protocol, usb_transport, pac_extract, file_io, logging 等）**
+  - 提供与业务场景无关的“通用能力”：协议编解码、字节流读写、文件访问、日志输出等；
+  - 不依赖 UI，不直接持有 GtkWidget 等 UI 对象；
+  - 尽量通过抽象接口（如 IUsbTransport）隔离具体平台实现，方便替换与单元测试。
+
+- **平台层（BMPlatform, Wrapper, 平台相关宏/适配）**
+  - 封装与操作系统或特定驱动相关的细节（如 Windows Channel9、libusb 设备枚举方式差异等）；
+  - 提供统一的接口给 core/usb_transport 等模块使用。
+
+### 2. 状态与配置管理
+
+- 引入集中管理的应用状态（AppState 或等价机制），替代当前散落的 `extern` 全局变量；
+- app_state 仅承载“业务状态”（设备信息、当前 PAC 信息、分区表等），不再持有 UI 控件指针；
+- 配置相关逻辑通过 ConfigService 和明确定义的配置结构体（AppConfig、ConnectionConfig、FlashConfig 等）统一管理，JSON 仅作为持久化格式存在。
+
+### 3. 错误处理与日志
+
+- 在 core 层引入统一的 Result<T> + ErrorCode 体系，避免“0/非 0”“true/false”等隐式约定；
+- 在全局统一日志接口与等级划分（LOG_DEBUG/INFO/WARN/ERROR），并记录模块名，方便定位问题；
+- UI 层通过统一的日志/提示接口与 core 层交互，不直接依赖底层日志实现细节。
+
+### 4. 可测试性与可维护性
+
+- 协议编解码、PAC 解析、关键 Service 接口具备基础单元测试，重构后可通过 CI 快速验证回归；
+- 文件和模块边界清晰，一个模块的改动尽量局限在有限的几个文件范围内；
+- 对外暴露的接口（尤其是 Service 层）保持简洁稳定，为后续功能扩展留有余地。
+
+### 5. 构建与发布流程
+
+- 明确 CMake、VS 工程与 Makefile 的角色：
+  - CMake 作为跨平台构建配置的“单一事实来源”；
+  - VS 工程可以由 CMake 生成或标记为 legacy；
+  - Makefile 可在过渡期保留或简化，最终以 CMake 为主。
+- CI 能够覆盖核心平台（至少 Linux + Windows）的基础构建与测试，打包脚本（Debian、可能的 RPM 等）与当前目录结构保持同步。
+
+通过上述目标架构的约束，可以将《工程重构执行计划》中每一条任务（T1-01, T2-01, T3-01 等）映射到具体的“架构收益”，从而在实施过程中持续校验：
+
+- 这次改动是否让某个边界更清晰了？
+- 是否降低了 UI 与 core、协议与平台之间的耦合？
+- 是否提升了未来新增功能或排查问题的可行性？
 
 ---
 
