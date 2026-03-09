@@ -97,27 +97,43 @@ endif()
 
 # Windows: libintl (gettext) via vcpkg
 if (WIN32)
-    if (DEFINED ENV{VCPKG_ROOT})
-        if (CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
-            set(_vcpkg_triplet "x64-windows")
-        else()
-            set(_vcpkg_triplet "x86-windows")
-        endif()
-        set(_vcpkg_include "$ENV{VCPKG_ROOT}/installed/${_vcpkg_triplet}/include")
-        set(_vcpkg_lib_dir "$ENV{VCPKG_ROOT}/installed/${_vcpkg_triplet}/lib")
-
-        foreach(tgt IN LISTS SFD_COMMON_TARGETS)
-            target_include_directories(${tgt} PRIVATE "${_vcpkg_include}")
-        endforeach()
-
-        find_library(INTL_LIBRARY NAMES intl PATHS "${_vcpkg_lib_dir}")
-        if (INTL_LIBRARY)
-            target_link_libraries(sfd_tool PRIVATE "${INTL_LIBRARY}")
-        else()
-            message(WARNING "intl library not found in ${_vcpkg_lib_dir}; gettext may fail to link")
-        endif()
+    if (CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
+        set(_vcpkg_triplet "x64-windows")
     else()
-        message(WARNING "VCPKG_ROOT is not set; libintl headers/libraries may be missing on Windows")
+        set(_vcpkg_triplet "x86-windows")
+    endif()
+
+    # Try to infer vcpkg root from toolchain file first, then env, then default C:/vcpkg
+    set(_vcpkg_root "")
+
+    if (DEFINED CMAKE_TOOLCHAIN_FILE)
+        get_filename_component(_tc_dir "${CMAKE_TOOLCHAIN_FILE}" DIRECTORY)
+        get_filename_component(_candidate_root "${_tc_dir}/../.." ABSOLUTE)
+        if (EXISTS "${_candidate_root}/installed")
+            set(_vcpkg_root "${_candidate_root}")
+        endif()
+    endif()
+
+    if (_vcpkg_root STREQUAL "" AND DEFINED ENV{VCPKG_ROOT})
+        set(_vcpkg_root "$ENV{VCPKG_ROOT}")
+    endif()
+
+    if (_vcpkg_root STREQUAL "")
+        set(_vcpkg_root "C:/vcpkg")
+    endif()
+
+    set(_vcpkg_include "${_vcpkg_root}/installed/${_vcpkg_triplet}/include")
+    set(_vcpkg_lib_dir "${_vcpkg_root}/installed/${_vcpkg_triplet}/lib")
+
+    foreach(tgt IN LISTS SFD_COMMON_TARGETS)
+        target_include_directories(${tgt} PRIVATE "${_vcpkg_include}")
+    endforeach()
+
+    find_library(INTL_LIBRARY NAMES intl PATHS "${_vcpkg_lib_dir}")
+    if (INTL_LIBRARY)
+        target_link_libraries(sfd_tool PRIVATE "${INTL_LIBRARY}")
+    else()
+        message(WARNING "intl library not found in ${_vcpkg_lib_dir}; gettext may fail to link")
     endif()
 endif()
 
