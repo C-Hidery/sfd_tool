@@ -4,10 +4,11 @@
 #include <string>
 #include <thread>
 
-extern int m_bOpened;
+extern int& m_bOpened;
 extern AppState g_app_state;
-extern int blk_size;
-extern int isCMethod;
+
+// 兼容旧逻辑：isCMethod 始终映射到 AppState::flash.isCMethod
+static int& isCMethod = g_app_state.flash.isCMethod;
 extern int waitFDL1;
 extern spdio_t* io;
 
@@ -31,17 +32,17 @@ void on_button_clicked_pac_time(GtkWidgetHelper helper) {
 
 void on_button_clicked_abpart_auto(GtkWidgetHelper helper) {
 	(void)helper;
-	g_app_state.selected_ab = 0;
+	g_app_state.flash.selected_ab = 0;
 }
 
 void on_button_clicked_abpart_a(GtkWidgetHelper helper) {
 	(void)helper;
-	g_app_state.selected_ab = 1;
+	g_app_state.flash.selected_ab = 1;
 }
 
 void on_button_clicked_abpart_b(GtkWidgetHelper helper) {
 	(void)helper;
-	g_app_state.selected_ab = 2;
+	g_app_state.flash.selected_ab = 2;
 }
 
 void on_button_clicked_pac_select(GtkWidgetHelper helper) {
@@ -93,7 +94,7 @@ void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 		io,
 		"pac_unpack_output",
 		blk_size ? blk_size : DEFAULT_BLK_SIZE,
-		g_app_state.selected_ab,
+		g_app_state.flash.selected_ab,
 		isCMethod
 	);
 }

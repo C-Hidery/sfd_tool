@@ -3,7 +3,7 @@
 #include <stddef.h>
 
 #define RECV_BUF_LEN (0x8000)
-extern int m_bOpened;
+extern int& m_bOpened;
 
 #if _WIN32
 #include <Windows.h>

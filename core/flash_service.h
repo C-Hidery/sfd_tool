@@ -54,7 +54,7 @@ struct DevicePartitionInfo {
     bool writable = true;
 };
 
-// A/B slot 选择策略，对应 g_app_state.selected_ab
+// A/B slot 选择策略，对应 g_app_state.flash.selected_ab
 enum class SlotSelection {
     Auto = 0,
     SlotA = 1,

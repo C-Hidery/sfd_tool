@@ -8,10 +8,12 @@
 
 extern spdio_t* io;
 extern int ret;
-extern int m_bOpened;
+extern int& m_bOpened;
 extern int blk_size;
-extern int isCMethod;
 extern AppState g_app_state;
+
+// 兼容旧逻辑：isCMethod 始终映射到 AppState::flash.isCMethod
+static int& isCMethod = g_app_state.flash.isCMethod;
 
 
 static void on_button_clicked_set_active_a(GtkWidgetHelper helper) {
@@ -23,7 +25,7 @@ static void on_button_clicked_set_active_a(GtkWidgetHelper helper) {
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
-	if(!g_app_state.selected_ab) {
+	if(!g_app_state.flash.selected_ab) {
 		gui_idle_call_wait_drag([helper](){
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device is not using VAB!"));
 		},GTK_WINDOW(helper.getWidget("main_window")));
@@ -45,7 +47,7 @@ static void on_button_clicked_set_active_b(GtkWidgetHelper helper) {
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		
 	}
-	if(!g_app_state.selected_ab) {
+	if(!g_app_state.flash.selected_ab) {
 		gui_idle_call_wait_drag([helper](){
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device is not using VAB!"));
 		},GTK_WINDOW(helper.getWidget("main_window")));
@@ -107,7 +109,7 @@ static void on_button_clicked_read_xml(GtkWidgetHelper helper) {
 		return;
 	}
 	if (!isCMethod) {
-		if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, savePath.c_str(), &io->part_count);
+		if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, savePath.c_str(), &io->part_count);
 		if (!io->part_count) {
 			DEG_LOG(E, "Partition table not available");
 			return;

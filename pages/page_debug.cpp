@@ -6,7 +6,7 @@
 
 extern spdio_t* io;
 extern int ret;
-extern int m_bOpened;
+extern int& m_bOpened;
 
 static void on_button_clicked_pac_time(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {

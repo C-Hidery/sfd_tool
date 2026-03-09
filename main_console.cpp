@@ -12,6 +12,9 @@
 
 extern AppState g_app_state;
 
+// 兼容旧代码的便捷访问器：直接操作 AppState::flash.isCMethod
+static int& isCMethod = g_app_state.flash.isCMethod;
+
 void print_help() {
 	//TODO
 	DBG_LOG("Usage:\n"
@@ -340,7 +343,7 @@ int main_console(int argc, char** argv) {
 		at = 0;
 	}
 #ifdef __ANDROID__
-	g_app_state.bListenLibusb = 0;
+	g_app_state.transport.bListenLibusb = 0;
 	DEG_LOG(OP, "Try to convert termux transfered usb port fd.");
 	// handle
 	if (xfd < 0)
@@ -361,7 +364,7 @@ int main_console(int argc, char** argv) {
 	call_Initialize_libusb(io);
 #else
 #if !USE_LIBUSB
-	g_app_state.bListenLibusb = 0;
+	g_app_state.transport.bListenLibusb = 0;
 	if (at || bootmode >= 0) {
 		io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
 		if (io->hThread == nullptr) return -1;
@@ -372,7 +375,7 @@ int main_console(int argc, char** argv) {
 #else
 	if (!libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG)) {
 		DBG_LOG("hotplug unsupported on this platform\n");
-		g_app_state.bListenLibusb = 0;
+		g_app_state.transport.bListenLibusb = 0;
 		bootmode = -1;
 		at = 0;
 	}
@@ -382,10 +385,10 @@ int main_console(int argc, char** argv) {
 		conn_wait = 30 * REOPEN_FREQ;
 		stage = -1;
 	}
-	if (!g_app_state.bListenLibusb) startUsbEventHandle();
+	if (!g_app_state.transport.bListenLibusb) startUsbEventHandle();
 #endif
 #if _WIN32
-	if (!g_app_state.bListenLibusb) {
+	if (!g_app_state.transport.bListenLibusb) {
 		if (io->hThread == nullptr) io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
 		if (io->hThread == nullptr) return -1;
 	}
@@ -405,7 +408,7 @@ int main_console(int argc, char** argv) {
 		ThrowExit();
 		for (i = 0; ; i++) {
 #if USE_LIBUSB
-			if (g_app_state.bListenLibusb) {
+			if (g_app_state.transport.bListenLibusb) {
 				if (curPort) {
 					if (libusb_open(curPort, &io->dev_handle) >= 0) call_Initialize_libusb(io);
 					else ERR_EXIT("Failed to connect\n");
@@ -1031,9 +1034,9 @@ int main_console(int argc, char** argv) {
 				} else if (Da_Info.dwStorageType == 0x102) {
 					io->ptable = partition_list(io, fn_partlist, &io->part_count);
 				} else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
-				if (g_app_state.gpt_failed != 1) {
-					if (g_app_state.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
-					else if (g_app_state.selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
+				if (g_app_state.flash.gpt_failed != 1) {
+					if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
+					else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
 					else {
 						DEG_LOG(I, "Device is not using VAB\n");
 						if (Da_Info.bSupportRawData) {
@@ -1291,7 +1294,7 @@ int main_console(int argc, char** argv) {
 			}
 
 			name = str2[2];
-			if (g_app_state.selected_ab < 0) select_ab(io);
+			if (g_app_state.flash.selected_ab < 0) select_ab(io);
 			int v = io->verbose;
 			io->verbose = -1;
 			DEG_LOG(I, "%s: ", name);
@@ -1309,7 +1312,7 @@ int main_console(int argc, char** argv) {
 			}
 
 			name = str2[2];
-			if (g_app_state.selected_ab < 0) select_ab(io);
+			if (g_app_state.flash.selected_ab < 0) select_ab(io);
 			long long r = (long long)check_partition(io, name, 0);
 			if (r == 1) {
 				DEG_LOG(I, "%s: Exist.", name);
@@ -1397,14 +1400,14 @@ int main_console(int argc, char** argv) {
 			}
 			if (!strcmp(name, "preset_modem")) {
 				start_signal();
-				if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+				if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 				if (!io->part_count) {
 					DEG_LOG(W, "Partition table not available");
 					argc -= 2;
 					argv += 2;
 					continue;
 				}
-				if (g_app_state.selected_ab > 0) {
+				if (g_app_state.flash.selected_ab > 0) {
 					DEG_LOG(OP, "Saving slot info");
 					dump_partition(io, "misc", 0, 1048576, "misc.bin", blk_size);
 				}
@@ -1422,7 +1425,7 @@ int main_console(int argc, char** argv) {
 				start_signal();
 
 				if (!isCMethod) {
-					if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+					if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 					if (!io->part_count) {
 						DEG_LOG(W, "Partition table not available\n");
 						argc -= 2;
@@ -1467,7 +1470,7 @@ int main_console(int argc, char** argv) {
 				start_signal();
 
 				if (!isCMethod) {
-					if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+					if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 					if (!io->part_count) {
 						DEG_LOG(E, "Partition table not available\n");
 						argc -= 2;
@@ -1482,8 +1485,8 @@ int main_console(int argc, char** argv) {
 						if (!strncmp((*(io->ptable + i)).name, "blackbox", 8)) continue;
 						else if (!strncmp((*(io->ptable + i)).name, "cache", 5)) continue;
 						else if (!strncmp((*(io->ptable + i)).name, "userdata", 8)) continue;
-						if (g_app_state.selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_b")) continue;
-						else if (g_app_state.selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_a")) continue;
+						if (g_app_state.flash.selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_b")) continue;
+						else if (g_app_state.flash.selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_a")) continue;
 						snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->ptable + i)).name);
 						dump_partition(io, (*(io->ptable + i)).name, 0, (*(io->ptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
 					}
@@ -1502,8 +1505,8 @@ int main_console(int argc, char** argv) {
 						if (!strncmp((*(io->Cptable + i)).name, "blackbox", 8)) continue;
 						else if (!strncmp((*(io->Cptable + i)).name, "cache", 5)) continue;
 						else if (!strncmp((*(io->Cptable + i)).name, "userdata", 8)) continue;
-						if (g_app_state.selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_b")) continue;
-						else if (g_app_state.selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_a")) continue;
+						if (g_app_state.flash.selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_b")) continue;
+						else if (g_app_state.flash.selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_a")) continue;
 						snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->Cptable + i)).name);
 						dump_partition(io, (*(io->Cptable + i)).name, 0, (*(io->Cptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
 					}
@@ -1582,7 +1585,7 @@ rloop:
 			if(check_confirm("flash pac"))
 			{
 				pac_extract(fn, "pac_extract");
-				load_partitions(io, "pac_extract", blk_size ? blk_size : DEFAULT_BLK_SIZE, g_app_state.selected_ab, isCMethod);
+				load_partitions(io, "pac_extract", blk_size ? blk_size : DEFAULT_BLK_SIZE, g_app_state.flash.selected_ab, isCMethod);
 			}
 			argc -= 2;
 			argv += 2;
@@ -1594,7 +1597,7 @@ rloop:
 					argc = 1;
 					continue;
 				}
-				if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, str2[2], &io->part_count);
+				if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, str2[2], &io->part_count);
 				if (!io->part_count) {
 					DEG_LOG(E, "Partition table not available");
 					argc -= 2;
@@ -2089,7 +2092,7 @@ rloop:
 				argc = 1;
 				continue;
 			}
-			g_app_state.selected_ab =atoi(str2[2]);
+			g_app_state.flash.selected_ab =atoi(str2[2]);
 			argc -= 2;
 			argv += 2;
 		} else if (!strcmp(str2[1], "chip_uid")) {

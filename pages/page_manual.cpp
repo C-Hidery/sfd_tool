@@ -5,9 +5,12 @@
 #include <thread>
 
 extern spdio_t* io;
-extern int m_bOpened;
+extern int& m_bOpened;
 extern int blk_size;
-extern int isCMethod;
+extern AppState g_app_state;
+
+// 兼容旧逻辑：isCMethod 始终映射到 AppState::flash.isCMethod
+static int& isCMethod = g_app_state.flash.isCMethod;
 
 static void on_button_clicked_m_select(GtkWidgetHelper helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
@@ -24,7 +27,7 @@ static void on_button_clicked_m_write(GtkWidgetHelper helper) {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
-		
+
 	}
 	GtkWidget *parent = helper.getWidget("main_window");
 	std::string filename = helper.getEntryText(helper.getWidget("m_file_path"));

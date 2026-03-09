@@ -10,9 +10,8 @@
 
 extern spdio_t* io;
 extern int ret;
-extern int m_bOpened;
+extern int& m_bOpened;
 extern int blk_size;
-extern int isCMethod;
 extern int keep_charge;
 extern int end_data;
 extern int highspeed;
@@ -43,6 +42,9 @@ extern DWORD* ports;
 extern libusb_device* curPort;
 extern libusb_device** ports;
 #endif
+
+// 兼容旧逻辑：isCMethod 始终映射到 AppState::flash.isCMethod
+static int& isCMethod = g_app_state.flash.isCMethod;
 
 using nlohmann::json;
 
@@ -113,7 +115,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	}
 
 #if !USE_LIBUSB
-	g_app_state.bListenLibusb = 0;
+	g_app_state.transport.bListenLibusb = 0;
 	if (at || bootmode >= 0) {
 		io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
 		if (io->hThread == nullptr) return;
@@ -124,7 +126,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 #else
 	if (!libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG)) {
 		DBG_LOG("hotplug unsupported on this platform\n");
-		g_app_state.bListenLibusb = 0;
+		g_app_state.transport.bListenLibusb = 0;
 		bootmode = -1;
 		at = 0;
 	}
@@ -134,10 +136,10 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		conn_wait = 30 * REOPEN_FREQ;
 		stage = -1;
 	}
-	if (!g_app_state.bListenLibusb) startUsbEventHandle();
+	if (!g_app_state.transport.bListenLibusb) startUsbEventHandle();
 #endif
 #if _WIN32
-	if (!g_app_state.bListenLibusb) {
+	if (!g_app_state.transport.bListenLibusb) {
 		if (io->hThread == nullptr) io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
 		if (io->hThread == nullptr) return;
 	}
@@ -155,7 +157,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 
 		for (int i = 0; ; i++) {
 #if USE_LIBUSB
-			if (g_app_state.bListenLibusb) {
+			if (g_app_state.transport.bListenLibusb) {
 				if (curPort) {
 					if (libusb_open(curPort, &io->dev_handle) >= 0) call_Initialize_libusb(io);
 					else ERR_EXIT("Failed to connect\n");
@@ -492,14 +494,16 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				helper.setLabelText(helper.getWidget("storage_mode"),"Nand");
 			});
 		}
-		if (g_app_state.gpt_failed != 1) {
-			if (g_app_state.selected_ab == 2) {
+		if (g_app_state.flash.gpt_failed != 1) {
+			if (g_app_state.flash.selected_ab == 2) {
+
 				DEG_LOG(I, "Device is using slot b\n");
 				gui_idle_call([helper]() mutable {
 					helper.setLabelText(helper.getWidget("slot_mode"),"Slot B");
 				});
 			}
-			else if (g_app_state.selected_ab == 1) {
+			else if (g_app_state.flash.selected_ab == 1) {
+
 				DEG_LOG(I, "Device is using slot a\n");
 				gui_idle_call([helper]() mutable {
 					helper.setLabelText(helper.getWidget("slot_mode"),"Slot A");
