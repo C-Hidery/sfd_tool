@@ -492,12 +492,12 @@ int main_console(int argc, char** argv) {
 			//check stage
 			if (ret == BSL_REP_VER) {
 				if (fdl1_loaded == 1) {
-					g_app_state.device_stage = FDL1;
+					g_app_state.device.device_stage = FDL1;
 					DEG_LOG(OP, "FDL1 connected.");
 					if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
 					break;
 				} else {
-					g_app_state.device_stage = BROM;
+					g_app_state.device.device_stage = BROM;
 					DEG_LOG(OP, "Check baud BROM");
 					if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) {
 						fdl1_loaded = -1;
@@ -521,7 +521,7 @@ int main_console(int argc, char** argv) {
 			}
 			if (fdl1_loaded == 1) {
 				DEG_LOG(OP, "FDL1 connected.");
-				g_app_state.device_stage = FDL1;
+				g_app_state.device.device_stage = FDL1;
 				if (keep_charge) {
 					encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
 					if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
@@ -529,7 +529,7 @@ int main_console(int argc, char** argv) {
 				break;
 			} else {
 				DEG_LOG(OP, "BROM connected.");
-				g_app_state.device_stage = BROM;
+				g_app_state.device.device_stage = BROM;
 				break;
 			}
 		}
@@ -540,7 +540,7 @@ int main_console(int argc, char** argv) {
 				io->flags &= ~FLAGS_TRANSCODE;
 				DEG_LOG(OP, "Try to disable transcode 0x7D.");
 				fdl2_executed = 1;
-				g_app_state.device_stage = FDL2;
+				g_app_state.device.device_stage = FDL2;
 				int o = io->verbose;
 				io->verbose = -1;
 				g_spl_size = check_partition(io, "splloader", 1);
@@ -590,30 +590,30 @@ int main_console(int argc, char** argv) {
 		}
 	}
 	DEG_LOG(I, "SPRD3 Current : %d", found);
-	if (!found && isKickMode) g_app_state.device_mode = SPRD4;
-	else g_app_state.device_mode = SPRD3;
+	if (!found && isKickMode) g_app_state.device.device_mode = SPRD4;
+	else g_app_state.device.device_mode = SPRD3;
 	char** save_argv = nullptr;
 	if (fdl1_loaded == -1) argc += 2;
 	if (fdl2_executed == -1) argc += 1;
 	init_stage = 2;
 	ThrowExit();
 	if (fdl2_executed > 0) {
-		if (g_app_state.device_mode == SPRD3) {
+		if (g_app_state.device.device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: FDL2/SPRD3");
 		} else DEG_LOG(I, "Device stage: FDL2/SPRD4(AutoD)");
 	} else if (fdl1_loaded > 0) {
-		if (g_app_state.device_mode == SPRD3) {
+		if (g_app_state.device.device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: FDL1/SPRD3");
 		} else DEG_LOG(I, "Device stage: FDL1/SPRD4(AutoD)");
-	} else if (g_app_state.device_stage == BROM) {
-		if (g_app_state.device_mode == SPRD3) {
+	} else if (g_app_state.device.device_stage == BROM) {
+		if (g_app_state.device.device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: BROM/SPRD3");
 		} else DEG_LOG(I, "Device stage: BROM/SPRD4(AutoD)");
 	} else {
-		if (g_app_state.device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
+		if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
 		else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
 	}
-	if (isKickMode && g_app_state.device_mode == SPRD4 && g_app_state.device_stage != FDL2 && !no_fdl_mode) {
+	if (isKickMode && g_app_state.device.device_mode == SPRD4 && g_app_state.device.device_stage != FDL2 && !no_fdl_mode) {
 		DEG_LOG(I, "SPRD4 mode detected, but No-FDL mode not enabled.");
 		DEG_LOG(I, "You can get in FDL2 without FDL manually.");
 		DEG_LOG(I, "By execute following commands:");

@@ -4,6 +4,9 @@
 #include "i18n.h"
 
 extern spdio_t*& io;
+extern AppState g_app_state;
+// 兼容旧逻辑：isCMethod 映射到 AppState::flash.isCMethod
+static int& isCMethod = g_app_state.flash.isCMethod;
 
 // 前向声明回调函数（来自其他页面模块）
 void on_button_clicked_poweroff(GtkWidgetHelper helper);

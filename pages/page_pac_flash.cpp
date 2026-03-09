@@ -93,7 +93,7 @@ void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 	load_partitions(
 		io,
 		"pac_unpack_output",
-		blk_size ? blk_size : DEFAULT_BLK_SIZE,
+		fblk_size ? fblk_size : DEFAULT_BLK_SIZE,
 		g_app_state.flash.selected_ab,
 		isCMethod
 	);
