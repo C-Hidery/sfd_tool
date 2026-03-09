@@ -137,15 +137,15 @@ cmake -S . -B build -G "Xcode"
 
 ```bash
 # Debug
-cmake --build build -- -j
+cmake --build build -j
 
 # Release
-cmake --build build-release -- -j
+cmake --build build-release -j
 ```
 
 说明：
 
-- `-- -j`：传给底层构建工具的参数，表示并行编译（Ninja/Make 都支持）。
+- `-j`：传给底层构建工具的参数，表示并行编译（Ninja/Make 都支持）。
 
 ### 4.2 多配置生成器（Visual Studio / Xcode）
 
@@ -172,7 +172,7 @@ cmake --build build --config Release -- /m
 - 单配置：
   ```bash
   cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
-  cmake --build build -- -j
+  cmake --build build -j
   ```
 - 多配置：
   ```bash
@@ -233,7 +233,7 @@ add_test(NAME MyTest COMMAND my_test)
 - macOS/Linux：
   ```bash
   cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
-  cmake --build build -- -j
+  cmake --build build -j
 
   # 在 build 目录中运行测试
   cd build
@@ -280,7 +280,7 @@ install(FILES config/default.conf DESTINATION share/sfd_tool)
 - 单配置（macOS/Linux）：
   ```bash
   cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
-  cmake --build build -- -j
+  cmake --build build -j
 
   cmake --install build --prefix /opt/sfd_tool
   ```
@@ -319,7 +319,7 @@ include(CPack)
 - macOS/Linux：
   ```bash
   cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
-  cmake --build build -- -j
+  cmake --build build -j
 
   cd build
   # 按默认配置打包
