@@ -193,7 +193,6 @@ void spdio_free(spdio_t *io) {
 	if (!io) return;
 #if _WIN32
 	if (!g_app_state.bListenLibusb) {
-
 		PostThreadMessage(io->iThread, WM_QUIT, 0, 0);
 		WaitForSingleObject(io->hThread, INFINITE);
 		CloseHandle(io->hThread);

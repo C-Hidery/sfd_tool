@@ -9,6 +9,9 @@
 #ifdef __linux__
 #include <unistd.h>
 #endif
+
+extern AppState g_app_state;
+
 void print_help() {
 	//TODO
 	DBG_LOG("Usage:\n"
@@ -337,7 +340,7 @@ int main_console(int argc, char** argv) {
 		at = 0;
 	}
 #ifdef __ANDROID__
-	bListenLibusb = 0;
+	g_app_state.bListenLibusb = 0;
 	DEG_LOG(OP, "Try to convert termux transfered usb port fd.");
 	// handle
 	if (xfd < 0)
@@ -358,7 +361,7 @@ int main_console(int argc, char** argv) {
 	call_Initialize_libusb(io);
 #else
 #if !USE_LIBUSB
-	bListenLibusb = 0;
+	g_app_state.bListenLibusb = 0;
 	if (at || bootmode >= 0) {
 		io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
 		if (io->hThread == nullptr) return -1;
@@ -369,7 +372,7 @@ int main_console(int argc, char** argv) {
 #else
 	if (!libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG)) {
 		DBG_LOG("hotplug unsupported on this platform\n");
-		bListenLibusb = 0;
+		g_app_state.bListenLibusb = 0;
 		bootmode = -1;
 		at = 0;
 	}
@@ -379,10 +382,10 @@ int main_console(int argc, char** argv) {
 		conn_wait = 30 * REOPEN_FREQ;
 		stage = -1;
 	}
-	if (bListenLibusb < 0) startUsbEventHandle();
+	if (!g_app_state.bListenLibusb) startUsbEventHandle();
 #endif
 #if _WIN32
-	if (!bListenLibusb) {
+	if (!g_app_state.bListenLibusb) {
 		if (io->hThread == nullptr) io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
 		if (io->hThread == nullptr) return -1;
 	}
@@ -402,7 +405,7 @@ int main_console(int argc, char** argv) {
 		ThrowExit();
 		for (i = 0; ; i++) {
 #if USE_LIBUSB
-			if (bListenLibusb) {
+			if (g_app_state.bListenLibusb) {
 				if (curPort) {
 					if (libusb_open(curPort, &io->dev_handle) >= 0) call_Initialize_libusb(io);
 					else ERR_EXIT("Failed to connect\n");
@@ -486,12 +489,12 @@ int main_console(int argc, char** argv) {
 			//check stage
 			if (ret == BSL_REP_VER) {
 				if (fdl1_loaded == 1) {
-					device_stage = FDL1;
+					g_app_state.device_stage = FDL1;
 					DEG_LOG(OP, "FDL1 connected.");
 					if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
 					break;
 				} else {
-					device_stage = BROM;
+					g_app_state.device_stage = BROM;
 					DEG_LOG(OP, "Check baud BROM");
 					if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) {
 						fdl1_loaded = -1;
@@ -515,7 +518,7 @@ int main_console(int argc, char** argv) {
 			}
 			if (fdl1_loaded == 1) {
 				DEG_LOG(OP, "FDL1 connected.");
-				device_stage = FDL1;
+				g_app_state.device_stage = FDL1;
 				if (keep_charge) {
 					encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
 					if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
@@ -523,7 +526,7 @@ int main_console(int argc, char** argv) {
 				break;
 			} else {
 				DEG_LOG(OP, "BROM connected.");
-				device_stage = BROM;
+				g_app_state.device_stage = BROM;
 				break;
 			}
 		}
@@ -534,7 +537,7 @@ int main_console(int argc, char** argv) {
 				io->flags &= ~FLAGS_TRANSCODE;
 				DEG_LOG(OP, "Try to disable transcode 0x7D.");
 				fdl2_executed = 1;
-				device_stage = FDL2;
+				g_app_state.device_stage = FDL2;
 				int o = io->verbose;
 				io->verbose = -1;
 				g_spl_size = check_partition(io, "splloader", 1);
@@ -584,30 +587,30 @@ int main_console(int argc, char** argv) {
 		}
 	}
 	DEG_LOG(I, "SPRD3 Current : %d", found);
-	if (!found && isKickMode) device_mode = SPRD4;
-	else device_mode = SPRD3;
+	if (!found && isKickMode) g_app_state.device_mode = SPRD4;
+	else g_app_state.device_mode = SPRD3;
 	char** save_argv = nullptr;
 	if (fdl1_loaded == -1) argc += 2;
 	if (fdl2_executed == -1) argc += 1;
 	init_stage = 2;
 	ThrowExit();
 	if (fdl2_executed > 0) {
-		if (device_mode == SPRD3) {
+		if (g_app_state.device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: FDL2/SPRD3");
 		} else DEG_LOG(I, "Device stage: FDL2/SPRD4(AutoD)");
 	} else if (fdl1_loaded > 0) {
-		if (device_mode == SPRD3) {
+		if (g_app_state.device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: FDL1/SPRD3");
 		} else DEG_LOG(I, "Device stage: FDL1/SPRD4(AutoD)");
-	} else if (device_stage == BROM) {
-		if (device_mode == SPRD3) {
+	} else if (g_app_state.device_stage == BROM) {
+		if (g_app_state.device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: BROM/SPRD3");
 		} else DEG_LOG(I, "Device stage: BROM/SPRD4(AutoD)");
 	} else {
-		if (device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
+		if (g_app_state.device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
 		else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
 	}
-	if (isKickMode && device_mode == SPRD4 && device_stage != FDL2 && !no_fdl_mode) {
+	if (isKickMode && g_app_state.device_mode == SPRD4 && g_app_state.device_stage != FDL2 && !no_fdl_mode) {
 		DEG_LOG(I, "SPRD4 mode detected, but No-FDL mode not enabled.");
 		DEG_LOG(I, "You can get in FDL2 without FDL manually.");
 		DEG_LOG(I, "By execute following commands:");
@@ -1028,7 +1031,7 @@ int main_console(int argc, char** argv) {
 				} else if (Da_Info.dwStorageType == 0x102) {
 					io->ptable = partition_list(io, fn_partlist, &io->part_count);
 				} else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
-				if (gpt_failed != 1) {
+				if (g_app_state.gpt_failed != 1) {
 					if (g_app_state.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
 					else if (g_app_state.selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
 					else {
@@ -1394,7 +1397,7 @@ int main_console(int argc, char** argv) {
 			}
 			if (!strcmp(name, "preset_modem")) {
 				start_signal();
-				if (gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+				if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 				if (!io->part_count) {
 					DEG_LOG(W, "Partition table not available");
 					argc -= 2;
@@ -1419,7 +1422,7 @@ int main_console(int argc, char** argv) {
 				start_signal();
 
 				if (!isCMethod) {
-					if (gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+					if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 					if (!io->part_count) {
 						DEG_LOG(W, "Partition table not available\n");
 						argc -= 2;
@@ -1464,7 +1467,7 @@ int main_console(int argc, char** argv) {
 				start_signal();
 
 				if (!isCMethod) {
-					if (gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+					if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 					if (!io->part_count) {
 						DEG_LOG(E, "Partition table not available\n");
 						argc -= 2;
@@ -1591,7 +1594,7 @@ rloop:
 					argc = 1;
 					continue;
 				}
-				if (gpt_failed == 1) io->ptable = partition_list(io, str2[2], &io->part_count);
+				if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, str2[2], &io->part_count);
 				if (!io->part_count) {
 					DEG_LOG(E, "Partition table not available");
 					argc -= 2;
