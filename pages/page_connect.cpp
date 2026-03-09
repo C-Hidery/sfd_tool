@@ -68,6 +68,22 @@ static sfd::ConfigService* ensure_config_service() {
     return g_config_service.get();
 }
 
+// 根据 DeviceService 当前视图刷新 UI 上的 mode 文案
+static void update_mode_label_from_device_service(GtkWidgetHelper& helper) {
+    auto* devSvc = ensure_device_service();
+    if (!devSvc) return;
+
+    sfd::DeviceStage st = devSvc->getCurrentStage();
+    const char* mode_text = "Unknown";
+    switch (st) {
+    case sfd::DeviceStage::BootRom:  mode_text = "BROM"; break;
+    case sfd::DeviceStage::Fdl1:     mode_text = "FDL1"; break;
+    case sfd::DeviceStage::Fdl2:     mode_text = "FDL2"; break;
+    default: break;
+    }
+    helper.setLabelText(helper.getWidget("mode"), mode_text);
+}
+
 // 前向声明 — 这些回调定义在本文件中
 extern void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv);
 static void on_button_clicked_select_fdl(GtkWidgetHelper helper);
@@ -358,7 +374,17 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	DEG_LOG(I, "SPRD3 Current : %d", found);
 	if (!found && isKickMode) g_app_state.device.device_mode = SPRD4;
 	else g_app_state.device.device_mode = SPRD3;
-	
+
+	// 使用 DeviceService 视图统一记录阶段/模式信息
+	auto* devSvc = ensure_device_service();
+	if (devSvc) {
+		sfd::DeviceInfo info{};
+		sfd::DeviceStatus st = devSvc->probeDevice(info);
+		if (st.success) {
+			DEG_LOG(I, "Device stage(view): %d, mode(view): %d", (int)info.stage, (int)info.mode);
+		}
+	}
+
 	if (fdl2_executed > 0) {
 		if (g_app_state.device.device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: FDL2/SPRD3");
@@ -386,9 +412,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		}
 		else if (g_app_state.device.device_stage == FDL2) helper.setLabelText(helper.getWidget("con"), "Ready");
 		helper.setLabelText(helper.getWidget("con"), "Connected");
-		if (g_app_state.device.device_stage == BROM) helper.setLabelText(helper.getWidget("mode"), "BROM");
-		else if (g_app_state.device.device_stage == FDL1) helper.setLabelText(helper.getWidget("mode"), "FDL1");
-		else if (g_app_state.device.device_stage == FDL2) helper.setLabelText(helper.getWidget("mode"), "FDL2");
+		update_mode_label_from_device_service(helper);
 	},GTK_WINDOW(helper.getWidget("main_window")));
 
 }
