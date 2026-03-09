@@ -18,6 +18,11 @@ endif()
 option(USE_LIBUSB "Enable libusb backend" ON)
 option(USE_GTK "Enable GTK3 UI" ON)
 
+# Windows Win32 (x86) 始终不用 libusb，保持和原 vcxproj 一致
+if (WIN32 AND CMAKE_GENERATOR_PLATFORM STREQUAL "Win32")
+    set(USE_LIBUSB OFF CACHE BOOL "Disable libusb on 32-bit Windows (use Channel driver instead)" FORCE)
+endif()
+
 # Termux 支持：与 Makefile 的 termux 目标对应
 option(TERMUX "Enable Termux specific build options" OFF)
 
@@ -147,35 +152,38 @@ if (USE_GTK)
         # Include path differs for x64/x86 (mingw64 vs mingw32).
         if (CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
             # x64: use mingw64
-            foreach(tgt IN LISTS SFD_COMMON_TARGETS)
-                target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
-                target_include_directories(${tgt} PRIVATE
-                    "C:/msys64/mingw64/include/gtk-3.0"
-                    "C:/msys64/mingw64/include/glib-2.0"
-                    "C:/msys64/mingw64/lib/glib-2.0/include"
-                    "C:/msys64/mingw64/include/pango-1.0"
-                    "C:/msys64/mingw64/include/cairo"
-                    "C:/msys64/mingw64/include/gdk-pixbuf-2.0"
-                    "C:/msys64/mingw64/include/atk-1.0"
-                    "C:/msys64/mingw64/include/harfbuzz"
-                )
-            endforeach()
+            set(_gtk_root "C:/msys64/mingw64")
         else()
             # Win32: use mingw32
-            foreach(tgt IN LISTS SFD_COMMON_TARGETS)
-                target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
-                target_include_directories(${tgt} PRIVATE
-                    "C:/msys64/mingw32/include/gtk-3.0"
-                    "C:/msys64/mingw32/include/glib-2.0"
-                    "C:/msys64/mingw32/lib/glib-2.0/include"
-                    "C:/msys64/mingw32/include/pango-1.0"
-                    "C:/msys64/mingw32/include/cairo"
-                    "C:/msys64/mingw32/include/gdk-pixbuf-2.0"
-                    "C:/msys64/mingw32/include/atk-1.0"
-                    "C:/msys64/mingw32/include/harfbuzz"
-                )
-            endforeach()
+            set(_gtk_root "C:/msys64/mingw32")
         endif()
+
+        foreach(tgt IN LISTS SFD_COMMON_TARGETS)
+            target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
+            target_include_directories(${tgt} PRIVATE
+                "${_gtk_root}/include/gtk-3.0"
+                "${_gtk_root}/include/glib-2.0"
+                "${_gtk_root}/lib/glib-2.0/include"
+                "${_gtk_root}/include/pango-1.0"
+                "${_gtk_root}/include/cairo"
+                "${_gtk_root}/include/gdk-pixbuf-2.0"
+                "${_gtk_root}/include/atk-1.0"
+                "${_gtk_root}/include/harfbuzz"
+            )
+        endforeach()
+
+        # Link against GTK/glib import libraries from MSYS2
+        target_link_directories(sfd_tool PRIVATE "${_gtk_root}/lib")
+        target_link_libraries(sfd_tool PRIVATE
+            libgtk-3.dll.a
+            libgdk-3.dll.a
+            libglib-2.0.dll.a
+            libgobject-2.0.dll.a
+            libgio-2.0.dll.a
+            libharfbuzz.dll.a
+            libpango-1.0.dll.a
+            libpangocairo-1.0.dll.a
+        )
     else()
         if (NOT PKG_CONFIG_FOUND)
             message(FATAL_ERROR "PkgConfig is required when USE_GTK=ON")
