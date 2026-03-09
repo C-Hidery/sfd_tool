@@ -201,11 +201,16 @@ endif()
 # --- libusb ---
 if (USE_LIBUSB)
     if (WIN32)
-        # Windows 下 libusb 由 third_party/Lib 提供，链接在 CI 中补充库目录
+        # Windows 下 libusb 由 third_party/Lib 提供
         foreach(tgt IN LISTS SFD_COMMON_TARGETS)
             target_compile_definitions(${tgt} PRIVATE USE_LIBUSB=1)
             target_include_directories(${tgt} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Lib)
         endforeach()
+
+        # 链接本地提供的 libusb-1.0.lib
+        target_link_libraries(sfd_tool PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/third_party/Lib/libusb-1.0.lib"
+        )
     else()
         if (NOT PKG_CONFIG_FOUND)
             message(FATAL_ERROR "PkgConfig is required when USE_LIBUSB=ON")
