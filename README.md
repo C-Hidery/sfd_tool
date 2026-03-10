@@ -38,7 +38,7 @@ make
 make locales
 # Termux
 make termux
-# Cmake method see md/cmake.md
+# Cmake method see md/cmake_EN.md
 ```
 
 ### Internationalization (i18n)
