@@ -3,6 +3,7 @@
 #include "logging.h"
 #include "usb_transport.h"
 #include "result.h"
+#include "spd_protocol.h"
 #include "../common.h"
 
 #include <memory>
@@ -58,6 +59,36 @@ static Result<DeviceInfo> build_device_info(AppState* app) {
     info.mode = deduce_mode_from_globals();
 
     return Result<DeviceInfo>::ok(info);
+}
+
+// 尝试向设备发送一次 READ_FLASH_INFO 命令，仅用于错误模型试点
+// 注意：当前仅在 DeviceService 内部被调用，并且失败不会改变外部行为
+static Result<void> try_read_flash_info(spdio_t* io) {
+    if (!io) {
+        return Result<void>::error(ErrorCode::DeviceNotConnected, "io is null");
+    }
+
+    encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
+    send_msg(io);
+
+    int ret = recv_msg(io);
+    if (!ret) {
+        return Result<void>::error(ErrorCode::Timeout, "recv flash info timeout");
+    }
+
+    unsigned type = recv_type(io);
+    if (type != BSL_REP_READ_FLASH_INFO) {
+        const char* name = get_bsl_enum_name(type);
+        char buf[128];
+        snprintf(buf,
+                 sizeof(buf),
+                 "unexpected response (%s : 0x%04x)",
+                 name ? name : "UNKNOWN",
+                 type);
+        return Result<void>::error(ErrorCode::ProtocolError, buf);
+    }
+
+    return Result<void>::ok();
 }
 
 } // namespace
@@ -127,6 +158,17 @@ public:
                     r.message.c_str());
             const std::string msg = r.message.empty() ? "failed to build device info" : r.message;
             return make_error(DeviceErrorCode::InternalError, msg);
+        }
+
+        // 协议试点：尝试发送一次 READ_FLASH_INFO，当前仅用于错误模型，不影响返回值
+        if (io_) {
+            auto probe = try_read_flash_info(io_);
+            if (!probe) {
+                DEG_LOG(W,
+                        "DeviceService::probeDevice: try_read_flash_info failed, code=%d, msg=%s",
+                        static_cast<int>(probe.code),
+                        probe.message.c_str());
+            }
         }
 
         out_info = r.value;
