@@ -73,4 +73,4 @@ echo "[dev] 编译 Debug 构建..."
 cmake --build "${BUILD_DIR}" -j
 
 echo "[dev] 启动 sfd_tool (Debug) ..."
-LC_ALL="${LC_ALL:-zh_CN.UTF-8}" "./${BUILD_DIR}/sfd_tool"
+LC_ALL=zh_CN.UTF-8 "./${BUILD_DIR}/sfd_tool"

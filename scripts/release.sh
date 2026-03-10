@@ -74,4 +74,4 @@ echo
 
 echo "[release] 构建完成：${BUILD_DIR}/sfd_tool"
 echo "你可以这样运行 Release 版（中文界面）："
-echo "  LC_ALL=zh_CN.UTF-8 ./${BUILD_DIR}/sfd_tool"
+echo "LC_ALL=zh_CN.UTF-8 ./${BUILD_DIR}/sfd_tool"
