@@ -36,6 +36,7 @@ make
 make locales
 # Termux
 make termux
+# Cmake编译见md/cmake.md
 ```
 
 ### 多语言国际化 (i18n)
