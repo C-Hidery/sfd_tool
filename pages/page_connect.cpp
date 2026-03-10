@@ -565,16 +565,19 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			}
 		}
 		if (io->part_count) {
-			std::vector<partition_t> partitions;
+			std::vector<sfd::DevicePartitionInfo> partitions;
 			partitions.reserve(io->part_count);
 			for (int i = 0; i < io->part_count; i++) {
-				partitions.push_back(io->ptable[i]);
+				sfd::DevicePartitionInfo info{};
+				info.name = io->ptable[i].name;
+				info.size = (std::uint64_t)io->ptable[i].size;
+				info.readable = true;
+				info.writable = true;
+				partitions.push_back(info);
 			}
 			gui_idle_call_wait_drag([helper, partitions]() mutable {
 				populatePartitionList(helper, partitions);
 			},GTK_WINDOW(helper.getWidget("main_window")));
-
-		} else if (isUseCptable) {
 			io->Cptable = partition_list_d(io);
 			isCMethod = 1;
 		}

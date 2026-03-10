@@ -78,16 +78,26 @@ static void on_button_clicked_start_repart(GtkWidgetHelper helper) {
 	} else fclose(fi);
 	repartition(io, filePath.c_str());
 	showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("Repartition completed!"));
-	std::vector<partition_t> partitions;
+	std::vector<sfd::DevicePartitionInfo> partitions;
 	partitions.reserve(io->part_count);
 	if(!isCMethod){
 		for (int i = 0; i < io->part_count; i++) {
-			partitions.push_back(io->ptable[i]);
+			sfd::DevicePartitionInfo info{};
+			info.name = io->ptable[i].name;
+			info.size = (std::uint64_t)io->ptable[i].size;
+			info.readable = true;
+			info.writable = true;
+			partitions.push_back(info);
 		}
 	}
 	else {
 		for (int i = 0; i < io->part_count_c; i++) {
-			partitions.push_back(io->Cptable[i]);
+			sfd::DevicePartitionInfo info{};
+			info.name = io->Cptable[i].name;
+			info.size = (std::uint64_t)io->Cptable[i].size;
+			info.readable = true;
+			info.writable = true;
+			partitions.push_back(info);
 		}
 	}
 	populatePartitionList(helper, partitions);

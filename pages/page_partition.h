@@ -3,8 +3,8 @@
 #include "../common.h"
 #include <vector>
 
-// 填充分区列表到 TreeView
-void populatePartitionList(GtkWidgetHelper& helper, const std::vector<partition_t>& partitions);
+// 填充分区列表到 TreeView（使用 Service 层的 DevicePartitionInfo）
+void populatePartitionList(GtkWidgetHelper& helper, const std::vector<sfd::DevicePartitionInfo>& partitions);
 
 // 获取选中的分区名称
 std::string getSelectedPartitionName(GtkWidgetHelper& helper);

@@ -25,7 +25,7 @@ static sfd::FlashService* ensure_flash_service() {
 	return g_flash_service.get();
 }
 
-void populatePartitionList(GtkWidgetHelper& helper, const std::vector<partition_t>& partitions) {
+void populatePartitionList(GtkWidgetHelper& helper, const std::vector<sfd::DevicePartitionInfo>& partitions) {
 	GtkWidget* part_list = helper.getWidget("part_list");
 	if (!part_list || !GTK_IS_TREE_VIEW(part_list)) {
 		std::cerr << "part_list not found or not a TreeView" << std::endl;
@@ -66,11 +66,11 @@ void populatePartitionList(GtkWidgetHelper& helper, const std::vector<partition_
 		std::string display_name = std::to_string(index) + ". " + partition.name;
 
 		std::string size_str;
-		if (partition.size < 1024) {
+		if (partition.size < 1024ULL) {
 			size_str = std::to_string(partition.size) + " B";
-		} else if (partition.size < 1024 * 1024) {
+		} else if (partition.size < 1024ULL * 1024) {
 			size_str = std::to_string(partition.size / 1024) + " KB";
-		} else if (partition.size < 1024 * 1024 * 1024) {
+		} else if (partition.size < 1024ULL * 1024 * 1024) {
 			size_str = std::to_string(partition.size / (1024 * 1024)) + " MB";
 		} else {
 			size_str = std::to_string(partition.size / (1024 * 1024 * 1024.0)) + " GB";
@@ -79,7 +79,7 @@ void populatePartitionList(GtkWidgetHelper& helper, const std::vector<partition_
 		gtk_list_store_set(store, &iter,
 		                   0, display_name.c_str(),
 		                   1, size_str.c_str(),
-		                   2, partition.name,
+		                   2, partition.name.c_str(),
 		                   -1);
 
 		index++;
@@ -441,11 +441,16 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 		}
 		gui_idle_call_wait_drag([window, helper]() mutable {
 			showInfoDialog(window, _(_(_("Completed"))), _("Partition modification completed!"));
-			std::vector<partition_t> partitions;
+			std::vector<sfd::DevicePartitionInfo> partitions;
 			partitions.reserve(io->part_count);
 
 			for (int i = 0; i < io->part_count; i++) {
-				partitions.push_back(io->ptable[i]);
+				sfd::DevicePartitionInfo info{};
+				info.name = io->ptable[i].name;
+				info.size = (std::uint64_t)io->ptable[i].size;
+				info.readable = true;
+				info.writable = true;
+				partitions.push_back(info);
 			}
 			update_partition_size(io);
 			populatePartitionList(helper, partitions);
@@ -476,11 +481,16 @@ void on_button_clicked_xml_get(GtkWidgetHelper helper) {
 	uint8_t* buf = io->temp_buf;
 	int n = scan_xml_partitions(io, filename.c_str(), buf, 0xffff);
 	if(n <= 0) return;
-	std::vector<partition_t> partitions;
+	std::vector<sfd::DevicePartitionInfo> partitions;
 	partitions.reserve(io->part_count);
 
 	for (int i = 0; i < io->part_count; i++) {
-		partitions.push_back(io->ptable[i]);
+		sfd::DevicePartitionInfo info{};
+		info.name = io->ptable[i].name;
+		info.size = (std::uint64_t)io->ptable[i].size;
+		info.readable = true;
+		info.writable = true;
+		partitions.push_back(info);
 	}
 	populatePartitionList(helper, partitions);
     if(isCMethod){
@@ -647,11 +657,16 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 		}
 		gui_idle_call_wait_drag([window, helper]() mutable {
 			showInfoDialog(window, _(_(_("Completed"))), _("Partition modification completed!"));
-			std::vector<partition_t> partitions;
+			std::vector<sfd::DevicePartitionInfo> partitions;
 			partitions.reserve(io->part_count);
 
 			for (int i = 0; i < io->part_count; i++) {
-				partitions.push_back(io->ptable[i]);
+				sfd::DevicePartitionInfo info{};
+				info.name = io->ptable[i].name;
+				info.size = (std::uint64_t)io->ptable[i].size;
+				info.readable = true;
+				info.writable = true;
+				partitions.push_back(info);
 			}
 			update_partition_size(io);
 			populatePartitionList(helper, partitions);
@@ -793,11 +808,16 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 		}
 		gui_idle_call_wait_drag([window, helper]() mutable {
 			showInfoDialog(window, _(_(_("Completed"))), _("Partition modification completed!"));
-			std::vector<partition_t> partitions;
+			std::vector<sfd::DevicePartitionInfo> partitions;
 			partitions.reserve(io->part_count);
 
 			for (int i = 0; i < io->part_count; i++) {
-				partitions.push_back(io->ptable[i]);
+				sfd::DevicePartitionInfo info{};
+				info.name = io->ptable[i].name;
+				info.size = (std::uint64_t)io->ptable[i].size;
+				info.readable = true;
+				info.writable = true;
+				partitions.push_back(info);
 			}
 			update_partition_size(io);
 			populatePartitionList(helper, partitions);
@@ -918,13 +938,17 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 		}
 		gui_idle_call_wait_drag([window, helper]() mutable {
 			showInfoDialog(window, _(_(_("Completed"))), _("Partition modification completed!"));
-			std::vector<partition_t> partitions;
+			std::vector<sfd::DevicePartitionInfo> partitions;
 			partitions.reserve(io->part_count);
 
 			for (int i = 0; i < io->part_count; i++) {
-				partitions.push_back(io->ptable[i]);
+				sfd::DevicePartitionInfo info{};
+				info.name = io->ptable[i].name;
+				info.size = (std::uint64_t)io->ptable[i].size;
+				info.readable = true;
+				info.writable = true;
+				partitions.push_back(info);
 			}
-			// update_partition_size(io);
 			populatePartitionList(helper, partitions);
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}, window);
@@ -1027,10 +1051,15 @@ void confirm_partition_c(GtkWidgetHelper helper) {
 				isUseCptable = 1;
 				io->Cptable = partition_list_d(io);
 				isCMethod = 1;
-				std::vector<partition_t> partitions;
+				std::vector<sfd::DevicePartitionInfo> partitions;
 				partitions.reserve(io->part_count_c);
 				for (int i = 0; i < io->part_count_c; i++) {
-					partitions.push_back(io->Cptable[i]);
+					sfd::DevicePartitionInfo info{};
+					info.name = io->Cptable[i].name;
+					info.size = (std::uint64_t)io->Cptable[i].size;
+					info.readable = true;
+					info.writable = true;
+					partitions.push_back(info);
 				}
 				populatePartitionList(helper, partitions);
 			} else {

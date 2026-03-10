@@ -211,8 +211,8 @@ public:
                 const auto& p = io_->ptable[i];
                 DevicePartitionInfo info{};
                 info.name = p.name;
-                // partition_t::size 目前语义是 MiB，在此转换为字节
-                info.size = (std::uint64_t)p.size << 20;
+                // partition_t::size 当前语义是字节，这里直接透传
+                info.size = (std::uint64_t)p.size;
                 info.readable = true;
                 info.writable = true;
                 out_partitions.push_back(info);
@@ -221,8 +221,11 @@ public:
             for (int i = 0; i < io_->part_count_c; ++i) {
                 const auto& p = io_->Cptable[i];
                 DevicePartitionInfo info{};
-                // partition_t::size 目前语义是 MiB，在此转换为字节
-                info.size = (std::uint64_t)p.size << 20;
+                info.name = p.name;
+                // partition_t::size 当前语义是字节，这里直接透传
+                info.size = (std::uint64_t)p.size;
+                info.readable = true;
+                info.writable = true;
                 out_partitions.push_back(info);
             }
         } else {
