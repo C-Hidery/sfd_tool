@@ -367,4 +367,5 @@ sfd_tool
 .claude/
 task/
 build*/
+pac_*/
 
