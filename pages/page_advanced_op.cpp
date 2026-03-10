@@ -109,9 +109,8 @@ static void on_button_clicked_read_xml(GtkWidgetHelper helper) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-		    exit(1);
+			exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
-		
 	}
 	GtkWidget* parent = helper.getWidget("main_window");
 	std::string savePath = showSaveFileDialog(GTK_WINDOW(parent), "partition_table.xml", { {_("XML files (*.xml)"), "*.xml"} });
@@ -119,52 +118,15 @@ static void on_button_clicked_read_xml(GtkWidgetHelper helper) {
 		showErrorDialog(GTK_WINDOW(parent), _(_(_(("Error")))), _("No save path selected!"));
 		return;
 	}
-	if (!isCMethod) {
-		if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, savePath.c_str(), &io->part_count);
-		if (!io->part_count) {
-			DEG_LOG(E, "Partition table not available");
-			return;
-		} else {
-			DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
-			FILE* fo = my_oxfopen(savePath.c_str(), "wb");
-			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo, "<Partitions>\n");
-			for (int i = 0; i < io->part_count; i++) {
-				DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->ptable + i)).name, ((*(io->ptable + i)).size >> 20));
-				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
-				if (i + 1 == io->part_count) fprintf(fo, "0x%x\"/>\n", ~0);
-				else fprintf(fo, "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
-			}
-			fprintf(fo, "</Partitions>");
-			fclose(fo);
-			DEG_LOG(I, "Partition table saved to %s", savePath.c_str());
-		}
-	} else {
-		int c = io->part_count_c;
-		if (!c) {
-			DEG_LOG(E, "Partition table not available");
-			return;
-		} else {
-			DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
-			FILE* fo = my_oxfopen(savePath.c_str(), "wb");
-			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo, "<Partitions>\n");
-			char* name;
-			int o = io->verbose;
-			io->verbose = -1;
-			for (int i = 0; i < c; i++) {
-				name = (*(io->Cptable + i)).name;
-				DBG_LOG("%3d %36s %7lldMB\n", i + 1, name, ((*(io->Cptable + i)).size >> 20));
-				fprintf(fo, "    <Partition id=\"%s\" size=\"", name);
-				if (check_partition(io, "userdata", 0) != 0 && i + 1 == io->part_count_c) fprintf(fo, "0x%x\"/>\n", ~0);
-				else fprintf(fo, "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
-			}
-			fprintf(fo, "</Partitions>");
-			fclose(fo);
-			io->verbose = o;
-			DEG_LOG(I, "Partition table saved to %s", savePath.c_str());
-		}
+
+	auto* svc = ensure_flash_service();
+	sfd::FlashStatus st = svc->exportPartitionTableToXml(savePath);
+	if (!st.success) {
+		DEG_LOG(E, "exportPartitionTableToXml failed: %s", st.message.c_str());
+		showErrorDialog(GTK_WINDOW(parent), _(_(_(("Error")))), st.message.c_str());
+		return;
 	}
+
 	showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("Partition table export completed!"));
 }
 

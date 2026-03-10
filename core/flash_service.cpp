@@ -448,6 +448,69 @@ public:
         return make_ok();
     }
 
+    FlashStatus exportPartitionTableToXml(const std::string& output_path) override {
+        if (!io_ || !app_) {
+            DEG_LOG(E, "exportPartitionTableToXml: context not set");
+            return make_error(FlashErrorCode::InternalError, "context not set");
+        }
+
+        if (output_path.empty()) {
+            DEG_LOG(E, "exportPartitionTableToXml: empty output path");
+            return make_error(FlashErrorCode::IoError, "empty output path");
+        }
+
+        FILE* fo = my_oxfopen(output_path.c_str(), "wb");
+        if (!fo) {
+            DEG_LOG(E, "exportPartitionTableToXml: failed to open %s", output_path.c_str());
+            return make_error(FlashErrorCode::IoError, "failed to open output file");
+        }
+
+        std::fprintf(fo, "<Partitions>\n");
+
+        if (!app_->flash.isCMethod) {
+            if (!io_->part_count) {
+                fclose(fo);
+                DEG_LOG(E, "exportPartitionTableToXml: no partition table");
+                return make_error(FlashErrorCode::PartitionTableNotLoaded, "no partition table loaded");
+            }
+
+            for (int i = 0; i < io_->part_count; ++i) {
+                const auto& p = io_->ptable[i];
+                std::fprintf(fo, "    <Partition id=\"%s\" size=\"", p.name);
+                if (i + 1 == io_->part_count) {
+                    std::fprintf(fo, "0x%x\"/>\n", ~0);
+                } else {
+                    std::fprintf(fo, "%lld\"/>\n", ((long long)p.size >> 20));
+                }
+            }
+        } else {
+            int c = io_->part_count_c;
+            if (!c) {
+                fclose(fo);
+                DEG_LOG(E, "exportPartitionTableToXml: no CMethod partition table");
+                return make_error(FlashErrorCode::PartitionTableNotLoaded, "no CMethod partition table");
+            }
+
+            int o = io_->verbose;
+            io_->verbose = -1;
+            for (int i = 0; i < c; ++i) {
+                char* name = io_->Cptable[i].name;
+                std::fprintf(fo, "    <Partition id=\"%s\" size=\"", name);
+                if (check_partition(io_, "userdata", 0) != 0 && i + 1 == io_->part_count_c) {
+                    std::fprintf(fo, "0x%x\"/>\n", ~0);
+                } else {
+                    std::fprintf(fo, "%lld\"/>\n", ((long long)io_->Cptable[i].size >> 20));
+                }
+            }
+            io_->verbose = o;
+        }
+
+        std::fprintf(fo, "</Partitions>");
+        fclose(fo);
+        DEG_LOG(I, "exportPartitionTableToXml: saved to %s", output_path.c_str());
+        return make_ok();
+    }
+
 private:
     spdio_t* io_ = nullptr;
     AppState* app_ = nullptr;

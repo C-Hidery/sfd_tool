@@ -136,6 +136,9 @@ public:
     // 擦除指定分区
     virtual FlashStatus erasePartition(const std::string& partition_name) = 0;
 
+    // 导出当前分区表到 XML 文件（用于 Advanced/Partition 页）
+    virtual FlashStatus exportPartitionTableToXml(const std::string& output_path) = 0;
+
     // 查询 PAC 刷机时间（映射现有 read_pactime(io) 行为）
     virtual FlashStatus queryPacFlashTime(std::uint64_t& out_seconds) = 0;
 };

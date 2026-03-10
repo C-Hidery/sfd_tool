@@ -979,58 +979,29 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-
+			exit(1);
+		}, GTK_WINDOW(helper.getWidget("main_window")));
 	}
+
 	helper.setLabelText(helper.getWidget("con"), "Backup partitions");
-	std::thread([helper]() {
-		if (!isCMethod) {
-			if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
-			if (!io->part_count) {
-				DEG_LOG(E, "Partition table not available\n");
-				gui_idle_call_wait_drag([helper]() {
-					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Partition table not available!"));
-				},GTK_WINDOW(helper.getWidget("main_window")));
-				return;
+	std::thread([helper]() mutable {
+		std::unique_ptr<sfd::FlashService> svc = sfd::createFlashService();
+		svc->setContext(io, &g_app_state);
+
+		// 使用当前工作目录下的 partitions_backup 目录
+		std::string output_dir = "partitions_backup";
+		std::vector<std::string> names; // 为空表示备份全部
+
+		sfd::FlashStatus st = svc->backupPartitions(names, output_dir);
+		gui_idle_call_wait_drag([helper, st]() mutable {
+			if (!st.success) {
+				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), st.message.c_str());
+			} else {
+				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Completed"))), _("Partition backup completed!"));
 			}
-			dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
-			for (int i = 0; i < io->part_count; i++) {
-				if (isCancel) break;
-				char dfile[40];
-				size_t namelen = strlen((*(io->ptable + i)).name);
-				if (!strncmp((*(io->ptable + i)).name, "blackbox", 8)) continue;
-				else if (!strncmp((*(io->ptable + i)).name, "cache", 5)) continue;
-				else if (!strncmp((*(io->ptable + i)).name, "userdata", 8)) continue;
-				if (g_app_state.flash.selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_b")) continue;
-				else if (g_app_state.flash.selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_a")) continue;
-				snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->ptable + i)).name);
-				dump_partition(io, (*(io->ptable + i)).name, 0, (*(io->ptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
-			}
-		} else {
-			if (!io->part_count_c) {
-				DEG_LOG(E, "Partition table not available\n");
-				gui_idle_call_wait_drag([helper]() {
-					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Partition table not available!"));
-				},GTK_WINDOW(helper.getWidget("main_window")));
-				return;
-			}
-			dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
-			for (int i = 0; i < io->part_count_c; i++) {
-				if (isCancel) break;
-				char dfile[40];
-				size_t namelen = strlen((*(io->Cptable + i)).name);
-				if (!strncmp((*(io->Cptable + i)).name, "blackbox", 8)) continue;
-				else if (!strncmp((*(io->Cptable + i)).name, "cache", 5)) continue;
-				else if (!strncmp((*(io->Cptable + i)).name, "userdata", 8)) continue;
-				if (g_app_state.flash.selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_b")) continue;
-				else if (g_app_state.flash.selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_a")) continue;
-				snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->Cptable + i)).name);
-				dump_partition(io, (*(io->Cptable + i)).name, 0, (*(io->Cptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
-			}
-		}
+			helper.setLabelText(helper.getWidget("con"), "Ready");
+		}, GTK_WINDOW(helper.getWidget("main_window")));
 	}).detach();
-    helper.setLabelText(helper.getWidget("con"), "Ready");
 }
 
 void confirm_partition_c(GtkWidgetHelper helper) {
