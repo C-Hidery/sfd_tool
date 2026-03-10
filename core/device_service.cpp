@@ -2,6 +2,7 @@
 #include "app_state.h"
 #include "logging.h"
 #include "usb_transport.h"
+#include "result.h"
 #include "../common.h"
 
 #include <memory>
@@ -41,6 +42,22 @@ static DeviceMode deduce_mode_from_globals() {
     // 现有代码通过 mode_str 文本判断 SPRD3 / SPRD4，这里先用简单占位
     // 后续可以根据 mode_str 进一步细分 Download/Diag/Fastboot
     return DeviceMode::Download;
+}
+
+static Result<DeviceInfo> build_device_info(AppState* app) {
+    DeviceInfo info{};
+
+    // 当前信息分散在全局变量中，这里先填充最基本的字段
+    info.chipset.clear();
+    info.product_name.clear();
+    info.firmware_version.clear();
+    info.build_info.clear();
+    info.nand_total_size = 0;
+    info.block_size = 0;
+    info.stage = map_stage_int(app->device.device_stage);
+    info.mode = deduce_mode_from_globals();
+
+    return Result<DeviceInfo>::ok(info);
 }
 
 } // namespace
@@ -102,16 +119,17 @@ public:
             return make_error(DeviceErrorCode::NoDeviceFound, "device not connected");
         }
 
-        // 当前信息分散在全局变量中，这里先填充最基本的字段
-        out_info.chipset.clear();
-        out_info.product_name.clear();
-        out_info.firmware_version.clear();
-        out_info.build_info.clear();
-        out_info.nand_total_size = 0;
-        out_info.block_size = 0;
-        out_info.stage = map_stage_int(app_->device.device_stage);
-        out_info.mode = deduce_mode_from_globals();
+        auto r = build_device_info(app_);
+        if (!r) {
+            DEG_LOG(E,
+                    "DeviceService::probeDevice: build_device_info failed, code=%d, msg=%s",
+                    static_cast<int>(r.code),
+                    r.message.c_str());
+            const std::string msg = r.message.empty() ? "failed to build device info" : r.message;
+            return make_error(DeviceErrorCode::InternalError, msg);
+        }
 
+        out_info = r.value;
         cached_info_ = out_info;
         DEG_LOG(I, "DeviceService::probeDevice: stage=%d", app_->device.device_stage);
         return make_ok();

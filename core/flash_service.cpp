@@ -1,4 +1,5 @@
 #include "flash_service.h"
+#include "result.h"
 #include "../common.h"
 #include "app_state.h"
 #include "logging.h"
@@ -26,6 +27,24 @@ static FlashStatus make_ok() {
     s.success = true;
     s.code = FlashErrorCode::Ok;
     return s;
+}
+
+static FlashErrorCode map_error_code(ErrorCode code) {
+    switch (code) {
+    case ErrorCode::Ok:
+        return FlashErrorCode::Ok;
+    case ErrorCode::DeviceNotConnected:
+        return FlashErrorCode::DeviceNotConnected;
+    case ErrorCode::IoError:
+        return FlashErrorCode::IoError;
+    case ErrorCode::Unsupported:
+        return FlashErrorCode::UnsupportedOperation;
+    case ErrorCode::Cancelled:
+        return FlashErrorCode::Cancelled;
+    default:
+        // 在 PAC 相关路径，其他错误统一视为 PAC 文件问题
+        return FlashErrorCode::InvalidPacFile;
+    }
 }
 
 } // namespace
@@ -57,10 +76,17 @@ public:
         }
 
         const char* unpack_dir = "pac_unpack_output";
-        DEG_LOG(I, "loadPacMetadata: pac_extract(%s, %s)", pac_path.c_str(), unpack_dir);
-        if (!pac_extract(pac_path.c_str(), unpack_dir)) {
-            DEG_LOG(E, "loadPacMetadata: pac_extract failed for %s", pac_path.c_str());
-            return make_error(FlashErrorCode::InvalidPacFile, "pac_extract failed");
+        DEG_LOG(I, "loadPacMetadata: pac_extract_result(%s, %s)", pac_path.c_str(), unpack_dir);
+        auto r = pac_extract_result(pac_path.c_str(), unpack_dir);
+        if (!r) {
+            DEG_LOG(E,
+                    "loadPacMetadata: pac_extract_result failed for %s, code=%d, msg=%s",
+                    pac_path.c_str(),
+                    static_cast<int>(r.code),
+                    r.message.c_str());
+            FlashErrorCode code = map_error_code(r.code);
+            std::string msg = r.message.empty() ? "pac_extract failed" : r.message;
+            return make_error(code, msg);
         }
 
         out_metadata.path = pac_path;
@@ -98,10 +124,17 @@ public:
         }
 
         const char* unpack_dir = "pac_unpack_output";
-        DEG_LOG(OP, "flashPac: pac_extract(%s, %s)", options.pac_path.c_str(), unpack_dir);
-        if (!pac_extract(options.pac_path.c_str(), unpack_dir)) {
-            DEG_LOG(E, "flashPac: pac_extract failed for %s", options.pac_path.c_str());
-            return make_error(FlashErrorCode::InvalidPacFile, "pac_extract failed");
+        DEG_LOG(OP, "flashPac: pac_extract_result(%s, %s)", options.pac_path.c_str(), unpack_dir);
+        auto r = pac_extract_result(options.pac_path.c_str(), unpack_dir);
+        if (!r) {
+            DEG_LOG(E,
+                    "flashPac: pac_extract_result failed for %s, code=%d, msg=%s",
+                    options.pac_path.c_str(),
+                    static_cast<int>(r.code),
+                    r.message.c_str());
+            FlashErrorCode code = map_error_code(r.code);
+            std::string msg = r.message.empty() ? "pac_extract failed" : r.message;
+            return make_error(code, msg);
         }
 
         // slot 选择

@@ -702,3 +702,27 @@ bool pac_extract(const char* fn, const char* floder)
 	delete[] pacptable;
 	return true;
 }
+
+namespace sfd {
+
+Result<void> pac_extract_result(const char* fn, const char* folder) {
+    if (!fn || !folder || !*fn || !*folder) {
+        return Result<void>::error(ErrorCode::InvalidArgument,
+                                   "empty pac path or folder");
+    }
+
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    if (!fs::exists(fn, ec) || ec) {
+        return Result<void>::error(ErrorCode::NotFound, "PAC file not found");
+    }
+
+    if (!pac_extract(fn, folder)) {
+        // 旧版 pac_extract 已经负责详细日志与 UI 提示，这里只抽象出结果
+        return Result<void>::error(ErrorCode::ParseError, "pac_extract failed");
+    }
+
+    return Result<void>::ok();
+}
+
+} // namespace sfd
