@@ -5,6 +5,7 @@
 #include "../i18n.h"
 #include <string>
 #include <thread>
+#include <cstdio>
 
 extern AppState g_app_state;
 extern spdio_t*& io;
@@ -18,6 +19,60 @@ static sfd::FlashService* ensure_flash_service() {
 	}
 	g_flash_service->setContext(io, &g_app_state);
 	return g_flash_service.get();
+}
+
+static std::string format_size(std::uint64_t bytes) {
+	// 非常简单的格式化：优先用 MB，否则用 KB
+	const double kb = 1024.0;
+	const double mb = kb * 1024.0;
+	char buf[64] = {0};
+	if (bytes >= static_cast<std::uint64_t>(mb)) {
+		std::snprintf(buf, sizeof(buf), "%.1f MB", bytes / mb);
+	} else if (bytes >= static_cast<std::uint64_t>(kb)) {
+		std::snprintf(buf, sizeof(buf), "%.0f KB", bytes / kb);
+	} else {
+		std::snprintf(buf, sizeof(buf), "%llu B", static_cast<unsigned long long>(bytes));
+	}
+	return std::string(buf);
+}
+
+static void populate_pac_partition_list(GtkWidgetHelper& helper, const std::vector<sfd::PacPartitionEntry>& entries) {
+	GtkWidget* tree = helper.getWidget("pac_list");
+	if (!tree) {
+		return;
+	}
+	GtkTreeModel* model = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
+	GtkListStore* store = GTK_LIST_STORE(model);
+	if (!store) {
+		return;
+	}
+
+	gtk_list_store_clear(store);
+
+	for (const auto& e : entries) {
+		GtkTreeIter iter;
+		gtk_list_store_append(store, &iter);
+
+		std::string size_str;
+		if (e.image_size > 0) {
+			size_str = format_size(e.image_size);
+		} else {
+			size_str = "-";
+		}
+
+		std::string type_str;
+		if (e.critical) {
+			type_str = "critical";
+		} else {
+			type_str = "normal";
+		}
+
+		gtk_list_store_set(store, &iter,
+		                   0, e.name.c_str(),
+		                   1, size_str.c_str(),
+		                   2, type_str.c_str(),
+		                   -1);
+	}
 }
 
 // ===== 按钮回调函数 =====
@@ -98,7 +153,14 @@ void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 		}, GTK_WINDOW(helper.getWidget("main_window")));
 		return;
 	}
-	// 分区列表仍由 pac_extract 在 core 层直接填充 pac_list，后续 T2/T3 再下沉
+
+	// 使用 Service 返回的分区信息刷新列表
+	gui_idle_call_wait_drag([helper, entries]() {
+		populate_pac_partition_list(helper, entries);
+	}, GTK_WINDOW(helper.getWidget("main_window")));
+
+	// 后续若 core 层填充了更多 PAC 元数据，可在此更新标题/标签
+	// 例如：显示产品名、版本号或文件大小等
 }
 
 void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
