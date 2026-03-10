@@ -974,6 +974,32 @@ void on_button_clicked_list_cancel(GtkWidgetHelper helper) {
 	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Current partition operation cancelled!"));
 }
 
+void on_button_clicked_export_part_xml(GtkWidgetHelper helper) {
+	if (m_bOpened == -1) {
+		DEG_LOG(E, "device unattached, exiting...");
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
+			exit(1);
+		}, GTK_WINDOW(helper.getWidget("main_window")));
+	}
+	GtkWidget* parent = helper.getWidget("main_window");
+	std::string savePath = showSaveFileDialog(GTK_WINDOW(parent), "partition_table.xml", { {_("XML files (*.xml)"), "*.xml"} });
+	if (savePath.empty()) {
+		showErrorDialog(GTK_WINDOW(parent), _(_(_(("Error")))), _("No save path selected!"));
+		return;
+	}
+
+	auto* svc = ensure_flash_service();
+	sfd::FlashStatus st = svc->exportPartitionTableToXml(savePath);
+	if (!st.success) {
+		DEG_LOG(E, "exportPartitionTableToXml failed: %s", st.message.c_str());
+		showErrorDialog(GTK_WINDOW(parent), _(_(_(("Error")))), st.message.c_str());
+		return;
+	}
+
+	showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("Partition table export completed!"));
+}
+
 void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
@@ -1135,10 +1161,12 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	// ── 按钮行 2：取消 + XML获取 ──
 	GtkWidget* cancelBtn = helper.createButton(_("Cancel"), "list_cancel", nullptr, 0, 0, 100, 32);
 	GtkWidget* xmlGetBtn = helper.createButton(_("Get partition table through scanning an Xml file"), "xml_get", nullptr, 0, 0, -1, 32);
+	GtkWidget* xmlExportBtn = helper.createButton(_("Extract part info to a XML file (if support)"), "export_part_xml", nullptr, 0, 0, -1, 32);
 
 	GtkWidget* btnRow2 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
 	gtk_box_pack_start(GTK_BOX(btnRow2), cancelBtn, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(btnRow2), xmlGetBtn, TRUE,  TRUE,  0);
+	gtk_box_pack_start(GTK_BOX(btnRow2), xmlExportBtn, TRUE,  TRUE,  0);
 	gtk_widget_set_margin_bottom(btnRow2, 16);
 	gtk_box_pack_start(GTK_BOX(opContainerBox), btnRow2, FALSE, FALSE, 0);
 
@@ -1347,5 +1375,8 @@ void bind_partition_signals(GtkWidgetHelper& helper) {
 	});
 	helper.bindClick(helper.getWidget("xml_get"),[&](){
 		on_button_clicked_xml_get(helper);
+	});
+	helper.bindClick(helper.getWidget("export_part_xml"),[&](){
+		on_button_clicked_export_part_xml(helper);
 	});
 }
