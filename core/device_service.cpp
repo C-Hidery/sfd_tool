@@ -45,27 +45,51 @@ static DeviceMode deduce_mode_from_globals() {
     return DeviceMode::Download;
 }
 
+// 各种 Result 封装的前向声明
+static Result<FlashStorageType> try_read_flash_info(spdio_t* io);
+static Result<std::string>      read_chip_type(spdio_t* io);
+
+// 基于 AppState / Da_Info 聚合 DeviceInfo 的基础信息
 static Result<DeviceInfo> build_device_info(AppState* app) {
     DeviceInfo info{};
 
-    // 当前信息分散在全局变量中，这里先填充最基本的字段
     info.chipset.clear();
     info.product_name.clear();
     info.firmware_version.clear();
     info.build_info.clear();
+
     info.nand_total_size = 0;
-    info.block_size = 0;
+    info.block_size      = 0;
+
     info.stage = map_stage_int(app->device.device_stage);
-    info.mode = deduce_mode_from_globals();
+    info.mode  = deduce_mode_from_globals();
+
+    // 先根据 Da_Info 里已有的探测结果粗略推导存储类型
+    info.flash_type = FlashStorageType::Unknown;
+    switch (Da_Info.dwStorageType) {
+    case 0x101: // NAND
+        info.flash_type = FlashStorageType::Nand;
+        break;
+    case 0x102: // eMMC
+        info.flash_type = FlashStorageType::Emmc;
+        break;
+    case 0x103: // UFS
+        info.flash_type = FlashStorageType::Ufs;
+        break;
+    default:
+        break;
+    }
 
     return Result<DeviceInfo>::ok(info);
 }
 
-// 尝试向设备发送一次 READ_FLASH_INFO 命令，仅用于错误模型试点
-// 注意：当前仅在 DeviceService 内部被调用，并且失败不会改变外部行为
-static Result<void> try_read_flash_info(spdio_t* io) {
+// READ_FLASH_INFO 试点封装：
+// - 发送 BSL_CMD_READ_FLASH_INFO
+// - 校验应答类型
+// - 成功时返回一个粗粒度的 FlashStorageType（当前仅用于区分 NAND）
+static Result<FlashStorageType> try_read_flash_info(spdio_t* io) {
     if (!io) {
-        return Result<void>::error(ErrorCode::DeviceNotConnected, "io is null");
+        return Result<FlashStorageType>::error(ErrorCode::DeviceNotConnected, "io is null");
     }
 
     encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
@@ -73,7 +97,7 @@ static Result<void> try_read_flash_info(spdio_t* io) {
 
     int ret = recv_msg(io);
     if (!ret) {
-        return Result<void>::error(ErrorCode::Timeout, "recv flash info timeout");
+        return Result<FlashStorageType>::error(ErrorCode::Timeout, "recv flash info timeout");
     }
 
     unsigned type = recv_type(io);
@@ -85,10 +109,61 @@ static Result<void> try_read_flash_info(spdio_t* io) {
                  "unexpected response (%s : 0x%04x)",
                  name ? name : "UNKNOWN",
                  type);
-        return Result<void>::error(ErrorCode::ProtocolError, buf);
+        return Result<FlashStorageType>::error(ErrorCode::ProtocolError, buf);
     }
 
-    return Result<void>::ok();
+    // 旧代码在收到 READ_FLASH_INFO 时，将存储视为 NAND：
+    //   Da_Info.dwStorageType = 0x101;
+    // 这里沿用这一最小假设用于 DeviceInfo 填充，但不改变其它逻辑。
+    FlashStorageType storage = FlashStorageType::Nand;
+    return Result<FlashStorageType>::ok(storage);
+}
+
+// READ_CHIP_TYPE 封装：返回芯片类型字符串（如 "SC9863A"）
+static Result<std::string> read_chip_type(spdio_t* io) {
+    if (!io) {
+        return Result<std::string>::error(ErrorCode::DeviceNotConnected, "io is null");
+    }
+
+    encode_msg_nocpy(io, BSL_CMD_READ_CHIP_TYPE, 0);
+    send_msg(io);
+
+    int ret = recv_msg(io);
+    if (!ret) {
+        return Result<std::string>::error(ErrorCode::Timeout, "recv chip type timeout");
+    }
+
+    unsigned type = recv_type(io);
+    if (type != BSL_REP_READ_CHIP_TYPE) {
+        const char* name = get_bsl_enum_name(type);
+        char buf[128];
+        snprintf(buf,
+                 sizeof(buf),
+                 "unexpected response (%s : 0x%04x)",
+                 name ? name : "UNKNOWN",
+                 type);
+        return Result<std::string>::error(ErrorCode::ProtocolError, buf);
+    }
+
+    const std::uint16_t payload_len = READ16_BE(io->raw_buf + 2);
+    std::string chipset;
+    chipset.resize(256);
+
+    const int copied = print_to_string(
+        chipset.data(),
+        chipset.size(),
+        io->raw_buf + 4,
+        payload_len,
+        0);
+    if (copied < 0) {
+        return Result<std::string>::error(ErrorCode::InternalError, "print_to_string failed");
+    }
+
+    if (!chipset.empty() && chipset.back() == '\n') {
+        chipset.pop_back();
+    }
+
+    return Result<std::string>::ok(chipset);
 }
 
 } // namespace
@@ -150,6 +225,7 @@ public:
             return make_error(DeviceErrorCode::NoDeviceFound, "device not connected");
         }
 
+        // 1) 先构建基础信息（stage/mode 等）
         auto r = build_device_info(app_);
         if (!r) {
             DEG_LOG(E,
@@ -160,14 +236,31 @@ public:
             return make_error(DeviceErrorCode::InternalError, msg);
         }
 
-        // 协议试点：尝试发送一次 READ_FLASH_INFO，当前仅用于错误模型，不影响返回值
+        // 2) 试图读取 CHIP_TYPE，用于填充 DeviceInfo.chipset（失败仅记日志，不影响返回值）
         if (io_) {
-            auto probe = try_read_flash_info(io_);
-            if (!probe) {
+            auto chip = read_chip_type(io_);
+            if (!chip) {
+                DEG_LOG(W,
+                        "DeviceService::probeDevice: read_chip_type failed, code=%d, msg=%s",
+                        static_cast<int>(chip.code),
+                        chip.message.c_str());
+            } else {
+                r.value.chipset = chip.value;
+            }
+        }
+
+        // 3) READ_FLASH_INFO 试点：若成功，将结果映射到 DeviceInfo::flash_type
+        if (io_) {
+            auto flash = try_read_flash_info(io_);
+            if (!flash) {
                 DEG_LOG(W,
                         "DeviceService::probeDevice: try_read_flash_info failed, code=%d, msg=%s",
-                        static_cast<int>(probe.code),
-                        probe.message.c_str());
+                        static_cast<int>(flash.code),
+                        flash.message.c_str());
+            } else {
+                if (flash.value != FlashStorageType::Unknown) {
+                    r.value.flash_type = flash.value;
+                }
             }
         }
 

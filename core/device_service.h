@@ -27,6 +27,14 @@ enum class DeviceMode {
     Fastboot  = 2,
 };
 
+// 存储类型（来自 flash 相关协议探测）
+enum class FlashStorageType {
+    Unknown = 0,
+    Nand,
+    Emmc,
+    Ufs,
+};
+
 enum class DeviceErrorCode {
     Ok = 0,
     PermissionDenied,
@@ -54,8 +62,9 @@ struct DeviceInfo {
     std::uint64_t nand_total_size = 0;
     std::uint32_t block_size      = 0;
 
-    DeviceStage stage = DeviceStage::Unknown;
-    DeviceMode  mode  = DeviceMode::Unknown;
+    DeviceStage       stage      = DeviceStage::Unknown;
+    DeviceMode        mode       = DeviceMode::Unknown;
+    FlashStorageType  flash_type = FlashStorageType::Unknown;
 };
 
 // 连接选项，对应 page_connect 中的各种开关
