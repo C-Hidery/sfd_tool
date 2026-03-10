@@ -48,6 +48,9 @@ static DeviceMode deduce_mode_from_globals() {
 // 各种 Result 封装的前向声明
 static Result<FlashStorageType> try_read_flash_info(spdio_t* io);
 static Result<std::string>      read_chip_type(spdio_t* io);
+[[maybe_unused]] static Result<std::string>      read_flash_type(spdio_t* io);
+[[maybe_unused]] static Result<std::string>      read_flash_uid(spdio_t* io);
+[[maybe_unused]] static Result<void>             read_partition_packet(spdio_t* io);
 
 // 基于 AppState / Da_Info 聚合 DeviceInfo 的基础信息
 static Result<DeviceInfo> build_device_info(AppState* app) {
@@ -164,6 +167,135 @@ static Result<std::string> read_chip_type(spdio_t* io) {
     }
 
     return Result<std::string>::ok(chipset);
+}
+
+// READ_FLASH_TYPE 封装：返回闪存类型文本描述
+[[maybe_unused]] static Result<std::string> read_flash_type(spdio_t* io) {
+    if (!io) {
+        return Result<std::string>::error(ErrorCode::DeviceNotConnected, "io is null");
+    }
+
+    encode_msg_nocpy(io, BSL_CMD_READ_FLASH_TYPE, 0);
+    send_msg(io);
+
+    int ret = recv_msg(io);
+    if (!ret) {
+        return Result<std::string>::error(ErrorCode::Timeout, "recv flash type timeout");
+    }
+
+    unsigned type = recv_type(io);
+    if (type != BSL_REP_READ_FLASH_TYPE) {
+        const char* name = get_bsl_enum_name(type);
+        char buf[128];
+        snprintf(buf,
+                 sizeof(buf),
+                 "unexpected response (%s : 0x%04x)",
+                 name ? name : "UNKNOWN",
+                 type);
+        return Result<std::string>::error(ErrorCode::ProtocolError, buf);
+    }
+
+    const std::uint16_t payload_len = READ16_BE(io->raw_buf + 2);
+    std::string desc;
+    desc.resize(256);
+
+    const int copied = print_to_string(
+        desc.data(),
+        desc.size(),
+        io->raw_buf + 4,
+        payload_len,
+        0);
+    if (copied < 0) {
+        return Result<std::string>::error(ErrorCode::InternalError, "print_to_string failed");
+    }
+
+    if (!desc.empty() && desc.back() == '\n') {
+        desc.pop_back();
+    }
+
+    return Result<std::string>::ok(desc);
+}
+
+// READ_FLASH_UID 封装：返回闪存 UID（使用十六进制文本表示）
+[[maybe_unused]] static Result<std::string> read_flash_uid(spdio_t* io) {
+    if (!io) {
+        return Result<std::string>::error(ErrorCode::DeviceNotConnected, "io is null");
+    }
+
+    encode_msg_nocpy(io, BSL_CMD_READ_FLASH_UID, 0);
+    send_msg(io);
+
+    int ret = recv_msg(io);
+    if (!ret) {
+        return Result<std::string>::error(ErrorCode::Timeout, "recv flash uid timeout");
+    }
+
+    unsigned type = recv_type(io);
+    if (type != BSL_REP_READ_FLASH_UID) {
+        const char* name = get_bsl_enum_name(type);
+        char buf[128];
+        snprintf(buf,
+                 sizeof(buf),
+                 "unexpected response (%s : 0x%04x)",
+                 name ? name : "UNKNOWN",
+                 type);
+        return Result<std::string>::error(ErrorCode::ProtocolError, buf);
+    }
+
+    const std::uint16_t payload_len = READ16_BE(io->raw_buf + 2);
+    std::string uid;
+    uid.resize(256);
+
+    const int copied = print_to_string(
+        uid.data(),
+        uid.size(),
+        io->raw_buf + 4,
+        payload_len,
+        1); // 用十六进制形式保留所有字节
+    if (copied < 0) {
+        return Result<std::string>::error(ErrorCode::InternalError, "print_to_string failed");
+    }
+
+    if (!uid.empty() && uid.back() == '\n') {
+        uid.pop_back();
+    }
+
+    return Result<std::string>::ok(uid);
+}
+
+// READ_PARTITION 封装：仅做包级校验，数据仍保存在 io->raw_buf 中
+[[maybe_unused]] static Result<void> read_partition_packet(spdio_t* io) {
+    if (!io) {
+        return Result<void>::error(ErrorCode::DeviceNotConnected, "io is null");
+    }
+
+    encode_msg_nocpy(io, BSL_CMD_READ_PARTITION, 0);
+    send_msg(io);
+
+    int ret = recv_msg(io);
+    if (!ret) {
+        return Result<void>::error(ErrorCode::Timeout, "recv partition timeout");
+    }
+
+    unsigned type = recv_type(io);
+    if (type != BSL_REP_READ_PARTITION) {
+        const char* name = get_bsl_enum_name(type);
+        char buf[128];
+        snprintf(buf,
+                 sizeof(buf),
+                 "unexpected response (%s : 0x%04x)",
+                 name ? name : "UNKNOWN",
+                 type);
+        return Result<void>::error(ErrorCode::ProtocolError, buf);
+    }
+
+    const std::uint16_t payload_len = READ16_BE(io->raw_buf + 2);
+    if (payload_len % 0x4c != 0) {
+        return Result<void>::error(ErrorCode::ParseError, "partition payload size not aligned");
+    }
+
+    // 原始 sprd 分区表数据仍然在 io->raw_buf + 4，后续解析逻辑复用现有 common.cpp 实现。
+    return Result<void>::ok();
 }
 
 } // namespace
