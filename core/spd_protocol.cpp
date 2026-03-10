@@ -317,6 +317,33 @@ int recv_check_crc(spdio_t *io) {
 	return nread;
 }
 
+// Boot/握手阶段：根据初始响应更新 CRC 模式和 FDL1 状态
+// bytes_read 为当前 recv_buf 内有效字节数
+// 返回 1 表示响应类型在 BSL_REP_VER/BSL_REP_VERIFY_ERROR/BSL_REP_UNSUPPORTED_COMMAND 范围内且已完成校验与状态更新
+// 返回 0 表示响应类型不在上述集合内，由调用方继续处理
+int spd_boot_update_crc_and_stage(spdio_t *io, int bytes_read) {
+	if (io->recv_buf[2] != BSL_REP_VER &&
+		io->recv_buf[2] != BSL_REP_VERIFY_ERROR &&
+		io->recv_buf[2] != BSL_REP_UNSUPPORTED_COMMAND) {
+		return 0;
+	}
+
+	int chk1, chk2;
+	int a = READ16_BE(io->recv_buf + bytes_read - 3);
+	chk1 = spd_crc16(0, io->recv_buf + 1, bytes_read - 4);
+	if (a == chk1) {
+		io->flags |= FLAGS_CRC16;
+	} else {
+		chk2 = spd_checksum(0, io->recv_buf + 1, bytes_read - 4, CHK_ORIG);
+		if (a == chk2) {
+			fdl1_loaded = 1;
+		} else {
+			ERR_EXIT("bad checksum (0x%04x, expected 0x%04x or 0x%04x)\n", a, chk1, chk2);
+		}
+	}
+	return 1;
+}
+
 int recv_msg_orig(spdio_t *io) {
 	int plen = 6;
 	memset(io->recv_buf, 0, 8);

@@ -30,3 +30,9 @@ int recv_msg(spdio_t *io);
 int recv_msg_timeout(spdio_t *io, int timeout);
 unsigned recv_type(spdio_t *io);
 int send_and_check(spdio_t *io);
+
+// Boot/握手阶段：根据初始响应更新 CRC 模式和 FDL1 状态
+// 返回值：
+//  - 1 表示响应类型为 BSL_REP_VER/BSL_REP_VERIFY_ERROR/BSL_REP_UNSUPPORTED_COMMAND 且已完成校验与状态更新
+//  - 0 表示响应类型不在上述集合内，调用方可继续其他分支逻辑
+int spd_boot_update_crc_and_stage(spdio_t *io, int bytes_read);

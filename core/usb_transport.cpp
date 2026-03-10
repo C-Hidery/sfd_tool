@@ -602,6 +602,8 @@ void ChangeMode(spdio_t *io, int ms, int bootmode, int at) {
 		if (!bootmode) {
 			uint8_t hello[10] = { 0x7e,0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e };
 
+			// 这里是串口直写 hello 包，属于 Boot/握手逻辑。
+			// 后续可考虑改为使用 spd_protocol 提供的握手 API。
 			if (!(bytes_written = call_Write(io->handle, hello, sizeof(hello)))) ERR_EXIT("Error writing to serial port\n");
 			if (io->verbose >= 2) {
 				DEG_LOG(OP,"send (%d):", (int)sizeof(hello));
@@ -612,17 +614,7 @@ void ChangeMode(spdio_t *io, int ms, int bootmode, int at) {
 				DEG_LOG(OP,"read (%d):", bytes_read);
 				print_mem(stderr, io->recv_buf, bytes_read);
 			}
-			if (io->recv_buf[2] == BSL_REP_VER ||
-				io->recv_buf[2] == BSL_REP_VERIFY_ERROR ||
-				io->recv_buf[2] == BSL_REP_UNSUPPORTED_COMMAND) {
-				int chk1, chk2, a = READ16_BE(io->recv_buf + bytes_read - 3);
-				chk1 = spd_crc16(0, io->recv_buf + 1, bytes_read - 4);
-				if (a == chk1) io->flags |= FLAGS_CRC16;
-				else {
-					chk2 = spd_checksum(0, io->recv_buf + 1, bytes_read - 4, CHK_ORIG);
-					if (a == chk2) fdl1_loaded = 1;
-					else ERR_EXIT("bad checksum (0x%04x, expected 0x%04x or 0x%04x)\n", a, chk1, chk2);
-				}
+			if (spd_boot_update_crc_and_stage(io, bytes_read)) {
 				return;
 			}
 			payload[8] = 0x82;
@@ -640,17 +632,7 @@ void ChangeMode(spdio_t *io, int ms, int bootmode, int at) {
 				DEG_LOG(OP,"read (%d):", bytes_read);
 				print_mem(stderr, io->recv_buf, bytes_read);
 			}
-			if (io->recv_buf[2] == BSL_REP_VER ||
-				io->recv_buf[2] == BSL_REP_VERIFY_ERROR ||
-				io->recv_buf[2] == BSL_REP_UNSUPPORTED_COMMAND) {
-				int chk1, chk2, a = READ16_BE(io->recv_buf + bytes_read - 3);
-				chk1 = spd_crc16(0, io->recv_buf + 1, bytes_read - 4);
-				if (a == chk1) io->flags |= FLAGS_CRC16;
-				else {
-					chk2 = spd_checksum(0, io->recv_buf + 1, bytes_read - 4, CHK_ORIG);
-					if (a == chk2) fdl1_loaded = 1;
-					else ERR_EXIT("bad checksum (0x%04x, expected 0x%04x or 0x%04x)\n", a, chk1, chk2);
-				}
+			if (spd_boot_update_crc_and_stage(io, bytes_read)) {
 				if (io->recv_buf[2] == BSL_REP_VER) { if (io->recv_buf[9] < '4') return; }
 				else return;
 			}
@@ -672,25 +654,6 @@ void ChangeMode(spdio_t *io, int ms, int bootmode, int at) {
 				}
 			}
 		}
-		// TODO(T2-01): 下方逻辑混合了传输层与 SPD Boot/Checksum 逻辑，后续应抽到协议/Session 层。
-		for (int i = 0; ; i++) {
-			if (m_bOpened == -1) {
-				call_DisconnectChannel(io->handle);
-				io->recv_buf[2] = 0;
-				curPort = 0;
-				m_bOpened = 0;
-				if (done == -1) done = 1;
-				break;
-			}
-			if (i >= 100) {
-				if (io->recv_buf[2] == BSL_REP_VER) return;
-				else ERR_EXIT("kick reboot timeout, reboot your phone by pressing POWER and VOL_UP for 7-10 seconds.\n");
-			}
-			usleep(100000);
-		}
-		if (!at) done = 1;
-	}
-}
 
 #else
 void ChangeMode(spdio_t *io, int ms, int bootmode, int at) {
