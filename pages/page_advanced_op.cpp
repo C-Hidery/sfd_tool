@@ -4,7 +4,10 @@
 #include "../i18n.h"
 #include "../GenTosNoAvb.h"
 #include "page_partition.h"
+#include "../core/flash_service.h"
 #include <thread>
+#include <memory>
+#include <vector>
 
 extern spdio_t*& io;
 extern int ret;
@@ -15,6 +18,26 @@ extern AppState g_app_state;
 // 兼容旧逻辑：isCMethod 始终映射到 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
 
+static std::unique_ptr<sfd::FlashService> g_flash_service;
+
+static sfd::FlashService* ensure_flash_service() {
+	if (!g_flash_service) {
+		g_flash_service = sfd::createFlashService();
+	}
+	g_flash_service->setContext(io, &g_app_state);
+	return g_flash_service.get();
+}
+
+static void refresh_partition_list(GtkWidgetHelper& helper) {
+	auto* svc = ensure_flash_service();
+	std::vector<sfd::DevicePartitionInfo> partitions;
+	sfd::FlashStatus st = svc->refreshDevicePartitions(partitions);
+	if (!st.success) {
+		DEG_LOG(E, "refreshDevicePartitions failed: %s", st.message.c_str());
+		return;
+	}
+	populatePartitionList(helper, partitions);
+}
 
 static void on_button_clicked_set_active_a(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
@@ -67,7 +90,7 @@ static void on_button_clicked_start_repart(GtkWidgetHelper helper) {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
-		
+
 	}
 	GtkWidget *parent = helper.getWidget("main_window");
 	std::string filePath = helper.getEntryText(helper.getWidget("xml_path"));
@@ -78,29 +101,7 @@ static void on_button_clicked_start_repart(GtkWidgetHelper helper) {
 	} else fclose(fi);
 	repartition(io, filePath.c_str());
 	showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("Repartition completed!"));
-	std::vector<sfd::DevicePartitionInfo> partitions;
-	partitions.reserve(io->part_count);
-	if(!isCMethod){
-		for (int i = 0; i < io->part_count; i++) {
-			sfd::DevicePartitionInfo info{};
-			info.name = io->ptable[i].name;
-			info.size = (std::uint64_t)io->ptable[i].size;
-			info.readable = true;
-			info.writable = true;
-			partitions.push_back(info);
-		}
-	}
-	else {
-		for (int i = 0; i < io->part_count_c; i++) {
-			sfd::DevicePartitionInfo info{};
-			info.name = io->Cptable[i].name;
-			info.size = (std::uint64_t)io->Cptable[i].size;
-			info.readable = true;
-			info.writable = true;
-			partitions.push_back(info);
-		}
-	}
-	populatePartitionList(helper, partitions);
+	refresh_partition_list(helper);
 }
 
 static void on_button_clicked_read_xml(GtkWidgetHelper helper) {
@@ -210,21 +211,41 @@ static void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
-		
+
 	}
 	helper.setLabelText(helper.getWidget("con"), "Patching trustos");
 	TosPatcher patcher;
 	bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Warning")))), _("This operation may break your device, and not all devices support this, if your device is broken, flash backup in backup_tos, continue?"));
 	if (i_is) {
 		std::thread([helper, patcher]() mutable {
-			get_partition_info(io, "trustos", 1);
-			if (!gPartInfo.size) {
-				DEG_LOG(E, "Partition not exist\n");
+			auto* svc = ensure_flash_service();
+
+			sfd::PartitionIoOptions read_opts;
+			read_opts.partition_name = "trustos";
+			read_opts.file_path = "trustos.bin";
+			read_opts.block_size = blk_size;
+
+			sfd::FlashStatus st_read = svc->readPartitionToFile(read_opts);
+			if (!st_read.success) {
+				DEG_LOG(E, "readPartitionToFile(\"trustos\") failed: %s", st_read.message.c_str());
 				return;
 			}
-			dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "trustos.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
+
 			int o = patcher.patcher("trustos.bin");
-			if (!o) load_partition_unify(io, "trustos", "tos-noavb.bin",blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
+			if (!o) {
+				sfd::PartitionIoOptions write_opts;
+				write_opts.partition_name = "trustos";
+				write_opts.file_path = "tos-noavb.bin";
+				write_opts.block_size = blk_size;
+				write_opts.force = false;
+
+				sfd::FlashStatus st_write = svc->writePartitionFromFile(write_opts);
+				if (!st_write.success) {
+					DEG_LOG(E, "writePartitionFromFile(\"trustos\") failed: %s", st_write.message.c_str());
+					o = -1;
+				}
+			}
+
 			if (!o) {
 				gui_idle_call_wait_drag([helper]() {
 					showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Disabled AVB successfully, the backup trustos is tos_bak.bin"));
