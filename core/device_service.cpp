@@ -60,6 +60,8 @@ static Result<DeviceInfo> build_device_info(AppState* app) {
     info.product_name.clear();
     info.firmware_version.clear();
     info.build_info.clear();
+    info.flash_type_text.clear();
+    info.flash_uid.clear();
 
     info.nand_total_size = 0;
     info.block_size      = 0;
@@ -381,7 +383,30 @@ public:
             }
         }
 
-        // 3) READ_FLASH_INFO 试点：若成功，将结果映射到 DeviceInfo::flash_type
+        // 3) READ_FLASH_TYPE / READ_FLASH_UID 试点：填充文本字段
+        if (io_) {
+            auto flash_type_text = read_flash_type(io_);
+            if (!flash_type_text) {
+                DEG_LOG(W,
+                        "DeviceService::probeDevice: read_flash_type failed, code=%d, msg=%s",
+                        static_cast<int>(flash_type_text.code),
+                        flash_type_text.message.c_str());
+            } else {
+                r.value.flash_type_text = flash_type_text.value;
+            }
+
+            auto flash_uid = read_flash_uid(io_);
+            if (!flash_uid) {
+                DEG_LOG(W,
+                        "DeviceService::probeDevice: read_flash_uid failed, code=%d, msg=%s",
+                        static_cast<int>(flash_uid.code),
+                        flash_uid.message.c_str());
+            } else {
+                r.value.flash_uid = flash_uid.value;
+            }
+        }
+
+        // 4) READ_FLASH_INFO 试点：若成功，将结果映射到 DeviceInfo::flash_type
         if (io_) {
             auto flash = try_read_flash_info(io_);
             if (!flash) {

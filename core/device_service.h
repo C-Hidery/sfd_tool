@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 #include <memory>
 
 struct spdio_t;   // 来自 core/usb_transport.h
@@ -9,17 +10,17 @@ struct AppState;  // 来自 core/app_state.h
 
 namespace sfd {
 
-// 设备连接阶段（粗粒度），映射 AppState.device_stage
+// 设备阶段（对应原有 device_stage）
 enum class DeviceStage {
     Unknown   = -1,
     BootRom   = 0,
     Fdl1      = 1,
     Fdl2      = 2,
     NormalOs  = 3,
-    Reconnect = 99,  // 特殊重连/中间态
+    Reconnect = 99,
 };
 
-// 设备运行模式，映射音量键/按键组合等 bootmode 含义
+// 设备模式（后续可根据 mode_str 进一步细分）
 enum class DeviceMode {
     Unknown   = -1,
     Download  = 0,
@@ -27,7 +28,7 @@ enum class DeviceMode {
     Fastboot  = 2,
 };
 
-// 存储类型（来自 flash 相关协议探测）
+// 存储类型（来自 FDL 探测 / READ_FLASH_INFO 等）
 enum class FlashStorageType {
     Unknown = 0,
     Nand,
@@ -35,6 +36,7 @@ enum class FlashStorageType {
     Ufs,
 };
 
+// 设备级错误码（服务层视角）
 enum class DeviceErrorCode {
     Ok = 0,
     PermissionDenied,
@@ -58,6 +60,9 @@ struct DeviceInfo {
     std::string product_name;
     std::string firmware_version;
     std::string build_info;
+
+    std::string flash_type_text;  // READ_FLASH_TYPE 返回的文本
+    std::string flash_uid;        // READ_FLASH_UID 返回的 UID 文本
 
     std::uint64_t nand_total_size = 0;
     std::uint32_t block_size      = 0;
