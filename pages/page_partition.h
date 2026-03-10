@@ -1,6 +1,7 @@
 #pragma once
 #include "../GtkWidgetHelper.hpp"
 #include "../common.h"
+#include "../core/flash_service.h"
 #include <vector>
 
 // 填充分区列表到 TreeView（使用 Service 层的 DevicePartitionInfo）

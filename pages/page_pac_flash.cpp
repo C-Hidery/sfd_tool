@@ -155,7 +155,7 @@ void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 	}
 
 	// 使用 Service 返回的分区信息刷新列表
-	gui_idle_call_wait_drag([helper, entries]() {
+	gui_idle_call_wait_drag([helper, entries]() mutable {
 		populate_pac_partition_list(helper, entries);
 	}, GTK_WINDOW(helper.getWidget("main_window")));
 
