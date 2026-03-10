@@ -358,9 +358,106 @@ cpack -G NSIS -C Release
 ```
 
 生成的安装包会放在 `build/` 下（例如 `sfd_tool-1.0.0-Linux.tar.gz`、`sfd_tool-1.0.0-win64.exe`）。
+## 9. 本项目推荐的日常命令（dev / release）
 
+为避免每次记不同的 CMake 命令，本项目在 [scripts/](../scripts/) 目录下提供了统一脚本，类似 `pnpm dev` / `pnpm build`：
 
-## 10. 语言与中文界面
+### 9.1 开发调试（Debug）
+
+```bash
+# 在项目根目录执行
+./scripts/dev.sh
+```
+
+等价流程：
+
+```bash
+# 1. 生成/更新 Debug 构建目录（优先使用 Ninja）
+cmake -S . -B build_cmake_debug -G "Ninja" \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+# 2. 编译 Debug 版本
+cmake --build build_cmake_debug -j
+
+# 3. 以中文界面运行（如未预设 LC_ALL）
+LC_ALL=zh_CN.UTF-8 ./build_cmake_debug/sfd_tool
+```
+
+`dev.sh` 会自动：
+
+- 检测是否安装 `ninja`，有则用 `Ninja`，否则退回 `Unix Makefiles`
+- 使用 `build_cmake_debug/` 作为 Debug 构建目录
+- 始终以 Debug 模式编译
+- 默认用中文界面启动（`LC_ALL=${LC_ALL:-zh_CN.UTF-8}`），如需英文可在运行前导出 `LC_ALL=C`。
+
+### 9.2 发布构建（Release）
+
+```bash
+# 在项目根目录执行
+./scripts/release.sh
+```
+
+等价流程：
+
+```bash
+# 1. 生成/更新 Release 构建目录（优先使用 Ninja）
+cmake -S . -B build_cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+
+# 2. 编译 Release 版本
+cmake --build build_cmake -j
+
+# 3. 如需运行，手动执行（示例为中文界面）：
+LC_ALL=zh_CN.UTF-8 ./build_cmake/sfd_tool
+```### 9.3 Windows 平台脚本（PowerShell）
+
+在 Windows 上，推荐使用 Visual Studio 2022 + CMake 的方式，通过 PowerShell 脚本封装：
+
+- 开发调试（Debug）：
+  ```powershell
+  # 在项目根目录执行
+  .\scripts\dev.ps1
+  ```
+
+- 发布构建（Release）：
+  ```powershell
+  # 在项目根目录执行
+  .\scripts\release.ps1
+  ```
+
+这两个脚本的核心行为：
+
+- 默认使用生成器：`Visual Studio 17 2022`，平台：`x64`
+- 统一使用 `build_vs/` 作为 VS 构建目录
+- `dev.ps1`：
+  - 调用：
+    ```powershell
+    cmake -S . -B build_vs -G "Visual Studio 17 2022" -A x64 `
+      -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    cmake --build build_vs --config Debug -- /m
+    ```
+  - 如果生成了 `build_vs/Debug/sfd_tool.exe`，则自动启动 GUI
+- `release.ps1`：
+  - 调用：
+    ```powershell
+    cmake -S . -B build_vs -G "Visual Studio 17 2022" -A x64
+    cmake --build build_vs --config Release -- /m
+    ```
+  - 不自动运行程序，只提示生成的 `build_vs/Release/sfd_tool.exe` 路径
+
+依赖检测与提示：
+
+- 如果 PowerShell 中找不到 `cmake`：
+  - 提示安装 Visual Studio 2022，并勾选“使用 C++ 的桌面开发”工作负载
+  - 或通过 `winget install Kitware.CMake` 安装 CMake
+- 建议在以下环境中运行脚本以确保 VS 工具链可用：
+  - `x64 Native Tools Command Prompt for VS 2022` 启动的 PowerShell
+  - Visual Studio 自带的“开发者 PowerShell”
+
+> 简单总结：
+> - macOS / Linux：`./scripts/dev.sh`、`./scripts/release.sh`
+> - Windows（VS 2022 + PowerShell）：`./scripts/dev.ps1`、`./scripts/release.ps1`
+
 
 本项目使用 gettext 做多语言支持，相关初始化代码在 `main.cpp` 中：
 
