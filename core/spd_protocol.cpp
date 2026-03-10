@@ -178,25 +178,20 @@ int send_msg(spdio_t *io) {
 		else DEG_LOG(E,"send: unknown message");
 	}
 
-#if USE_LIBUSB
-	int err = libusb_bulk_transfer(io->dev_handle, io->endp_out, io->send_buf, io->enc_len, &ret, io->timeout);
-	if (err < 0)
-		ERR_EXIT("usb_send failed : %s\n", libusb_error_name(err));
-	// UMS9117 waits too long after a Integer multiple byte block.
-	if (io->endp_out_blk > 0 && !((unsigned)io->enc_len % io->endp_out_blk)) {
-		int dummy;
-		// signal end of transfer
-		libusb_bulk_transfer(io->dev_handle,
-			io->endp_out, NULL, 0, &dummy, io->timeout);
+	IUsbTransport *t = spdio_get_transport(io);
+	ret = usb_transport_send(t, io->send_buf, io->enc_len, io->timeout);
+
+	if (ret < 0) {
+		spdio_free(io);
+		ERR_EXIT("device unattached, exiting...\n");
 	}
-#else
-	ret = call_Write(io->handle, io->send_buf, io->enc_len);
-#endif
+
 	if (ret != io->enc_len)
 		ERR_EXIT("usb_send failed (%d / %d)\n", ret, io->enc_len);
 
 	return ret;
 }
+
 const char* CommonPartitions[] = {
 	"splloader", "prodnv", "miscdata", "recovery", "misc", "trustos", "trustos_bak",
 	"sml", "sml_bak", "uboot", "uboot_bak", "logo", "logo_1", "logo_2", "logo_3",
@@ -360,8 +355,9 @@ int recv_msg(spdio_t *io) {
 		// only retry in fdl2 stage
 		if (!ret) {
 			if (fdl2_executed) {
+				IUsbTransport *t = spdio_get_transport(io);
 #if !USE_LIBUSB
-				if (io->raw_len) { call_Clear(io->handle); io->raw_len = 0; }
+				if (io->raw_len) { usb_transport_clear(t); io->raw_len = 0; }
 #endif
 				send_msg(io);
 				if (io->m_dwRecvThreadID) ret = recv_msg_async(io);

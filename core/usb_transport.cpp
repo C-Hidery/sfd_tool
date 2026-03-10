@@ -214,24 +214,13 @@ void spdio_free(spdio_t *io) {
 }
 
 int recv_read_data(spdio_t *io) {
-	int len;
-
-	if (m_bOpened == -1) {
-		spdio_free(io);
-		ERR_EXIT("device unattached, exiting...\n");
-	}
-#if USE_LIBUSB
-	int err = libusb_bulk_transfer(io->dev_handle, io->endp_in, io->recv_buf, RECV_BUF_LEN, &len, io->timeout);
-	if (err == LIBUSB_ERROR_NO_DEVICE)
-		ERR_EXIT("connection closed\n");
-	else if (err < 0) {
-		DEG_LOG(E,"usb_recv failed : %s", libusb_error_name(err)); return 0;
-	}
-#else
-	len = call_Read(io->handle, io->recv_buf, RECV_BUF_LEN, io->timeout);
-#endif
-	if (len < 0) {
-		DEG_LOG(E,"usb_recv failed, ret = %d", len); return 0;
+	IUsbTransport *t = spdio_get_transport(io);
+	int len = usb_transport_recv(t, io->recv_buf, RECV_BUF_LEN, io->timeout);
+	if (len <= 0) {
+		if (len < 0) {
+			DEG_LOG(E,"usb_recv failed, ret = %d", len);
+		}
+		return 0;
 	}
 
 	if (io->verbose >= 2) {
@@ -240,6 +229,77 @@ int recv_read_data(spdio_t *io) {
 	}
 	io->recv_len = len;
 	return len;
+}
+
+IUsbTransport *spdio_get_transport(spdio_t *io) {
+	return reinterpret_cast<IUsbTransport *>(io);
+}
+
+int usb_transport_send(IUsbTransport *t, const uint8_t *buf, int len, int timeout_ms) {
+	if (!t || !buf || len <= 0) return 0;
+	spdio_t *io = reinterpret_cast<spdio_t *>(t);
+
+	if (m_bOpened == -1)
+		return -1;
+
+#if USE_LIBUSB
+	int transferred = 0;
+	unsigned char *data = const_cast<unsigned char *>(buf);
+	int err = libusb_bulk_transfer(io->dev_handle, io->endp_out,
+		data, len, &transferred, timeout_ms);
+	if (err < 0) {
+		DEG_LOG(E,"usb_send failed : %s", libusb_error_name(err));
+		return err;
+	}
+	// UMS9117 waits too long after an integer multiple byte block.
+	if (io->endp_out_blk > 0 && ((unsigned)len % io->endp_out_blk) == 0) {
+		int dummy = 0;
+		(void)libusb_bulk_transfer(io->dev_handle, io->endp_out, nullptr, 0, &dummy, timeout_ms);
+	}
+	return transferred;
+#else
+	return call_Write(io->handle, buf, len);
+#endif
+}
+
+int usb_transport_recv(IUsbTransport *t, uint8_t *buf, int max_len, int timeout_ms) {
+	if (!t || !buf || max_len <= 0) return 0;
+	spdio_t *io = reinterpret_cast<spdio_t *>(t);
+
+	if (m_bOpened == -1)
+		return -1;
+
+#if USE_LIBUSB
+	int transferred = 0;
+	int err = libusb_bulk_transfer(io->dev_handle, io->endp_in,
+		buf, max_len, &transferred, timeout_ms);
+	if (err == LIBUSB_ERROR_NO_DEVICE) {
+		DEG_LOG(W,"connection closed");
+		return err;
+	} else if (err < 0) {
+		DEG_LOG(E,"usb_recv failed : %s", libusb_error_name(err));
+		return err;
+	}
+	return transferred;
+#else
+	int ret = call_Read(io->handle, buf, max_len, timeout_ms);
+	if (ret < 0) {
+		DEG_LOG(E,"usb_recv failed, ret = %d", ret);
+	}
+	return ret;
+#endif
+}
+
+int usb_transport_clear(IUsbTransport *t) {
+	if (!t) return 0;
+	spdio_t *io = reinterpret_cast<spdio_t *>(t);
+
+#if !USE_LIBUSB
+	return call_Clear(io->handle);
+#else
+	(void)io;
+	return 0;
+#endif
 }
 
 #if _WIN32
@@ -612,6 +672,7 @@ void ChangeMode(spdio_t *io, int ms, int bootmode, int at) {
 				}
 			}
 		}
+		// TODO(T2-01): 下方逻辑混合了传输层与 SPD Boot/Checksum 逻辑，后续应抽到协议/Session 层。
 		for (int i = 0; ; i++) {
 			if (m_bOpened == -1) {
 				call_DisconnectChannel(io->handle);
@@ -742,6 +803,7 @@ void ChangeMode(spdio_t *io, int ms, int bootmode, int at) {
 				}
 			}
 		}
+		// TODO(T2-01): 下方逻辑混合了传输层与 SPD Boot/Checksum 逻辑，后续应抽到协议/Session 层。
 		for (int i = 0; ; i++) {
 			if (m_bOpened == -1) {
 				libusb_close(io->dev_handle);

@@ -27,6 +27,17 @@ extern int& m_bOpened;
 
 struct spdio_t; // Forward declaration
 
+// Opaque transport abstraction used by protocol layer
+struct IUsbTransport;
+
+// Get transport view from an spdio_t session
+IUsbTransport *spdio_get_transport(spdio_t *io);
+
+// Low-level send/recv/clear operations that hide platform details
+int usb_transport_send(IUsbTransport *t, const uint8_t *buf, int len, int timeout_ms);
+int usb_transport_recv(IUsbTransport *t, uint8_t *buf, int max_len, int timeout_ms);
+int usb_transport_clear(IUsbTransport *t);
+
 #if USE_LIBUSB
 libusb_device **FindPort(int pid);
 void startUsbEventHandle(void);
