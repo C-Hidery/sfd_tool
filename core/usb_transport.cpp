@@ -710,21 +710,24 @@ void ChangeMode(spdio_t *io, int ms, int bootmode, int at) {
 			usleep(100000);
 		}
 		uint8_t payload[10] = { 0x7e,0,0,0,0,8,0,0xfe,0,0x7e };
+		IUsbTransport *t = spdio_get_transport(io);
 		if (!bootmode) {
 			uint8_t hello[10] = { 0x7e,0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e };
 
-			err = libusb_bulk_transfer(io->dev_handle, io->endp_out, hello, sizeof(hello), &bytes_written, io->timeout);
-			if (err < 0)
-				ERR_EXIT("usb_send failed : %s\n", libusb_error_name(err));
+			// 这里是串口直写 hello 包，属于 Boot/握手逻辑。
+			// 现阶段改为通过 IUsbTransport 接口发送/接收，保持行为不变。
+			bytes_written = usb_transport_send(t, hello, (int)sizeof(hello), io->timeout);
+			if (bytes_written < 0)
+				ERR_EXIT("usb_send failed : %d\n", bytes_written);
 			if (io->verbose >= 2) {
 				DEG_LOG(OP,"send (%d):", (int)sizeof(hello));
 				print_mem(stderr, hello, sizeof(hello));
 			}
-			err = libusb_bulk_transfer(io->dev_handle, io->endp_in, io->recv_buf, RECV_BUF_LEN, &bytes_read, io->timeout);
-			if (err == LIBUSB_ERROR_NO_DEVICE)
+			bytes_read = usb_transport_recv(t, io->recv_buf, RECV_BUF_LEN, io->timeout);
+			if (bytes_read == LIBUSB_ERROR_NO_DEVICE)
 				ERR_EXIT("connection closed\n");
-			else if (err < 0)
-				ERR_EXIT("usb_recv failed : %s\n", libusb_error_name(err));
+			else if (bytes_read < 0)
+				ERR_EXIT("usb_recv failed : %d\n", bytes_read);
 			if (!bytes_read) ERR_EXIT("read response from boot mode failed\n");
 			if (io->verbose >= 2) {
 				DEG_LOG(OP,"read (%d):", bytes_read);
@@ -748,18 +751,18 @@ void ChangeMode(spdio_t *io, int ms, int bootmode, int at) {
 		else if (at) payload[8] = 0x81;
 		else payload[8] = bootmode + 0x80;
 
-		err = libusb_bulk_transfer(io->dev_handle, io->endp_out, payload, sizeof(payload), &bytes_written, io->timeout);
-		if (err < 0)
-			ERR_EXIT("usb_send failed : %s\n", libusb_error_name(err));
+		bytes_written = usb_transport_send(t, payload, (int)sizeof(payload), io->timeout);
+		if (bytes_written < 0)
+			ERR_EXIT("usb_send failed : %d\n", bytes_written);
 		if (io->verbose >= 2) {
 			DEG_LOG(OP,"send (%d):", (int)sizeof(payload));
 			print_mem(stderr, payload, sizeof(payload));
 		}
-		err = libusb_bulk_transfer(io->dev_handle, io->endp_in, io->recv_buf, RECV_BUF_LEN, &bytes_read, io->timeout);
-		if (err == LIBUSB_ERROR_NO_DEVICE)
+		bytes_read = usb_transport_recv(t, io->recv_buf, RECV_BUF_LEN, io->timeout);
+		if (bytes_read == LIBUSB_ERROR_NO_DEVICE)
 			DEG_LOG(W,"connection closed");
-		else if (err < 0)
-			ERR_EXIT("usb_recv failed : %s\n", libusb_error_name(err));
+		else if (bytes_read < 0)
+			ERR_EXIT("usb_recv failed : %d\n", bytes_read);
 		else if (bytes_read) {
 			if (io->verbose >= 2) {
 				DBG_LOG("read (%d):", bytes_read);
@@ -782,17 +785,17 @@ void ChangeMode(spdio_t *io, int ms, int bootmode, int at) {
 			else if (io->recv_buf[2] != 0x7e) {
 				uint8_t autod[] = { 0x7e,0,0,0,0,0x20,0,0x68,0,0x41,0x54,0x2b,0x53,0x50,0x52,0x45,0x46,0x3d,0x22,0x41,0x55,0x54,0x4f,0x44,0x4c,0x4f,0x41,0x44,0x45,0x52,0x22,0xd,0xa,0x7e };
 				usleep(500000);
-				err = libusb_bulk_transfer(io->dev_handle, io->endp_out, autod, sizeof(autod), &bytes_written, io->timeout);
-				if (err >= 0) {
+				bytes_written = usb_transport_send(t, autod, (int)sizeof(autod), io->timeout);
+				if (bytes_written >= 0) {
 					if (io->verbose >= 2) {
 						DEG_LOG(OP,"send (%d):", (int)sizeof(autod));
 						print_mem(stderr, autod, sizeof(autod));
 					}
-					err = libusb_bulk_transfer(io->dev_handle, io->endp_in, io->recv_buf, RECV_BUF_LEN, &bytes_read, io->timeout);
-					if (err == LIBUSB_ERROR_NO_DEVICE)
+					bytes_read = usb_transport_recv(t, io->recv_buf, RECV_BUF_LEN, io->timeout);
+					if (bytes_read == LIBUSB_ERROR_NO_DEVICE)
 						DEG_LOG(W,"connection closed");
-					else if (err < 0)
-						ERR_EXIT("usb_recv failed : %s\n", libusb_error_name(err));
+					else if (bytes_read < 0)
+						ERR_EXIT("usb_recv failed : %d\n", bytes_read);
 					else if (bytes_read) {
 						if (io->verbose >= 2) {
 							DEG_LOG(OP,"read (%d):", bytes_read);
