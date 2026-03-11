@@ -232,6 +232,8 @@ int recv_read_data(spdio_t *io) {
 }
 
 IUsbTransport *spdio_get_transport(spdio_t *io) {
+	// T2-01 阶段：仍然让 spdio_t 自身充当传输实现，通过 reinterpret_cast
+	// 后续阶段可以在此处改为从 session 结构中返回真正的 IUsbTransport 实例。
 	return reinterpret_cast<IUsbTransport *>(io);
 }
 

@@ -27,8 +27,19 @@ extern int& m_bOpened;
 
 struct spdio_t; // Forward declaration
 
-// Opaque transport abstraction used by protocol layer
-struct IUsbTransport;
+// 传输层抽象接口：用于在协议层屏蔽具体平台实现。
+struct IUsbTransport {
+	virtual ~IUsbTransport() = default;
+
+	// 发送数据缓冲区，返回实际发送字节数或负错误码。
+	virtual int send(const uint8_t *buf, int len, int timeout_ms) = 0;
+
+	// 接收数据到缓冲区，返回实际接收字节数或负错误码。
+	virtual int recv(uint8_t *buf, int max_len, int timeout_ms) = 0;
+
+	// 清空底层接收缓冲区（如有需要）。
+	virtual int clear() = 0;
+};
 
 // Get transport view from an spdio_t session
 IUsbTransport *spdio_get_transport(spdio_t *io);

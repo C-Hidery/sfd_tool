@@ -3,6 +3,7 @@
 #include <stddef.h>
 
 struct spdio_t; // Forward declaration
+struct IUsbTransport; // 来自 core/usb_transport.h，用于解耦协议与具体传输实现
 
 enum Stages {
 	Nothing = -1,
