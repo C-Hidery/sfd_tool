@@ -397,32 +397,68 @@ sfd::Result<void> Unpac::checkCrc_result() {
     // Head CRC
     uint32_t head_crc = u_crc16(0, &head, sizeof(head) - 4);
     printf("head_crc: 0x%04x", head.head_crc);
-    if (head.head_crc != head_crc)
+    bool head_mismatch = false;
+    if (head.head_crc != head_crc) {
         printf(" (expected 0x%04x)", head_crc);
+        head_mismatch = true;
+    }
     printf("\n");
 
     // Data CRC
-    uint32_t n, l = head.pac_size;
-    uint32_t data_crc = 0;
-    buf = (uint8_t*) malloc(chunk);
-    if (!buf) {
-        printf("malloc failed\n");
-        return sfd::Result<void>::error(sfd::ErrorCode::InternalError, "malloc failed in checkCrc");
-    }
-    n = sizeof(head);
-    if (l < n) {
+    uint32_t l = head.pac_size;
+    if (l < sizeof(head)) {
         printf("unexpected pac size\n");
         return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "unexpected pac size");
     }
-    for (l -= n; l; l -= n) {
-        n = l > chunk ? chunk : l;
-        READ(buf, n, "chunk");
-        data_crc = u_crc16(data_crc, buf, n);
+
+    if (fseeko(fi, sizeof(head), SEEK_SET)) {
+        printf("fseeko failed in checkCrc\n");
+        return sfd::Result<void>::error(sfd::ErrorCode::IoError, "fseeko failed in checkCrc");
     }
+
+    uint32_t data_crc = 0;
+    uint32_t chunk_size = chunk ? chunk : 0x1000;
+    uint8_t* local_buf = (uint8_t*) malloc(chunk_size);
+    if (!local_buf) {
+        printf("malloc failed\n");
+        return sfd::Result<void>::error(sfd::ErrorCode::InternalError, "malloc failed in checkCrc");
+    }
+
+    l -= sizeof(head);
+    while (l) {
+        uint32_t n = l > chunk_size ? chunk_size : l;
+        size_t read_count = fread(local_buf, 1, n, fi);
+        if (read_count != n) {
+            printf("fread failed in checkCrc\n");
+            free(local_buf);
+            return sfd::Result<void>::error(sfd::ErrorCode::IoError, "fread failed in checkCrc");
+        }
+        data_crc = u_crc16(data_crc, local_buf, n);
+        l -= n;
+    }
+
+    free(local_buf);
+
     printf("data_crc: 0x%04x", head.data_crc);
-    if (head.data_crc != data_crc)
+    bool data_mismatch = false;
+    if (head.data_crc != data_crc) {
         printf(" (expected 0x%04x)", data_crc);
+        data_mismatch = true;
+    }
     printf("\n");
+
+    if (head_mismatch || data_mismatch) {
+        if (head_mismatch && data_mismatch) {
+            return sfd::Result<void>::error(sfd::ErrorCode::ParseError,
+                                            "PAC CRC mismatch (head and data)");
+        } else if (head_mismatch) {
+            return sfd::Result<void>::error(sfd::ErrorCode::ParseError,
+                                            "PAC CRC mismatch (head)");
+        } else {
+            return sfd::Result<void>::error(sfd::ErrorCode::ParseError,
+                                            "PAC CRC mismatch (data)");
+        }
+    }
 
     return sfd::Result<void>::ok();
 }
@@ -762,6 +798,22 @@ bool pac_extract(const char* fn, const char* floder)
 	return true;
 }
 
+static ::sfd::Result<void> check_pac_crc_result(const char* fn) {
+    Unpac unpac;
+    if (!unpac.openPacFile(fn)) {
+        // openPacFile 已经打印了具体原因，这里只做分类
+        return ::sfd::Result<void>::error(::sfd::ErrorCode::ParseError,
+                                          "PAC header invalid or unsupported");
+    }
+
+    auto r = unpac.checkCrc_result();
+    if (!r) {
+        return r;
+    }
+
+    return ::sfd::Result<void>::ok();
+}
+
 namespace sfd {
 
 Result<void> pac_extract_result(const char* fn, const char* folder) {
@@ -776,12 +828,17 @@ Result<void> pac_extract_result(const char* fn, const char* folder) {
         return Result<void>::error(ErrorCode::NotFound, "PAC file not found");
     }
 
-    // 先通过旧版 pac_extract 执行核心解析和 UI 行为
+    // 先通过旧版 pac_extract 执行核心解析和 UI 行为（包含 UI 提示）
     bool ok = pac_extract(fn, folder);
     if (!ok) {
-        // 目前无法从 pac_extract 返回细粒度错误，只能统一归为 ParseError
-        // 后续在 T2-02 推进中，可逐步将 openPacFile / checkCrc 等内部函数改为 Result 版本
         return Result<void>::error(ErrorCode::ParseError, "pac_extract failed");
+    }
+
+    // T2-02: 在不改变 UI 行为的前提下，补充 PAC CRC 检查，
+    // 将 CRC 相关错误映射到 Result.ErrorCode 中，供上层日志区分。
+    auto crc_result = check_pac_crc_result(fn);
+    if (!crc_result) {
+        return crc_result;
     }
 
     return Result<void>::ok();
