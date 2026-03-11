@@ -166,6 +166,84 @@ void find_endpoints(libusb_device_handle *dev_handle, int result[4]) {
 }
 #endif
 
+namespace {
+
+// 基于 spdio_t 的默认传输实现，承载现有 USB 读写逻辑。
+class SpdioUsbTransport : public IUsbTransport {
+public:
+	explicit SpdioUsbTransport(spdio_t *io) : io_(io) {}
+
+	int send(const uint8_t *buf, int len, int timeout_ms) override;
+	int recv(uint8_t *buf, int max_len, int timeout_ms) override;
+	int clear() override;
+
+private:
+	spdio_t *io_;
+};
+
+int SpdioUsbTransport::send(const uint8_t *buf, int len, int timeout_ms) {
+	if (!io_ || !buf || len <= 0) return 0;
+	if (m_bOpened == -1)
+		return -1;
+
+#if USE_LIBUSB
+	int transferred = 0;
+	unsigned char *data = const_cast<unsigned char *>(buf);
+	int err = libusb_bulk_transfer(io_->dev_handle, io_->endp_out,
+		data, len, &transferred, timeout_ms);
+	if (err < 0) {
+		DEG_LOG(E,"usb_send failed : %s", libusb_error_name(err));
+		return err;
+	}
+	// UMS9117 waits太长 after an integer multiple byte block.
+	if (io_->endp_out_blk > 0 && ((unsigned)len % io_->endp_out_blk) == 0) {
+		int dummy = 0;
+		(void)libusb_bulk_transfer(io_->dev_handle, io_->endp_out, nullptr, 0, &dummy, timeout_ms);
+	}
+	return transferred;
+#else
+	return call_Write(io_->handle, buf, len);
+#endif
+}
+
+int SpdioUsbTransport::recv(uint8_t *buf, int max_len, int timeout_ms) {
+	if (!io_ || !buf || max_len <= 0) return 0;
+	if (m_bOpened == -1)
+		return -1;
+
+#if USE_LIBUSB
+	int transferred = 0;
+	int err = libusb_bulk_transfer(io_->dev_handle, io_->endp_in,
+		buf, max_len, &transferred, timeout_ms);
+	if (err == LIBUSB_ERROR_NO_DEVICE) {
+		DEG_LOG(W,"connection closed");
+		return err;
+	} else if (err < 0) {
+		DEG_LOG(E,"usb_recv failed : %s", libusb_error_name(err));
+		return err;
+	}
+	return transferred;
+#else
+	int ret = call_Read(io_->handle, buf, max_len, timeout_ms);
+	if (ret < 0) {
+		DEG_LOG(E,"usb_recv failed, ret = %d", ret);
+	}
+	return ret;
+#endif
+}
+
+int SpdioUsbTransport::clear() {
+	if (!io_) return 0;
+
+#if !USE_LIBUSB
+	return call_Clear(io_->handle);
+#else
+	return 0;
+#endif
+}
+
+} // namespace
+
 spdio_t *spdio_init(int flags) {
 	size_t total_size = sizeof(spdio_t) + RECV_BUF_LEN + (4 + 0x10000 + 2) * 4 + 4;
 	uint8_t *p = NEWN uint8_t[total_size];
@@ -178,6 +256,12 @@ spdio_t *spdio_init(int flags) {
 	memset(io, 0, sizeof(spdio_t));
 	p += sizeof(spdio_t);
 	io->flags = flags;
+	io->transport = NEWN SpdioUsbTransport(io);
+	if (!io->transport) {
+		DEG_LOG(E, "Memory allocation failed: transport adapter");
+		delete[] reinterpret_cast<uint8_t*>(io);
+		return nullptr;
+	}
 	io->recv_buf = p; p += RECV_BUF_LEN;
 	io->raw_buf = p; p += 4 + 0x10000 + 2;
 	io->temp_buf = p + 5;
@@ -191,6 +275,10 @@ spdio_t *spdio_init(int flags) {
 
 void spdio_free(spdio_t *io) {
 	if (!io) return;
+	if (io->transport) {
+		delete io->transport;
+		io->transport = nullptr;
+	}
 #if _WIN32
 	if (!g_app_state.transport.bListenLibusb) {
 		PostThreadMessage(io->iThread, WM_QUIT, 0, 0);
@@ -232,76 +320,23 @@ int recv_read_data(spdio_t *io) {
 }
 
 IUsbTransport *spdio_get_transport(spdio_t *io) {
-	// T2-01 阶段：仍然让 spdio_t 自身充当传输实现，通过 reinterpret_cast
-	// 后续阶段可以在此处改为从 session 结构中返回真正的 IUsbTransport 实例。
-	return reinterpret_cast<IUsbTransport *>(io);
+	// T2-01 深化：现在 spdio_t 持有一个真正的 IUsbTransport 实例
+	return io ? io->transport : nullptr;
 }
 
 int usb_transport_send(IUsbTransport *t, const uint8_t *buf, int len, int timeout_ms) {
-	if (!t || !buf || len <= 0) return 0;
-	spdio_t *io = reinterpret_cast<spdio_t *>(t);
-
-	if (m_bOpened == -1)
-		return -1;
-
-#if USE_LIBUSB
-	int transferred = 0;
-	unsigned char *data = const_cast<unsigned char *>(buf);
-	int err = libusb_bulk_transfer(io->dev_handle, io->endp_out,
-		data, len, &transferred, timeout_ms);
-	if (err < 0) {
-		DEG_LOG(E,"usb_send failed : %s", libusb_error_name(err));
-		return err;
-	}
-	// UMS9117 waits too long after an integer multiple byte block.
-	if (io->endp_out_blk > 0 && ((unsigned)len % io->endp_out_blk) == 0) {
-		int dummy = 0;
-		(void)libusb_bulk_transfer(io->dev_handle, io->endp_out, nullptr, 0, &dummy, timeout_ms);
-	}
-	return transferred;
-#else
-	return call_Write(io->handle, buf, len);
-#endif
+	if (!t) return 0;
+	return t->send(buf, len, timeout_ms);
 }
 
 int usb_transport_recv(IUsbTransport *t, uint8_t *buf, int max_len, int timeout_ms) {
-	if (!t || !buf || max_len <= 0) return 0;
-	spdio_t *io = reinterpret_cast<spdio_t *>(t);
-
-	if (m_bOpened == -1)
-		return -1;
-
-#if USE_LIBUSB
-	int transferred = 0;
-	int err = libusb_bulk_transfer(io->dev_handle, io->endp_in,
-		buf, max_len, &transferred, timeout_ms);
-	if (err == LIBUSB_ERROR_NO_DEVICE) {
-		DEG_LOG(W,"connection closed");
-		return err;
-	} else if (err < 0) {
-		DEG_LOG(E,"usb_recv failed : %s", libusb_error_name(err));
-		return err;
-	}
-	return transferred;
-#else
-	int ret = call_Read(io->handle, buf, max_len, timeout_ms);
-	if (ret < 0) {
-		DEG_LOG(E,"usb_recv failed, ret = %d", ret);
-	}
-	return ret;
-#endif
+	if (!t) return 0;
+	return t->recv(buf, max_len, timeout_ms);
 }
 
 int usb_transport_clear(IUsbTransport *t) {
 	if (!t) return 0;
-	spdio_t *io = reinterpret_cast<spdio_t *>(t);
-
-#if !USE_LIBUSB
-	return call_Clear(io->handle);
-#else
-	(void)io;
-	return 0;
-#endif
+	return t->clear();
 }
 
 #if _WIN32

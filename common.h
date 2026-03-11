@@ -174,6 +174,7 @@ typedef struct spdio_t {
 	int part_count_c;
 	int nor_bar;
 	int part_count;
+	IUsbTransport *transport; // 传输实现指针，用于承载 IUsbTransport 适配器
 } spdio_t;
 
 #pragma pack(1)
