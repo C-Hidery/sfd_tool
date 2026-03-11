@@ -717,8 +717,11 @@ Result<void> pac_extract_result(const char* fn, const char* folder) {
         return Result<void>::error(ErrorCode::NotFound, "PAC file not found");
     }
 
-    if (!pac_extract(fn, folder)) {
-        // 旧版 pac_extract 已经负责详细日志与 UI 提示，这里只抽象出结果
+    // 先通过旧版 pac_extract 执行核心解析和 UI 行为
+    bool ok = pac_extract(fn, folder);
+    if (!ok) {
+        // 目前无法从 pac_extract 返回细粒度错误，只能统一归为 ParseError
+        // 后续在 T2-02 推进中，可逐步将 openPacFile / checkCrc 等内部函数改为 Result 版本
         return Result<void>::error(ErrorCode::ParseError, "pac_extract failed");
     }
 
