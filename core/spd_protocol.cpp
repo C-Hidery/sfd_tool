@@ -1,5 +1,6 @@
 #include "spd_protocol.h"
 #include "../common.h"
+#include "result.h"
 
 int spd_transcode(uint8_t *dst, uint8_t *src, int len) {
 	int i, a, n = 0;
@@ -413,16 +414,28 @@ unsigned recv_type(spdio_t *io) {
 	return READ16_BE(io->raw_buf);
 }
 
-int send_and_check(spdio_t *io) {
+static sfd::Result<void> send_and_check_result(spdio_t *io) {
 	int ret;
 	send_msg(io);
 	ret = recv_msg(io);
-	if (!ret) ERR_EXIT("timeout reached\n");
+	if (!ret) {
+		ERR_EXIT("timeout reached\n");
+		// 按当前行为依然视为 fatal，Result 仅用于统一错误模型
+		return sfd::Result<void>::error(sfd::ErrorCode::Timeout, "timeout reached");
+	}
+
 	ret = recv_type(io);
 	if (ret != BSL_REP_ACK) {
 		const char* name = get_bsl_enum_name(ret);
 		DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
-		return -1;
+		return sfd::Result<void>::error(sfd::ErrorCode::ProtocolError, "expected BSL_REP_ACK");
 	}
+
+	return sfd::Result<void>::ok();
+}
+
+int send_and_check(spdio_t *io) {
+	auto r = send_and_check_result(io);
+	if (!r) return -1;
 	return 0;
 }
