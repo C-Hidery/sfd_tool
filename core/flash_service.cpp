@@ -79,10 +79,20 @@ public:
         DEG_LOG(I, "loadPacMetadata: pac_extract_result(%s, %s)", pac_path.c_str(), unpack_dir);
         auto r = pac_extract_result(pac_path.c_str(), unpack_dir);
         if (!r) {
+            const int code_int = static_cast<int>(r.code);
+            const char* code_str = "unknown";
+            switch (r.code) {
+            case ErrorCode::InvalidArgument: code_str = "InvalidArgument"; break;
+            case ErrorCode::NotFound:        code_str = "NotFound";        break;
+            case ErrorCode::ParseError:      code_str = "ParseError";      break;
+            default:                         code_str = "Other";           break;
+            }
+
             DEG_LOG(E,
-                    "loadPacMetadata: pac_extract_result failed for %s, code=%d, msg=%s",
+                    "loadPacMetadata: pac_extract_result failed for %s, code=%d(%s), msg=%s",
                     pac_path.c_str(),
-                    static_cast<int>(r.code),
+                    code_int,
+                    code_str,
                     r.message.c_str());
             FlashErrorCode code = map_error_code(r.code);
             std::string msg = r.message.empty() ? "pac_extract failed" : r.message;
@@ -145,10 +155,20 @@ public:
                 unpack_dir);
         auto r = pac_extract_result(options.pac_path.c_str(), unpack_dir);
         if (!r) {
+            const int code_int = static_cast<int>(r.code);
+            const char* code_str = "unknown";
+            switch (r.code) {
+            case ErrorCode::InvalidArgument: code_str = "InvalidArgument"; break;
+            case ErrorCode::NotFound:        code_str = "NotFound";        break;
+            case ErrorCode::ParseError:      code_str = "ParseError";      break;
+            default:                         code_str = "Other";           break;
+            }
+
             DEG_LOG(E,
-                    "flashPac: stage=extract_pac, pac_extract_result failed for %s, code=%d, msg=%s",
+                    "flashPac: stage=extract_pac, pac_extract_result failed for %s, code=%d(%s), msg=%s",
                     options.pac_path.c_str(),
-                    static_cast<int>(r.code),
+                    code_int,
+                    code_str,
                     r.message.c_str());
             FlashErrorCode code = map_error_code(r.code);
             std::string detail = r.message.empty() ? "pac_extract_result failed" : r.message;
