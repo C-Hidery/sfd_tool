@@ -29,6 +29,7 @@
 #include <iostream>    // for error output
 
 #include "logging.h"  // 使用统一的 ERR_EXIT
+#include "result.h"   // T2-02: Result/ErrorCode
 
 typedef struct {
     uint16_t pac_version[24];
@@ -419,6 +420,150 @@ void Unpac::close() {
         fclose(fi);
         fi = NULL;
     }
+}
+static sfd::Result<void> parse_partitions_xml_result(const char* temp_xml_path,
+                                                     partition_t* pacptable,
+                                                     int& pac_part_count) {
+	const char *part1 = "Partitions>";
+	char *src, *p; size_t fsize = 0;
+	int part1_len = strlen(part1), found = 0, stage = 0;
+
+	src = (char *)loadfile(temp_xml_path, &fsize, 1);
+	if (!src) {
+		ERR_EXIT("loadfile failed\n");
+		return sfd::Result<void>::error(sfd::ErrorCode::IoError, "loadfile failed");
+	}
+	src[fsize] = 0;
+	p = src;
+
+	uint32_t buf_size = 0xffff;
+	uint8_t* buf = NEWN uint8_t[0x4c * 128];
+
+	for (;;) {
+		int i, a = *p++, n; char c; long long size;
+		if (a == ' ' || a == '\t' || a == '\n' || a == '\r') continue;
+		if (a != '<') {
+			if (!a) break;
+			if (stage != 1) continue;
+			DEG_LOG(E,"xml: unexpected symbol\n");
+			if(isHelperInit) gui_idle_call_wait_drag([](){
+				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Unexpected symbol in XML file.\nXML文件中出现了意外的符号\n");
+			},GTK_WINDOW(helper.getWidget("main_window")));
+			delete[] src;
+			delete[] buf;
+			return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "xml: unexpected symbol");
+		}
+		if (!memcmp(p, "!--", 3)) {
+			p = strstr(p + 3, "--");
+			if (!p || !((p[-1] - '!') | (p[-2] - '<')) || p[2] != '>')
+			{
+				DEG_LOG(E,"xml: unexpected syntax\n");
+				if(isHelperInit) gui_idle_call_wait_drag([](){
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Unexpected syntax in XML file.\nXML文件中出现了意外的语法\n");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				delete[] src;
+				delete[] buf;
+				return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "xml: unexpected syntax in comment");
+			}
+			p += 3;
+			continue;
+		}
+		if (stage != 1) {
+			stage += !memcmp(p, part1, part1_len);
+			if (stage > 2)
+			{
+				DEG_LOG(E,"xml: more than one partition lists\n");
+				if(isHelperInit) gui_idle_call_wait_drag([](){
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "More than one partition list found in XML file.\nXML文件中找到多个分区列表\n");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				delete[] src;
+				delete[] buf;
+				return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "xml: more than one partition lists");
+			}
+			p = strchr(p, '>');
+			if (!p) {
+				DEG_LOG(E,"xml: unexpected syntax\n");
+				if(isHelperInit) gui_idle_call_wait_drag([](){
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Unexpected syntax in XML file.\nXML文件中出现了意外的语法\n");
+				},GTK_WINDOW(helper.getWidget("main_window")));
+				delete[] src;
+				delete[] buf;
+				return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "xml: unexpected syntax before partitions");
+			}
+			p++;
+			continue;
+		}
+		if (*p == '/' && !memcmp(p + 1, part1, part1_len)) {
+			p = p + 1 + part1_len;
+			stage++;
+			continue;
+		}
+		i = sscanf(p, "Partition id=\"%35[^\"]\" size=\"%lli\"/%n%c", (*(pacptable + found)).name, &size, &n, &c);
+		if (i != 3 || c != '>')
+		{
+			DEG_LOG(E,"xml: unexpected syntax\n");
+			if(isHelperInit) gui_idle_call_wait_drag([](){
+				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Unexpected syntax in XML file.\nXML文件中出现了意外的语法\n");
+			},GTK_WINDOW(helper.getWidget("main_window")));
+			delete[] src;
+			delete[] buf;
+			return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "xml: bad Partition element");
+		}
+		p += n + 1;
+		if (buf_size < 0x4c)
+		{
+			DEG_LOG(E,"xml: too many partitions\n");
+			if(isHelperInit) gui_idle_call_wait_drag([](){
+				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Too many partitions in XML file.\nXML文件中的分区数量过多\n");
+			},GTK_WINDOW(helper.getWidget("main_window")));
+			delete[] src;
+			delete[] buf;
+			return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "xml: too many partitions");
+		}
+
+		buf_size -= 0x4c;
+		memset(buf, 0, 36 * 2);
+		for (i = 0; (a = (*(pacptable + found)).name[i]); i++) buf[i * 2] = a;
+		if (!i)
+		{
+			DEG_LOG(E,"xml: empty partition name\n");
+			if(isHelperInit) gui_idle_call_wait_drag([](){
+				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Empty partition name found in XML file.\nXML文件中发现了空的分区名称\n");
+			},GTK_WINDOW(helper.getWidget("main_window")));
+			delete[] src;
+			delete[] buf;
+			return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "xml: empty partition name");
+		}
+		WRITE32_LE(buf + 0x48, (uint32_t)size);
+		buf += 0x4c;
+		DBG_LOG("[%d] %s, %d\n", found + 1, (*(pacptable + found)).name, (int)size);
+		(*(pacptable + found)).size = size << 20;
+		found++;
+	}
+
+	pac_part_count = found;
+	if (p - 1 != src + fsize) {
+		DEG_LOG(E,"xml: zero byte\n");
+		if(isHelperInit) gui_idle_call_wait_drag([](){
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Zero byte found in XML file.\nXML文件中发现了零字节\n");
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		delete[] src;
+		delete[] buf;
+		return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "xml: zero byte");
+	}
+	if (stage != 2) {
+		DEG_LOG(E,"xml: unexpected syntax\n");
+		if(isHelperInit) gui_idle_call_wait_drag([](){
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Unexpected syntax in XML file.\nXML文件中出现了意外的语法\n");
+		},GTK_WINDOW(helper.getWidget("main_window")));
+		delete[] src;
+		delete[] buf;
+		return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "xml: unexpected syntax after partitions");
+	}
+
+	delete[] src;
+	delete[] buf;
+	return sfd::Result<void>::ok();
 }
 
 std::string ExtractPartitionsWithTags(const std::string& xmlContent) {
