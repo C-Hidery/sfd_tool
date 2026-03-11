@@ -410,9 +410,19 @@ public:
         if (io_) {
             auto flash = try_read_flash_info(io_);
             if (!flash) {
+                const int code_int = static_cast<int>(flash.code);
+                const char* code_str = "unknown";
+                switch (flash.code) {
+                case ErrorCode::DeviceNotConnected: code_str = "DeviceNotConnected"; break;
+                case ErrorCode::Timeout:            code_str = "Timeout";            break;
+                case ErrorCode::ProtocolError:      code_str = "ProtocolError";      break;
+                default:                            code_str = "Other";              break;
+                }
+
                 DEG_LOG(W,
-                        "DeviceService::probeDevice: try_read_flash_info failed, code=%d, msg=%s",
-                        static_cast<int>(flash.code),
+                        "DeviceService::probeDevice: try_read_flash_info failed, code=%d(%s), msg=%s",
+                        code_int,
+                        code_str,
                         flash.message.c_str());
             } else {
                 if (flash.value != FlashStorageType::Unknown) {
