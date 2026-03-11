@@ -222,6 +222,7 @@ public:
     bool listFiles();
     bool extractFiles();
     bool checkCrc();
+    sfd::Result<void> checkCrc_result();
     void close();
 };
 
@@ -383,7 +384,15 @@ bool Unpac::extractFiles() {
 }
 
 bool Unpac::checkCrc() {
-    if (!fi) { printf("PAC file not opened\n"); return false; }
+    auto r = checkCrc_result();
+    return static_cast<bool>(r);
+}
+
+sfd::Result<void> Unpac::checkCrc_result() {
+    if (!fi) {
+        printf("PAC file not opened\n");
+        return sfd::Result<void>::error(sfd::ErrorCode::InvalidArgument, "pac file not opened");
+    }
 
     // Head CRC
     uint32_t head_crc = u_crc16(0, &head, sizeof(head) - 4);
@@ -396,9 +405,15 @@ bool Unpac::checkCrc() {
     uint32_t n, l = head.pac_size;
     uint32_t data_crc = 0;
     buf = (uint8_t*) malloc(chunk);
-    if (!buf) { printf("malloc failed\n"); return false; }
+    if (!buf) {
+        printf("malloc failed\n");
+        return sfd::Result<void>::error(sfd::ErrorCode::InternalError, "malloc failed in checkCrc");
+    }
     n = sizeof(head);
-    if (l < n) { printf("unexpected pac size\n"); return false; }
+    if (l < n) {
+        printf("unexpected pac size\n");
+        return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "unexpected pac size");
+    }
     for (l -= n; l; l -= n) {
         n = l > chunk ? chunk : l;
         READ(buf, n, "chunk");
@@ -408,7 +423,8 @@ bool Unpac::checkCrc() {
     if (head.data_crc != data_crc)
         printf(" (expected 0x%04x)", data_crc);
     printf("\n");
-    return true;
+
+    return sfd::Result<void>::ok();
 }
 
 void Unpac::close() {
