@@ -78,8 +78,18 @@ struct FlashPacOptions {
     bool compatibility_mode = false;
 };
 
+// PAC 刷机阶段枚举，用于表达清晰的高层阶段语义
+enum class FlashPacStage {
+    ValidateContext,
+    ValidatePac,
+    ExtractPac,
+    ConfigureState,
+    ExecuteFlash,
+    Done,
+};
+
 // PAC 刷机阶段回调，用于 UI 展示进度/阶段信息
-using FlashPacStageCallback = std::function<void(const char* stage_name)>;
+using FlashPacStageCallback = std::function<void(FlashPacStage)>;
 
 // 单分区读写/备份选项
 struct PartitionIoOptions {
@@ -110,7 +120,7 @@ public:
 
     // 按选项执行一次 PAC 刷机流程
     virtual FlashStatus flashPac(const FlashPacOptions& options,
-                                FlashPacStageCallback on_stage = nullptr) = 0;
+                                FlashPacStageCallback on_stage = {}) = 0;
 
     // ===== 设备分区视图 =====
 

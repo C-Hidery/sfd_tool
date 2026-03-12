@@ -192,8 +192,17 @@ void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 
 	std::thread([helper, opts]() {
 		auto* svc = ensure_flash_service();
-		sfd::FlashStatus st = svc->flashPac(opts, [](const char* stage) {
-			DEG_LOG(OP, "PAC flash stage: %s", stage);
+		sfd::FlashStatus st = svc->flashPac(opts, [](sfd::FlashPacStage stage) {
+			const char* name = "unknown";
+			switch (stage) {
+			case sfd::FlashPacStage::ValidateContext: name = "validate_context"; break;
+			case sfd::FlashPacStage::ValidatePac:     name = "validate_pac";     break;
+			case sfd::FlashPacStage::ExtractPac:      name = "extract_pac";      break;
+			case sfd::FlashPacStage::ConfigureState:  name = "configure_state";  break;
+			case sfd::FlashPacStage::ExecuteFlash:    name = "execute_flash";    break;
+			case sfd::FlashPacStage::Done:            name = "done";             break;
+			}
+			DEG_LOG(OP, "PAC flash stage: %s", name);
 		});
 		if (!st.success) {
 			DEG_LOG(E, "flashPac failed: %s", st.message.c_str());
