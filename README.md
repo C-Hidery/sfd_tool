@@ -60,6 +60,21 @@ cmake -S . -B build -G "Visual Studio 17 2022"
 Then open `build/sfd_tool.sln` in Visual Studio.
 The legacy solution file at the repository root, [sfd_tool.sln](sfd_tool.sln), is kept for compatibility only and may lag behind the CMake build. Please prefer the CMake-generated solution for development.
 
+### Packaging & Release
+
+On Debian/Ubuntu, you can build a `.deb` package using the helper script:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential debhelper devscripts \
+  libgtk-3-dev libusb-1.0-0-dev pkg-config g++ \
+  imagemagick desktop-file-utils cmake
+
+./packaging/build-deb.sh
+```
+
+The script runs `dpkg-buildpackage` in a temporary directory under `/tmp/build-sfd-tool/` and produces `sfd-tool_*.deb` packages.
+
 ### Internationalization (i18n)
 This tool supports multi-language adaptation:
 * `make` will build the core application in English.

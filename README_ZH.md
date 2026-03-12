@@ -59,6 +59,21 @@ cmake -S . -B build -G "Visual Studio 17 2022"
 
 根目录下的旧版解决方案文件 [sfd_tool.sln](sfd_tool.sln) 仅作为兼容/参考，可能与当前 CMake 配置存在一定滞后，请以 CMake 生成的解决方案为准。
 
+### 打包与发布
+
+在 Debian/Ubuntu 上，本地构建 .deb 包可以使用项目提供的脚本：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential debhelper devscripts \
+  libgtk-3-dev libusb-1.0-0-dev pkg-config g++ \
+  imagemagick desktop-file-utils cmake
+
+./packaging/build-deb.sh
+```
+
+脚本会在临时目录 `/tmp/build-sfd-tool/` 下执行 `dpkg-buildpackage`，并生成 `sfd-tool_*.deb` 安装包。
+
 ### 多语言国际化 (i18n)
 本工具支持中英文等多种语言适配：
 * `make` 会优先构建出纯英文核心程序。
