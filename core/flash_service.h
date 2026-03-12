@@ -118,9 +118,9 @@ public:
                                         PacMetadata& out_metadata,
                                         std::vector<PacPartitionEntry>& out_entries) = 0;
 
-    // 按选项执行一次 PAC 刷机流程
+    // 按选项执行一次 PAC 刷机流程（高层一站式封装）
     virtual FlashStatus flashPac(const FlashPacOptions& options,
-                                FlashPacStageCallback on_stage = {}) = 0;
+                                 FlashPacStageCallback on_stage = {}) = 0;
 
     // ===== 设备分区视图 =====
 
