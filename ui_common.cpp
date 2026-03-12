@@ -142,6 +142,32 @@ void append_log_to_ui(int type, const char* message) {
 	}, msg_copy);
 }
 
+void run_long_task(const LongTaskConfig& cfg) {
+    // 在 GUI 线程执行 on_started（如果提供）
+    if (cfg.on_started) {
+        gui_idle_call([&cfg]() {
+            cfg.on_started();
+        });
+    }
+
+    // 取消标志在线程间共享
+    std::thread([cfg]() mutable {
+        std::atomic_bool cancel_flag(false);
+
+        // 执行后台任务
+        if (cfg.worker) {
+            cfg.worker(cancel_flag);
+        }
+
+        // 任务完成后在 GUI 线程执行 on_finished（如果提供）
+        if (cfg.on_finished) {
+            gui_idle_call([cfg]() mutable {
+                cfg.on_finished();
+            });
+        }
+    }).detach();
+}
+
 GtkWidget* create_bottom_controls(GtkWidgetHelper& helper) {
 	// 外层垂直 Box 包裹整个底部控制区
 	GtkWidget* bottomContainer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);

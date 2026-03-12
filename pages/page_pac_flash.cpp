@@ -3,6 +3,7 @@
 #include "../core/app_state.h"
 #include "../core/usb_transport.h"
 #include "../i18n.h"
+#include "../ui_common.h"
 #include <string>
 #include <thread>
 #include <cstdio>
@@ -187,34 +188,49 @@ void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 	opts.slot_selection = static_cast<sfd::SlotSelection>(g_app_state.flash.selected_ab <= 0 ? 0 : g_app_state.flash.selected_ab);
 	opts.compatibility_mode = g_app_state.flash.isCMethod != 0;
 
-	// block size 仍然从全局 fblk_size 读取，保持行为一致
-	// 真正的分区写入逻辑仍在 FlashService/核心模块中
+	LongTaskConfig cfg{
+		helper,
+		// worker：在后台线程中执行 PAC 刷机
+		[helper, opts](std::atomic_bool& cancel_flag) {
+			(void)cancel_flag; // 当前实现暂不支持取消，仅保留扩展点
+			auto* svc = ensure_flash_service();
+			sfd::FlashStatus st = svc->flashPac(opts, [](sfd::FlashPacStage stage) {
+				const char* name = "unknown";
+				switch (stage) {
+				case sfd::FlashPacStage::ValidateContext: name = "validate_context"; break;
+				case sfd::FlashPacStage::ValidatePac:     name = "validate_pac";     break;
+				case sfd::FlashPacStage::ExtractPac:      name = "extract_pac";      break;
+				case sfd::FlashPacStage::ConfigureState:  name = "configure_state";  break;
+				case sfd::FlashPacStage::ExecuteFlash:    name = "execute_flash";    break;
+				case sfd::FlashPacStage::Done:            name = "done";             break;
+				}
+				DEG_LOG(OP, "PAC flash stage: %s", name);
+			});
 
-	std::thread([helper, opts]() {
-		auto* svc = ensure_flash_service();
-		sfd::FlashStatus st = svc->flashPac(opts, [](sfd::FlashPacStage stage) {
-			const char* name = "unknown";
-			switch (stage) {
-			case sfd::FlashPacStage::ValidateContext: name = "validate_context"; break;
-			case sfd::FlashPacStage::ValidatePac:     name = "validate_pac";     break;
-			case sfd::FlashPacStage::ExtractPac:      name = "extract_pac";      break;
-			case sfd::FlashPacStage::ConfigureState:  name = "configure_state";  break;
-			case sfd::FlashPacStage::ExecuteFlash:    name = "execute_flash";    break;
-			case sfd::FlashPacStage::Done:            name = "done";             break;
+			if (!st.success) {
+				DEG_LOG(E, "flashPac failed: %s", st.message.c_str());
+				gui_idle_call_wait_drag([helper, msg = st.message]() {
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), msg.c_str());
+				}, GTK_WINDOW(helper.getWidget("main_window")));
+			} else {
+				gui_idle_call_wait_drag([helper]() {
+					showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC flash completed successfully."));
+				}, GTK_WINDOW(helper.getWidget("main_window")));
 			}
-			DEG_LOG(OP, "PAC flash stage: %s", name);
-		});
-		if (!st.success) {
-			DEG_LOG(E, "flashPac failed: %s", st.message.c_str());
-			gui_idle_call_wait_drag([helper, msg = st.message]() {
-				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), msg.c_str());
-			}, GTK_WINDOW(helper.getWidget("main_window")));
-		} else {
-			gui_idle_call_wait_drag([helper]() {
-				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC flash completed successfully."));
-			}, GTK_WINDOW(helper.getWidget("main_window")));
+		},
+		// on_started：GUI 线程中执行，设置状态与禁用按钮
+		[&helper]() {
+			helper.setLabelText(helper.getWidget("con"), "Flashing PAC...");
+			helper.disableWidget("pac_flash_start");
+		},
+		// on_finished：GUI 线程中执行，恢复按钮与状态
+		[&helper]() {
+			helper.setLabelText(helper.getWidget("con"), "Ready");
+			helper.enableWidget("pac_flash_start");
 		}
-	}).detach();
+	};
+
+	run_long_task(cfg);
 }
 
 // ===== UI 构建 =====
