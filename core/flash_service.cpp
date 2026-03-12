@@ -112,9 +112,17 @@ public:
         return make_ok();
     }
 
-    FlashStatus flashPac(const FlashPacOptions& options) override {
+    FlashStatus flashPac(const FlashPacOptions& options,
+                         FlashPacStageCallback on_stage) override {
         DEG_LOG(OP, "flashPac: begin (pac=%s)", options.pac_path.c_str());
 
+        auto emit_stage = [&](const char* name) {
+            if (on_stage) {
+                on_stage(name);
+            }
+        };
+
+        emit_stage("validate_context");
         // Stage 1: validate_context
         if (!io_ || !app_) {
             DEG_LOG(E, "flashPac: stage=validate_context, context not set");
@@ -130,6 +138,7 @@ public:
                 "PAC flash failed at validate_context: device detached");
         }
 
+        emit_stage("validate_pac");
         // Stage 2: validate_pac
         DEG_LOG(OP, "flashPac: stage=validate_pac path=%s", options.pac_path.c_str());
 
@@ -147,6 +156,7 @@ public:
                 "PAC flash failed at validate_pac: PAC file not found");
         }
 
+        emit_stage("extract_pac");
         // Stage 3: extract_pac
         const char* unpack_dir = "pac_unpack_output";
         DEG_LOG(OP,
@@ -176,6 +186,7 @@ public:
             return make_error(code, msg);
         }
 
+        emit_stage("configure_state");
         // Stage 4: configure_state
         switch (options.slot_selection) {
         case SlotSelection::Auto:
@@ -196,6 +207,7 @@ public:
                 app_->flash.selected_ab,
                 app_->flash.isCMethod);
 
+        emit_stage("execute_flash");
         // Stage 5: execute_flash
         unsigned step = DEFAULT_BLK_SIZE;
         DEG_LOG(OP,
@@ -209,6 +221,7 @@ public:
 
         // 目前 load_partitions 内部自行处理错误，执行到此视为成功
         DEG_LOG(OP, "flashPac: success");
+        emit_stage("done");
         return make_ok();
     }
 

@@ -192,7 +192,9 @@ void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 
 	std::thread([helper, opts]() {
 		auto* svc = ensure_flash_service();
-		sfd::FlashStatus st = svc->flashPac(opts);
+		sfd::FlashStatus st = svc->flashPac(opts, [](const char* stage) {
+			DEG_LOG(OP, "PAC flash stage: %s", stage);
+		});
 		if (!st.success) {
 			DEG_LOG(E, "flashPac failed: %s", st.message.c_str());
 			gui_idle_call_wait_drag([helper, msg = st.message]() {

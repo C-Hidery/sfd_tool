@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 #include <memory>
-
+#include <functional>
 struct spdio_t;   // 前向声明，避免头文件循环依赖
 struct AppState;  // 来自 core/app_state.h
 
@@ -78,6 +78,9 @@ struct FlashPacOptions {
     bool compatibility_mode = false;
 };
 
+// PAC 刷机阶段回调，用于 UI 展示进度/阶段信息
+using FlashPacStageCallback = std::function<void(const char* stage_name)>;
+
 // 单分区读写/备份选项
 struct PartitionIoOptions {
     std::string partition_name;
@@ -106,7 +109,8 @@ public:
                                         std::vector<PacPartitionEntry>& out_entries) = 0;
 
     // 按选项执行一次 PAC 刷机流程
-    virtual FlashStatus flashPac(const FlashPacOptions& options) = 0;
+    virtual FlashStatus flashPac(const FlashPacOptions& options,
+                                FlashPacStageCallback on_stage = nullptr) = 0;
 
     // ===== 设备分区视图 =====
 
