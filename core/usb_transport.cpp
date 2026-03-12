@@ -203,7 +203,8 @@ int SpdioUsbTransport::send(const uint8_t *buf, int len, int timeout_ms) {
 	}
 	return transferred;
 #else
-	return call_Write(io_->handle, buf, len);
+	UCHAR *data = const_cast<UCHAR *>(reinterpret_cast<const UCHAR *>(buf));
+	return call_Write(io_->handle, data, len);
 #endif
 }
 
@@ -237,7 +238,8 @@ int SpdioUsbTransport::clear() {
 	if (!io_) return 0;
 
 #if !USE_LIBUSB
-	return call_Clear(io_->handle);
+	call_Clear(io_->handle);
+	return 0;
 #else
 	return 0;
 #endif
