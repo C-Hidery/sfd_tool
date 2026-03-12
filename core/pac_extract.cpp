@@ -454,6 +454,58 @@ std::string FindFirstXMLFile(const std::string& folderPath) {
     
     return ""; // 没找到
 }
+std::string FindFDLInExtFloder(const char *folder, Stages mode)
+{
+    switch(mode)
+    {
+        case FDL1:
+            namespace fs = std::filesystem;
+            try {
+                if (!fs::exists(folder)) {
+                    std::cerr << "Floder not found: " << folder << std::endl;
+                    return "";
+                }
+                
+                for (const auto& entry : fs::directory_iterator(folder)) {
+                    if (entry.is_regular_file()) {
+                        std::string filename = entry.path().filename().string();
+                        // 检查扩展名是否为.xml（不区分大小写）
+                        std::string ext = entry.path().extension().string();
+                        if (ext == "fdl1-sign" || ext == "fdl1") {
+                            return entry.path().string(); // 返回完整路径
+                        }
+                    }
+                }
+            } catch (const fs::filesystem_error& e) {
+                std::cerr << "File system error: " << e.what() << std::endl;
+            }
+    
+            return ""; // 没找到
+        case FDL2:
+            namespace fs = std::filesystem;
+            try {
+                if (!fs::exists(folder)) {
+                    std::cerr << "Floder not found: " << folder << std::endl;
+                    return "";
+                }
+                
+                for (const auto& entry : fs::directory_iterator(folder)) {
+                    if (entry.is_regular_file()) {
+                        std::string filename = entry.path().filename().string();
+                        // 检查扩展名是否为.xml（不区分大小写）
+                        std::string ext = entry.path().extension().string();
+                        if (ext == "fdl2-sign" || ext == "fdl2") {
+                            return entry.path().string(); // 返回完整路径
+                        }
+                    }
+                }
+            } catch (const fs::filesystem_error& e) {
+                std::cerr << "File system error: " << e.what() << std::endl;
+            }
+    
+            return ""; // 没找到
+    }
+}
 // WIP
 bool pac_extract(const char* fn, const char* floder)
 {	
