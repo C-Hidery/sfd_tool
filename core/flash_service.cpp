@@ -124,44 +124,44 @@ public:
         };
 
         emit_stage(FlashPacStage::ValidateContext);
-        // Stage 1: validate_context
+        // Stage 1: ValidateContext
         if (!io_ || !app_) {
-            DEG_LOG(E, "preparePacFlash: stage=validate_context, context not set");
+            DEG_LOG(E, "preparePacFlash: stage=ValidateContext, context not set");
             return make_error(
                 FlashErrorCode::DeviceNotConnected,
-                "PAC flash failed at validate_context: context not set");
+                "PAC flash failed at ValidateContext: context not set");
         }
 
         if (app_->device.m_bOpened == -1) {
-            DEG_LOG(E, "preparePacFlash: stage=validate_context, device detached");
+            DEG_LOG(E, "preparePacFlash: stage=ValidateContext, device detached");
             return make_error(
                 FlashErrorCode::DeviceNotConnected,
-                "PAC flash failed at validate_context: device detached");
+                "PAC flash failed at ValidateContext: device detached");
         }
 
         emit_stage(FlashPacStage::ValidatePac);
-        // Stage 2: validate_pac
-        DEG_LOG(OP, "preparePacFlash: stage=validate_pac path=%s", options.pac_path.c_str());
+        // Stage 2: ValidatePac
+        DEG_LOG(OP, "preparePacFlash: stage=ValidatePac path=%s", options.pac_path.c_str());
 
         if (options.pac_path.empty()) {
-            DEG_LOG(E, "preparePacFlash: stage=validate_pac, empty pac_path");
+            DEG_LOG(E, "preparePacFlash: stage=ValidatePac, empty pac_path");
             return make_error(
                 FlashErrorCode::InvalidPacFile,
-                "PAC flash failed at validate_pac: empty pac path");
+                "PAC flash failed at ValidatePac: empty pac path");
         }
 
         if (!std::filesystem::exists(options.pac_path)) {
-            DEG_LOG(E, "preparePacFlash: stage=validate_pac, PAC not found: %s", options.pac_path.c_str());
+            DEG_LOG(E, "preparePacFlash: stage=ValidatePac, PAC not found: %s", options.pac_path.c_str());
             return make_error(
                 FlashErrorCode::InvalidPacFile,
-                "PAC flash failed at validate_pac: PAC file not found");
+                "PAC flash failed at ValidatePac: PAC file not found");
         }
 
         emit_stage(FlashPacStage::ExtractPac);
-        // Stage 3: extract_pac
+        // Stage 3: ExtractPac
         const char* unpack_dir = "pac_unpack_output";
         DEG_LOG(OP,
-                "preparePacFlash: stage=extract_pac pac_extract_result(%s, %s)",
+                "preparePacFlash: stage=ExtractPac pac_extract_result(%s, %s)",
                 options.pac_path.c_str(),
                 unpack_dir);
         auto r = pac_extract_result(options.pac_path.c_str(), unpack_dir);
@@ -176,14 +176,14 @@ public:
             }
 
             DEG_LOG(E,
-                    "preparePacFlash: stage=extract_pac, pac_extract_result failed for %s, code=%d(%s), msg=%s",
+                    "preparePacFlash: stage=ExtractPac, pac_extract_result failed for %s, code=%d(%s), msg=%s",
                     options.pac_path.c_str(),
                     code_int,
                     code_str,
                     r.message.c_str());
             FlashErrorCode code = map_error_code(r.code);
             std::string detail = r.message.empty() ? "pac_extract_result failed" : r.message;
-            std::string msg = "PAC flash failed at extract_pac: " + detail;
+            std::string msg = "PAC flash failed at ExtractPac: " + detail;
             return make_error(code, msg);
         }
 
@@ -201,7 +201,7 @@ public:
         };
 
         emit_stage(FlashPacStage::ConfigureState);
-        // Stage 4: configure_state
+        // Stage 4: ConfigureState
         switch (options.slot_selection) {
         case SlotSelection::Auto:
             app_->flash.selected_ab = 0;
@@ -217,15 +217,15 @@ public:
         app_->flash.isCMethod = options.compatibility_mode ? 1 : 0;
 
         DEG_LOG(OP,
-                "executePacFlash: stage=configure_state slot=%d CMethod=%d",
+                "executePacFlash: stage=ConfigureState slot=%d CMethod=%d",
                 app_->flash.selected_ab,
                 app_->flash.isCMethod);
 
         emit_stage(FlashPacStage::ExecuteFlash);
-        // Stage 5: execute_flash
+        // Stage 5: ExecuteFlash
         unsigned step = DEFAULT_BLK_SIZE;
         DEG_LOG(OP,
-                "executePacFlash: stage=execute_flash load_partitions(dir=%s, step=%u, ab=%d, CMethod=%d)",
+                "executePacFlash: stage=ExecuteFlash load_partitions(dir=%s, step=%u, ab=%d, CMethod=%d)",
                 unpack_dir,
                 step,
                 app_->flash.selected_ab,
