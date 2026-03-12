@@ -2,6 +2,7 @@
 #include "../core/flash_service.h"
 #include "../core/app_state.h"
 #include "../core/usb_transport.h"
+#include "../core/config_service.h"
 #include "../i18n.h"
 #include "../ui_common.h"
 #include <string>
@@ -116,6 +117,17 @@ void on_button_clicked_pac_select(GtkWidgetHelper helper) {
 	std::string filename = showFileChooser(parent, true);
 	if (!filename.empty()) {
 		helper.setEntryText(helper.getWidget("pac_file_path"), filename);
+
+		// 选择成功后更新配置中的 last_pac_path
+		auto cfgSvc = sfd::createConfigService();
+		if (cfgSvc) {
+			sfd::AppConfig cfg{};
+			sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
+			if (status.success) {
+				cfg.last_pac_path = filename;
+				cfgSvc->saveAppConfig(cfg);
+			}
+		}
 	}
 }
 
@@ -259,6 +271,17 @@ GtkWidget* PacFlashPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* pacFileLabel = gtk_label_new(_("PAC File Path"));
 	helper.addWidget("pac_file_label", pacFileLabel);
 	GtkWidget* pacFilePath  = helper.createEntry("pac_file_path", "", false, 0, 0, 360, 32);
+
+	// 从配置中恢复最近使用的 PAC 路径（如果有）
+	auto cfgSvc = sfd::createConfigService();
+	if (cfgSvc) {
+		sfd::AppConfig cfg{};
+		sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
+		if (status.success && !cfg.last_pac_path.empty()) {
+			helper.setEntryText(pacFilePath, cfg.last_pac_path.c_str());
+		}
+	}
+
 	GtkWidget* pacSelectBtn = helper.createButton("...", "pac_select", nullptr, 0, 0, 40, 32);
 	GtkWidget* pacUnpackBtn = helper.createButton(_("Unpack PAC"), "pac_unpack", nullptr, 0, 0, -1, 32);
 	gtk_box_pack_start(GTK_BOX(fileRow), pacFileLabel, FALSE, FALSE, 0);

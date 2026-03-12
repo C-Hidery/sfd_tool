@@ -69,7 +69,6 @@ extern libusb_device* curPort;
 libusb_device** ports;
 #endif
 // Moved initialization into gtk_kmain()
-using nlohmann::json;
 
 #ifdef __linux__
 void check_root_permission(GtkWidgetHelper helper) {

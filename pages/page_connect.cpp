@@ -867,6 +867,16 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_widget_set_hexpand(fdlFilePath, TRUE);
 	GtkWidget* selectFdlBtn = helper.createButton("...", "select_fdl", nullptr, 0, 0, 40, 32);
 
+	// 从配置中恢复最近使用的 FDL 路径（如果有）
+	auto* cfgSvc = ensure_config_service();
+	if (cfgSvc) {
+		sfd::AppConfig cfg{};
+		sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
+		if (status.success && !cfg.last_fdl1_path.empty()) {
+			helper.setEntryText(fdlFilePath, cfg.last_fdl1_path.c_str());
+		}
+	}
+
 	gtk_grid_attach(GTK_GRID(fdlGrid), fdlLabel, 0, 0, 1, 1);
 	gtk_grid_attach(GTK_GRID(fdlGrid), fdlFilePath, 1, 0, 1, 1);
 	gtk_grid_attach(GTK_GRID(fdlGrid), selectFdlBtn, 2, 0, 1, 1);
