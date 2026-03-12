@@ -424,11 +424,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 	const char* fdl_path = helper.getEntryText(fdlEntry);
 	const char* fdl_addr_str = helper.getEntryText(addrEntry);
 	uint32_t fdl_addr = strtoul(fdl_addr_str, nullptr, 0);
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
-		},GTK_WINDOW(helper.getWidget("main_window")));
+	if (ensure_device_attached_or_warn(helper)) {
 		return;
 	}
 	if (fdl1_loaded > 0) {

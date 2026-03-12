@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include "common.h"
+#include "core/device_attach_helpers.h"
 #include "main.h"
 #include "GenTosNoAvb.h"
 #ifdef __linux__
@@ -2242,8 +2243,7 @@ rloop:
 			for (i = 1; i < argcount; i++)
 				delete[](str2[i]);
 		delete[](str2);
-		if (m_bOpened == -1) {
-			DEG_LOG(E, "device unattached, exiting...");
+		if (is_device_unattached_and_log(io)) {
 			break;
 		}
 

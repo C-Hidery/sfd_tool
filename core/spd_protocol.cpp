@@ -1,4 +1,5 @@
 #include "spd_protocol.h"
+#include "device_attach_helpers.h"
 #include "../common.h"
 #include "result.h"
 
@@ -161,7 +162,7 @@ int send_msg(spdio_t *io) {
 	if (!io->enc_len)
 		ERR_EXIT("empty message\n");
 
-	if (m_bOpened == -1) {
+	if (is_device_unattached_and_log(io)) {
 		spdio_free(io);
 		ERR_EXIT("device unattached, exiting...\n");
 	}
