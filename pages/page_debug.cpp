@@ -15,7 +15,7 @@ static void on_button_clicked_pac_time(GtkWidgetHelper helper) {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
-		
+
 	}
 	uint32_t n, offset = 0x81400, len = 8;
 	int ret;
@@ -67,7 +67,7 @@ static void on_button_clicked_chip_uid(GtkWidgetHelper helper) {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
-		
+
 	}
 	encode_msg_nocpy(io, BSL_CMD_READ_CHIP_UID, 0);
 	send_msg(io);
@@ -94,7 +94,7 @@ static void on_button_clicked_check_nand(GtkWidgetHelper helper) {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
-		
+
 	}
 	encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
 	send_msg(io);
@@ -114,7 +114,7 @@ static void on_button_clicked_check_nand(GtkWidgetHelper helper) {
 	}
 }
 
-GtkWidget* create_debug_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
+GtkWidget* DebugPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* dbgOptPage = helper.createGrid("dbg_opt_page", 5, 5);
 	helper.addNotebookPage(notebook, dbgOptPage, _("Debug Options"));
 
@@ -208,7 +208,7 @@ GtkWidget* create_debug_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	return dbgOptPage;
 }
 
-void bind_debug_signals(GtkWidgetHelper& helper) {
+void DebugPage::bindSignals(GtkWidgetHelper& helper) {
 	helper.bindClick(helper.getWidget("pac_time"), [&]() {
 		on_button_clicked_pac_time(helper);
 	});
@@ -218,4 +218,14 @@ void bind_debug_signals(GtkWidgetHelper& helper) {
 	helper.bindClick(helper.getWidget("check_nand"), [&]() {
 		on_button_clicked_check_nand(helper);
 	});
+}
+
+GtkWidget* create_debug_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
+    DebugPage page;
+    return page.init(helper, notebook);
+}
+
+void bind_debug_signals(GtkWidgetHelper& helper) {
+    DebugPage page;
+    page.bindSignals(helper);
 }

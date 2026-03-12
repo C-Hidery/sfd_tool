@@ -198,13 +198,13 @@ static void on_button_clicked_m_cancel(GtkWidgetHelper helper) {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
-		
+
 	}
 	signal_handler(0);
 	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Current partition operation cancelled!"));
 }
 
-GtkWidget* create_manual_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
+GtkWidget* ManualPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* manualPage = helper.createGrid("manual_page", 5, 5);
 	helper.addNotebookPage(notebook, manualPage, _("Manually Operate"));
 
@@ -252,7 +252,7 @@ GtkWidget* create_manual_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	helper.addWidget("write_part_label", writePartLabel);
 	gtk_widget_set_halign(writePartLabel, GTK_ALIGN_END);
 	gtk_widget_set_size_request(writePartLabel, 120, -1);
-	
+
 	GtkWidget* mPartFlash = helper.createEntry("m_part_flash", "", false, 0, 0, -1, 32);
 	gtk_widget_set_hexpand(mPartFlash, TRUE);
 	gtk_box_pack_start(GTK_BOX(writePartBox), writePartLabel, FALSE, FALSE, 0);
@@ -374,7 +374,7 @@ GtkWidget* create_manual_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	return manualPage;
 }
 
-void bind_manual_signals(GtkWidgetHelper& helper) {
+void ManualPage::bindSignals(GtkWidgetHelper& helper) {
 	helper.bindClick(helper.getWidget("m_select"), [&]() {
 		on_button_clicked_m_select(helper);
 	});
@@ -390,4 +390,14 @@ void bind_manual_signals(GtkWidgetHelper& helper) {
 	helper.bindClick(helper.getWidget("m_cancel"), [&]() {
 		on_button_clicked_m_cancel(helper);
 	});
+}
+
+GtkWidget* create_manual_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
+    ManualPage page;
+    return page.init(helper, notebook);
+}
+
+void bind_manual_signals(GtkWidgetHelper& helper) {
+    ManualPage page;
+    page.bindSignals(helper);
 }

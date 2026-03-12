@@ -73,7 +73,7 @@ static void on_button_clicked_abpart_b(GtkWidgetHelper helper) {
 	g_app_state.flash.selected_ab = 2;
 }
 
-GtkWidget* create_advanced_set_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
+GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* advSetPage = helper.createGrid("adv_set_page", 5, 5);
 	helper.addNotebookPage(notebook, advSetPage, _("Advanced Settings"));
 
@@ -118,7 +118,7 @@ GtkWidget* create_advanced_set_page(GtkWidgetHelper& helper, GtkWidget* notebook
 	gtk_scale_set_value_pos(GTK_SCALE(blkSlider), GTK_POS_RIGHT);
 	gtk_widget_set_name(blkSlider, "blk_size");
 	helper.addWidget("blk_size", blkSlider);
-	
+
 	GtkWidget* sizeConLabel = gtk_label_new(_("Value:"));
 	helper.addWidget("blk_label", sizeConLabel);
 	GtkWidget* sizeCon = helper.createLabel("10000", "size_con", 0, 0, 60, 20);
@@ -152,7 +152,7 @@ GtkWidget* create_advanced_set_page(GtkWidgetHelper& helper, GtkWidget* notebook
 	gtk_widget_set_halign(rawDataButtonBox, GTK_ALIGN_CENTER);
 	gtk_box_pack_start(GTK_BOX(rawDataButtonBox), rawDataEn, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(rawDataButtonBox), rawDataDis, FALSE, FALSE, 0);
-	
+
 	GtkWidget* rawValLinked = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 	gtk_style_context_add_class(gtk_widget_get_style_context(rawValLinked), "linked");
 	gtk_box_pack_start(GTK_BOX(rawValLinked), rlabel, FALSE, FALSE, 0);
@@ -260,14 +260,14 @@ GtkWidget* create_advanced_set_page(GtkWidgetHelper& helper, GtkWidget* notebook
 	gtk_frame_set_label_widget(GTK_FRAME(abpartFrame), abpartTitle);
 	gtk_frame_set_label_align(GTK_FRAME(abpartFrame), 0.5, 0.5);
 	helper.addWidget("abpart_label", abpartTitle);
-	
+
 	GtkWidget* abpartBox = makeCardBox(32, 16);
 	gtk_container_add(GTK_CONTAINER(abpartFrame), abpartBox);
 
 	GtkWidget* abpart_auto = helper.createButton(_("Not VAB --- FDL2"),"abpart_auto",nullptr,0,0,176,36);
 	GtkWidget* abpart_a = helper.createButton(_("A Parts --- FDL2"),"abpart_a",nullptr,0,0,176,36);
 	GtkWidget* abpart_b = helper.createButton(_("B Parts --- FDL2"),"abpart_b",nullptr,0,0,176,36);
-	
+
 	GtkWidget* abpartButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
 	gtk_widget_set_halign(abpartButtonBox, GTK_ALIGN_CENTER);
 	gtk_box_pack_start(GTK_BOX(abpartButtonBox), abpart_auto,FALSE,FALSE,0);
@@ -283,7 +283,7 @@ GtkWidget* create_advanced_set_page(GtkWidgetHelper& helper, GtkWidget* notebook
 	return advSetPage;
 }
 
-void bind_advanced_set_signals(GtkWidgetHelper& helper) {
+void AdvancedSetPage::bindSignals(GtkWidgetHelper& helper) {
 	GtkWidget* blkSlider = helper.getWidget("blk_size");
 	GtkWidget* sizeCon = helper.getWidget("size_con");
 	GtkWidget* timeout_op = helper.getWidget("timeout");
@@ -332,4 +332,14 @@ void bind_advanced_set_signals(GtkWidgetHelper& helper) {
 	helper.bindClick(helper.getWidget("abpart_b"),[&](){
 		on_button_clicked_abpart_b(helper);
 	});
+}
+
+GtkWidget* create_advanced_set_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
+    AdvancedSetPage page;
+    return page.init(helper, notebook);
+}
+
+void bind_advanced_set_signals(GtkWidgetHelper& helper) {
+    AdvancedSetPage page;
+    page.bindSignals(helper);
 }

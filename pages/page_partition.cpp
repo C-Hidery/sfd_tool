@@ -1120,6 +1120,17 @@ void confirm_partition_c(GtkWidgetHelper helper) {
 	);
 }
 
+GtkWidget* PartitionPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
+	// 直接复用原 create_partition_page 的实现
+	return create_partition_page(helper, notebook);
+}
+
+void PartitionPage::bindSignals(GtkWidgetHelper& helper) {
+	// 直接复用原 bind_partition_signals 的实现
+	bind_partition_signals(helper);
+}
+
+
 GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	// ── 页面根容器（垂直 Box，整体可滚动） ──
 	GtkWidget* outerScroll = gtk_scrolled_window_new(NULL, NULL);
