@@ -1,4 +1,5 @@
 #include "spd_protocol.h"
+#include "logging.h"
 #include "device_attach_helpers.h"
 #include "../common.h"
 #include "result.h"

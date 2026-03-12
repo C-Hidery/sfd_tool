@@ -1,8 +1,8 @@
 #include "flash_service.h"
+#include "logging.h"
 #include "result.h"
 #include "../common.h"
 #include "app_state.h"
-#include "logging.h"
 #include "file_io.h"
 
 #include <filesystem>

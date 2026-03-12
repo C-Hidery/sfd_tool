@@ -69,7 +69,7 @@ void ERR_EXIT(const char* format, ...) {
     	helper.disableWidget("abpart_auto");
     	helper.disableWidget("abpart_a");
     	helper.disableWidget("abpart_b");
-		helper.disableWidget("pac_flash_start");
+			helper.disableWidget("pac_flash_start");
 	}
 	std::thread([](){
 #ifdef _WIN32
@@ -81,37 +81,77 @@ void ERR_EXIT(const char* format, ...) {
 	}).detach();
 }
 
-void DEG_LOG(int type, const char* format, ...) {
-    va_list args;
-    va_start(args, format);
-    // 首先格式化日志消息
-    char buffer[1024];
-    const char* prefix;
-    
-    switch(type) {
-        case I: prefix = "[i] "; break;
-        case W: prefix = "[!] "; break;
-        case E: prefix = "[x] "; break;
-        case OP: prefix = "[=] "; break;
-        case DE: prefix = "[DE] "; break;
-        default: prefix = "[UN] "; break;
-    }
-    
-    vsnprintf(buffer, sizeof(buffer), format, args);
-    va_end(args);
+// 内部：统一的实际输出函数，保持原有格式/路由行为
+static void logMessageInternal(int type, const char* message) {
 	time_t now = time(nullptr);
-    struct tm* local_time = localtime(&now);
-    // 输出到控制台
+	struct tm* local_time = localtime(&now);
 	char timestamp[64];
-    strftime(timestamp, sizeof(timestamp), "[%H:%M:%S] ", local_time);
-    if (type == I || type == W || type == OP) {
-        fprintf(stdout, "%s%s%s\n", timestamp, prefix, buffer);
-    } else {
-        fprintf(stderr, "%s%s%s\n", timestamp, prefix, buffer);
-    }
+	strftime(timestamp, sizeof(timestamp), "[%H:%M:%S] ", local_time);
 
-    // 输出到 GUI 日志框，通过 ui_common 封装
-    append_log_to_ui(type, buffer);
+	const char* prefix;
+	switch(type) {
+		case I:  prefix = "[i] ";  break;
+		case W:  prefix = "[!] ";  break;
+		case E:  prefix = "[x] ";  break;
+		case OP: prefix = "[=] ";  break;
+		case DE: prefix = "[DE] "; break;
+		default: prefix = "[UN] "; break;
+	}
+
+	if (type == I || type == W || type == OP) {
+		fprintf(stdout, "%s%s%s\n", timestamp, prefix, message);
+	} else {
+		fprintf(stderr, "%s%s%s\n", timestamp, prefix, message);
+	}
+
+	// GUI: 仍然通过 ui_common 里的封装追加到日志视图
+	append_log_to_ui(type, message);
+}
+
+void DEG_LOG(int type, const char* format, ...) {
+	va_list args;
+	va_start(args, format);
+	char buffer[1024];
+	vsnprintf(buffer, sizeof(buffer), format, args);
+	va_end(args);
+
+	// 维持原有等级/时间戳/路由行为
+	logMessageInternal(type, buffer);
+}
+
+int logLevelToType(LogLevel level) {
+	switch (level) {
+	case LogLevel::Info:    return I;
+	case LogLevel::Warning: return W;
+	case LogLevel::Error:   return E;
+	case LogLevel::Op:      return OP;
+	case LogLevel::Debug:   return DE;
+	}
+	// 理论上不会到达这里，fallback 为 Error
+	return E;
+}
+
+void logMessage(LogLevel level, const char* module, const char* format, ...) {
+	// 先把原始 format+参数格式化到一个中间缓冲区
+	char msg_buf[1024];
+	va_list args;
+	va_start(args, format);
+	vsnprintf(msg_buf, sizeof(msg_buf), format, args);
+	va_end(args);
+
+	// 若提供了模块名，则在消息前加上 [module] 前缀
+	char final_buf[1024];
+	const char* to_send = msg_buf;
+	if (module && *module) {
+		// 预留简单空间，必要时截断
+		int written = snprintf(final_buf, sizeof(final_buf), "[%s] %s", module, msg_buf);
+		if (written > 0) {
+			to_send = final_buf;
+		}
+	}
+
+	int type = logLevelToType(level);
+	logMessageInternal(type, to_send);
 }
 
 void print_mem(FILE *f, const uint8_t *buf, size_t len) {
@@ -120,7 +160,7 @@ void print_mem(FILE *f, const uint8_t *buf, size_t len) {
 		n = len - i;
 		if (n > 16) n = 16;
 		for (j = 0; j < n; j++) fprintf(f, "%02x ", buf[i + j]);
-		for (; j < 16; j++) fprintf(f, " ");
+		for (; j < 16; j++) fprintf(f, "   ");
 		fprintf(f, " |");
 		for (j = 0; j < n; j++) {
 			a = buf[i + j];
@@ -147,19 +187,16 @@ void print_string(FILE *f, const void *src, size_t n) {
 		}
 		if (b) {
 			fprintf(f, "\\%c", b);
-			
 		}
 		else if (a >= 32 && a < 127) {
 			fprintf(f, "%c", a);
-			
 		}
 		else fprintf(f, "\\x%02x", a);
 	}
 	fprintf(f, "\"\n");
-	
 }
 
-int print_to_string(char* dest, size_t dest_size, 
+int print_to_string(char* dest, size_t dest_size,
                    const void* src, size_t n, int mode) {
     if (!dest || dest_size == 0 || (!src && n > 0)) {
         return -1;
@@ -167,14 +204,14 @@ int print_to_string(char* dest, size_t dest_size,
 
     const uint8_t* buf = (const uint8_t*)src;
     size_t offset = 0;
-    
+
     // 保留一个字节给结尾的\0
     size_t remaining = dest_size - 1;
 
     for (size_t i = 0; i < n && remaining > 0; i++) {
         uint8_t c = buf[i];
         int needed = 0;
-        
+
         // 检查需要多少空间
         if (c == '"' || c == '\\') {
             needed = 2;  // \ + 字符
@@ -182,7 +219,7 @@ int print_to_string(char* dest, size_t dest_size,
             needed = 1;  // 可打印字符
         } else {
             switch (c) {
-                case 0: case '\b': case '\t': 
+                case 0: case '\b': case '\t':
                 case '\n': case '\f': case '\r':
                     needed = 2;  // 转义序列
                     break;
@@ -259,6 +296,6 @@ int print_to_string(char* dest, size_t dest_size,
     } else if (remaining == 1) {
         dest[offset] = '\0';
     }
-    
+
     return offset;
 }

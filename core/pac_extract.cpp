@@ -1,4 +1,5 @@
 #include "pac_extract.h"
+#include "logging.h"  // 使用统一的 ERR_EXIT
 #include "../common.h"
 #define _GNU_SOURCE 1
 #define _FILE_OFFSET_BITS 64

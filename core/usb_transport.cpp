@@ -1,4 +1,5 @@
 #include "usb_transport.h"
+#include "logging.h"
 #include "../common.h"
 
 #if !USE_LIBUSB

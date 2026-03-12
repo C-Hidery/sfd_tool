@@ -35,6 +35,13 @@ endif()
 add_subdirectory(core)
 add_subdirectory(pages)
 
+option(SFD_ENABLE_TESTS "Enable unit tests (ctest)" OFF)
+if (SFD_ENABLE_TESTS)
+    include(CTest)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
 # ================= 主可执行程序 =================
 add_executable(sfd_tool
     main.cpp
