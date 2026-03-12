@@ -79,15 +79,8 @@ static void populate_pac_partition_list(GtkWidgetHelper& helper, const std::vect
 // ===== 按钮回调函数 =====
 
 void on_button_clicked_pac_time(GtkWidgetHelper helper) {
+	ensure_device_attached_or_exit(helper);
 	auto* service = ensure_flash_service();
-	if (g_app_state.device.m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Device unattached, exiting...\n设备已断开连接！正在退出..."));
-			exit(1);
-		}, GTK_WINDOW(helper.getWidget("main_window")));
-		return;
-	}
 	std::uint64_t pt = 0;
 	sfd::FlashStatus st = service->queryPacFlashTime(pt);
 	if (!st.success) {
@@ -127,15 +120,8 @@ void on_button_clicked_pac_select(GtkWidgetHelper helper) {
 }
 
 void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
+	ensure_device_attached_or_exit(helper);
 	auto* service = ensure_flash_service();
-	if (g_app_state.device.m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Device unattached, exiting...\n设备已断开连接！正在退出..."));
-			exit(1);
-		}, GTK_WINDOW(helper.getWidget("main_window")));
-		return;
-	}
 	const char* pac_path = helper.getEntryText(helper.getWidget("pac_file_path"));
 	if (!pac_path || !*pac_path) {
 		gui_idle_call_wait_drag([helper]() {
@@ -165,15 +151,8 @@ void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 }
 
 void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
+	ensure_device_attached_or_exit(helper);
 	auto* service = ensure_flash_service();
-	if (g_app_state.device.m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Device unattached, exiting...\n设备已断开连接！正在退出..."));
-			exit(1);
-		}, GTK_WINDOW(helper.getWidget("main_window")));
-		return;
-	}
 
 	const char* pac_path_c = helper.getEntryText(helper.getWidget("pac_file_path"));
 	if (!pac_path_c || !*pac_path_c) {

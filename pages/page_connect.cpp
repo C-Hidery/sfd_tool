@@ -429,7 +429,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		gui_idle_call_wait_drag([helper]() {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		},GTK_WINDOW(helper.getWidget("main_window")));
-		
+		return;
 	}
 	if (fdl1_loaded > 0) {
 		DEG_LOG(I, "Executing FDL file: %s at address: 0x%X", fdl_path, fdl_addr);
