@@ -1,8 +1,14 @@
 #pragma once
 #include "../GtkWidgetHelper.hpp"
+#include "../ui_page.h"
 
-// 创建 Log 标签页 UI 并添加到 notebook
+// Log 页面实现 IPage 接口
+class LogPage : public IPage {
+public:
+    GtkWidget* init(GtkWidgetHelper& helper, GtkWidget* notebook) override;
+    void bindSignals(GtkWidgetHelper& helper) override;
+};
+
+// 保持原有接口
 GtkWidget* create_log_page(GtkWidgetHelper& helper, GtkWidget* notebook);
-
-// 绑定 Log 页面信号
 void bind_log_signals(GtkWidgetHelper& helper);

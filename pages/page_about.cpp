@@ -3,7 +3,7 @@
 
 extern const char *AboutText;
 
-GtkWidget* create_about_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
+GtkWidget* AboutPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* aboutPage = helper.createGrid("about_page", 5, 5);
 	helper.addNotebookPage(notebook, aboutPage, _("About"));
 
@@ -25,4 +25,14 @@ GtkWidget* create_about_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	helper.addToGrid(aboutPage, scrolledAbout, 0, 0, 1, 1);
 
 	return aboutPage;
+}
+
+void AboutPage::bindSignals(GtkWidgetHelper& helper) {
+	// About 页当前没有特定信号需要绑定
+	(void)helper;
+}
+
+GtkWidget* create_about_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
+    AboutPage page;
+    return page.init(helper, notebook);
 }

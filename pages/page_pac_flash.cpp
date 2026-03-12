@@ -235,7 +235,7 @@ void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 
 // ===== UI 构建 =====
 
-GtkWidget* create_pac_flash_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
+GtkWidget* PacFlashPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	// ── 可滚动外层容器 ──
 	GtkWidget* outerScroll = gtk_scrolled_window_new(NULL, NULL);
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(outerScroll),
@@ -358,9 +358,7 @@ GtkWidget* create_pac_flash_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	return outerScroll;
 }
 
-// ===== 信号绑定 =====
-
-void bind_pac_flash_signals(GtkWidgetHelper& helper) {
+void PacFlashPage::bindSignals(GtkWidgetHelper& helper) {
 	GtkWidget* pacSelectBtn = helper.getWidget("pac_select");
 	if (pacSelectBtn) {
 		helper.bindClick(pacSelectBtn, [&helper]() {
@@ -397,4 +395,15 @@ void bind_pac_flash_signals(GtkWidgetHelper& helper) {
 			on_button_clicked_abpart_b(helper);
 		});
 	}
+}
+
+// 保持原有对外接口
+GtkWidget* create_pac_flash_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
+	PacFlashPage page;
+	return page.init(helper, notebook);
+}
+
+void bind_pac_flash_signals(GtkWidgetHelper& helper) {
+	PacFlashPage page;
+	page.bindSignals(helper);
 }
