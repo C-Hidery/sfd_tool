@@ -97,6 +97,51 @@ void DisableWidgets(GtkWidgetHelper helper) {
 	helper.disableWidget("pac_flash_start");
 }
 
+void append_log_to_ui(int type, const char* message) {
+	(void)type; // 目前仅用于保持接口一致，后续可根据等级做样式区分
+	if (!isHelperInit || !message) return;
+
+	GtkWidget* txtOutput = helper.getWidget("txtOutput");
+	if (!txtOutput || !GTK_IS_TEXT_VIEW(txtOutput)) {
+		return;
+	}
+
+	char* msg_copy = strdup(message);
+	if (!msg_copy) return;
+
+	g_idle_add([](gpointer data) -> gboolean {
+		char* msg = static_cast<char*>(data);
+
+		GtkWidget* txtOutputInner = helper.getWidget("txtOutput");
+		if (txtOutputInner && GTK_IS_TEXT_VIEW(txtOutputInner)) {
+			GtkTextBuffer* buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(txtOutputInner));
+
+			GtkTextIter end;
+			gtk_text_buffer_get_end_iter(buffer, &end);
+
+			time_t now = time(nullptr);
+			struct tm* local_time = localtime(&now);
+			char timestamp[64];
+			strftime(timestamp, sizeof(timestamp), "[%H:%M:%S] ", local_time);
+
+			gtk_text_buffer_insert(buffer, &end, timestamp, -1);
+			gtk_text_buffer_insert(buffer, &end, msg, -1);
+			gtk_text_buffer_insert(buffer, &end, "\n", 1);
+
+			GtkWidget* parent = gtk_widget_get_parent(txtOutputInner);
+			if (parent) {
+				GtkAdjustment* adj = gtk_scrolled_window_get_vadjustment(
+					GTK_SCROLLED_WINDOW(parent));
+				gtk_adjustment_set_value(adj,
+					gtk_adjustment_get_upper(adj) - gtk_adjustment_get_page_size(adj));
+			}
+		}
+
+		free(msg);
+		return G_SOURCE_REMOVE;
+	}, msg_copy);
+}
+
 GtkWidget* create_bottom_controls(GtkWidgetHelper& helper) {
 	// 外层垂直 Box 包裹整个底部控制区
 	GtkWidget* bottomContainer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);

@@ -1,5 +1,6 @@
 #include "logging.h"
 #include "../common.h"
+#include "../ui_common.h"
 #include <stdarg.h>
 #include <time.h>
 #include <string.h>
@@ -108,45 +109,9 @@ void DEG_LOG(int type, const char* format, ...) {
     } else {
         fprintf(stderr, "%s%s%s\n", timestamp, prefix, buffer);
     }
-    
-    // 输出到GUI日志框
-    if (isHelperInit) {
-        GtkWidget* txtOutput = helper.getWidget("txtOutput");
-        if (txtOutput && GTK_IS_TEXT_VIEW(txtOutput)) {
-            // 在主线程中更新GUI
-            g_idle_add([](gpointer data) -> gboolean {
-                char* message = (char*)data;
-                
-                // 获取文本缓冲区
-                GtkWidget* txtOutput = helper.getWidget("txtOutput");
-                if (txtOutput && GTK_IS_TEXT_VIEW(txtOutput)) {
-                    GtkTextBuffer* buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(txtOutput));
-                    
-                    // 获取当前文本
-                    GtkTextIter end;
-                    gtk_text_buffer_get_end_iter(buffer, &end);
-                    
-                    // 追加新日志（包含时间戳）
-                    time_t now = time(nullptr);
-                    struct tm* local_time = localtime(&now);
-                    char timestamp[64];
-                    strftime(timestamp, sizeof(timestamp), "[%H:%M:%S] ", local_time);
-                    
-                    gtk_text_buffer_insert(buffer, &end, timestamp, -1);
-                    gtk_text_buffer_insert(buffer, &end, message, -1);
-                    gtk_text_buffer_insert(buffer, &end, "\n", 1);
-                    
-                    // 自动滚动到底部
-                    GtkAdjustment* adj = gtk_scrolled_window_get_vadjustment(
-                        GTK_SCROLLED_WINDOW(gtk_widget_get_parent(txtOutput)));
-                    gtk_adjustment_set_value(adj, gtk_adjustment_get_upper(adj) - gtk_adjustment_get_page_size(adj));
-                }
-                
-                free(message);
-                return G_SOURCE_REMOVE;
-            }, strdup(buffer));
-        }
-    }
+
+    // 输出到 GUI 日志框，通过 ui_common 封装
+    append_log_to_ui(type, buffer);
 }
 
 void print_mem(FILE *f, const uint8_t *buf, size_t len) {
