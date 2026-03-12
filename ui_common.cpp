@@ -5,6 +5,7 @@
 
 extern spdio_t*& io;
 extern AppState g_app_state;
+extern int& m_bOpened;
 // 兼容旧逻辑：isCMethod 映射到 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
 
@@ -95,6 +96,16 @@ void DisableWidgets(GtkWidgetHelper helper) {
 	helper.disableWidget("abpart_a");
 	helper.disableWidget("abpart_b");
 	helper.disableWidget("pac_flash_start");
+}
+
+void ensure_device_attached_or_exit(GtkWidgetHelper helper) {
+	if (m_bOpened == -1) {
+		DEG_LOG(E, "device unattached, exiting...");
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
+			exit(1);
+		},GTK_WINDOW(helper.getWidget("main_window")));
+	}
 }
 
 void append_log_to_ui(int type, const char* message) {

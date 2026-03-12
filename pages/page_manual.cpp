@@ -33,14 +33,7 @@ static void on_button_clicked_m_select(GtkWidgetHelper helper) {
 }
 
 static void on_button_clicked_m_write(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-			exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-
-	}
+	ensure_device_attached_or_exit(helper);
 	GtkWidget *parent = helper.getWidget("main_window");
 	std::string filename = helper.getEntryText(helper.getWidget("m_file_path"));
 	std::string part_name = helper.getEntryText(helper.getWidget("m_part_flash"));
@@ -94,14 +87,7 @@ static void on_button_clicked_m_write(GtkWidgetHelper helper) {
 }
 
 static void on_button_clicked_m_read(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-			exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-
-	}
+	ensure_device_attached_or_exit(helper);
 	GtkWidget *parent = helper.getWidget("main_window");
 	std::string part_name = helper.getEntryText(helper.getWidget("m_part_read"));
 	std::string savePath = showSaveFileDialog(GTK_WINDOW(parent), part_name + ".img");
@@ -148,14 +134,7 @@ static void on_button_clicked_m_read(GtkWidgetHelper helper) {
 }
 
 static void on_button_clicked_m_erase(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-			exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-
-	}
+	ensure_device_attached_or_exit(helper);
 	GtkWidget *parent = helper.getWidget("main_window");
 	std::string part_name = helper.getEntryText(helper.getWidget("m_part_erase"));
 	if (part_name.empty()) {
@@ -192,14 +171,7 @@ static void on_button_clicked_m_erase(GtkWidgetHelper helper) {
 }
 
 static void on_button_clicked_m_cancel(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-
-	}
+	ensure_device_attached_or_exit(helper);
 	signal_handler(0);
 	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Current partition operation cancelled!"));
 }

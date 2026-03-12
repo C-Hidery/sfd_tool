@@ -41,14 +41,7 @@ static void refresh_partition_list(GtkWidgetHelper& helper) {
 }
 
 static void on_button_clicked_set_active_a(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		
-	}
+	ensure_device_attached_or_exit(helper);
 	if(!g_app_state.flash.selected_ab) {
 		gui_idle_call_wait_drag([helper](){
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device is not using VAB!"));
@@ -63,14 +56,7 @@ static void on_button_clicked_set_active_a(GtkWidgetHelper helper) {
 }
 
 static void on_button_clicked_set_active_b(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		
-	}
+	ensure_device_attached_or_exit(helper);
 	if(!g_app_state.flash.selected_ab) {
 		gui_idle_call_wait_drag([helper](){
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device is not using VAB!"));
@@ -85,14 +71,7 @@ static void on_button_clicked_set_active_b(GtkWidgetHelper helper) {
 }
 
 static void on_button_clicked_start_repart(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-
-	}
+	ensure_device_attached_or_exit(helper);
 	GtkWidget *parent = helper.getWidget("main_window");
 	std::string filePath = helper.getEntryText(helper.getWidget("xml_path"));
 	FILE *fi = oxfopen(filePath.c_str(), "r");
@@ -106,13 +85,7 @@ static void on_button_clicked_start_repart(GtkWidgetHelper helper) {
 }
 
 static void on_button_clicked_read_xml(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-			exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-	}
+	ensure_device_attached_or_exit(helper);
 	GtkWidget* parent = helper.getWidget("main_window");
 	std::string savePath = showSaveFileDialog(GTK_WINDOW(parent), "partition_table.xml", { {_("XML files (*.xml)"), "*.xml"} });
 	if (savePath.empty()) {
@@ -140,42 +113,21 @@ static void on_button_clicked_select_xml(GtkWidgetHelper helper) {
 }
 
 static void on_button_clicked_dmv_enable(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		
-	}
+	ensure_device_attached_or_exit(helper);
 	GtkWidget *parent = helper.getWidget("main_window");
 	dm_avb_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 	showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("DM-Verity and AVB protection enabled!"));
 }
 
 static void on_button_clicked_dmv_disable(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		
-	}
+	ensure_device_attached_or_exit(helper);
 	GtkWidget *parent = helper.getWidget("main_window");
 	avb_dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 	showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("DM-Verity and AVB protection disabled!"));
 }
 
 static void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-			exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-
-	}
+	ensure_device_attached_or_exit(helper);
 	helper.setLabelText(helper.getWidget("con"), "Patching trustos");
 	TosPatcher patcher;
 	bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Warning")))), _("This operation may break your device, and not all devices support this, if your device is broken, flash backup in backup_tos, continue?"));
