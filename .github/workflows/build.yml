@@ -82,6 +82,13 @@ jobs:
       - name: Build sfd_tool (CMake) (${{ matrix.arch }} - ${{ matrix.config }})
         shell: pwsh
         run: |
+          # 确保在运行单元测试前，GTK3 和 libintl 等 DLL 在 PATH 中
+          if ("${{ matrix.arch }}" -eq "x64") {
+            $env:Path = "C:\msys64\mingw64\bin;C:\vcpkg\installed\x64-windows\bin;" + $env:Path
+          } else {
+            $env:Path = "C:\msys64\mingw32\bin;C:\vcpkg\installed\x86-windows\bin;" + $env:Path
+          }
+
           cmake --build build_cmake --config ${{ matrix.config }} -- /m
           ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
 
