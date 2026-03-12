@@ -40,6 +40,26 @@ make locales
 make termux
 ```
 
+> Note: The Makefile-based build is kept for compatibility. For cross-platform development, CMake is the recommended entry.
+
+### Build with CMake (recommended)
+
+On Linux/macOS:
+
+```bash
+cmake -S . -B build
+cmake --build build
+```
+
+On Windows (Visual Studio 2022):
+
+```bash
+cmake -S . -B build -G "Visual Studio 17 2022"
+```
+
+Then open `build/sfd_tool.sln` in Visual Studio.
+The legacy solution file at the repository root, [sfd_tool.sln](sfd_tool.sln), is kept for compatibility only and may lag behind the CMake build. Please prefer the CMake-generated solution for development.
+
 ### Internationalization (i18n)
 This tool supports multi-language adaptation:
 * `make` will build the core application in English.

@@ -38,6 +38,27 @@ make locales
 make termux
 ```
 
+> 说明：基于 Makefile 的构建方式主要用于兼容历史环境。对于日常开发，推荐使用 CMake 作为统一的构建入口。
+
+### 使用 CMake 构建（推荐）
+
+在 Linux/macOS 上：
+
+```bash
+cmake -S . -B build
+cmake --build build
+```
+
+在 Windows（Visual Studio 2022）上：
+
+```bash
+cmake -S . -B build -G "Visual Studio 17 2022"
+```
+
+然后在 Visual Studio 中打开 `build/sfd_tool.sln` 进行开发调试。
+
+根目录下的旧版解决方案文件 [sfd_tool.sln](sfd_tool.sln) 仅作为兼容/参考，可能与当前 CMake 配置存在一定滞后，请以 CMake 生成的解决方案为准。
+
 ### 多语言国际化 (i18n)
 本工具支持中英文等多种语言适配：
 * `make` 会优先构建出纯英文核心程序。
