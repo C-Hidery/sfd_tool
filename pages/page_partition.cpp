@@ -3,6 +3,7 @@
 #include "../main.h"
 #include "../i18n.h"
 #include "../core/flash_service.h"
+#include "../ui_common.h"
 #include <thread>
 #include <iostream>
 
@@ -140,7 +141,7 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(("Error"))), _("Device unattached, exiting..."));
-		    exit(1);
+			exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 
 	}
@@ -152,7 +153,6 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 		showErrorDialog(parent, _(_(("Error"))), _("No partition table loaded, cannot write partition list!"));
 		return;
 	}
-	helper.setLabelText(helper.getWidget("con"), "Writing partition");
 	FILE* fi;
 	fi = oxfopen(filename.c_str(), "r");
 	if (fi == nullptr) {
@@ -166,18 +166,32 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 	opts.block_size = blk_size;
 	opts.force = false;
 
-	std::thread([parent, helper, opts]() mutable {
-		auto* svc = ensure_flash_service();
-		sfd::FlashStatus st = svc->writePartitionFromFile(opts);
-		gui_idle_call_wait_drag([parent, helper, st]() mutable {
-			if (!st.success) {
-				showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
-			} else {
-				showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), _("Partition write completed!"));
-				helper.setLabelText(helper.getWidget("con"), "Ready");
-			}
-		},GTK_WINDOW(helper.getWidget("main_window")));
-	}).detach();
+	LongTaskConfig cfg{
+		helper,
+		// worker：在后台线程中执行分区写入
+		[parent, helper, opts](std::atomic_bool& cancel_flag) {
+			(void)cancel_flag; // 当前实现暂不支持取消
+			auto* svc = ensure_flash_service();
+			sfd::FlashStatus st = svc->writePartitionFromFile(opts);
+			gui_idle_call_wait_drag([parent, helper, st]() mutable {
+				if (!st.success) {
+					showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
+				} else {
+					showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), _("Partition write completed!"));
+				}
+			}, GTK_WINDOW(helper.getWidget("main_window")));
+		},
+		// on_started：GUI 线程中执行，设置状态
+		[&helper]() {
+			helper.setLabelText(helper.getWidget("con"), "Writing partition");
+		},
+		// on_finished：GUI 线程中执行，恢复状态
+		[&helper]() {
+			helper.setLabelText(helper.getWidget("con"), "Ready");
+		}
+	};
+
+	run_long_task(cfg);
 
 }
 
@@ -190,7 +204,7 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(("Error"))), _("Device unattached, exiting..."));
-		    exit(1);
+			exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 
 	}
@@ -202,7 +216,6 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 		showErrorDialog(parent, _(_(("Error"))), _("No partition table loaded, cannot write partition list!"));
 		return;
 	}
-	helper.setLabelText(helper.getWidget("con"), "Force Writing partition");
 	FILE* fi;
 	fi = oxfopen(filename.c_str(), "r");
 	if (fi == nullptr) {
@@ -219,18 +232,32 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 	opts.block_size = blk_size;
 	opts.force = true;
 
-	std::thread([parent, helper, opts]() mutable {
-		auto* svc = ensure_flash_service();
-		sfd::FlashStatus st = svc->writePartitionFromFile(opts);
-		gui_idle_call_wait_drag([parent, helper, st]() mutable {
-			if (!st.success) {
-				showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
-			} else {
-				showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), _("Partition force write completed!"));
-				helper.setLabelText(helper.getWidget("con"), "Ready");
-			}
-		},GTK_WINDOW(helper.getWidget("main_window")));
-	}).detach();
+	LongTaskConfig cfg{
+		helper,
+		// worker：在后台线程中执行分区强制写入
+		[parent, helper, opts](std::atomic_bool& cancel_flag) {
+			(void)cancel_flag; // 当前实现暂不支持取消
+			auto* svc = ensure_flash_service();
+			sfd::FlashStatus st = svc->writePartitionFromFile(opts);
+			gui_idle_call_wait_drag([parent, helper, st]() mutable {
+				if (!st.success) {
+					showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
+				} else {
+					showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), _("Partition force write completed!"));
+				}
+			}, GTK_WINDOW(helper.getWidget("main_window")));
+		},
+		// on_started：GUI 线程中执行，设置状态
+		[&helper]() {
+			helper.setLabelText(helper.getWidget("con"), "Force Writing partition");
+		},
+		// on_finished：GUI 线程中执行，恢复状态
+		[&helper]() {
+			helper.setLabelText(helper.getWidget("con"), "Ready");
+		}
+	};
+
+	run_long_task(cfg);
 
 }
 
@@ -242,7 +269,7 @@ void on_button_clicked_list_read(GtkWidgetHelper helper) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(("Error"))), _("Device unattached, exiting..."));
-		    exit(1);
+			exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 
 	}
@@ -254,25 +281,38 @@ void on_button_clicked_list_read(GtkWidgetHelper helper) {
 		showErrorDialog(parent, _(_(("Error"))), _("No partition table loaded, cannot write partition list!"));
 		return;
 	}
-	helper.setLabelText(helper.getWidget("con"), "Reading partition");
 
 	sfd::PartitionIoOptions opts;
 	opts.partition_name = part_name;
 	opts.file_path = savePath;
 	opts.block_size = blk_size;
 
-	std::thread([parent, helper, opts]() mutable {
-		auto* svc = ensure_flash_service();
-		sfd::FlashStatus st = svc->readPartitionToFile(opts);
-		gui_idle_call_wait_drag([parent, helper, st]() mutable {
-			if (!st.success) {
-				showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
-			} else {
-				showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), _("Partition read completed!"));
-				helper.setLabelText(helper.getWidget("con"), "Ready");
-			}
-		},GTK_WINDOW(helper.getWidget("main_window")));
-	}).detach();
+	LongTaskConfig cfg{
+		helper,
+		// worker：在后台线程中执行分区读取
+		[parent, helper, opts](std::atomic_bool& cancel_flag) {
+			(void)cancel_flag; // 当前实现暂不支持取消
+			auto* svc = ensure_flash_service();
+			sfd::FlashStatus st = svc->readPartitionToFile(opts);
+			gui_idle_call_wait_drag([parent, helper, st]() mutable {
+				if (!st.success) {
+					showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
+				} else {
+					showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), _("Partition read completed!"));
+				}
+			}, GTK_WINDOW(helper.getWidget("main_window")));
+		},
+		// on_started：GUI 线程中执行，设置状态
+		[&helper]() {
+			helper.setLabelText(helper.getWidget("con"), "Reading partition");
+		},
+		// on_finished：GUI 线程中执行，恢复状态
+		[&helper]() {
+			helper.setLabelText(helper.getWidget("con"), "Ready");
+		}
+	};
+
+	run_long_task(cfg);
 
 }
 
@@ -283,24 +323,37 @@ void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(("Error"))), _("Device unattached, exiting..."));
-		    exit(1);
+			exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
 
 	}
-	helper.setLabelText(helper.getWidget("con"), "Erase partition");
 
-	std::thread([parent, helper, part_name]() mutable {
-		auto* svc = ensure_flash_service();
-		sfd::FlashStatus st = svc->erasePartition(part_name);
-		gui_idle_call_wait_drag([parent, helper, st]() mutable {
-			if (!st.success) {
-				showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
-			} else {
-				showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), _("Partition erase completed!"));
-				helper.setLabelText(helper.getWidget("con"), "Ready");
-			}
-		},GTK_WINDOW(helper.getWidget("main_window")));
-	}).detach();
+	LongTaskConfig cfg{
+		helper,
+		// worker：在后台线程中执行分区擦除
+		[parent, helper, part_name](std::atomic_bool& cancel_flag) {
+			(void)cancel_flag; // 当前实现暂不支持取消
+			auto* svc = ensure_flash_service();
+			sfd::FlashStatus st = svc->erasePartition(part_name);
+			gui_idle_call_wait_drag([parent, helper, st]() mutable {
+				if (!st.success) {
+					showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
+				} else {
+					showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), _("Partition erase completed!"));
+				}
+			}, GTK_WINDOW(helper.getWidget("main_window")));
+		},
+		// on_started：GUI 线程中执行，设置状态
+		[&helper]() {
+			helper.setLabelText(helper.getWidget("con"), "Erase partition");
+		},
+		// on_finished：GUI 线程中执行，恢复状态
+		[&helper]() {
+			helper.setLabelText(helper.getWidget("con"), "Ready");
+		}
+	};
+
+	run_long_task(cfg);
 
 }
 
