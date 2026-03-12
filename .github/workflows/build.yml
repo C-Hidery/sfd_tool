@@ -76,12 +76,14 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" `
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON `
             -DUSE_GTK=ON `
-            -DUSE_LIBUSB=$useLibusb
+            -DUSE_LIBUSB=$useLibusb `
+            -DSFD_ENABLE_TESTS=ON
 
       - name: Build sfd_tool (CMake) (${{ matrix.arch }} - ${{ matrix.config }})
         shell: pwsh
         run: |
           cmake --build build_cmake --config ${{ matrix.config }} -- /m
+          ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
 
           # 将生成的可执行文件复制到与原来相同的目录结构，方便后续打包
           New-Item -ItemType Directory -Force -Path ./build/${{ matrix.arch }}/${{ matrix.config }}/ | Out-Null
