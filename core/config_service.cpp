@@ -89,6 +89,25 @@ static void from_json(const json& j, AppConfig& c) {
 
 } // namespace
 
+void initDefaultAppConfig(AppConfig& cfg) {
+    cfg = AppConfig{};
+    cfg.ui_language = "zh_CN";
+}
+
+bool loadAppConfigOrDefault(AppConfig& out_config) {
+    auto svc = createConfigService();
+    if (!svc) {
+        initDefaultAppConfig(out_config);
+        return false;
+    }
+    ConfigStatus status = svc->loadAppConfig(out_config);
+    if (status.success) {
+        return true;
+    }
+    initDefaultAppConfig(out_config);
+    return false;
+}
+
 class DefaultConfigService : public ConfigService {
 public:
     DefaultConfigService() = default;
