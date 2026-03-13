@@ -1,10 +1,11 @@
 # sfd_tool 版本记录
 
 > 说明：本文件用于在 GUI 的 About 页面展示历史版本变更。每次发布新版本时，在文末追加新条目即可。
+> 相关文档： [README_ZH](../README_ZH.md) · [版本发布流程](RELEASE_GUIDE_ZH.md) · [CMake 使用指南](cmake.md) · [操作手册](USER_GUIDE_ZH.md)
 
 SFD Tool GUI
 
-Version 1.7.6.0 LTV Edition
+Version 1.7.7.0 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -52,6 +53,8 @@ Fix some bugs, add partition table modify function, add DHTB Signature read for 
 Add slot flash/read manually set, add storage/slot showing
 ---v 1.7.6.0---
 Add PAC flash func, auto FDL send
+---v 1.7.7.0---
+UI Refactor, optimization code logic.
 
 
 Under GPL v3 License

@@ -1,5 +1,7 @@
 # sfd_tool 版本发布流程
 
+> 相关文档： [README_ZH](../README_ZH.md) · [操作手册](USER_GUIDE_ZH.md) · [CMake 使用指南](cmake.md) · [版本记录](VERSION_LOG.md)
+
 下面假设下一个版本号是 `1.7.7.0`，Git tag 使用 `v1.7.7`，按需替换为你自己的版本号即可。
 
 ## 0. 一次性配置 GitHub 发布令牌（RELEASE_TOKEN）
@@ -64,7 +66,7 @@
    - 在文件末尾追加本次发布的变更记录，例如：
      ```markdown
      ---v 1.7.7.0---
-     Fix XXX bug, improve YYY behavior
+     UI重构，优化代码逻辑
      ```
 2. 运行开发脚本本地确认：
    ```bash

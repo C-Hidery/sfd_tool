@@ -1,6 +1,6 @@
 # sfd_tool
 
-[**中文文档**](https://github.com/C-Hidery/sfd_tool/blob/master/README_ZH.md)
+[**中文文档**](README_ZH.md) · [User Guide (ZH)](docs/USER_GUIDE_ZH.md) · [Architecture](ARCHITECTURE.md) · [Release Guide (ZH)](docs/RELEASE_GUIDE_ZH.md) · [CMake Guide (ZH)](docs/cmake.md) · [CMake Guide (EN)](docs/cmake_EN.md) · [Version Log](docs/VERSION_LOG.md)
 
 ![Logo](/assets/icon.png)
 

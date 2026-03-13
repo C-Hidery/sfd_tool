@@ -1,5 +1,7 @@
 # CMake 使用指南
 
+> 相关文档： [README_ZH](../README_ZH.md) · [操作手册](USER_GUIDE_ZH.md) · [版本发布流程](RELEASE_GUIDE_ZH.md) · [版本记录](VERSION_LOG.md)
+
 下面是一份面向当前项目的 CMake 使用指南，覆盖 macOS / Linux / Windows，从安装、配置、调试、测试到打包。所有命令假定在项目根目录（有 CMakeLists.txt 的目录）执行，并使用 `build/` 作为构建目录。
 
 ---

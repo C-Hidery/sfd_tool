@@ -1,5 +1,7 @@
 # sfd_tool
 
+[English README](README.md) · [架构文档](ARCHITECTURE.md) · [操作手册](docs/USER_GUIDE_ZH.md) · [发布流程](docs/RELEASE_GUIDE_ZH.md) · [CMake 使用指南](docs/cmake.md) · [版本记录](docs/VERSION_LOG.md)
+
 ![Logo](/assets/icon.png)
 
 ![License](https://img.shields.io/github/license/C-Hidery/sfd_tool)
@@ -36,7 +38,7 @@ make
 make locales
 # Termux
 make termux
-# Cmake编译见docs/cmake_EN.md
+# CMake 详细用法见 docs/cmake.md（中文）/ docs/cmake_EN.md（English）
 ```
 
 > 说明：基于 Makefile 的构建方式主要用于兼容历史环境。对于日常开发，推荐使用 CMake 作为统一的构建入口。
