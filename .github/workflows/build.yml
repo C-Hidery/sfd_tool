@@ -11,12 +11,18 @@ on:
     branches:
       - master
 
+env:
+  # Opt all JavaScript actions into Node.js 24 to avoid Node 20
+  # deprecation warnings and match the upcoming default.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   build-windows:
     runs-on: windows-latest
     timeout-minutes: 30
     env:
       VCPKG_ROOT: C:\vcpkg
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     strategy:
       matrix:
         arch: [x64]
@@ -255,6 +261,8 @@ jobs:
   build-macos:
     runs-on: macos-latest
     timeout-minutes: 30
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -262,7 +270,12 @@ jobs:
       - name: Install macOS Build Dependencies
         run: |
           brew update
-          brew install gtk+3 libusb gettext cmake ninja || true
+          # Only install missing formulae to avoid Homebrew 'already installed' warnings
+          for pkg in gtk+3 libusb gettext cmake ninja; do
+            if ! brew list "$pkg" >/dev/null 2>&1; then
+              brew install "$pkg"
+            fi
+          done
 
       - name: Configure (CMake)
         run: |
@@ -308,6 +321,8 @@ jobs:
   build-linux-deb:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -347,6 +362,8 @@ jobs:
     container:
       image: fedora:latest
     timeout-minutes: 20
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -376,6 +393,8 @@ jobs:
     permissions:
       contents: write
     needs: [build-windows, build-macos, build-linux-deb, build-linux-rpm]
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Set Release Tag
         run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV

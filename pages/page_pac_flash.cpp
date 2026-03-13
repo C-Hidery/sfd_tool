@@ -3,6 +3,7 @@
 #include "../core/app_state.h"
 #include "../core/usb_transport.h"
 #include "../core/config_service.h"
+#include "../core/pac_extract.h"  // FindFDLInExtFloder & Stages
 #include "../i18n.h"
 #include "../ui_common.h"
 #include <string>
@@ -157,6 +158,26 @@ void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 	gui_idle_call_wait_drag([helper, entries]() mutable {
 		populate_pac_partition_list(helper, entries);
 	}, GTK_WINDOW(helper.getWidget("main_window")));
+
+	// 从解包目录自动探测 FDL1/FDL2 文件路径，并写入配置，方便 Connect 页面复用
+	{
+		const char* unpack_dir = "pac_unpack_output";
+		std::string fdl1 = FindFDLInExtFloder(unpack_dir, FDL1);
+		std::string fdl2 = FindFDLInExtFloder(unpack_dir, FDL2);
+
+		if (!fdl1.empty() || !fdl2.empty()) {
+			auto cfgSvc = sfd::createConfigService();
+			if (cfgSvc) {
+				sfd::AppConfig cfg{};
+				sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
+				if (status.success) {
+					if (!fdl1.empty()) cfg.last_fdl1_path = fdl1;
+					if (!fdl2.empty()) cfg.last_fdl2_path = fdl2;
+					cfgSvc->saveAppConfig(cfg);
+				}
+			}
+		}
+	}
 
 	// 后续若 core 层填充了更多 PAC 元数据，可在此更新标题/标签
 	// 例如：显示产品名、版本号或文件大小等
