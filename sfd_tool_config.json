@@ -1,5 +1,5 @@
 {
-  "config_path": "",
+  "config_path": "sfd_tool_config.json",
   "connection": {
     "default_async_receive": true,
     "default_cve_binary_path": "",
@@ -16,5 +16,5 @@
   "last_pac_path": "",
   "last_partition_export_dir": "",
   "log_level": 0,
-  "ui_language": ""
+  "ui_language": "zh_CN"
 }

@@ -38,6 +38,7 @@ make
 make locales
 # Termux
 make termux
+# Cmake method see docs/cmake_EN.md
 ```
 
 > Note: The Makefile-based build is kept for compatibility. For cross-platform development, CMake is the recommended entry.

@@ -21,15 +21,100 @@
 #include <sstream>
 #include <iomanip>
 #include "version.h"
+#include "core/config_service.h"
 #ifdef __linux__
 #include <unistd.h>
 #include <execinfo.h>
+#include <limits.h>
+#include <sys/stat.h>
+#elif defined(__APPLE__)
+#include <mach-o/dyld.h>
+#include <limits.h>
+#include <sys/stat.h>
 #elif defined(_WIN32)
 #include <windows.h>
 #include <dbghelp.h>
 #endif
 
 std::string g_about_text;
+
+namespace {
+
+static std::string get_effective_lc_all_from_ui_language(const std::string& ui_language) {
+    if (ui_language.empty() || ui_language == "auto") {
+        return std::string();
+    }
+    if (ui_language == "zh_CN") {
+        return "zh_CN.UTF-8";
+    }
+    if (ui_language == "en_US") {
+        return "en_US.UTF-8";
+    }
+    // 未知值：退回系统默认
+    return std::string();
+}
+
+static std::string get_executable_dir() {
+#if defined(__linux__)
+    char path[PATH_MAX] = {0};
+    ssize_t len = readlink("/proc/self/exe", path, sizeof(path) - 1);
+    if (len <= 0) {
+        return std::string();
+    }
+    path[len] = '\0';
+    std::string p(path);
+    auto pos = p.find_last_of('/');
+    if (pos == std::string::npos) {
+        return std::string();
+    }
+    return p.substr(0, pos);
+#elif defined(__APPLE__)
+    char path[PATH_MAX] = {0};
+    uint32_t size = sizeof(path);
+    if (_NSGetExecutablePath(path, &size) != 0) {
+        return std::string();
+    }
+    std::string p(path);
+    auto pos = p.find_last_of('/');
+    if (pos == std::string::npos) {
+        return std::string();
+    }
+    return p.substr(0, pos);
+#else
+    return std::string();
+#endif
+}
+
+static bool dir_exists(const std::string& path) {
+#if defined(__linux__) || defined(__APPLE__)
+    struct stat st;
+    if (stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
+        return true;
+    }
+    return false;
+#else
+    // 简单实现：其他平台暂不检查，直接使用给定路径
+    (void)path;
+    return false;
+#endif
+}
+
+static std::string choose_locale_dir() {
+    std::string exe_dir = get_executable_dir();
+    if (!exe_dir.empty()) {
+        std::string exe_locale = exe_dir + "/locale";
+        if (dir_exists(exe_locale)) {
+            return exe_locale;
+        }
+    }
+    if (dir_exists("./locale")) {
+        return "./locale";
+    }
+    // 都不存在时，返回空字符串，让 gettext 使用系统默认路径
+    return std::string();
+}
+
+} // namespace
 
 std::string load_about_text() {
 	const char* candidates[] = {
@@ -112,13 +197,13 @@ void crash_handler(int sig) {
 #ifdef __linux__
     void* array[20];
     size_t size;
-    
+
     // 获取回溯信息
     size = backtrace(array, 20);
-    
+
     // 打印错误信息
     fprintf(stderr, "Error: signal %d:\n", sig);
-    
+
     // 打印堆栈
     backtrace_symbols_fd(array, size, STDERR_FILENO);
 #elif defined(_WIN32)
@@ -127,20 +212,20 @@ void crash_handler(int sig) {
     unsigned short frames;
     SYMBOL_INFO* symbol;
     HANDLE process;
-    
+
     process = GetCurrentProcess();
     SymInitialize(process, NULL, TRUE);
-    
+
     frames = CaptureStackBackTrace(0, 100, stack, NULL);
     symbol = (SYMBOL_INFO*)calloc(sizeof(SYMBOL_INFO) + 256 * sizeof(char), 1);
     symbol->MaxNameLen = 255;
     symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
-    
+
     for (int i = 0; i < frames; i++) {
         SymFromAddr(process, (DWORD64)stack[i], 0, symbol);
         printf("%i: %s - 0x%0llX\n", frames - i - 1, symbol->Name, symbol->Address);
     }
-    
+
     free(symbol);
 
 #endif
@@ -153,7 +238,7 @@ void crash_handler(int sig) {
 #endif
 		exit(1);
 	}).detach();
-    
+
 }
  //fdl exec
 std::string fdl1_path_json;
@@ -235,7 +320,7 @@ int gtk_kmain(int argc, char** argv) {
 
 		// 显示所有组件
 		gtk_widget_show_all(window);
-		
+
 		// 强制默认选中第一个标签页（“连接”页）
 		gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), 0);
 
@@ -265,8 +350,29 @@ int gtk_kmain(int argc, char** argv) {
 	return 0;
 }
 int main(int argc, char** argv) {
+	// 读取配置并根据 ui_language 设置 gettext 语言
+	sfd::AppConfig cfg;
+	sfd::loadAppConfigOrDefault(cfg); // 即使失败也会填充默认值（含 ui_language）
+
+#if defined(__linux__) || defined(__APPLE__)
+	if (cfg.ui_language == "zh_CN") {
+		setenv("LANGUAGE", "zh_CN", 1);
+	} else if (cfg.ui_language == "en_US") {
+		setenv("LANGUAGE", "en_US", 1);
+	}
+	// "auto" 或空字符串：不设置 LANGUAGE，沿用环境／系统默认
+#endif
+
+	// 让 C 库从环境变量中解析 locale（包含上面设置的 LANGUAGE 等）
 	setlocale(LC_ALL, "");
-	bindtextdomain("sfd_tool", "./locale");
+
+	// 根据可执行文件路径选择 locale 目录
+	std::string locale_dir = choose_locale_dir();
+	if (!locale_dir.empty()) {
+		bindtextdomain("sfd_tool", locale_dir.c_str());
+	} else {
+		bindtextdomain("sfd_tool", "./locale");
+	}
 	textdomain("sfd_tool");
 	bind_textdomain_codeset("sfd_tool", "UTF-8");
 

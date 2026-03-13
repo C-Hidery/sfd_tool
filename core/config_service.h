@@ -87,6 +87,10 @@ public:
                                              FlashPacOptions& inout_flash_options) = 0;
 };
 
+// 默认配置初始化与加载辅助函数
+void initDefaultAppConfig(AppConfig& cfg);
+bool loadAppConfigOrDefault(AppConfig& out_config);
+
 // 默认 ConfigService 工厂
 std::unique_ptr<ConfigService> createConfigService();
 

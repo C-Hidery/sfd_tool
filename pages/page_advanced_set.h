@@ -7,6 +7,7 @@ class AdvancedSetPage : public IPage {
 public:
     GtkWidget* init(GtkWidgetHelper& helper, GtkWidget* notebook) override;
     void bindSignals(GtkWidgetHelper& helper) override;
+
 };
 
 // 保持原有接口
