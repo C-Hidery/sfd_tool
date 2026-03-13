@@ -11,6 +11,11 @@ on:
     branches:
       - master
 
+env:
+  # Opt all JavaScript actions into Node.js 24 to avoid Node 20
+  # deprecation warnings and match the upcoming default.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -262,7 +267,12 @@ jobs:
       - name: Install macOS Build Dependencies
         run: |
           brew update
-          brew install gtk+3 libusb gettext cmake ninja || true
+          # Only install missing formulae to avoid Homebrew 'already installed' warnings
+          for pkg in gtk+3 libusb gettext cmake ninja; do
+            if ! brew list "$pkg" >/dev/null 2>&1; then
+              brew install "$pkg"
+            fi
+          done
 
       - name: Configure (CMake)
         run: |
