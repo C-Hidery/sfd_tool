@@ -1,5 +1,7 @@
 # SFD Tool — 架构文档
 
+> 相关文档： [README_ZH](README_ZH.md) · [操作手册](docs/USER_GUIDE_ZH.md) · [CMake 使用指南](docs/cmake.md) · [版本发布流程](docs/RELEASE_GUIDE_ZH.md) · [版本记录](docs/VERSION_LOG.md)
+
 ## 项目简介
 
 SFD Tool 是一个用于操作展讯（Spreadtrum/UNISOC）芯片的 GUI 工具，支持分区读写、分区表修改、AVB 操作等。底层通过 USB（libusb）与设备的 BROM/FDL 引导程序通信。

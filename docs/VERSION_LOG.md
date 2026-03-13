@@ -1,6 +1,7 @@
 # sfd_tool 版本记录
 
 > 说明：本文件用于在 GUI 的 About 页面展示历史版本变更。每次发布新版本时，在文末追加新条目即可。
+> 相关文档： [README_ZH](../README_ZH.md) · [版本发布流程](RELEASE_GUIDE_ZH.md) · [CMake 使用指南](cmake.md) · [操作手册](USER_GUIDE_ZH.md)
 
 SFD Tool GUI
 

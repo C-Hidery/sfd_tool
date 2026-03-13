@@ -1,5 +1,7 @@
 # CMake Usage Guide
 
+> Related documents: [README](../README.md) · [Chinese README](../README_ZH.md) · [User Guide (ZH)](USER_GUIDE_ZH.md) · [Release Guide (ZH)](RELEASE_GUIDE_ZH.md) · [Version Log](VERSION_LOG.md)
+
 This document is a CMake usage guide for **sfd_tool**, covering macOS / Linux / Windows from installation, configuration, debugging, testing to packaging. All commands are assumed to be executed in the project root directory (the directory containing `CMakeLists.txt`), and use `build/` (or dedicated sub‑directories) as the build directory.
 
 ---
