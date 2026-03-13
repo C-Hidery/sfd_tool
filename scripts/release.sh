@@ -73,5 +73,5 @@ cmake --build "${BUILD_DIR}" -j
 echo
 
 echo "[release] 构建完成：${BUILD_DIR}/sfd_tool"
-echo "你可以这样运行 Release 版（界面语言由 sfd_tool_config.json 控制）："
+echo "你可以这样运行 Release 版（界面语言由 per-user 配置文件中的 sfd_tool_config.json 控制）："
 echo "./${BUILD_DIR}/sfd_tool"

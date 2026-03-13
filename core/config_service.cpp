@@ -5,6 +5,7 @@
 #include "../core/file_io.h"
 
 #include <filesystem>
+#include <cstdlib>
 
 using nlohmann::json;
 
@@ -27,9 +28,74 @@ static ConfigStatus make_ok() {
     return s;
 }
 
-static std::string default_config_path() {
-    // T1-04 阶段采用简单的当前目录文件，后续可根据平台迁移到 ~/.config/sfd_tool
+static std::string legacy_config_path() {
+    // 旧版本路径：当前工作目录下的配置文件，保留用于兼容与迁移
     return "sfd_tool_config.json";
+}
+
+static std::string per_user_config_dir() {
+#if defined(__linux__)
+    const char* xdg = std::getenv("XDG_CONFIG_HOME");
+    if (xdg && *xdg) {
+        return std::string(xdg) + "/sfd_tool";
+    }
+    const char* home = std::getenv("HOME");
+    if (home && *home) {
+        return std::string(home) + "/.config/sfd_tool";
+    }
+    return std::string();
+#elif defined(__APPLE__)
+    const char* home = std::getenv("HOME");
+    if (home && *home) {
+        return std::string(home) + "/Library/Application Support/sfd_tool";
+    }
+    return std::string();
+#elif defined(_WIN32)
+    const char* appdata = std::getenv("APPDATA");
+    if (appdata && *appdata) {
+        return std::string(appdata) + "\\sfd_tool";
+    }
+    return std::string();
+#else
+    // 其他平台暂时不指定 per-user 目录，统一退回旧路径
+    return std::string();
+#endif
+}
+
+static std::string per_user_config_path() {
+    std::string dir = per_user_config_dir();
+    if (dir.empty()) {
+        return std::string();
+    }
+#if defined(_WIN32)
+    return dir + "\\sfd_tool_config.json";
+#else
+    return dir + "/sfd_tool_config.json";
+#endif
+}
+
+static bool ensure_parent_directory(const std::string& path) {
+    std::error_code ec;
+    std::filesystem::path p(path);
+    auto parent = p.parent_path();
+    if (parent.empty()) {
+        // 相对当前目录的文件，无需创建目录
+        return true;
+    }
+    if (std::filesystem::exists(parent, ec)) {
+        return !ec;
+    }
+    std::filesystem::create_directories(parent, ec);
+    return !ec;
+}
+
+static std::string default_config_path() {
+    // 默认优先使用 per-user 配置路径；若不可用则退回旧的当前目录文件
+    std::string per_user = per_user_config_path();
+    if (!per_user.empty()) {
+        return per_user;
+    }
+    return legacy_config_path();
 }
 
 static void to_json(json& j, const ConnectionConfig& c) {
@@ -114,8 +180,49 @@ public:
     ~DefaultConfigService() override = default;
 
     ConfigStatus loadAppConfig(AppConfig& out_config) override {
-        const std::string path = default_config_path();
-        return loadAppConfigFromFile(path, out_config);
+        const std::string per_user = per_user_config_path();
+        const std::string legacy = legacy_config_path();
+
+        // 1. 优先从 per-user 配置路径加载
+        if (!per_user.empty() && std::filesystem::exists(per_user)) {
+            ConfigStatus st = loadAppConfigFromFile(per_user, out_config);
+            if (st.success) {
+                out_config.config_path = per_user;
+            }
+            return st;
+        }
+
+        // 2. per-user 不存在但旧路径存在：从旧路径加载并尝试迁移
+        if (std::filesystem::exists(legacy)) {
+            ConfigStatus st = loadAppConfigFromFile(legacy, out_config);
+            if (!st.success) {
+                return st;
+            }
+
+            // 填写期望的 per-user 路径
+            if (!per_user.empty()) {
+                out_config.config_path = per_user;
+
+                // 尝试创建目录并写入 per-user 配置文件；失败时仅记录日志，继续使用旧路径
+                if (ensure_parent_directory(per_user)) {
+                    ConfigStatus migrate_status = saveAppConfigToFile(out_config, per_user);
+                    if (migrate_status.success) {
+                        return st; // 已迁移，后续保存会使用 per-user 路径
+                    }
+                }
+
+                // 迁移失败：保留旧路径信息，避免破坏已有行为
+                out_config.config_path = legacy;
+            } else {
+                // 无法确定 per-user 路径时，继续使用旧路径
+                out_config.config_path = legacy;
+            }
+
+            return st;
+        }
+
+        // 3. 两个路径都不存在
+        return make_error(ConfigErrorCode::NotFound, "config file not found in per-user or legacy path");
     }
 
     ConfigStatus loadAppConfigFromFile(const std::string& path,
@@ -156,7 +263,16 @@ public:
     }
 
     ConfigStatus saveAppConfig(const AppConfig& config) override {
-        std::string path = config.config_path.empty() ? default_config_path() : config.config_path;
+        std::string path = config.config_path;
+        if (path.empty()) {
+            // 没有记录过路径时，优先写入 per-user 配置目录；如果无法确定则退回旧路径
+            std::string per_user = per_user_config_path();
+            if (!per_user.empty()) {
+                path = per_user;
+            } else {
+                path = legacy_config_path();
+            }
+        }
         return saveAppConfigToFile(config, path);
     }
 
@@ -164,6 +280,10 @@ public:
                                      const std::string& path) override {
         if (path.empty()) {
             return make_error(ConfigErrorCode::InvalidFormat, "empty config path");
+        }
+
+        if (!ensure_parent_directory(path)) {
+            return make_error(ConfigErrorCode::IoError, "failed to create config directory");
         }
 
         json j;

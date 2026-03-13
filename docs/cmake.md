@@ -380,7 +380,7 @@ cmake -S . -B build_cmake_debug -G "Ninja" \
 # 2. 编译 Debug 版本
 cmake --build build_cmake_debug -j
 
-# 3. 运行 Debug 版 GUI（语言由 sfd_tool_config.json 中的 ui_language 决定）
+# 3. 运行 Debug 版 GUI（语言由 per-user 配置文件中的 ui_language 决定）
 ./build_cmake_debug/sfd_tool
 ```
 
@@ -389,7 +389,7 @@ cmake --build build_cmake_debug -j
 - 检测是否安装 `ninja`，有则用 `Ninja`，否则退回 `Unix Makefiles`
 - 使用 `build_cmake_debug/` 作为 Debug 构建目录
 - 始终以 Debug 模式编译
-- 直接运行 `./build_cmake_debug/sfd_tool`，程序会从 `sfd_tool_config.json` 读取 `ui_language` 并默认使用中文（首次运行时写出默认配置）。
+- 直接运行 `./build_cmake_debug/sfd_tool`，程序会从 per-user 配置文件读取 `ui_language` 并默认使用中文（首次运行时写出默认配置）。
 
 ### 9.2 发布构建（Release）
 
@@ -459,7 +459,7 @@ cmake --build build_cmake -j
 > - Windows（VS 2022 + PowerShell）：`./scripts/dev.ps1`、`./scripts/release.ps1`
 
 
-本项目使用 gettext 做多语言支持。程序启动时会读取当前工作目录下的 `sfd_tool_config.json` 中 `ui_language` 字段来决定界面语言：
+本项目使用 gettext 做多语言支持。程序启动时会读取 per-user 配置文件中的 `ui_language` 字段来决定界面语言：
 
 - `"zh_CN"`：界面固定为简体中文（默认值）；
 - `"en_US"`：界面固定为英文；
@@ -476,6 +476,6 @@ cmake --build build_cmake -j
 你可以通过两种方式切换语言：
 
 - 在 GUI 中打开 “Advanced Settings” 页面，找到 “UI language” 下拉框，选择期望语言后点击旁边的 “Apply” 按钮保存，重启程序后生效；
-- 或者手动编辑当前工作目录下的 `sfd_tool_config.json`，修改 `ui_language` 字段为上述值之一，然后重启程序。
+- 或者手动编辑 per-user 配置文件（Linux: `$XDG_CONFIG_HOME/sfd_tool/sfd_tool_config.json` 或 `~/.config/sfd_tool/sfd_tool_config.json`；macOS: `$HOME/Library/Application Support/sfd_tool/sfd_tool_config.json`；Windows: `%APPDATA%\sfd_tool\sfd_tool_config.json`），修改 `ui_language` 字段为上述值之一，然后重启程序。
 
 旧版本文档中曾推荐通过设置环境变量 `LC_ALL=zh_CN.UTF-8` 来获得中文界面，目前已不再建议使用这种方式；一般情况下直接运行二进制并通过配置文件控制界面语言即可。

@@ -198,7 +198,7 @@ make clean
 sudo -E ./sfd_tool
 ```
 
-> 首次运行会在当前目录生成 `sfd_tool_config.json`，默认 `ui_language` 为 `zh_CN`，因此界面为中文。之后可以通过修改该文件或在 GUI 高级设置中切换界面语言。
+> 首次运行会在 per-user 配置目录生成 `sfd_tool_config.json`（Linux: `$XDG_CONFIG_HOME/sfd_tool/` 或 `~/.config/sfd_tool/`；macOS: `$HOME/Library/Application Support/sfd_tool/`；Windows: `%APPDATA%\sfd_tool\`），默认 `ui_language` 为 `zh_CN`，因此界面为中文。之后可以通过修改该文件或在 GUI 高级设置中切换界面语言。
 
 ### Linux USB 权限
 
@@ -212,10 +212,12 @@ echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="1782", MODE="0666"' \
 sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
-你也可以通过修改 `sfd_tool_config.json` 中的 `ui_language` 字段切换界面语言，例如：
+你也可以通过修改 per-user 配置文件中的 `ui_language` 字段切换界面语言，例如：
 
 - `"ui_language": "zh_CN"`：中文界面；
 - `"ui_language": "en_US"`：英文界面；
 - `"ui_language": "auto"` 或空字符串：跟随系统/终端环境。
 
 配置保存后，下次启动即按照该配置加载 i18n。
+
+> 兼容说明：旧版本曾使用当前目录下的 `sfd_tool_config.json` 存放配置。升级到 per-user 配置后，如果 per-user 目录还没有配置文件而当前目录存在旧文件，程序会优先从旧文件读取并自动迁移一份到 per-user 目录，旧文件会保留作为备份。
