@@ -36,7 +36,7 @@ make
 make locales
 # Termux
 make termux
-# Cmake编译见md/cmake.md
+# Cmake编译见docs/cmake_EN.md
 ```
 
 > 说明：基于 Makefile 的构建方式主要用于兼容历史环境。对于日常开发，推荐使用 CMake 作为统一的构建入口。
