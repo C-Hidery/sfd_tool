@@ -86,7 +86,7 @@ static std::string get_executable_dir() {
 }
 
 static bool dir_exists(const std::string& path) {
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
     struct stat st;
     if (stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
         return true;
@@ -350,19 +350,21 @@ int gtk_kmain(int argc, char** argv) {
 	return 0;
 }
 int main(int argc, char** argv) {
-	// 读取配置并根据 ui_language 设置 locale
+	// 读取配置并根据 ui_language 设置 gettext 语言
 	sfd::AppConfig cfg;
-	if (!sfd::loadAppConfigOrDefault(cfg)) {
-		// 加载失败时 cfg 已填充默认值（包括 ui_language）
+	sfd::loadAppConfigOrDefault(cfg); // 即使失败也会填充默认值（含 ui_language）
+
+#if defined(__linux__) || defined(__APPLE__)
+	if (cfg.ui_language == "zh_CN") {
+		setenv("LANGUAGE", "zh_CN", 1);
+	} else if (cfg.ui_language == "en_US") {
+		setenv("LANGUAGE", "en_US", 1);
 	}
-	std::string lc_all = get_effective_lc_all_from_ui_language(cfg.ui_language);
-	if (lc_all.empty()) {
-		setlocale(LC_ALL, "");
-	} else {
-		if (!setlocale(LC_ALL, lc_all.c_str())) {
-			setlocale(LC_ALL, "");
-		}
-	}
+	// "auto" 或空字符串：不设置 LANGUAGE，沿用环境／系统默认
+#endif
+
+	// 让 C 库从环境变量中解析 locale（包含上面设置的 LANGUAGE 等）
+	setlocale(LC_ALL, "");
 
 	// 根据可执行文件路径选择 locale 目录
 	std::string locale_dir = choose_locale_dir();
