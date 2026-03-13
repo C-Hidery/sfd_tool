@@ -408,6 +408,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          token: ${{ secrets.RELEASE_TOKEN }}
           tag_name: ${{ env.RELEASE_TAG }}
           target_commitish: ${{ github.sha }}
           name: sfd_tool ${{ env.RELEASE_TAG }}
@@ -415,7 +416,7 @@ jobs:
           prerelease: false
           body: |
             ## sfd_tool Release
-            
+
             ### 版本说明:
             - **sfd_tool_LibUSB_Release**: Windows x64 版本，使用 libusb 驱动
             - **sfd_tool_macos**: macOS 版本（DMG 包）
@@ -425,7 +426,7 @@ jobs:
             ### 使用说明:
             1. Windows x64 版本需要 libusb 驱动
             2. macOS 版本需要已安装 GTK3 与 libusb 运行时（见项目 README）
-            
+
             ### 文件列表:
             - sfd_tool.exe - Windows 主程序
             - sfd_tool - Linux 主程序
@@ -437,5 +438,3 @@ jobs:
             output/*.deb
             output/*.rpm
             output/*.dmg
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
