@@ -147,15 +147,17 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_container_add(GTK_CONTAINER(langFrame), langBox);
 
 	GtkWidget* langLabel = gtk_label_new(_("UI language"));
-	combo_ui_language_ = gtk_combo_box_text_new();
-	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_ui_language_), _("System default"));
-	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_ui_language_), _("Simplified Chinese"));
-	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_ui_language_), _("English"));
+	GtkWidget* combo_ui_language = gtk_combo_box_text_new();
+	gtk_widget_set_name(combo_ui_language, "ui_language_combo");
+	helper.addWidget("ui_language_combo", combo_ui_language);
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_ui_language), _("System default"));
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_ui_language), _("Simplified Chinese"));
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_ui_language), _("English"));
 
 	GtkWidget* langRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
 	gtk_widget_set_halign(langRow, GTK_ALIGN_CENTER);
 	gtk_box_pack_start(GTK_BOX(langRow), langLabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(langRow), combo_ui_language_, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(langRow), combo_ui_language, FALSE, FALSE, 0);
 
 	GtkWidget* langApplyBtn = helper.createButton(_("Apply"), "ui_language_apply", nullptr, 0, 0, 80, 32);
 	gtk_box_pack_start(GTK_BOX(langRow), langApplyBtn, FALSE, FALSE, 0);
@@ -346,12 +348,13 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	// 读取配置并设置界面语言下拉框当前值
 	auto cfgSvc = sfd::createConfigService();
 	if (cfgSvc) {
+		GtkWidget* combo_ui_language = helper.getWidget("ui_language_combo");
 		sfd::AppConfig cfg{};
 		if (!sfd::loadAppConfigOrDefault(cfg)) {
 			// 已填充默认值
 		}
 		int idx = ui_language_to_index(cfg.ui_language);
-		gtk_combo_box_set_active(GTK_COMBO_BOX(combo_ui_language_), idx);
+		gtk_combo_box_set_active(GTK_COMBO_BOX(combo_ui_language), idx);
 	}
 
 	return advSetPage;
@@ -420,7 +423,8 @@ void AdvancedSetPage::bindSignals(GtkWidgetHelper& helper) {
 		sfd::AppConfig cfg{};
 		sfd::loadAppConfigOrDefault(cfg);
 
-		int idx = gtk_combo_box_get_active(GTK_COMBO_BOX(combo_ui_language_));
+		GtkWidget* combo_ui_language = helper.getWidget("ui_language_combo");
+		int idx = gtk_combo_box_get_active(GTK_COMBO_BOX(combo_ui_language));
 		cfg.ui_language = index_to_ui_language(idx);
 
 		sfd::ConfigStatus status = cfgSvc->saveAppConfig(cfg);

@@ -8,8 +8,6 @@ public:
     GtkWidget* init(GtkWidgetHelper& helper, GtkWidget* notebook) override;
     void bindSignals(GtkWidgetHelper& helper) override;
 
-private:
-    GtkWidget* combo_ui_language_ = nullptr;
 };
 
 // 保持原有接口

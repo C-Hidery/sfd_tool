@@ -1,5 +1,5 @@
 {
-  "config_path": "",
+  "config_path": "sfd_tool_config.json",
   "connection": {
     "default_async_receive": true,
     "default_cve_binary_path": "",
