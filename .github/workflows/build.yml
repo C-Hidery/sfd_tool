@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - 'v*'
   pull_request:
     branches:
       - master
@@ -28,6 +30,17 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
 
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:\vcpkg\installed
+            C:\vcpkg\packages
+            C:\vcpkg\downloads
+          key: vcpkg-${{ runner.os }}-x64-windows-gettext-v1
+          restore-keys: |
+            vcpkg-${{ runner.os }}-x64-windows-gettext-
+
       - name: Install gettext (libintl) via vcpkg
         shell: pwsh
         run: |
@@ -46,15 +59,15 @@ jobs:
         run: |
           # GitHub Actions Windows 镜像已预装 MSYS2
           $msysPath = "C:\msys64"
-          
+
           Write-Host "安装 GTK3 开发包..."
-          
-          # 更新 MSYS2
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Syu --noconfirm"
-          
-          # 安装 x64 GTK3 完整开发包
+
+          # 更新软件包数据库（不做完整滚动升级）
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
+
+          # 安装 x64 GTK3 完整开发包（仅安装缺失的包）
           Write-Host "安装 x64 GTK3 完整开发包..."
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
 
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.arch }}/${{ matrix.config }}/
@@ -337,14 +350,14 @@ jobs:
           path: |
             ~/rpmbuild/RPMS/*/*.rpm
   release:
-    if: github.ref == 'refs/heads/master'
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     needs: [build-windows, build-macos, build-linux-deb, build-linux-rpm]
     steps:
-      - name: Set Release Timestamp
-        run: echo "RELEASE_TAG=sfd_tool_master_$(TZ='Asia/Shanghai' date +'%Y%m%d_%H%M')" >> $GITHUB_ENV
+      - name: Set Release Tag
+        run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -397,7 +410,7 @@ jobs:
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           target_commitish: ${{ github.sha }}
-          name: ${{ env.RELEASE_TAG }}
+          name: sfd_tool ${{ env.RELEASE_TAG }}
           draft: false
           prerelease: false
           body: |

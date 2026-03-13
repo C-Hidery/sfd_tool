@@ -1,0 +1,59 @@
+# sfd_tool 版本记录
+
+> 说明：本文件用于在 GUI 的 About 页面展示历史版本变更。每次发布新版本时，在文末追加新条目即可。
+
+SFD Tool GUI
+
+Version 1.7.6.0 LTV Edition
+
+Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
+
+Version logs:
+
+---v 1.7.1.0---
+First GUI Version
+--v 1.7.1.1---
+Fix check_confirm issue
+---v 1.7.1.2---
+Add Force write function when partition list is available
+---v 1.7.2.0---
+Add debug options
+---v 1.7.2.1---
+Add root permission check for Linux
+---v 1.7.2.2---
+Add dis_avb function
+---v 1.7.2.3---
+Fix some bugs
+---v 1.7.3.0---
+Add some advanced settings
+---v 1.7.3.1---
+Add SPRD4 one-time kick mode
+---v 1.7.3.2---
+Fix some bugs
+---v 1.7.3.3---
+Fix dis_avb func
+---v 1.7.3.4---
+Fix some bugs, improved UI
+---v 1.7.3.5---
+Fix some bugs
+---v 1.7.4.0---
+Add window dragging detection for Windows dialog-showing issue
+---v 1.7.4.1---
+Add CVE v2 function, fix some bugs
+---v 1.7.4.2---
+Fix some bugs, add crash info displaying
+---v 1.7.4.3---
+Fix some bugs
+---v 1.7.5.0---
+Fix some bugs, improved console
+---v 1.7.5.1---
+Fix some bugs, add partition table modify function, add DHTB Signature read for ums9117
+---v 1.7.5.2---
+Add slot flash/read manually set, add storage/slot showing
+---v 1.7.6.0---
+Add PAC flash func, auto FDL send
+
+
+Under GPL v3 License
+Github: C-Hidery/sfd_tool
+LTV means Long-time-version
