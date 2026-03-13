@@ -652,56 +652,71 @@ std::string FindFirstXMLFile(const std::string& folderPath) {
     
     return ""; // 没找到
 }
-std::string FindFDLInExtFloder(const char *folder, Stages mode)
+std::string FindFDLInExtFloder(const char* folder, Stages mode)
 {
-    switch(mode)
-    {
-        case FDL1:
-            namespace fs = std::filesystem;
-            try {
-                if (!fs::exists(folder)) {
-                    std::cerr << "Floder not found: " << folder << std::endl;
-                    return "";
-                }
-                
-                for (const auto& entry : fs::directory_iterator(folder)) {
-                    if (entry.is_regular_file()) {
-                        std::string filename = entry.path().filename().string();
-                        // 检查扩展名是否为.xml（不区分大小写）
-                        std::string ext = entry.path().extension().string();
-                        if (ext == "fdl1-sign" || ext == "fdl1") {
-                            return entry.path().string(); // 返回完整路径
-                        }
-                    }
-                }
-            } catch (const fs::filesystem_error& e) {
-                std::cerr << "File system error: " << e.what() << std::endl;
+    if (!folder || !*folder) {
+        return "";
+    }
+
+    namespace fs = std::filesystem;
+
+    auto to_lower = [](std::string s) {
+        for (char& ch : s) {
+            ch = static_cast<char>(::tolower(static_cast<unsigned char>(ch)));
+        }
+        return s;
+    };
+
+    auto find_in_dir = [&](const char* stage_tag) -> std::string {
+        try {
+            fs::path dir(folder);
+            if (!fs::exists(dir) || !fs::is_directory(dir)) {
+                std::cerr << "Folder not found or not directory: " << folder << std::endl;
+                return "";
             }
-    
-            return ""; // 没找到
-        case FDL2:
-            namespace fs = std::filesystem;
-            try {
-                if (!fs::exists(folder)) {
-                    std::cerr << "Floder not found: " << folder << std::endl;
-                    return "";
+
+            std::string best_path;
+            int best_score = 0;
+
+            for (const auto& entry : fs::directory_iterator(dir)) {
+                if (!entry.is_regular_file()) {
+                    continue;
                 }
-                
-                for (const auto& entry : fs::directory_iterator(folder)) {
-                    if (entry.is_regular_file()) {
-                        std::string filename = entry.path().filename().string();
-                        // 检查扩展名是否为.xml（不区分大小写）
-                        std::string ext = entry.path().extension().string();
-                        if (ext == "fdl2-sign" || ext == "fdl2") {
-                            return entry.path().string(); // 返回完整路径
-                        }
-                    }
+
+                fs::path p = entry.path();
+                std::string filename = to_lower(p.filename().string());
+                std::string ext = to_lower(p.extension().string());
+
+                int score = 0;
+                std::string tag(stage_tag);
+                if (ext == "." + tag + "-sign") {
+                    score = 3;               // strongest match: .fdl1-sign / .fdl2-sign
+                } else if (ext == "." + tag) {
+                    score = 2;               // .fdl1 / .fdl2
+                } else if (filename.find(tag) != std::string::npos) {
+                    score = 1;               // filename contains "fdl1" or "fdl2"
                 }
-            } catch (const fs::filesystem_error& e) {
-                std::cerr << "File system error: " << e.what() << std::endl;
+
+                if (score > best_score) {
+                    best_score = score;
+                    best_path = p.string();
+                }
             }
-    
-            return ""; // 没找到
+
+            return best_path;
+        } catch (const fs::filesystem_error& e) {
+            std::cerr << "File system error in FindFDLInExtFloder: " << e.what() << std::endl;
+            return "";
+        }
+    };
+
+    switch (mode) {
+    case FDL1:
+        return find_in_dir("fdl1");
+    case FDL2:
+        return find_in_dir("fdl2");
+    default:
+        return "";
     }
 }
 // WIP
