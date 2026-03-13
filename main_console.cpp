@@ -6,6 +6,7 @@
 #include "common.h"
 #include "core/device_attach_helpers.h"
 #include "main.h"
+#include "version.h"
 #include "GenTosNoAvb.h"
 #ifdef __linux__
 #include <unistd.h>
@@ -249,7 +250,7 @@ int main_console(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	snprintf(fn_partlist, sizeof(fn_partlist), "partition_%lld.xml", (long long)time(nullptr));
-	printf("sfd_tool Long-time version 1.7.6.0 Console mode\n");
+	printf("sfd_tool Long-time version %s Console mode\n", SFD_TOOL_VERSION);
 	printf("Copyright 2026 Ryan Crepa\n");
 #if _DEBUG
 	DBG_LOG("version:debug, core version:%s\n", Version);

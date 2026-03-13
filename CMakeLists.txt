@@ -2,6 +2,17 @@ cmake_minimum_required(VERSION 3.16)
 
 project(sfd_tool LANGUAGES CXX)
 
+# ================= 版本号（从 VERSION 文件生成） =================
+file(STRINGS "${CMAKE_SOURCE_DIR}/VERSION.txt" SFD_TOOL_VERSION_STR LIMIT_COUNT 1)
+string(STRIP "${SFD_TOOL_VERSION_STR}" SFD_TOOL_VERSION_STR)
+message(STATUS "SFD Tool version: ${SFD_TOOL_VERSION_STR}")
+
+configure_file(
+    "${CMAKE_SOURCE_DIR}/version.h.in"
+    "${CMAKE_BINARY_DIR}/generated/version.h"
+    @ONLY
+)
+
 # ================= 通用编译配置 =================
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -72,6 +83,7 @@ target_include_directories(sfd_tool
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/core
         ${CMAKE_CURRENT_SOURCE_DIR}/pages
+        ${CMAKE_BINARY_DIR}/generated
 )
 
 # ================= 平台宏 & 基础库 =================

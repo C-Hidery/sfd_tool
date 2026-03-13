@@ -61,6 +61,8 @@ cmake -S . -B build -G "Visual Studio 17 2022"
 
 ### 打包与发布
 
+> 详细发布与版本维护流程见：[RELEASE_GUIDE_ZH](docs/RELEASE_GUIDE_ZH.md)
+
 在 Debian/Ubuntu 上，本地构建 .deb 包可以使用项目提供的脚本：
 
 ```bash

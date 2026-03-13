@@ -1,7 +1,8 @@
 #include "page_about.h"
 #include "../i18n.h"
+#include <string>
 
-extern const char *AboutText;
+extern std::string g_about_text;
 
 GtkWidget* AboutPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* aboutPage = helper.createGrid("about_page", 5, 5);
@@ -19,7 +20,7 @@ GtkWidget* AboutPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_widget_set_name(aboutTextView, "about_text");
 	helper.addWidget("about_text", aboutTextView);
 	GtkTextBuffer* buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(aboutTextView));
-	gtk_text_buffer_set_text(buffer, AboutText, -1);
+	gtk_text_buffer_set_text(buffer, g_about_text.c_str(), -1);
 
 	gtk_container_add(GTK_CONTAINER(scrolledAbout), aboutTextView);
 	helper.addToGrid(aboutPage, scrolledAbout, 0, 0, 1, 1);

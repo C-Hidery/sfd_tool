@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstring>
+#include <string>
 #include "common.h"
 #include "main.h"
 #include "GtkWidgetHelper.hpp"
@@ -17,9 +18,9 @@
 #include <thread>
 #include <chrono>
 #include <gtk/gtk.h>
-#include <sstream>  
+#include <sstream>
 #include <iomanip>
-#include "GenTosNoAvb.h"
+#include "version.h"
 #ifdef __linux__
 #include <unistd.h>
 #include <execinfo.h>
@@ -27,8 +28,27 @@
 #include <windows.h>
 #include <dbghelp.h>
 #endif
-const char *AboutText = "SFD Tool GUI\n\nVersion 1.7.6.0 LTV Edition\n\nCopyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa\n\nVersion logs:\n\n---v 1.7.1.0---\nFirst GUI Version\n--v 1.7.1.1---\nFix check_confirm issue\n---v 1.7.1.2---\nAdd Force write function when partition list is available\n---v 1.7.2.0---\nAdd debug options\n---v 1.7.2.1---\nAdd root permission check for Linux\n---v 1.7.2.2---\nAdd dis_avb function\n---v 1.7.2.3---\nFix some bugs\n---v 1.7.3.0---\nAdd some advanced settings\n---v 1.7.3.1---\nAdd SPRD4 one-time kick mode\n---v 1.7.3.2---\nFix some bugs\n---v 1.7.3.3---\nFix dis_avb func\n---v 1.7.3.4---\nFix some bugs, improved UI\n---v 1.7.3.5---\nFix some bugs\n---v 1.7.4.0---\nAdd window dragging detection for Windows dialog-showing issue\n---v 1.7.4.1---\nAdd CVE v2 function, fix some bugs\n---v 1.7.4.2---\nFix some bugs, add crash info displaying\n---v 1.7.4.3---\nFix some bugs\n---v 1.7.5.0---\nFix some bugs, improved console\n---v 1.7.5.1---\nFix some bugs, add partition table modify function, add DHTB Signature read for ums9117\n---v 1.7.5.2---\nAdd slot flash/read manually set, add storage/slot showing\n---v 1.7.6.0---\nAdd PAC flash func, auto FDL send\n\n\nUnder GPL v3 License\nGithub: C-Hidery/sfd_tool\nLTV means Long-time-version";
-const char* Version = "[1.2.2.0@_250726]";
+
+std::string g_about_text;
+
+std::string load_about_text() {
+	const char* candidates[] = {
+		"docs/VERSION_LOG.md",
+		"VERSION_LOG.md",
+	};
+
+	for (auto path : candidates) {
+		std::ifstream in(path);
+		if (in) {
+			std::ostringstream ss;
+			ss << in.rdbuf();
+			return ss.str();
+		}
+	}
+	return "SFD Tool GUI\n\nAbout information file missing.\n";
+}
+
+const char* Version = SFD_TOOL_VERSION;
 AppState g_app_state; // 全局应用状态实例
 int& m_bOpened   = g_app_state.device.m_bOpened;
 int fdl1_loaded = 0;
@@ -143,6 +163,8 @@ uint32_t fdl2_addr_json;
 int gtk_kmain(int argc, char** argv) {
 	DEG_LOG(I, "Starting GUI mode...");
 	gtk_init(&argc, &argv);
+
+	g_about_text = load_about_text();
 
 	// Initialization previously at file scope
 	char* execfile = NEWN char[ARGV_LEN];
