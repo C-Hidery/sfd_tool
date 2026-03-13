@@ -226,6 +226,51 @@ jobs:
         with:
           name: sfd_tool_${{ matrix.arch }}_${{ matrix.config }}
           path: ./build/${{ matrix.arch }}/${{ matrix.config }}/
+
+  build-macos:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install macOS Build Dependencies
+        run: |
+          brew update
+          brew install gtk+3 libusb gettext cmake ninja || true
+
+      - name: Configure (CMake)
+        run: |
+          mkdir -p build_cmake
+          cmake -S . -B build_cmake \
+            -G "Ninja" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DUSE_GTK=ON \
+            -DUSE_LIBUSB=ON \
+            -DSFD_ENABLE_TESTS=ON
+
+      - name: Build and Test (CMake)
+        run: |
+          cmake --build build_cmake --config Release -- -j$(sysctl -n hw.logicalcpu)
+          ctest --test-dir build_cmake -C Release --output-on-failure
+
+      - name: Prepare macOS bundle directory
+        run: |
+          mkdir -p dist/macos
+          cp build_cmake/sfd_tool dist/macos/
+          cp README*.md dist/macos/ 2>/dev/null || true
+          cp LICENSE.txt dist/macos/ 2>/dev/null || true
+
+      - name: Create DMG
+        run: |
+          hdiutil create -volname "sfd_tool_macos" -srcfolder dist/macos -ov -format UDZO sfd_tool_macos.dmg
+
+      - name: Upload macOS DMG Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sfd_tool_macos_dmg
+          path: sfd_tool_macos.dmg
+
   build-linux-deb:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -296,7 +341,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    needs: [build-windows, build-linux-deb, build-linux-rpm]
+    needs: [build-windows, build-macos, build-linux-deb, build-linux-rpm]
     steps:
       - name: Set Release Timestamp
         run: echo "RELEASE_TAG=sfd_tool_master_$(TZ='Asia/Shanghai' date +'%Y%m%d_%H%M')" >> $GITHUB_ENV
@@ -311,6 +356,12 @@ jobs:
         with:
           path: output
           pattern: sfd_tool_*_Release
+
+      - name: Download macOS DMG Artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: output
+          pattern: sfd_tool_macos_dmg
 
       - name: Download Deb Linux Artifact
         uses: actions/download-artifact@v4
@@ -338,6 +389,8 @@ jobs:
           # 复制 Linux 包
           cp -r sfd_tool_linux_deb/*.deb .
           cp -r sfd_tool_rpm_package/*/*.rpm .
+          # 复制 macOS DMG
+          cp -r sfd_tool_macos_dmg/*.dmg .
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -352,11 +405,13 @@ jobs:
             
             ### 版本说明:
             - **sfd_tool_LibUSB_Release**: Windows x64 版本，使用 libusb 驱动
+            - **sfd_tool_macos**: macOS 版本（DMG 包）
             - **Linux DEB 包**: Ubuntu/Debian 系统安装包
             - **Linux RPM 包**: Fedora/RPM-Based 系统安装包
 
             ### 使用说明:
             1. Windows x64 版本需要 libusb 驱动
+            2. macOS 版本需要已安装 GTK3 与 libusb 运行时（见项目 README）
             
             ### 文件列表:
             - sfd_tool.exe - Windows 主程序
@@ -368,5 +423,6 @@ jobs:
             ${{ env.RELEASE_TAG }}.zip
             output/*.deb
             output/*.rpm
+            output/*.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
