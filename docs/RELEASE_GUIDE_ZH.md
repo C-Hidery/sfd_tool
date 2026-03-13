@@ -66,7 +66,7 @@
    - 在文件末尾追加本次发布的变更记录，例如：
      ```markdown
      ---v 1.7.7.0---
-     Fix XXX bug, improve YYY behavior
+     UI重构，优化代码逻辑
      ```
 2. 运行开发脚本本地确认：
    ```bash

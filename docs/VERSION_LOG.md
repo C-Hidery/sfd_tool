@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 1.7.6.0 LTV Edition
+Version 1.7.7.0 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -53,6 +53,8 @@ Fix some bugs, add partition table modify function, add DHTB Signature read for 
 Add slot flash/read manually set, add storage/slot showing
 ---v 1.7.6.0---
 Add PAC flash func, auto FDL send
+---v 1.7.7.0---
+UI Refactor, optimization code logic.
 
 
 Under GPL v3 License
