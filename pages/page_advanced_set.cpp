@@ -157,6 +157,9 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_box_pack_start(GTK_BOX(langRow), langLabel, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(langRow), combo_ui_language_, FALSE, FALSE, 0);
 
+	GtkWidget* langApplyBtn = helper.createButton(_("Apply"), "ui_language_apply", nullptr, 0, 0, 80, 32);
+	gtk_box_pack_start(GTK_BOX(langRow), langApplyBtn, FALSE, FALSE, 0);
+
 	gtk_box_pack_start(GTK_BOX(langBox), langRow, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(mainBox), langFrame, FALSE, FALSE, 0);
 
@@ -402,6 +405,35 @@ void AdvancedSetPage::bindSignals(GtkWidgetHelper& helper) {
 	});
 	helper.bindClick(helper.getWidget("abpart_b"),[&](){
 		on_button_clicked_abpart_b(helper);
+	});
+
+	// 语言应用按钮：保存 ui_language 并提示重启后生效
+	helper.bindClick(helper.getWidget("ui_language_apply"), [&]() {
+		auto cfgSvc = sfd::createConfigService();
+		if (!cfgSvc) {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")),
+			               _("Error"),
+			               _("Failed to create config service."));
+			return;
+		}
+
+		sfd::AppConfig cfg{};
+		sfd::loadAppConfigOrDefault(cfg);
+
+		int idx = gtk_combo_box_get_active(GTK_COMBO_BOX(combo_ui_language_));
+		cfg.ui_language = index_to_ui_language(idx);
+
+		sfd::ConfigStatus status = cfgSvc->saveAppConfig(cfg);
+		if (!status.success) {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")),
+			               _("Error"),
+			               status.message.c_str());
+			return;
+		}
+
+		showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),
+		              _("Info"),
+		              _("Language will take effect after restart."));
 	});
 }
 

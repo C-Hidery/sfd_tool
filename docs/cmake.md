@@ -380,8 +380,8 @@ cmake -S . -B build_cmake_debug -G "Ninja" \
 # 2. 编译 Debug 版本
 cmake --build build_cmake_debug -j
 
-# 3. 以中文界面运行（如未预设 LC_ALL）
-LC_ALL=zh_CN.UTF-8 ./build_cmake_debug/sfd_tool
+# 3. 运行 Debug 版 GUI（语言由 sfd_tool_config.json 中的 ui_language 决定）
+./build_cmake_debug/sfd_tool
 ```
 
 `dev.sh` 会自动：
@@ -389,7 +389,7 @@ LC_ALL=zh_CN.UTF-8 ./build_cmake_debug/sfd_tool
 - 检测是否安装 `ninja`，有则用 `Ninja`，否则退回 `Unix Makefiles`
 - 使用 `build_cmake_debug/` 作为 Debug 构建目录
 - 始终以 Debug 模式编译
-- 默认用中文界面启动（`LC_ALL=${LC_ALL:-zh_CN.UTF-8}`），如需英文可在运行前导出 `LC_ALL=C`。
+- 直接运行 `./build_cmake_debug/sfd_tool`，程序会从 `sfd_tool_config.json` 读取 `ui_language` 并默认使用中文（首次运行时写出默认配置）。
 
 ### 9.2 发布构建（Release）
 
@@ -407,8 +407,8 @@ cmake -S . -B build_cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release
 # 2. 编译 Release 版本
 cmake --build build_cmake -j
 
-# 3. 如需运行，手动执行（示例为中文界面）：
-LC_ALL=zh_CN.UTF-8 ./build_cmake/sfd_tool
+# 3. 如需运行，手动执行（界面语言由配置文件决定）：
+./build_cmake/sfd_tool
 ```### 9.3 Windows 平台脚本（PowerShell）
 
 在 Windows 上，推荐使用 Visual Studio 2022 + CMake 的方式，通过 PowerShell 脚本封装：
@@ -459,43 +459,23 @@ LC_ALL=zh_CN.UTF-8 ./build_cmake/sfd_tool
 > - Windows（VS 2022 + PowerShell）：`./scripts/dev.ps1`、`./scripts/release.ps1`
 
 
-本项目使用 gettext 做多语言支持，相关初始化代码在 `main.cpp` 中：
+本项目使用 gettext 做多语言支持。程序启动时会读取当前工作目录下的 `sfd_tool_config.json` 中 `ui_language` 字段来决定界面语言：
 
-```cpp
-setlocale(LC_ALL, "");
-bindtextdomain("sfd_tool", "./locale");
-textdomain("sfd_tool");
-bind_textdomain_codeset("sfd_tool", "UTF-8");
-```
+- `"zh_CN"`：界面固定为简体中文（默认值）；
+- `"en_US"`：界面固定为英文；
+- `"auto"` 或空字符串：跟随系统/终端 locale。
 
-中文翻译文件为 `locale/zh_CN/LC_MESSAGES/sfd_tool.mo`，由 CMake 在构建时自动生成到 `build_cmake/locale/zh_CN/LC_MESSAGES/`，运行时通过 `bindtextdomain` 的 `./locale` 路径加载。
-
-在 macOS 上实测：
-
-- 直接运行：界面为英文
-  ```bash
-  ./build_cmake/sfd_tool
-  ```
-- 仅设置 `LANG`：仍为英文
-  ```bash
-  LANG=zh_CN ./build_cmake/sfd_tool
-  LANG=zh_CN.UTF-8 ./build_cmake/sfd_tool
-  ```
-- 设置 `LC_ALL` 为中文：界面切换为中文（推荐）
-  ```bash
-  LC_ALL=zh_CN.UTF-8 ./build_cmake/sfd_tool
-  ```
-
-因此，在 macOS 上如果希望**临时**以中文界面启动，推荐命令为：
+首次运行时如果不存在配置文件，程序会自动写出默认配置，其中 `ui_language` 为 `"zh_CN"`，因此直接运行：
 
 ```bash
-LC_ALL=zh_CN.UTF-8 ./build_cmake/sfd_tool
+./build_cmake/sfd_tool
 ```
 
-如果你希望在当前 shell 中默认使用中文，也可以在 `~/.zshrc` 中加入：
+即可看到中文界面。
 
-```bash
-export LC_ALL=zh_CN.UTF-8
-```
+你可以通过两种方式切换语言：
 
-然后重新打开终端再运行程序即可始终以中文界面启动。
+- 在 GUI 中打开 “Advanced Settings” 页面，找到 “UI language” 下拉框，选择期望语言后点击旁边的 “Apply” 按钮保存，重启程序后生效；
+- 或者手动编辑当前工作目录下的 `sfd_tool_config.json`，修改 `ui_language` 字段为上述值之一，然后重启程序。
+
+旧版本文档中曾推荐通过设置环境变量 `LC_ALL=zh_CN.UTF-8` 来获得中文界面，目前已不再建议使用这种方式；一般情况下直接运行二进制并通过配置文件控制界面语言即可。

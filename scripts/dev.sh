@@ -24,4 +24,4 @@ cmake -S . -B "${BUILD_DIR}" -G "${GENERATOR}" \
 cmake --build "${BUILD_DIR}" -j
 
 echo "[dev] 启动 sfd_tool (Debug) ..."
-LC_ALL=zh_CN.UTF-8 "./${BUILD_DIR}/sfd_tool"
+"./${BUILD_DIR}/sfd_tool"

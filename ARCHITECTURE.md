@@ -192,13 +192,13 @@ make clean
 
 ```bash
 # 不需要 root 权限的情况（macOS 或已配置 udev 规则的 Linux）
-LC_ALL=zh_CN.UTF-8 ./sfd_tool
+./sfd_tool
 
 # Linux — 需要 USB 访问权限时（推荐）
-LC_ALL=zh_CN.UTF-8 sudo -E ./sfd_tool
+sudo -E ./sfd_tool
 ```
 
-> `-E` 参数让 `sudo` 保留当前用户的环境变量（包括 `LC_ALL`），避免界面回退为英文。
+> 首次运行会在当前目录生成 `sfd_tool_config.json`，默认 `ui_language` 为 `zh_CN`，因此界面为中文。之后可以通过修改该文件或在 GUI 高级设置中切换界面语言。
 
 ### Linux USB 权限
 
@@ -212,4 +212,10 @@ echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="1782", MODE="0666"' \
 sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
-配置后即可直接用 `LC_ALL=zh_CN.UTF-8 ./sfd_tool` 运行。
+你也可以通过修改 `sfd_tool_config.json` 中的 `ui_language` 字段切换界面语言，例如：
+
+- `"ui_language": "zh_CN"`：中文界面；
+- `"ui_language": "en_US"`：英文界面；
+- `"ui_language": "auto"` 或空字符串：跟随系统/终端环境。
+
+配置保存后，下次启动即按照该配置加载 i18n。
