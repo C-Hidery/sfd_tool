@@ -36,11 +36,7 @@ find_package(Threads REQUIRED)
 # Windows: gettext(libintl) 头文件和库通过 vcpkg 提供，
 # 这里为测试目标补充相同的包含路径和链接库，避免找不到 libintl.h。
 if (WIN32)
-    if (CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
-        set(SFD_VCPKG_TEST_TRIPLET "x64-windows")
-    else()
-        set(SFD_VCPKG_TEST_TRIPLET "x86-windows")
-    endif()
+    set(SFD_VCPKG_TEST_TRIPLET "x64-windows")
 
     set(SFD_VCPKG_TEST_ROOT "")
 

@@ -141,7 +141,7 @@ sfd_tool/
   - Makefile 可在过渡期保留或简化，最终以 CMake 为主。
 - CI 能够覆盖核心平台（至少 Linux + Windows）的基础构建与测试，打包脚本（Debian、可能的 RPM 等）与当前目录结构保持同步。
 - GitHub Actions 工作流（见 `.github/workflows/build.yml`）：
-  - Windows job 使用 CMake + Visual Studio 构建 x86/x64 变体并运行 `ctest`；
+  - Windows job 使用 CMake + Visual Studio 构建 x64 变体并运行 `ctest`；
   - Linux job 使用 `packaging/build-deb.sh` 构建 `.deb` 包；
   - 另有基于 Fedora 容器的 RPM 打包 job；
   - 在 `master` 分支上，CI 会聚合上述产物并创建 GitHub Release。

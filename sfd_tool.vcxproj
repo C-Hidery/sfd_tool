@@ -1,14 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
-    <ProjectConfiguration Include="Debug|Win32">
-      <Configuration>Debug</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Release|Win32">
-      <Configuration>Release</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
       <Platform>x64</Platform>
@@ -81,10 +73,7 @@
   <PropertyGroup Condition="'$(Platform)'=='x64'">
     <GTK3_PATH>$(GTK3_BASE_PATH)\mingw64</GTK3_PATH>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Platform)'=='Win32'">
-    <GTK3_PATH>$(GTK3_BASE_PATH)\mingw32</GTK3_PATH>
-  </PropertyGroup>
-  
+
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
@@ -97,12 +86,9 @@
   </PropertyGroup>
 
   <!-- Map MSVC Platform to vcpkg triplets -->
-  <PropertyGroup Condition="'$(Platform)'=='Win32'">
-    <VcpkgTriplet>x86-windows</VcpkgTriplet>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Platform)'=='x64'">
     <VcpkgTriplet>x64-windows</VcpkgTriplet>
-  </PropertyGroup>  
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -161,68 +147,7 @@
   </ImportGroup>
   
   <PropertyGroup Label="UserMacros" />
-  
-  <!-- x86 配置 (SPRD 驱动) -->
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;WIN32;_DEBUG;_WINDOWS;USE_GTK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>
-        $(VCPKG_ROOT)\installed\$(VcpkgTriplet)\include;
-        $(GTK3_PATH)\include\gtk-3.0;
-        $(GTK3_PATH)\include\glib-2.0;
-        $(GTK3_PATH)\lib\glib-2.0\include;
-        $(GTK3_PATH)\include\pango-1.0;
-        $(GTK3_PATH)\include\cairo;
-        $(GTK3_PATH)\include\gdk-pixbuf-2.0;
-        $(GTK3_PATH)\include\atk-1.0;
-        $(GTK3_PATH)\include\harfbuzz;
-        %(AdditionalIncludeDirectories)
-      </AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>intl.lib;setupapi.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(VCPKG_ROOT)\installed\$(VcpkgTriplet)\lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-    </Link>
-  </ItemDefinitionGroup>
-  
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;WIN32;NDEBUG;_WINDOWS;USE_GTK;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>
-        $(VCPKG_ROOT)\installed\$(VcpkgTriplet)\include;
-        $(GTK3_PATH)\include\gtk-3.0;
-        $(GTK3_PATH)\include\glib-2.0;
-        $(GTK3_PATH)\lib\glib-2.0\include;
-        $(GTK3_PATH)\include\pango-1.0;
-        $(GTK3_PATH)\include\cairo;
-        $(GTK3_PATH)\include\gdk-pixbuf-2.0;
-        $(GTK3_PATH)\include\atk-1.0;
-        $(GTK3_PATH)\include\harfbuzz;
-        %(AdditionalIncludeDirectories)
-      </AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>intl.lib;setupapi.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(VCPKG_ROOT)\installed\$(VcpkgTriplet)\lib;$(GTK3_PATH)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-    </Link>
-  </ItemDefinitionGroup>
-  
+
   <!-- x64 配置 (libusb 驱动) -->
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>

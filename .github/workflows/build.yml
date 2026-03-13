@@ -17,7 +17,7 @@ jobs:
       VCPKG_ROOT: C:\vcpkg
     strategy:
       matrix:
-        arch: [x64, x86]
+        arch: [x64]
         config: [Release]
     steps:
       - name: Checkout Repository
@@ -39,8 +39,8 @@ jobs:
             exit 1
           }
           Write-Host "Using vcpkg: $vcpkgExe"
-          # 安装 x86 / x64 的 gettext（包含 libintl）
-          & $vcpkgExe install gettext:x86-windows gettext:x64-windows
+          # 安装 x64 的 gettext（包含 libintl）
+          & $vcpkgExe install gettext:x64-windows
 
       - name: Install MSYS2 and GTK3
         run: |
@@ -52,14 +52,9 @@ jobs:
           # 更新 MSYS2
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -Syu --noconfirm"
           
-          # 根据架构安装对应的 GTK3
-          if ("${{ matrix.arch }}" -eq "x64") {
-            Write-Host "安装 x64 GTK3 完整开发包..."
-            & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
-          } else {
-            Write-Host "安装 x86 GTK3 完整开发包..."
-            & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm mingw-w64-i686-gtk3 mingw-w64-i686-harfbuzz mingw-w64-i686-pango mingw-w64-i686-cairo mingw-w64-i686-glib2"
-          }
+          # 安装 x64 GTK3 完整开发包
+          Write-Host "安装 x64 GTK3 完整开发包..."
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
 
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.arch }}/${{ matrix.config }}/
@@ -83,11 +78,7 @@ jobs:
         shell: pwsh
         run: |
           # 确保在运行单元测试前，GTK3 和 libintl 等 DLL 在 PATH 中
-          if ("${{ matrix.arch }}" -eq "x64") {
-            $env:Path = "C:\msys64\mingw64\bin;C:\vcpkg\installed\x64-windows\bin;" + $env:Path
-          } else {
-            $env:Path = "C:\msys64\mingw32\bin;C:\vcpkg\installed\x86-windows\bin;" + $env:Path
-          }
+          $env:Path = "C:\msys64\mingw64\bin;C:\vcpkg\installed\x64-windows\bin;" + $env:Path
 
           cmake --build build_cmake --config ${{ matrix.config }} -- /m
           ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
@@ -121,11 +112,7 @@ jobs:
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
           
           # 确定 GTK3 bin 目录
-          if ("${{ matrix.arch }}" -eq "x64") {
-            $gtkBinPath = "C:\msys64\mingw64\bin"
-          } else {
-            $gtkBinPath = "C:\msys64\mingw32\bin"
-          }
+          $gtkBinPath = "C:\msys64\mingw64\bin"
           
           Write-Host "复制所有 DLL 从: $gtkBinPath"
           Write-Host "复制到: $destDir"
@@ -158,11 +145,7 @@ jobs:
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
           
           # 确定 MSYS2 目录
-          if ("${{ matrix.arch }}" -eq "x64") {
-            $msysPrefix = "C:\msys64\mingw64"
-          } else {
-            $msysPrefix = "C:\msys64\mingw32"
-          }
+          $msysPrefix = "C:\msys64\mingw64"
           
           Write-Host "复制 GTK 运行时数据文件..."
           
@@ -343,13 +326,10 @@ jobs:
         run: |
           # 处理 Windows 文件
           cp master/*.md output/
-          cp master/third_party/Lib/Channel9.dll output/sfd_tool_x86_Release/
-          cp master/third_party/Lib/Channel.ini output/sfd_tool_x86_Release/
           cp master/third_party/Lib/libusb-1.0.dll output/sfd_tool_x64_Release/
 
           # 重命名 Windows 目录
           cd output
-          mv sfd_tool_x86_Release sfd_tool_SPRD_Release
           mv sfd_tool_x64_Release sfd_tool_LibUSB_Release
           
           # 创建 ZIP 包
@@ -371,14 +351,12 @@ jobs:
             ## sfd_tool Release
             
             ### 版本说明:
-            - **sfd_tool_SPRD_Release**: Windows x86 版本，使用 SPRD 驱动
             - **sfd_tool_LibUSB_Release**: Windows x64 版本，使用 libusb 驱动
             - **Linux DEB 包**: Ubuntu/Debian 系统安装包
             - **Linux RPM 包**: Fedora/RPM-Based 系统安装包
-            
+
             ### 使用说明:
-            1. Windows x86 版本需要安装 SPRD 驱动
-            2. Windows x64 版本需要 libusb 驱动
+            1. Windows x64 版本需要 libusb 驱动
             
             ### 文件列表:
             - sfd_tool.exe - Windows 主程序

@@ -18,10 +18,6 @@ endif()
 option(USE_LIBUSB "Enable libusb backend" ON)
 option(USE_GTK "Enable GTK3 UI" ON)
 
-# Windows Win32 (x86) 始终不用 libusb，保持和原 vcxproj 一致
-if (WIN32 AND CMAKE_GENERATOR_PLATFORM STREQUAL "Win32")
-    set(USE_LIBUSB OFF CACHE BOOL "Disable libusb on 32-bit Windows (use Channel driver instead)" FORCE)
-endif()
 
 # Termux 支持：与 Makefile 的 termux 目标对应
 option(TERMUX "Enable Termux specific build options" OFF)
@@ -118,11 +114,7 @@ endif()
 
 # Windows: libintl (gettext) via vcpkg
 if (WIN32)
-    if (CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
-        set(_vcpkg_triplet "x64-windows")
-    else()
-        set(_vcpkg_triplet "x86-windows")
-    endif()
+    set(_vcpkg_triplet "x64-windows")
 
     # Try to infer vcpkg root from toolchain file first, then env, then default C:/vcpkg
     set(_vcpkg_root "")
@@ -168,14 +160,7 @@ find_package(PkgConfig QUIET)
 if (USE_GTK)
     if (WIN32)
         # Windows: headers/libraries are provided by MSYS2 GTK in the CI image.
-        # Include path differs for x64/x86 (mingw64 vs mingw32).
-        if (CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
-            # x64: use mingw64
-            set(_gtk_root "C:/msys64/mingw64")
-        else()
-            # Win32: use mingw32
-            set(_gtk_root "C:/msys64/mingw32")
-        endif()
+        set(_gtk_root "C:/msys64/mingw64")
 
         foreach(tgt IN LISTS SFD_COMMON_TARGETS)
             target_compile_definitions(${tgt} PRIVATE USE_GTK=1)

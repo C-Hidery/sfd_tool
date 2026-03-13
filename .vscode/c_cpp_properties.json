@@ -26,8 +26,7 @@
             "name": "Windows-MSVC",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${env:VCPKG_ROOT}/installed/x64-windows/include",
-                "${env:VCPKG_ROOT}/installed/x86-windows/include"
+                "${env:VCPKG_ROOT}/installed/x64-windows/include"
             ],
             "defines": [
                 "USE_LIBUSB=0",
