@@ -2,9 +2,11 @@
 # sfd_tool DEB build script
 set -e
 
-VERSION="1.7.6.0"
 APPNAME="sfd_tool"
 PKGNAME="sfd-tool"
+
+# 统一使用根目录 VERSION.txt 中的版本号
+VERSION=$(head -n1 VERSION.txt)
 ARCHIVE="${PKGNAME}-${VERSION}"
 
 # 设置环境变量
@@ -17,7 +19,6 @@ echo "=== Building $PKGNAME version $VERSION ==="
 rm -rf dist packaging/debian/$PKGNAME
 make clean 2>/dev/null || true
 
-
 # 创建临时构建目录
 rm -rf /tmp/build-$PKGNAME
 mkdir -p /tmp/build-$PKGNAME/$ARCHIVE
@@ -27,7 +28,7 @@ cp -r CMakeLists.txt version.h.in *.cpp *.h *.hpp *.txt *.md Makefile third_part
 [ -f assets/icon.png ] && cp assets/icon.png /tmp/build-$PKGNAME/$ARCHIVE/
 cp packaging/sfd_tool.desktop /tmp/build-$PKGNAME/$ARCHIVE/
 
-# 复制debian目录
+# 复制 debian 目录
 if [ -d packaging/debian ]; then
     cp -r packaging/debian /tmp/build-$PKGNAME/$ARCHIVE/
     cp packaging/man_sfd-tool.1 /tmp/build-$PKGNAME/$ARCHIVE/
