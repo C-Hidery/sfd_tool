@@ -22,6 +22,7 @@ jobs:
     timeout-minutes: 30
     env:
       VCPKG_ROOT: C:\vcpkg
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     strategy:
       matrix:
         arch: [x64]
@@ -260,6 +261,8 @@ jobs:
   build-macos:
     runs-on: macos-latest
     timeout-minutes: 30
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -318,6 +321,8 @@ jobs:
   build-linux-deb:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -357,6 +362,8 @@ jobs:
     container:
       image: fedora:latest
     timeout-minutes: 20
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -386,6 +393,8 @@ jobs:
     permissions:
       contents: write
     needs: [build-windows, build-macos, build-linux-deb, build-linux-rpm]
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Set Release Tag
         run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
