@@ -55,19 +55,18 @@ jobs:
           # 安装 x64 的 gettext（包含 libintl）
           & $vcpkgExe install gettext:x64-windows
 
-      - name: Install MSYS2 and GTK3
-        run: |
-          # GitHub Actions Windows 镜像已预装 MSYS2
-          $msysPath = "C:\msys64"
-
-          Write-Host "安装 GTK3 开发包..."
-
-          # 更新软件包数据库（不做完整滚动升级）
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
-
-          # 安装 x64 GTK3 完整开发包（仅安装缺失的包）
-          Write-Host "安装 x64 GTK3 完整开发包..."
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
+      - name: Setup MSYS2 and GTK3
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            mingw-w64-x86_64-gtk3
+            mingw-w64-x86_64-harfbuzz
+            mingw-w64-x86_64-pango
+            mingw-w64-x86_64-cairo
+            mingw-w64-x86_64-glib2
+          cache: true
 
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.arch }}/${{ matrix.config }}/
