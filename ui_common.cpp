@@ -15,6 +15,18 @@ void on_button_clicked_reboot(GtkWidgetHelper helper);
 void on_button_clicked_recovery(GtkWidgetHelper helper);
 void on_button_clicked_fastboot(GtkWidgetHelper helper);
 
+void Enable_Startup(GtkWidgetHelper helper) {
+	helper.enableWidget("transcode_en");
+	helper.enableWidget("transcode_dis");
+	helper.enableWidget("end_data_dis");
+	helper.enableWidget("end_data_en");
+	helper.enableWidget("charge_en");
+	helper.enableWidget("charge_dis");
+	helper.enableWidget("raw_data_en");
+	helper.enableWidget("raw_data_dis");
+	helper.enableWidget("pac_flash_start"); //BROM下允许使用PAC烧录功能
+}
+
 void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("poweroff");
 	helper.enableWidget("reboot");
@@ -49,7 +61,7 @@ void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("abpart_auto");
 	helper.enableWidget("abpart_a");
 	helper.enableWidget("abpart_b");
-	helper.enableWidget("pac_flash_start");
+	helper.disableWidget("pac_flash_start"); // PAC烧录功能仅支持BROM下进行操作
 }
 
 void DisableWidgets(GtkWidgetHelper helper) {
