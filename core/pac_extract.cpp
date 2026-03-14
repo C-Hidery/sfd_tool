@@ -1134,34 +1134,129 @@ static ::sfd::Result<void> check_pac_crc_result(const char* fn) {
     return ::sfd::Result<void>::ok();
 }
 
-namespace sfd {
+namespace {
 
-Result<void> pac_extract_result(const char* fn, const char* folder) {
-    if (!fn || !folder || !*fn || !*folder) {
-        return Result<void>::error(ErrorCode::InvalidArgument,
-                                   "empty pac path or folder");
+sfd::Result<PacUnpackInfo> pac_unpack_and_analyze_impl(const char* pac_path,
+                                                       const char* out_folder) {
+    if (!pac_path || !*pac_path || !out_folder || !*out_folder) {
+        return sfd::Result<PacUnpackInfo>::error(sfd::ErrorCode::InvalidArgument,
+                                                 "empty pac path or output folder");
     }
 
     namespace fs = std::filesystem;
     std::error_code ec;
-    if (!fs::exists(fn, ec) || ec) {
-        return Result<void>::error(ErrorCode::NotFound, "PAC file not found");
+    if (!fs::exists(pac_path, ec) || ec) {
+        return sfd::Result<PacUnpackInfo>::error(sfd::ErrorCode::NotFound,
+                                                 "PAC file not found");
     }
 
-    // 先通过旧版 pac_extract 执行核心解析和 UI 行为（包含 UI 提示）
-    bool ok = pac_extract(fn, folder);
-    if (!ok) {
-        return Result<void>::error(ErrorCode::ParseError, "pac_extract failed");
+    Unpac unpac;
+    unpac.setDirectory(out_folder);
+    if (!unpac.openPacFile(pac_path)) {
+        // openPacFile 已经打印了具体原因
+        return sfd::Result<PacUnpackInfo>::error(sfd::ErrorCode::ParseError,
+                                                 "openPacFile failed");
+    }
+    unpac.setFilter(0, nullptr);
+    if (!unpac.extractFiles()) {
+        return sfd::Result<PacUnpackInfo>::error(sfd::ErrorCode::IoError,
+                                                 "extractFiles failed");
     }
 
-    // T2-02: 在不改变 UI 行为的前提下，补充 PAC CRC 检查，
-    // 将 CRC 相关错误映射到 Result.ErrorCode 中，供上层日志区分。
-    auto crc_result = check_pac_crc_result(fn);
-    if (!crc_result) {
-        return crc_result;
+    PacUnpackInfo info;
+    info.pac_path   = pac_path;
+    info.unpack_dir = out_folder;
+
+    // 查找 FDL1/FDL2 路径
+    info.fdl_files.fdl1 = FindFDLInExtFloder(out_folder, FDL1);
+    info.fdl_files.fdl2 = FindFDLInExtFloder(out_folder, FDL2);
+    if (info.fdl_files.fdl1.empty() || info.fdl_files.fdl2.empty()) {
+        return sfd::Result<PacUnpackInfo>::error(
+            sfd::ErrorCode::ParseError,
+            "FDL files not found in unpack folder");
     }
 
-    return Result<void>::ok();
+    // 查找 XML 并解析 FDL base 地址
+    std::string xmlPath = FindFirstXMLFile(out_folder);
+    if (xmlPath.empty()) {
+        return sfd::Result<PacUnpackInfo>::error(
+            sfd::ErrorCode::ParseError,
+            "XML file not found in unpack folder");
+    }
+
+    std::string fdl1_base_str = findBaseForID(xmlPath, "FDL1");
+    std::string fdl2_base_str = findBaseForID(xmlPath, "FDL2");
+    if (!fdl1_base_str.empty()) {
+        info.fdl_addrs.fdl1_base = strtoul(fdl1_base_str.c_str(), nullptr, 16);
+        info.fdl_addrs.has_fdl1  = info.fdl_addrs.fdl1_base != 0;
+    }
+    if (!fdl2_base_str.empty()) {
+        info.fdl_addrs.fdl2_base = strtoul(fdl2_base_str.c_str(), nullptr, 16);
+        info.fdl_addrs.has_fdl2  = info.fdl_addrs.fdl2_base != 0;
+    }
+
+    if (!info.fdl_addrs.has_fdl1 || !info.fdl_addrs.has_fdl2) {
+        return sfd::Result<PacUnpackInfo>::error(
+            sfd::ErrorCode::ParseError,
+            "FDL base address missing in XML");
+    }
+
+    // 解析 <Partitions> 列表
+    std::ifstream file(xmlPath);
+    if (!file.is_open()) {
+        return sfd::Result<PacUnpackInfo>::error(sfd::ErrorCode::IoError,
+                                                 "failed to open XML file");
+    }
+    std::string content((std::istreambuf_iterator<char>(file)),
+                        std::istreambuf_iterator<char>());
+    std::string partxml = ExtractPartitionsWithTags(content);
+    if (partxml.empty()) {
+        return sfd::Result<PacUnpackInfo>::error(
+            sfd::ErrorCode::ParseError,
+            "no partition info found in XML");
+    }
+
+    const char* temp_xml = "partitions_temp.xml";
+    {
+        FILE* fi = oxfopen(temp_xml, "w");
+        if (!fi) {
+            return sfd::Result<PacUnpackInfo>::error(
+                sfd::ErrorCode::IoError,
+                "failed to create temporary partitions XML file");
+        }
+        fwrite(partxml.c_str(), 1, partxml.size(), fi);
+        fclose(fi);
+    }
+
+    partition_t* pacptable = NEWN partition_t[128];
+    int pac_part_count = 0;
+    auto r = parse_partitions_xml_result(temp_xml, pacptable, pac_part_count);
+    if (!r) {
+        delete[] pacptable;
+        return sfd::Result<PacUnpackInfo>::error(r.code, r.message);
+    }
+
+    info.partitions.clear();
+    info.partitions.reserve(pac_part_count);
+    for (int i = 0; i < pac_part_count; ++i) {
+        PacPartitionInfo pi{};
+        pi.name       = pacptable[i].name;
+        pi.image_path = ""; // 当前实现暂未维护具体镜像文件名
+        pi.size_bytes = static_cast<std::uint64_t>(pacptable[i].size);
+        info.partitions.push_back(std::move(pi));
+    }
+
+    delete[] pacptable;
+    return sfd::Result<PacUnpackInfo>::ok(std::move(info));
+}
+
+} // anonymous namespace
+
+namespace sfd {
+
+Result<PacUnpackInfo> pac_unpack_and_analyze(const char* pac_path,
+                                             const char* out_folder) {
+    return pac_unpack_and_analyze_impl(pac_path, out_folder);
 }
 
 } // namespace sfd

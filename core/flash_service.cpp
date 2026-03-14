@@ -76,8 +76,9 @@ public:
         }
 
         const char* unpack_dir = "pac_unpack_output";
-        DEG_LOG(I, "loadPacMetadata: pac_extract_result(%s, %s)", pac_path.c_str(), unpack_dir);
-        auto r = pac_extract_result(pac_path.c_str(), unpack_dir);
+        DEG_LOG(OP,
+                "loadPacMetadata: pac_unpack_and_analyze(%s, %s)", pac_path.c_str(), unpack_dir);
+        auto r = pac_unpack_and_analyze(pac_path.c_str(), unpack_dir);
         if (!r) {
             const int code_int = static_cast<int>(r.code);
             const char* code_str = "unknown";
@@ -89,13 +90,13 @@ public:
             }
 
             DEG_LOG(E,
-                    "loadPacMetadata: pac_extract_result failed for %s, code=%d(%s), msg=%s",
+                    "loadPacMetadata: pac_unpack_and_analyze failed for %s, code=%d(%s), msg=%s",
                     pac_path.c_str(),
                     code_int,
                     code_str,
                     r.message.c_str());
             FlashErrorCode code = map_error_code(r.code);
-            std::string msg = r.message.empty() ? "pac_extract failed" : r.message;
+            std::string msg = r.message.empty() ? "pac_unpack_and_analyze failed" : r.message;
             return make_error(code, msg);
         }
 
@@ -161,28 +162,18 @@ public:
         // Stage 3: ExtractPac
         const char* unpack_dir = "pac_unpack_output";
         DEG_LOG(OP,
-                "preparePacFlash: stage=ExtractPac pac_extract_result(%s, %s)",
+                "preparePacFlash: stage=ExtractPac pac_unpack_and_analyze(%s, %s)",
                 options.pac_path.c_str(),
                 unpack_dir);
-        auto r = pac_extract_result(options.pac_path.c_str(), unpack_dir);
-        if (!r) {
-            const int code_int = static_cast<int>(r.code);
-            const char* code_str = "unknown";
-            switch (r.code) {
-            case ErrorCode::InvalidArgument: code_str = "InvalidArgument"; break;
-            case ErrorCode::NotFound:        code_str = "NotFound";        break;
-            case ErrorCode::ParseError:      code_str = "ParseError";      break;
-            default:                         code_str = "Other";           break;
-            }
-
+        auto info_result = pac_unpack_and_analyze(options.pac_path.c_str(), unpack_dir);
+        if (!info_result) {
             DEG_LOG(E,
-                    "preparePacFlash: stage=ExtractPac, pac_extract_result failed for %s, code=%d(%s), msg=%s",
+                    "preparePacFlash: stage=ExtractPac, pac_unpack_and_analyze failed for %s, code=%d, msg=%s",
                     options.pac_path.c_str(),
-                    code_int,
-                    code_str,
-                    r.message.c_str());
-            FlashErrorCode code = map_error_code(r.code);
-            std::string detail = r.message.empty() ? "pac_extract_result failed" : r.message;
+                    static_cast<int>(info_result.code),
+                    info_result.message.c_str());
+            FlashErrorCode code = map_error_code(info_result.code);
+            std::string detail = info_result.message.empty() ? "pac_unpack_and_analyze failed" : info_result.message;
             std::string msg = "PAC flash failed at ExtractPac: " + detail;
             return make_error(code, msg);
         }

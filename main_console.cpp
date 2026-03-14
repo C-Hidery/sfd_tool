@@ -8,6 +8,7 @@
 #include "main.h"
 #include "version.h"
 #include "GenTosNoAvb.h"
+#include "core/flash_service.h"
 #ifdef __linux__
 #include <unistd.h>
 #endif
@@ -1586,11 +1587,17 @@ rloop:
 			} else fclose(fi);
 			if(check_confirm("flash pac"))
 			{
-				// 先解包到固定目录，再调用带 FDL 流程的 pac_flash
-				if (!pac_extract(fn, "pac_extract")) {
-					DEG_LOG(E, "pac_extract failed, abort pac flash.");
-				} else if (!pac_flash("pac_extract", io)) {
-					DEG_LOG(E, "pac_flash failed.");
+				auto service = sfd::createFlashService();
+				service->setContext(io, &g_app_state);
+
+				sfd::FlashPacOptions opts;
+				opts.pac_path        = fn;
+				opts.slot_selection  = static_cast<sfd::SlotSelection>(g_app_state.flash.selected_ab <= 0 ? 0 : g_app_state.flash.selected_ab);
+				opts.compatibility_mode = g_app_state.flash.isCMethod != 0;
+
+				sfd::FlashStatus st = service->flashPac(opts, nullptr);
+				if (!st.success) {
+					DEG_LOG(E, "flashPac failed: %s", st.message.c_str());
 				} else {
 					DEG_LOG(I, "PAC flash completed successfully.");
 				}
