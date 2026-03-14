@@ -125,51 +125,17 @@ locales: locale/zh_CN/LC_MESSAGES/sfd_tool.mo
 locale/zh_CN/LC_MESSAGES/sfd_tool.mo: locale/zh_CN/LC_MESSAGES/sfd_tool.po
 	msgfmt $< -o $@
 
-# 下面保留原有的 install/uninstall/check-deps/help 目标实现
-
-# 安装目标
+# 安装目标（通过 CMake install 收敛生命周期）
 .PHONY: install
-install: $(APPNAME)
-	install -d $(DESTDIR)$(BINDIR)
-	install -d $(DESTDIR)$(APPDIR)
-	install -d $(DESTDIR)$(DOCDIR)
-	install -d $(DESTDIR)$(ICONDIR)/256x256/apps
-	install -d $(DESTDIR)$(ICONDIR)/48x48/apps
-	install -d $(DESTDIR)$(ICONDIR)/32x32/apps
-	install -d $(DESTDIR)$(ICONDIR)/16x16/apps
-	install -d $(DESTDIR)$(LOCALEDIR)/zh_CN/LC_MESSAGES
-
-	# 安装二进制
-	install -m 755 $(APPNAME) $(DESTDIR)$(BINDIR)/
-
-	# 安装桌面文件
-	sed 's|Icon=sfd_tool|Icon=sfd-tool|' packaging/sfd_tool.desktop > $(DESTDIR)$(APPDIR)/sfd-tool.desktop
-	chmod 644 $(DESTDIR)$(APPDIR)/sfd-tool.desktop
-
-	# 安装图标（从 icon.png 转换不同尺寸）
-	if [ -f assets/icon.png ]; then \
-		convert assets/icon.png -resize 16x16 $(DESTDIR)$(ICONDIR)/16x16/apps/sfd-tool.png; \
-		convert assets/icon.png -resize 32x32 $(DESTDIR)$(ICONDIR)/32x32/apps/sfd-tool.png; \
-		convert assets/icon.png -resize 48x48 $(DESTDIR)$(ICONDIR)/48x48/apps/sfd-tool.png; \
-		convert assets/icon.png -resize 256x256 $(DESTDIR)$(ICONDIR)/256x256/apps/sfd-tool.png; \
-	fi
-
-	# 安装文档
-	install -m 644 LICENSE.txt $(DESTDIR)$(DOCDIR)/copyright
-	install -m 644 README.md $(DESTDIR)$(DOCDIR)/
-	install -m 644 README_ZH.md $(DESTDIR)$(DOCDIR)/
-
-	# 安装国际化文件
-	install -m 644 locale/zh_CN/LC_MESSAGES/sfd_tool.mo $(DESTDIR)$(LOCALEDIR)/zh_CN/LC_MESSAGES/
-
-	# 更新图标缓存
-	if [ -x /usr/bin/gtk-update-icon-cache ] && [ -z "$(DESTDIR)" ]; then \
-		gtk-update-icon-cache -q -t -f $(ICONDIR); \
-	fi
+install: all
+	# 使用 CMake 安装，复用 CMakeLists.txt 中的安装规则
+	cmake --install $(BUILD_DIR) --prefix $(DESTDIR)$(PREFIX)
 
 # 卸载目标
 .PHONY: uninstall
 uninstall:
+	# CMake 本身没有通用卸载逻辑，这里保留简单的清理示例；
+	# 如需更精确的卸载建议使用发行版包管理器或手工删除。
 	rm -f $(DESTDIR)$(BINDIR)/$(APPNAME)
 	rm -f $(DESTDIR)$(APPDIR)/sfd-tool.desktop
 	rm -rf $(DESTDIR)$(DOCDIR)
