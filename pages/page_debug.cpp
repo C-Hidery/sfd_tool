@@ -2,21 +2,15 @@
 #include "../common.h"
 #include "../main.h"
 #include "../i18n.h"
+#include "../ui_common.h"
 #include <thread>
 
-extern spdio_t* io;
+extern spdio_t*& io;
 extern int ret;
-extern int m_bOpened;
+extern int& m_bOpened;
 
 static void on_button_clicked_pac_time(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		
-	}
+	ensure_device_attached_or_exit(helper);
 	uint32_t n, offset = 0x81400, len = 8;
 	int ret;
 	uint32_t *data = (uint32_t *)io->temp_buf;
@@ -61,14 +55,7 @@ static void on_button_clicked_pac_time(GtkWidgetHelper helper) {
 }
 
 static void on_button_clicked_chip_uid(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		
-	}
+	ensure_device_attached_or_exit(helper);
 	encode_msg_nocpy(io, BSL_CMD_READ_CHIP_UID, 0);
 	send_msg(io);
 	ret = recv_msg(io);
@@ -88,14 +75,7 @@ static void on_button_clicked_chip_uid(GtkWidgetHelper helper) {
 }
 
 static void on_button_clicked_check_nand(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		
-	}
+	ensure_device_attached_or_exit(helper);
 	encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
 	send_msg(io);
 	ret = recv_msg(io);
@@ -114,7 +94,7 @@ static void on_button_clicked_check_nand(GtkWidgetHelper helper) {
 	}
 }
 
-GtkWidget* create_debug_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
+GtkWidget* DebugPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* dbgOptPage = helper.createGrid("dbg_opt_page", 5, 5);
 	helper.addNotebookPage(notebook, dbgOptPage, _("Debug Options"));
 
@@ -208,7 +188,7 @@ GtkWidget* create_debug_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	return dbgOptPage;
 }
 
-void bind_debug_signals(GtkWidgetHelper& helper) {
+void DebugPage::bindSignals(GtkWidgetHelper& helper) {
 	helper.bindClick(helper.getWidget("pac_time"), [&]() {
 		on_button_clicked_pac_time(helper);
 	});
@@ -218,4 +198,14 @@ void bind_debug_signals(GtkWidgetHelper& helper) {
 	helper.bindClick(helper.getWidget("check_nand"), [&]() {
 		on_button_clicked_check_nand(helper);
 	});
+}
+
+GtkWidget* create_debug_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
+    DebugPage page;
+    return page.init(helper, notebook);
+}
+
+void bind_debug_signals(GtkWidgetHelper& helper) {
+    DebugPage page;
+    page.bindSignals(helper);
 }

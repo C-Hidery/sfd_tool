@@ -1,5 +1,7 @@
 # CMake 使用指南
 
+> 相关文档： [README_ZH](../README_ZH.md) · [操作手册](USER_GUIDE_ZH.md) · [版本发布流程](RELEASE_GUIDE_ZH.md) · [版本记录](VERSION_LOG.md)
+
 下面是一份面向当前项目的 CMake 使用指南，覆盖 macOS / Linux / Windows，从安装、配置、调试、测试到打包。所有命令假定在项目根目录（有 CMakeLists.txt 的目录）执行，并使用 `build/` 作为构建目录。
 
 ---
@@ -358,47 +360,108 @@ cpack -G NSIS -C Release
 ```
 
 生成的安装包会放在 `build/` 下（例如 `sfd_tool-1.0.0-Linux.tar.gz`、`sfd_tool-1.0.0-win64.exe`）。
+## 9.3 兼容 Make 用法（内部仍由 CMake 驱动）
 
+为兼容历史使用习惯，项目根目录仍保留了一个 `Makefile`，但它现在只是 CMake 的薄封装：
 
-## 10. 语言与中文界面
+- `make` / `make all`：
+  - 等价于：
+    ```bash
+    cmake -S . -B build_cmake_make -G "Ninja" \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    cmake --build build_cmake_make -j
+    ```
+  - 若系统未安装 `ninja`，则自动退回 `Unix Makefiles` 生成器。
+- `make debug`：
+  - 使用 `CMAKE_BUILD_TYPE=Debug`，其余流程同上。
+- 构建产物：
+  - 可执行文件位于 `build_cmake_make/sfd_tool`（或对应生成器的默认输出路径）。
 
-本项目使用 gettext 做多语言支持，相关初始化代码在 `main.cpp` 中：
+注意：
 
-```cpp
-setlocale(LC_ALL, "");
-bindtextdomain("sfd_tool", "./locale");
-textdomain("sfd_tool");
-bind_textdomain_codeset("sfd_tool", "UTF-8");
+- 历史上 `Makefile` 直接调用编译器编译源文件，此方式不会生成 `version.h` 等 CMake 中间文件，已经被废弃；
+- 如需手工控制 CMake 选项（例如关闭 GTK、Libusb 或启用测试），请直接使用前文的 `cmake -S . -B ...` 命令，而不是修改 `Makefile`。
 ```
 
-中文翻译文件为 `locale/zh_CN/LC_MESSAGES/sfd_tool.mo`，由 CMake 在构建时自动生成到 `build_cmake/locale/zh_CN/LC_MESSAGES/`，运行时通过 `bindtextdomain` 的 `./locale` 路径加载。
-
-在 macOS 上实测：
-
-- 直接运行：界面为英文
-  ```bash
-  ./build_cmake/sfd_tool
-  ```
-- 仅设置 `LANG`：仍为英文
-  ```bash
-  LANG=zh_CN ./build_cmake/sfd_tool
-  LANG=zh_CN.UTF-8 ./build_cmake/sfd_tool
-  ```
-- 设置 `LC_ALL` 为中文：界面切换为中文（推荐）
-  ```bash
-  LC_ALL=zh_CN.UTF-8 ./build_cmake/sfd_tool
-  ```
-
-因此，在 macOS 上如果希望**临时**以中文界面启动，推荐命令为：
+等价流程：
 
 ```bash
-LC_ALL=zh_CN.UTF-8 ./build_cmake/sfd_tool
-```
+# 1. 生成/更新 Release 构建目录（优先使用 Ninja）
+cmake -S . -B build_cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release
 
-如果你希望在当前 shell 中默认使用中文，也可以在 `~/.zshrc` 中加入：
+# 2. 编译 Release 版本
+cmake --build build_cmake -j
+
+# 3. 如需运行，手动执行（界面语言由配置文件决定）：
+./build_cmake/sfd_tool
+```### 9.3 Windows 平台脚本（PowerShell）
+
+在 Windows 上，推荐使用 Visual Studio 2022 + CMake 的方式，通过 PowerShell 脚本封装：
+
+- 开发调试（Debug）：
+  ```powershell
+  # 在项目根目录执行
+  .\scripts\dev.ps1
+  ```
+
+- 发布构建（Release）：
+  ```powershell
+  # 在项目根目录执行
+  .\scripts\release.ps1
+  ```
+
+这两个脚本的核心行为：
+
+- 默认使用生成器：`Visual Studio 17 2022`，平台：`x64`
+- 统一使用 `build_vs/` 作为 VS 构建目录
+- `dev.ps1`：
+  - 调用：
+    ```powershell
+    cmake -S . -B build_vs -G "Visual Studio 17 2022" -A x64 `
+      -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    cmake --build build_vs --config Debug -- /m
+    ```
+  - 如果生成了 `build_vs/Debug/sfd_tool.exe`，则自动启动 GUI
+- `release.ps1`：
+  - 调用：
+    ```powershell
+    cmake -S . -B build_vs -G "Visual Studio 17 2022" -A x64
+    cmake --build build_vs --config Release -- /m
+    ```
+  - 不自动运行程序，只提示生成的 `build_vs/Release/sfd_tool.exe` 路径
+
+依赖检测与提示：
+
+- 如果 PowerShell 中找不到 `cmake`：
+  - 提示安装 Visual Studio 2022，并勾选“使用 C++ 的桌面开发”工作负载
+  - 或通过 `winget install Kitware.CMake` 安装 CMake
+- 建议在以下环境中运行脚本以确保 VS 工具链可用：
+  - `x64 Native Tools Command Prompt for VS 2022` 启动的 PowerShell
+  - Visual Studio 自带的“开发者 PowerShell”
+
+> 简单总结：
+> - macOS / Linux：`./scripts/dev.sh`、`./scripts/release.sh`
+> - Windows（VS 2022 + PowerShell）：`./scripts/dev.ps1`、`./scripts/release.ps1`
+
+
+本项目使用 gettext 做多语言支持。程序启动时会读取 per-user 配置文件中的 `ui_language` 字段来决定界面语言：
+
+- `"zh_CN"`：界面固定为简体中文（默认值）；
+- `"en_US"`：界面固定为英文；
+- `"auto"` 或空字符串：跟随系统/终端 locale。
+
+首次运行时如果不存在配置文件，程序会自动写出默认配置，其中 `ui_language` 为 `"zh_CN"`，因此直接运行：
 
 ```bash
-export LC_ALL=zh_CN.UTF-8
+./build_cmake/sfd_tool
 ```
 
-然后重新打开终端再运行程序即可始终以中文界面启动。
+即可看到中文界面。
+
+你可以通过两种方式切换语言：
+
+- 在 GUI 中打开 “Advanced Settings” 页面，找到 “UI language” 下拉框，选择期望语言后点击旁边的 “Apply” 按钮保存，重启程序后生效；
+- 或者手动编辑 per-user 配置文件（Linux: `$XDG_CONFIG_HOME/sfd_tool/sfd_tool_config.json` 或 `~/.config/sfd_tool/sfd_tool_config.json`；macOS: `$HOME/Library/Application Support/sfd_tool/sfd_tool_config.json`；Windows: `%APPDATA%\sfd_tool\sfd_tool_config.json`），修改 `ui_language` 字段为上述值之一，然后重启程序。
+
+旧版本文档中曾推荐通过设置环境变量 `LC_ALL=zh_CN.UTF-8` 来获得中文界面，目前已不再建议使用这种方式；一般情况下直接运行二进制并通过配置文件控制界面语言即可。

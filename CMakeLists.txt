@@ -2,6 +2,17 @@ cmake_minimum_required(VERSION 3.16)
 
 project(sfd_tool LANGUAGES CXX)
 
+# ================= 版本号（从 VERSION 文件生成） =================
+file(STRINGS "${CMAKE_SOURCE_DIR}/VERSION.txt" SFD_TOOL_VERSION_STR LIMIT_COUNT 1)
+string(STRIP "${SFD_TOOL_VERSION_STR}" SFD_TOOL_VERSION_STR)
+message(STATUS "SFD Tool version: ${SFD_TOOL_VERSION_STR}")
+
+configure_file(
+    "${CMAKE_SOURCE_DIR}/version.h.in"
+    "${CMAKE_BINARY_DIR}/generated/version.h"
+    @ONLY
+)
+
 # ================= 通用编译配置 =================
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -18,10 +29,12 @@ endif()
 option(USE_LIBUSB "Enable libusb backend" ON)
 option(USE_GTK "Enable GTK3 UI" ON)
 
-# Windows Win32 (x86) 始终不用 libusb，保持和原 vcxproj 一致
-if (WIN32 AND CMAKE_GENERATOR_PLATFORM STREQUAL "Win32")
-    set(USE_LIBUSB OFF CACHE BOOL "Disable libusb on 32-bit Windows (use Channel driver instead)" FORCE)
+# Windows x86 (Win32) 不支持 libusb：强制关闭，统一走 Channel9 封装
+if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4 AND USE_LIBUSB)
+    message(STATUS "USE_LIBUSB=ON is not supported on Win32 (x86); forcing USE_LIBUSB=OFF (Channel9 backend)")
+    set(USE_LIBUSB OFF CACHE BOOL "Enable libusb backend" FORCE)
 endif()
+
 
 # Termux 支持：与 Makefile 的 termux 目标对应
 option(TERMUX "Enable Termux specific build options" OFF)
@@ -34,6 +47,13 @@ endif()
 # ================= 子目录模块 =================
 add_subdirectory(core)
 add_subdirectory(pages)
+
+option(SFD_ENABLE_TESTS "Enable unit tests (ctest)" OFF)
+if (SFD_ENABLE_TESTS)
+    include(CTest)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
 
 # ================= 主可执行程序 =================
 add_executable(sfd_tool
@@ -53,10 +73,11 @@ if (WIN32)
 endif()
 
 # 链接子模块
+# pages_lib 依赖 core_lib（在静态链接下，依赖方需排在被依赖库之前）
 target_link_libraries(sfd_tool
     PRIVATE
-        core_lib
         pages_lib
+        core_lib
 )
 
 # 公共目标列表，方便批量设置编译选项
@@ -68,6 +89,7 @@ target_include_directories(sfd_tool
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/core
         ${CMAKE_CURRENT_SOURCE_DIR}/pages
+        ${CMAKE_BINARY_DIR}/generated
 )
 
 # ================= 平台宏 & 基础库 =================
@@ -110,9 +132,10 @@ endif()
 
 # Windows: libintl (gettext) via vcpkg
 if (WIN32)
-    if (CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
+    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         set(_vcpkg_triplet "x64-windows")
     else()
+        # 32-bit (Win32) build
         set(_vcpkg_triplet "x86-windows")
     endif()
 
@@ -160,12 +183,10 @@ find_package(PkgConfig QUIET)
 if (USE_GTK)
     if (WIN32)
         # Windows: headers/libraries are provided by MSYS2 GTK in the CI image.
-        # Include path differs for x64/x86 (mingw64 vs mingw32).
-        if (CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
-            # x64: use mingw64
+        # Use mingw64 for 64-bit builds and mingw32 for 32-bit (x86) builds.
+        if (CMAKE_SIZEOF_VOID_P EQUAL 8)
             set(_gtk_root "C:/msys64/mingw64")
         else()
-            # Win32: use mingw32
             set(_gtk_root "C:/msys64/mingw32")
         endif()
 

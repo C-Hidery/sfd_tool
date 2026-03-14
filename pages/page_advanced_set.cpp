@@ -2,12 +2,47 @@
 #include "../common.h"
 #include "../main.h"
 #include "../i18n.h"
+#include "../core/config_service.h"
 
-extern spdio_t* io;
+extern spdio_t*& io;
 extern int blk_size;
 extern int keep_charge;
 extern int end_data;
 extern AppState g_app_state;
+
+namespace {
+
+constexpr int LANG_INDEX_SYSTEM = 0;
+constexpr int LANG_INDEX_ZH_CN  = 1;
+constexpr int LANG_INDEX_EN_US  = 2;
+
+int ui_language_to_index(const std::string& lang) {
+	if (lang.empty() || lang == "auto") {
+		return LANG_INDEX_SYSTEM;
+	}
+	if (lang == "zh_CN") {
+		return LANG_INDEX_ZH_CN;
+	}
+	if (lang == "en_US") {
+		return LANG_INDEX_EN_US;
+	}
+	// 未知值：退回系统默认
+	return LANG_INDEX_SYSTEM;
+}
+
+std::string index_to_ui_language(int index) {
+	switch (index) {
+	case LANG_INDEX_ZH_CN:
+		return "zh_CN";
+	case LANG_INDEX_EN_US:
+		return "en_US";
+	case LANG_INDEX_SYSTEM:
+	default:
+		return "auto";
+	}
+}
+
+} // namespace
 
 static void on_button_clicked_raw_data_en(GtkWidgetHelper helper) {
 	int rawdatay = atoi(helper.getEntryText(helper.getWidget("raw_data_v")));
@@ -60,20 +95,20 @@ static void on_button_clicked_end_data_dis(GtkWidgetHelper helper) {
 
 static void on_button_clicked_abpart_auto(GtkWidgetHelper helper) {
 	(void)helper;
-	g_app_state.selected_ab = 0;
+	g_app_state.flash.selected_ab = 0;
 }
 
 static void on_button_clicked_abpart_a(GtkWidgetHelper helper) {
 	(void)helper;
-	g_app_state.selected_ab = 1;
+	g_app_state.flash.selected_ab = 1;
 }
 
 static void on_button_clicked_abpart_b(GtkWidgetHelper helper) {
 	(void)helper;
-	g_app_state.selected_ab = 2;
+	g_app_state.flash.selected_ab = 2;
 }
 
-GtkWidget* create_advanced_set_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
+GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* advSetPage = helper.createGrid("adv_set_page", 5, 5);
 	helper.addNotebookPage(notebook, advSetPage, _("Advanced Settings"));
 
@@ -100,6 +135,36 @@ GtkWidget* create_advanced_set_page(GtkWidgetHelper& helper, GtkWidget* notebook
 		return box;
 	};
 
+	// 0. 界面语言设置部分
+	GtkWidget* langFrame = gtk_frame_new(NULL);
+	GtkWidget* langTitle = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(langTitle), (std::string("<b>") + _("UI language") + "</b>").c_str());
+	gtk_widget_set_halign(langTitle, GTK_ALIGN_CENTER);
+	gtk_frame_set_label_widget(GTK_FRAME(langFrame), langTitle);
+	gtk_frame_set_label_align(GTK_FRAME(langFrame), 0.5, 0.5);
+
+	GtkWidget* langBox = makeCardBox(32, 16);
+	gtk_container_add(GTK_CONTAINER(langFrame), langBox);
+
+	GtkWidget* langLabel = gtk_label_new(_("UI language"));
+	GtkWidget* combo_ui_language = gtk_combo_box_text_new();
+	gtk_widget_set_name(combo_ui_language, "ui_language_combo");
+	helper.addWidget("ui_language_combo", combo_ui_language);
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_ui_language), _("System default"));
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_ui_language), _("Simplified Chinese"));
+	gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_ui_language), _("English"));
+
+	GtkWidget* langRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+	gtk_widget_set_halign(langRow, GTK_ALIGN_CENTER);
+	gtk_box_pack_start(GTK_BOX(langRow), langLabel, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(langRow), combo_ui_language, FALSE, FALSE, 0);
+
+	GtkWidget* langApplyBtn = helper.createButton(_("Apply"), "ui_language_apply", nullptr, 0, 0, 80, 32);
+	gtk_box_pack_start(GTK_BOX(langRow), langApplyBtn, FALSE, FALSE, 0);
+
+	gtk_box_pack_start(GTK_BOX(langBox), langRow, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(mainBox), langFrame, FALSE, FALSE, 0);
+
 	// 1. 数据块大小设置部分
 	GtkWidget* blkFrame = gtk_frame_new(NULL);
 	GtkWidget* blkTitle = gtk_label_new(NULL);
@@ -118,7 +183,7 @@ GtkWidget* create_advanced_set_page(GtkWidgetHelper& helper, GtkWidget* notebook
 	gtk_scale_set_value_pos(GTK_SCALE(blkSlider), GTK_POS_RIGHT);
 	gtk_widget_set_name(blkSlider, "blk_size");
 	helper.addWidget("blk_size", blkSlider);
-	
+
 	GtkWidget* sizeConLabel = gtk_label_new(_("Value:"));
 	helper.addWidget("blk_label", sizeConLabel);
 	GtkWidget* sizeCon = helper.createLabel("10000", "size_con", 0, 0, 60, 20);
@@ -152,7 +217,7 @@ GtkWidget* create_advanced_set_page(GtkWidgetHelper& helper, GtkWidget* notebook
 	gtk_widget_set_halign(rawDataButtonBox, GTK_ALIGN_CENTER);
 	gtk_box_pack_start(GTK_BOX(rawDataButtonBox), rawDataEn, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(rawDataButtonBox), rawDataDis, FALSE, FALSE, 0);
-	
+
 	GtkWidget* rawValLinked = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 	gtk_style_context_add_class(gtk_widget_get_style_context(rawValLinked), "linked");
 	gtk_box_pack_start(GTK_BOX(rawValLinked), rlabel, FALSE, FALSE, 0);
@@ -260,14 +325,14 @@ GtkWidget* create_advanced_set_page(GtkWidgetHelper& helper, GtkWidget* notebook
 	gtk_frame_set_label_widget(GTK_FRAME(abpartFrame), abpartTitle);
 	gtk_frame_set_label_align(GTK_FRAME(abpartFrame), 0.5, 0.5);
 	helper.addWidget("abpart_label", abpartTitle);
-	
+
 	GtkWidget* abpartBox = makeCardBox(32, 16);
 	gtk_container_add(GTK_CONTAINER(abpartFrame), abpartBox);
 
 	GtkWidget* abpart_auto = helper.createButton(_("Not VAB --- FDL2"),"abpart_auto",nullptr,0,0,176,36);
 	GtkWidget* abpart_a = helper.createButton(_("A Parts --- FDL2"),"abpart_a",nullptr,0,0,176,36);
 	GtkWidget* abpart_b = helper.createButton(_("B Parts --- FDL2"),"abpart_b",nullptr,0,0,176,36);
-	
+
 	GtkWidget* abpartButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
 	gtk_widget_set_halign(abpartButtonBox, GTK_ALIGN_CENTER);
 	gtk_box_pack_start(GTK_BOX(abpartButtonBox), abpart_auto,FALSE,FALSE,0);
@@ -280,10 +345,22 @@ GtkWidget* create_advanced_set_page(GtkWidgetHelper& helper, GtkWidget* notebook
 	gtk_container_add(GTK_CONTAINER(advScroll), mainBox);
 	helper.addToGrid(advSetPage, advScroll, 0, 0, 4, 6);
 
+	// 读取配置并设置界面语言下拉框当前值
+	auto cfgSvc = sfd::createConfigService();
+	if (cfgSvc) {
+		GtkWidget* combo_ui_language = helper.getWidget("ui_language_combo");
+		sfd::AppConfig cfg{};
+		if (!sfd::loadAppConfigOrDefault(cfg)) {
+			// 已填充默认值
+		}
+		int idx = ui_language_to_index(cfg.ui_language);
+		gtk_combo_box_set_active(GTK_COMBO_BOX(combo_ui_language), idx);
+	}
+
 	return advSetPage;
 }
 
-void bind_advanced_set_signals(GtkWidgetHelper& helper) {
+void AdvancedSetPage::bindSignals(GtkWidgetHelper& helper) {
 	GtkWidget* blkSlider = helper.getWidget("blk_size");
 	GtkWidget* sizeCon = helper.getWidget("size_con");
 	GtkWidget* timeout_op = helper.getWidget("timeout");
@@ -332,4 +409,44 @@ void bind_advanced_set_signals(GtkWidgetHelper& helper) {
 	helper.bindClick(helper.getWidget("abpart_b"),[&](){
 		on_button_clicked_abpart_b(helper);
 	});
+
+	// 语言应用按钮：保存 ui_language 并提示重启后生效
+	helper.bindClick(helper.getWidget("ui_language_apply"), [&]() {
+		auto cfgSvc = sfd::createConfigService();
+		if (!cfgSvc) {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")),
+			               _("Error"),
+			               _("Failed to create config service."));
+			return;
+		}
+
+		sfd::AppConfig cfg{};
+		sfd::loadAppConfigOrDefault(cfg);
+
+		GtkWidget* combo_ui_language = helper.getWidget("ui_language_combo");
+		int idx = gtk_combo_box_get_active(GTK_COMBO_BOX(combo_ui_language));
+		cfg.ui_language = index_to_ui_language(idx);
+
+		sfd::ConfigStatus status = cfgSvc->saveAppConfig(cfg);
+		if (!status.success) {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")),
+			               _("Error"),
+			               status.message.c_str());
+			return;
+		}
+
+		showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")),
+		              _("Info"),
+		              _("Language will take effect after restart."));
+	});
+}
+
+GtkWidget* create_advanced_set_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
+    AdvancedSetPage page;
+    return page.init(helper, notebook);
+}
+
+void bind_advanced_set_signals(GtkWidgetHelper& helper) {
+    AdvancedSetPage page;
+    page.bindSignals(helper);
 }

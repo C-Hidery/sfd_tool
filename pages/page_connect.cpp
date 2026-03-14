@@ -3,16 +3,16 @@
 #include "../main.h"
 #include "../i18n.h"
 #include "../ui_common.h"
-#include "../third_party/nlohmann/json.hpp"
+#include "../core/device_service.h"
+#include "../core/config_service.h"
 #include "page_partition.h"
 #include <thread>
 #include <chrono>
 
-extern spdio_t* io;
+extern spdio_t*& io;
 extern int ret;
-extern int m_bOpened;
+extern int& m_bOpened;
 extern int blk_size;
-extern int isCMethod;
 extern int keep_charge;
 extern int end_data;
 extern int highspeed;
@@ -44,7 +44,45 @@ extern libusb_device* curPort;
 extern libusb_device** ports;
 #endif
 
+// 兼容旧逻辑：isCMethod 始终映射到 AppState::flash.isCMethod
+static int& isCMethod = g_app_state.flash.isCMethod;
+
 using nlohmann::json;
+
+// 通过 Service 层封装设备与配置访问
+static std::unique_ptr<sfd::DeviceService> g_device_service;
+static std::unique_ptr<sfd::ConfigService> g_config_service;
+
+static sfd::DeviceService* ensure_device_service() {
+    if (!g_device_service) {
+        g_device_service = sfd::createDeviceService();
+    }
+    g_device_service->setContext(io, &g_app_state);
+    return g_device_service.get();
+}
+
+static sfd::ConfigService* ensure_config_service() {
+    if (!g_config_service) {
+        g_config_service = sfd::createConfigService();
+    }
+    return g_config_service.get();
+}
+
+// 根据 DeviceService 当前视图刷新 UI 上的 mode 文案
+static void update_mode_label_from_device_service(GtkWidgetHelper& helper) {
+    auto* devSvc = ensure_device_service();
+    if (!devSvc) return;
+
+    sfd::DeviceStage st = devSvc->getCurrentStage();
+    const char* mode_text = "Unknown";
+    switch (st) {
+    case sfd::DeviceStage::BootRom:  mode_text = "BROM"; break;
+    case sfd::DeviceStage::Fdl1:     mode_text = "FDL1"; break;
+    case sfd::DeviceStage::Fdl2:     mode_text = "FDL2"; break;
+    default: break;
+    }
+    helper.setLabelText(helper.getWidget("mode"), mode_text);
+}
 
 // 前向声明 — 这些回调定义在本文件中
 extern void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv);
@@ -113,7 +151,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	}
 
 #if !USE_LIBUSB
-	g_app_state.bListenLibusb = 0;
+	g_app_state.transport.bListenLibusb = 0;
 	if (at || bootmode >= 0) {
 		io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
 		if (io->hThread == nullptr) return;
@@ -124,7 +162,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 #else
 	if (!libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG)) {
 		DBG_LOG("hotplug unsupported on this platform\n");
-		g_app_state.bListenLibusb = 0;
+		g_app_state.transport.bListenLibusb = 0;
 		bootmode = -1;
 		at = 0;
 	}
@@ -134,10 +172,10 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		conn_wait = 30 * REOPEN_FREQ;
 		stage = -1;
 	}
-	if (!g_app_state.bListenLibusb) startUsbEventHandle();
+	if (!g_app_state.transport.bListenLibusb) startUsbEventHandle();
 #endif
 #if _WIN32
-	if (!g_app_state.bListenLibusb) {
+	if (!g_app_state.transport.bListenLibusb) {
 		if (io->hThread == nullptr) io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
 		if (io->hThread == nullptr) return;
 	}
@@ -155,7 +193,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 
 		for (int i = 0; ; i++) {
 #if USE_LIBUSB
-			if (g_app_state.bListenLibusb) {
+			if (g_app_state.transport.bListenLibusb) {
 				if (curPort) {
 					if (libusb_open(curPort, &io->dev_handle) >= 0) call_Initialize_libusb(io);
 					else ERR_EXIT("Failed to connect\n");
@@ -236,12 +274,12 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 			//check stage
 			if (ret == BSL_REP_VER) {
 				if (fdl1_loaded == 1) {
-					g_app_state.device_stage = FDL1;
+					g_app_state.device.device_stage = FDL1;
 					DEG_LOG(OP, "FDL1 connected.");
 					if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
 					break;
 				} else {
-					g_app_state.device_stage = BROM;
+					g_app_state.device.device_stage = BROM;
 					DEG_LOG(OP, "Check baud BROM");
 					if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) {
 						fdl1_loaded = -1;
@@ -265,7 +303,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 			}
 			if (fdl1_loaded == 1) {
 				DEG_LOG(OP, "FDL1 connected.");
-				g_app_state.device_stage = FDL1;
+				g_app_state.device.device_stage = FDL1;
 				if (keep_charge) {
 					encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
 					if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
@@ -273,7 +311,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 				break;
 			} else {
 				DEG_LOG(OP, "BROM connected.");
-				g_app_state.device_stage = BROM;
+				g_app_state.device.device_stage = BROM;
 				break;
 			}
 		}
@@ -286,7 +324,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 				helper.disableWidget("fdl_exec");
 				EnableWidgets(helper);
 				fdl2_executed = 1;
-				g_app_state.device_stage = FDL2;
+				g_app_state.device.device_stage = FDL2;
 				int o = io->verbose;
 				io->verbose = -1;
 				g_spl_size = check_partition(io, "splloader", 1);
@@ -334,23 +372,33 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		}
 	}
 	DEG_LOG(I, "SPRD3 Current : %d", found);
-	if (!found && isKickMode) g_app_state.device_mode = SPRD4;
-	else g_app_state.device_mode = SPRD3;
-	
+	if (!found && isKickMode) g_app_state.device.device_mode = SPRD4;
+	else g_app_state.device.device_mode = SPRD3;
+
+	// 使用 DeviceService 视图统一记录阶段/模式信息
+	auto* devSvc = ensure_device_service();
+	if (devSvc) {
+		sfd::DeviceInfo info{};
+		sfd::DeviceStatus st = devSvc->probeDevice(info);
+		if (st.success) {
+			DEG_LOG(I, "Device stage(view): %d, mode(view): %d", (int)info.stage, (int)info.mode);
+		}
+	}
+
 	if (fdl2_executed > 0) {
-		if (g_app_state.device_mode == SPRD3) {
+		if (g_app_state.device.device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: FDL2/SPRD3");
 		} else DEG_LOG(I, "Device stage: FDL2/SPRD4(AutoD)");
 	} else if (fdl1_loaded > 0) {
-		if (g_app_state.device_mode == SPRD3) {
+		if (g_app_state.device.device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: FDL1/SPRD3");
 		} else DEG_LOG(I, "Device stage: FDL1/SPRD4(AutoD)");
-	} else if (g_app_state.device_stage == BROM) {
-		if (g_app_state.device_mode == SPRD3) {
+	} else if (g_app_state.device.device_stage == BROM) {
+		if (g_app_state.device.device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: BROM/SPRD3");
 		} else DEG_LOG(I, "Device stage: BROM/SPRD4(AutoD)");
 	} else {
-		if (g_app_state.device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
+		if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
 		else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
 	}
 	gui_idle_call_wait_drag([helper]() mutable {
@@ -358,15 +406,13 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		if (!fdl2_executed) {
 			helper.enableWidget("fdl_exec");
 			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Please execute FDL file to continue!"));
-			if (g_app_state.device_mode == SPRD4 && isKickMode) {
+			if (g_app_state.device.device_mode == SPRD4 && isKickMode) {
 				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Since your device is in SPRD4 mode, you can choose to skip FDL setting and directly execute FDL, but not all devices support that, please proceed with caution!"));
 			}
 		}
-		else if (g_app_state.device_stage == FDL2) helper.setLabelText(helper.getWidget("con"), "Ready");
+		else if (g_app_state.device.device_stage == FDL2) helper.setLabelText(helper.getWidget("con"), "Ready");
 		helper.setLabelText(helper.getWidget("con"), "Connected");
-		if (g_app_state.device_stage == BROM) helper.setLabelText(helper.getWidget("mode"), "BROM");
-		else if (g_app_state.device_stage == FDL1) helper.setLabelText(helper.getWidget("mode"), "FDL1");
-		else if (g_app_state.device_stage == FDL2) helper.setLabelText(helper.getWidget("mode"), "FDL2");
+		update_mode_label_from_device_service(helper);
 	},GTK_WINDOW(helper.getWidget("main_window")));
 
 }
@@ -378,12 +424,8 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 	const char* fdl_path = helper.getEntryText(fdlEntry);
 	const char* fdl_addr_str = helper.getEntryText(addrEntry);
 	uint32_t fdl_addr = strtoul(fdl_addr_str, nullptr, 0);
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		
+	if (ensure_device_attached_or_warn(helper)) {
+		return;
 	}
 	if (fdl1_loaded > 0) {
 		DEG_LOG(I, "Executing FDL file: %s at address: 0x%X", fdl_path, fdl_addr);
@@ -392,7 +434,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		std::string dtxt = helper.getLabelText(helper.getWidget("con"));
 		helper.setLabelText(helper.getWidget("con"), dtxt + " -> FDL Executing");
 		//Send fdl2
-		if (g_app_state.device_mode == SPRD3) {
+		if (g_app_state.device.device_mode == SPRD3) {
 			FILE *fi = oxfopen(fdl_path, "r");
 			if (fi == nullptr) {
 				DEG_LOG(W, "File does not exist.");
@@ -401,7 +443,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			if (!isKickMode) send_file(io, fdl_path, fdl_addr, end_data, blk_size ? blk_size : 528, 0, 0);
 			else send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
 		} else {
-			if (g_app_state.device_mode == SPRD4 && isKickMode) {
+			if (g_app_state.device.device_mode == SPRD4 && isKickMode) {
 				gui_idle_call_with_callback(
 					[helper]() -> bool {
 						return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Device can be booted without FDL in SPRD4 mode, continue?"));
@@ -492,14 +534,16 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				helper.setLabelText(helper.getWidget("storage_mode"),"Nand");
 			});
 		}
-		if (g_app_state.gpt_failed != 1) {
-			if (g_app_state.selected_ab == 2) {
+		if (g_app_state.flash.gpt_failed != 1) {
+			if (g_app_state.flash.selected_ab == 2) {
+
 				DEG_LOG(I, "Device is using slot b\n");
 				gui_idle_call([helper]() mutable {
 					helper.setLabelText(helper.getWidget("slot_mode"),"Slot B");
 				});
 			}
-			else if (g_app_state.selected_ab == 1) {
+			else if (g_app_state.flash.selected_ab == 1) {
+
 				DEG_LOG(I, "Device is using slot a\n");
 				gui_idle_call([helper]() mutable {
 					helper.setLabelText(helper.getWidget("slot_mode"),"Slot A");
@@ -517,16 +561,19 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			}
 		}
 		if (io->part_count) {
-			std::vector<partition_t> partitions;
+			std::vector<sfd::DevicePartitionInfo> partitions;
 			partitions.reserve(io->part_count);
 			for (int i = 0; i < io->part_count; i++) {
-				partitions.push_back(io->ptable[i]);
+				sfd::DevicePartitionInfo info{};
+				info.name = io->ptable[i].name;
+				info.size = (std::uint64_t)io->ptable[i].size;
+				info.readable = true;
+				info.writable = true;
+				partitions.push_back(info);
 			}
 			gui_idle_call_wait_drag([helper, partitions]() mutable {
 				populatePartitionList(helper, partitions);
 			},GTK_WINDOW(helper.getWidget("main_window")));
-
-		} else if (isUseCptable) {
 			io->Cptable = partition_list_d(io);
 			isCMethod = 1;
 		}
@@ -547,10 +594,11 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			helper.setLabelText(helper.getWidget("mode"), "FDL2");
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
-		if(!(helper.getSwitchState(helper.getWidget("exec_addr"))) && g_app_state.device_mode == SPRD3)
+		if(!(helper.getSwitchState(helper.getWidget("exec_addr"))) && g_app_state.device.device_mode == SPRD3)
 		{
+			// 1) 保留原有 fdl_info.json 写入逻辑，兼容旧行为
 			FILE* json_file = oxfopen("fdl_info.json", "w");
-			if (json_file) 
+			if (json_file)
 			{
 				json j = {
 					{"fdl1_path", fdl1_path_json},
@@ -560,6 +608,17 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				};
 				fprintf(json_file, "%s\n", j.dump().c_str());
 				fclose(json_file);
+			}
+
+			// 2) 同步写入 AppConfig，交由 ConfigService 管理“最近使用的 FDL”
+			auto* cfgSvc = ensure_config_service();
+			if (cfgSvc) {
+				sfd::AppConfig cfg{};
+				// NotFound 时返回错误码，但我们可以继续使用默认配置
+				cfgSvc->loadAppConfig(cfg);
+				cfg.last_fdl1_path = fdl1_path_json;
+				cfg.last_fdl2_path = fdl2_path_json;
+				cfgSvc->saveAppConfig(cfg);
 			}
 		}
 
@@ -578,7 +637,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			const char* cve_path = helper.getEntryText(cveAddr);
 			const char* cve_addr = helper.getEntryText(cveAddrC);
 
-			if (g_app_state.device_mode == SPRD3) {
+			if (g_app_state.device.device_mode == SPRD3) {
 				if (fi == nullptr) {
 					DEG_LOG(W, "File does not exist.\n");
 					return;
@@ -619,7 +678,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 					if (send_and_check(io)) ERR_EXIT("FDL exec failed");;
 				}
 			} else {
-				if (g_app_state.device_mode == SPRD4 && isKickMode) {
+				if (g_app_state.device.device_mode == SPRD4 && isKickMode) {
 					gui_idle_call_with_callback(
 						[helper]() -> bool {
 							return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Device can be booted without FDL in SPRD4 mode, continue?"));
@@ -807,6 +866,16 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* fdlFilePath = helper.createEntry("fdl_file_path", "", false, 0, 0, 300, 32);
 	gtk_widget_set_hexpand(fdlFilePath, TRUE);
 	GtkWidget* selectFdlBtn = helper.createButton("...", "select_fdl", nullptr, 0, 0, 40, 32);
+
+	// 从配置中恢复最近使用的 FDL 路径（如果有）
+	auto* cfgSvc = ensure_config_service();
+	if (cfgSvc) {
+		sfd::AppConfig cfg{};
+		sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
+		if (status.success && !cfg.last_fdl1_path.empty()) {
+			helper.setEntryText(fdlFilePath, cfg.last_fdl1_path.c_str());
+		}
+	}
 
 	gtk_grid_attach(GTK_GRID(fdlGrid), fdlLabel, 0, 0, 1, 1);
 	gtk_grid_attach(GTK_GRID(fdlGrid), fdlFilePath, 1, 0, 1, 1);

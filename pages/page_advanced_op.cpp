@@ -4,26 +4,45 @@
 #include "../i18n.h"
 #include "../GenTosNoAvb.h"
 #include "page_partition.h"
+#include "../core/flash_service.h"
+#include "../ui_common.h"
 #include <thread>
+#include <memory>
+#include <vector>
 
-extern spdio_t* io;
+extern spdio_t*& io;
 extern int ret;
-extern int m_bOpened;
+extern int& m_bOpened;
 extern int blk_size;
-extern int isCMethod;
 extern AppState g_app_state;
 
+// 兼容旧逻辑：isCMethod 始终映射到 AppState::flash.isCMethod
+static int& isCMethod = g_app_state.flash.isCMethod;
+
+static std::unique_ptr<sfd::FlashService> g_flash_service;
+
+static sfd::FlashService* ensure_flash_service() {
+	if (!g_flash_service) {
+		g_flash_service = sfd::createFlashService();
+	}
+	g_flash_service->setContext(io, &g_app_state);
+	return g_flash_service.get();
+}
+
+static void refresh_partition_list(GtkWidgetHelper& helper) {
+	auto* svc = ensure_flash_service();
+	std::vector<sfd::DevicePartitionInfo> partitions;
+	sfd::FlashStatus st = svc->refreshDevicePartitions(partitions);
+	if (!st.success) {
+		DEG_LOG(E, "refreshDevicePartitions failed: %s", st.message.c_str());
+		return;
+	}
+	populatePartitionList(helper, partitions);
+}
 
 static void on_button_clicked_set_active_a(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		
-	}
-	if(!g_app_state.selected_ab) {
+	ensure_device_attached_or_exit(helper);
+	if(!g_app_state.flash.selected_ab) {
 		gui_idle_call_wait_drag([helper](){
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device is not using VAB!"));
 		},GTK_WINDOW(helper.getWidget("main_window")));
@@ -37,15 +56,8 @@ static void on_button_clicked_set_active_a(GtkWidgetHelper helper) {
 }
 
 static void on_button_clicked_set_active_b(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		
-	}
-	if(!g_app_state.selected_ab) {
+	ensure_device_attached_or_exit(helper);
+	if(!g_app_state.flash.selected_ab) {
 		gui_idle_call_wait_drag([helper](){
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device is not using VAB!"));
 		},GTK_WINDOW(helper.getWidget("main_window")));
@@ -59,14 +71,7 @@ static void on_button_clicked_set_active_b(GtkWidgetHelper helper) {
 }
 
 static void on_button_clicked_start_repart(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		
-	}
+	ensure_device_attached_or_exit(helper);
 	GtkWidget *parent = helper.getWidget("main_window");
 	std::string filePath = helper.getEntryText(helper.getWidget("xml_path"));
 	FILE *fi = oxfopen(filePath.c_str(), "r");
@@ -76,82 +81,26 @@ static void on_button_clicked_start_repart(GtkWidgetHelper helper) {
 	} else fclose(fi);
 	repartition(io, filePath.c_str());
 	showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("Repartition completed!"));
-	std::vector<partition_t> partitions;
-	partitions.reserve(io->part_count);
-	if(!isCMethod){
-		for (int i = 0; i < io->part_count; i++) {
-			partitions.push_back(io->ptable[i]);
-		}
-	}
-	else {
-		for (int i = 0; i < io->part_count_c; i++) {
-			partitions.push_back(io->Cptable[i]);
-		}
-	}
-	populatePartitionList(helper, partitions);
+	refresh_partition_list(helper);
 }
 
 static void on_button_clicked_read_xml(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		
-	}
+	ensure_device_attached_or_exit(helper);
 	GtkWidget* parent = helper.getWidget("main_window");
 	std::string savePath = showSaveFileDialog(GTK_WINDOW(parent), "partition_table.xml", { {_("XML files (*.xml)"), "*.xml"} });
 	if (savePath.empty()) {
 		showErrorDialog(GTK_WINDOW(parent), _(_(_(("Error")))), _("No save path selected!"));
 		return;
 	}
-	if (!isCMethod) {
-		if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, savePath.c_str(), &io->part_count);
-		if (!io->part_count) {
-			DEG_LOG(E, "Partition table not available");
-			return;
-		} else {
-			DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
-			FILE* fo = my_oxfopen(savePath.c_str(), "wb");
-			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo, "<Partitions>\n");
-			for (int i = 0; i < io->part_count; i++) {
-				DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->ptable + i)).name, ((*(io->ptable + i)).size >> 20));
-				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
-				if (i + 1 == io->part_count) fprintf(fo, "0x%x\"/>\n", ~0);
-				else fprintf(fo, "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
-			}
-			fprintf(fo, "</Partitions>");
-			fclose(fo);
-			DEG_LOG(I, "Partition table saved to %s", savePath.c_str());
-		}
-	} else {
-		int c = io->part_count_c;
-		if (!c) {
-			DEG_LOG(E, "Partition table not available");
-			return;
-		} else {
-			DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
-			FILE* fo = my_oxfopen(savePath.c_str(), "wb");
-			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo, "<Partitions>\n");
-			char* name;
-			int o = io->verbose;
-			io->verbose = -1;
-			for (int i = 0; i < c; i++) {
-				name = (*(io->Cptable + i)).name;
-				DBG_LOG("%3d %36s %7lldMB\n", i + 1, name, ((*(io->Cptable + i)).size >> 20));
-				fprintf(fo, "    <Partition id=\"%s\" size=\"", name);
-				if (check_partition(io, "userdata", 0) != 0 && i + 1 == io->part_count_c) fprintf(fo, "0x%x\"/>\n", ~0);
-				else fprintf(fo, "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
-			}
-			fprintf(fo, "</Partitions>");
-			fclose(fo);
-			io->verbose = o;
-			DEG_LOG(I, "Partition table saved to %s", savePath.c_str());
-		}
+
+	auto* svc = ensure_flash_service();
+	sfd::FlashStatus st = svc->exportPartitionTableToXml(savePath);
+	if (!st.success) {
+		DEG_LOG(E, "exportPartitionTableToXml failed: %s", st.message.c_str());
+		showErrorDialog(GTK_WINDOW(parent), _(_(_(("Error")))), st.message.c_str());
+		return;
 	}
+
 	showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("Partition table export completed!"));
 }
 
@@ -164,67 +113,82 @@ static void on_button_clicked_select_xml(GtkWidgetHelper helper) {
 }
 
 static void on_button_clicked_dmv_enable(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		
-	}
+	ensure_device_attached_or_exit(helper);
 	GtkWidget *parent = helper.getWidget("main_window");
 	dm_avb_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 	showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("DM-Verity and AVB protection enabled!"));
 }
 
 static void on_button_clicked_dmv_disable(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		
-	}
+	ensure_device_attached_or_exit(helper);
 	GtkWidget *parent = helper.getWidget("main_window");
 	avb_dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 	showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("DM-Verity and AVB protection disabled!"));
 }
 
 static void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		
-	}
+	ensure_device_attached_or_exit(helper);
 	helper.setLabelText(helper.getWidget("con"), "Patching trustos");
 	TosPatcher patcher;
 	bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Warning")))), _("This operation may break your device, and not all devices support this, if your device is broken, flash backup in backup_tos, continue?"));
 	if (i_is) {
-		std::thread([helper, patcher]() mutable {
-			get_partition_info(io, "trustos", 1);
-			if (!gPartInfo.size) {
-				DEG_LOG(E, "Partition not exist\n");
-				return;
+		LongTaskConfig cfg{
+			helper,
+			// worker：在后台线程中执行 trustos 读取/打补丁/回写
+			[helper, patcher](std::atomic_bool& cancel_flag) mutable {
+				(void)cancel_flag; // 当前实现暂不支持取消
+				auto* svc = ensure_flash_service();
+
+				sfd::PartitionIoOptions read_opts;
+				read_opts.partition_name = "trustos";
+				read_opts.file_path = "trustos.bin";
+				read_opts.block_size = blk_size;
+
+				sfd::FlashStatus st_read = svc->readPartitionToFile(read_opts);
+				if (!st_read.success) {
+					DEG_LOG(E, "readPartitionToFile(\"trustos\") failed: %s", st_read.message.c_str());
+					return;
+				}
+
+				int o = patcher.patcher("trustos.bin");
+				if (!o) {
+					sfd::PartitionIoOptions write_opts;
+					write_opts.partition_name = "trustos";
+					write_opts.file_path = "tos-noavb.bin";
+					write_opts.block_size = blk_size;
+					write_opts.force = false;
+
+					sfd::FlashStatus st_write = svc->writePartitionFromFile(write_opts);
+					if (!st_write.success) {
+						DEG_LOG(E, "writePartitionFromFile(\"trustos\") failed: %s", st_write.message.c_str());
+						o = -1;
+					}
+				}
+
+				if (!o) {
+					gui_idle_call_wait_drag([helper]() {
+						showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Disabled AVB successfully, the backup trustos is tos_bak.bin"));
+					},GTK_WINDOW(helper.getWidget("main_window")));
+				} else {
+					gui_idle_call_wait_drag([helper]() {
+						showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Disabled AVB failed, go to console window to see why"));
+					},GTK_WINDOW(helper.getWidget("main_window")));
+				}
+			},
+			// on_started：GUI 线程中执行，设置状态
+			[&helper]() {
+				helper.setLabelText(helper.getWidget("con"), "Patching trustos");
+			},
+			// on_finished：GUI 线程中执行，恢复状态
+			[&helper]() {
+				helper.setLabelText(helper.getWidget("con"), "Ready");
 			}
-			dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "trustos.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
-			int o = patcher.patcher("trustos.bin");
-			if (!o) load_partition_unify(io, "trustos", "tos-noavb.bin",blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-			if (!o) {
-				gui_idle_call_wait_drag([helper]() {
-					showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Disabled AVB successfully, the backup trustos is tos_bak.bin"));
-				},GTK_WINDOW(helper.getWidget("main_window")));
-			} else {
-				gui_idle_call_wait_drag([helper]() {
-					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Disabled AVB failed, go to console window to see why"));
-				},GTK_WINDOW(helper.getWidget("main_window")));
-			}
-		}).detach();
+		};
+
+		run_long_task(cfg);
+	} else {
+		helper.setLabelText(helper.getWidget("con"), "Ready");
 	}
-    helper.setLabelText(helper.getWidget("con"), "Ready");
 }
 
 GtkWidget* create_advanced_op_page(GtkWidgetHelper& helper, GtkWidget* notebook) {

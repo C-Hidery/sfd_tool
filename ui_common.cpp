@@ -2,14 +2,32 @@
 #include "common.h"
 #include "main.h"
 #include "i18n.h"
+#include <thread>
+#include <chrono>
 
-extern spdio_t* io;
+extern spdio_t*& io;
+extern AppState g_app_state;
+extern int& m_bOpened;
+// 兼容旧逻辑：isCMethod 映射到 AppState::flash.isCMethod
+static int& isCMethod = g_app_state.flash.isCMethod;
 
 // 前向声明回调函数（来自其他页面模块）
 void on_button_clicked_poweroff(GtkWidgetHelper helper);
 void on_button_clicked_reboot(GtkWidgetHelper helper);
 void on_button_clicked_recovery(GtkWidgetHelper helper);
 void on_button_clicked_fastboot(GtkWidgetHelper helper);
+
+void Enable_Startup(GtkWidgetHelper helper) {
+	helper.enableWidget("transcode_en");
+	helper.enableWidget("transcode_dis");
+	helper.enableWidget("end_data_dis");
+	helper.enableWidget("end_data_en");
+	helper.enableWidget("charge_en");
+	helper.enableWidget("charge_dis");
+	helper.enableWidget("raw_data_en");
+	helper.enableWidget("raw_data_dis");
+	helper.enableWidget("pac_flash_start"); //BROM下允许使用PAC烧录功能
+}
 
 void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("poweroff");
@@ -45,7 +63,7 @@ void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("abpart_auto");
 	helper.enableWidget("abpart_a");
 	helper.enableWidget("abpart_b");
-	helper.enableWidget("pac_flash_start");
+	helper.disableWidget("pac_flash_start"); // PAC烧录功能仅支持BROM下进行操作
 }
 
 void DisableWidgets(GtkWidgetHelper helper) {
@@ -92,6 +110,125 @@ void DisableWidgets(GtkWidgetHelper helper) {
 	helper.disableWidget("abpart_a");
 	helper.disableWidget("abpart_b");
 	helper.disableWidget("pac_flash_start");
+}
+
+void ensure_device_attached_or_exit(GtkWidgetHelper helper) {
+	if (m_bOpened == -1) {
+		DEG_LOG(E, "device unattached, exiting...");
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Device unattached, exiting..."));
+		}, GTK_WINDOW(helper.getWidget("main_window")));
+
+        // 在单独线程中等待 5 秒后退出 GTK 主循环
+        std::thread([]() {
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            gui_idle_call([]() {
+                gtk_main_quit();
+            });
+        }).detach();
+	}
+}
+
+bool ensure_device_attached_or_warn(GtkWidgetHelper helper) {
+	if (m_bOpened == -1) {
+		DEG_LOG(E, "device unattached, exiting...");
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Device unattached, exiting..."));
+		}, GTK_WINDOW(helper.getWidget("main_window")));
+		return true;
+	}
+	return false;
+}
+
+void append_log_to_ui(int type, const char* message) {
+	(void)type; // 目前仅用于保持接口一致，后续可根据等级做样式区分
+	if (!isHelperInit || !message) return;
+
+	GtkWidget* txtOutput = helper.getWidget("txtOutput");
+	if (!txtOutput || !GTK_IS_TEXT_VIEW(txtOutput)) {
+		return;
+	}
+
+	char* msg_copy = strdup(message);
+	if (!msg_copy) return;
+
+	g_idle_add([](gpointer data) -> gboolean {
+		char* msg = static_cast<char*>(data);
+
+		GtkWidget* txtOutputInner = helper.getWidget("txtOutput");
+		if (txtOutputInner && GTK_IS_TEXT_VIEW(txtOutputInner)) {
+			GtkTextBuffer* buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(txtOutputInner));
+
+			GtkTextIter end;
+			gtk_text_buffer_get_end_iter(buffer, &end);
+
+			time_t now = time(nullptr);
+			struct tm* local_time = localtime(&now);
+			char timestamp[64];
+			strftime(timestamp, sizeof(timestamp), "[%H:%M:%S] ", local_time);
+
+			gtk_text_buffer_insert(buffer, &end, timestamp, -1);
+			gtk_text_buffer_insert(buffer, &end, msg, -1);
+			gtk_text_buffer_insert(buffer, &end, "\n", 1);
+
+			GtkWidget* parent = gtk_widget_get_parent(txtOutputInner);
+			if (parent) {
+				GtkAdjustment* adj = gtk_scrolled_window_get_vadjustment(
+					GTK_SCROLLED_WINDOW(parent));
+				gtk_adjustment_set_value(adj,
+					gtk_adjustment_get_upper(adj) - gtk_adjustment_get_page_size(adj));
+			}
+		}
+
+		free(msg);
+		return G_SOURCE_REMOVE;
+	}, msg_copy);
+}
+
+void run_long_task(const LongTaskConfig& cfg) {
+    // 在 GUI 线程执行 on_started（如果提供）
+    if (cfg.on_started) {
+        gui_idle_call([&cfg]() {
+            cfg.on_started();
+        });
+    }
+
+    // 取消标志在线程间共享
+    std::thread([cfg]() mutable {
+        std::atomic_bool cancel_flag(false);
+
+        // 执行后台任务
+        if (cfg.worker) {
+            cfg.worker(cancel_flag);
+        }
+
+        // 任务完成后在 GUI 线程执行 on_finished（如果提供）
+        if (cfg.on_finished) {
+            gui_idle_call([cfg]() mutable {
+                cfg.on_finished();
+            });
+        }
+    }).detach();
+}
+
+void showExitAfterDelayDialog(GtkWindow* parent,
+                              const char* title,
+                              const char* message,
+                              int seconds) {
+    // 在 GUI 线程弹出提示对话框
+    gui_idle_call_wait_drag([parent, title, message]() {
+        showInfoDialog(parent, title, message);
+    }, parent);
+
+    // 后台等待指定时间后退出 GTK 主循环
+    std::thread([seconds]() {
+        if (seconds > 0) {
+            std::this_thread::sleep_for(std::chrono::seconds(seconds));
+        }
+        gui_idle_call([]() {
+            gtk_main_quit();
+        });
+    }).detach();
 }
 
 GtkWidget* create_bottom_controls(GtkWidgetHelper& helper) {

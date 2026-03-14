@@ -1,5 +1,7 @@
 # sfd_tool
 
+[English README](README.md) · [架构文档](ARCHITECTURE.md) · [操作手册](docs/USER_GUIDE_ZH.md) · [发布流程](docs/RELEASE_GUIDE_ZH.md) · [CMake 使用指南](docs/cmake.md) · [版本记录](docs/VERSION_LOG.md)
+
 ![Logo](/assets/icon.png)
 
 ![License](https://img.shields.io/github/license/C-Hidery/sfd_tool)
@@ -36,7 +38,54 @@ make
 make locales
 # Termux
 make termux
+# CMake 详细用法见 docs/cmake.md（中文）/ docs/cmake_EN.md（English）
 ```
+
+> 说明：基于 Makefile 的构建方式主要用于兼容历史环境。对于日常开发，推荐使用 CMake 作为统一的构建入口。
+
+### 使用 CMake 构建（推荐）
+
+在 Linux/macOS 上：
+
+```bash
+cmake -S . -B build
+cmake --build build
+```
+
+在 Windows（Visual Studio 2022）上：
+
+```bash
+cmake -S . -B build -G "Visual Studio 17 2022"
+```
+
+然后在 Visual Studio 中打开 `build/sfd_tool.sln` 进行开发调试。
+
+根目录下的旧版解决方案文件 [sfd_tool.sln](sfd_tool.sln) 仅作为兼容/参考，可能与当前 CMake 配置存在一定滞后，请以 CMake 生成的解决方案为准。
+
+### 打包与发布
+
+> 详细发布与版本维护流程见：[RELEASE_GUIDE_ZH](docs/RELEASE_GUIDE_ZH.md)
+
+在 Debian/Ubuntu 上，本地构建 .deb 包可以使用项目提供的脚本：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential debhelper devscripts \
+  libgtk-3-dev libusb-1.0-0-dev pkg-config g++ \
+  imagemagick desktop-file-utils cmake
+
+./packaging/build-deb.sh
+```
+
+### 预编译二进制（GitHub Releases）
+
+GitHub Releases 页面会提供以下预编译包：
+
+- **sfd_tool_SPRD_Release**：Windows x86 版本，使用官方 SPRD 串口驱动（兼容性最佳，推荐在老机器或对兼容性要求高的环境使用）
+- **sfd_tool_LibUSB_Release**：Windows x64 版本，使用 libusb 驱动（适合现代 64 位 Windows 系统）
+- **Linux DEB / RPM 包**：适用于主流 Debian/Ubuntu 和 Fedora/RPM 系发行版
+- **macOS DMG**：macOS 安装包
+
 
 ### 多语言国际化 (i18n)
 本工具支持中英文等多种语言适配：

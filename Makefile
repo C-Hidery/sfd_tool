@@ -5,6 +5,38 @@ GTK = 1
 # 检测操作系统
 UNAME_S := $(shell uname -s)
 
+# ================= CMake 驱动构建（保持与 scripts/dev.sh 一致） =================
+# 说明：
+# - 直接使用 make 时，先用 CMake 生成构建目录和 version.h 等中间文件，再调用底层构建系统（Ninja/Unix Makefiles）。
+# - 这样可以复用 CMakeLists.txt 中的依赖检测、版本号生成、locale/icon 规则等，避免与纯手写 Makefile 行为不一致。
+
+# 默认构建目录
+BUILD_DIR ?= build_cmake_make
+
+# 默认生成器（与 scripts/dev.sh 一致：优先 Ninja）
+# 可以在命令行通过 `make GENERATOR="Unix Makefiles"` 覆盖
+GENERATOR ?= $(shell command -v ninja >/dev/null 2>&1 && echo Ninja || echo "Unix Makefiles")
+
+# 默认目标：通过 CMake 构建可执行文件和相关资源
+.PHONY: all
+all:
+	cmake -S . -B $(BUILD_DIR) -G "$(GENERATOR)" -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+	cmake --build $(BUILD_DIR) -j
+
+# 调试构建
+.PHONY: debug
+debug:
+	cmake -S . -B $(BUILD_DIR) -G "$(GENERATOR)" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+	cmake --build $(BUILD_DIR) -j
+
+# 清理生成目录
+.PHONY: clean
+clean:
+	rm -rf $(BUILD_DIR)
+
+# 兼容旧的 install/uninstall/check-deps/help 目标：
+# 这些仍沿用原有 Makefile 的行为，避免破坏外部脚本依赖。
+
 # 基础编译选项
 CXXFLAGS = -O2 -Wall -Wextra -std=c++17 -pedantic -Wno-unused
 CXXFLAGS += -DUSE_LIBUSB=$(LIBUSB)
@@ -42,7 +74,7 @@ endif
 ifeq ($(GTK), 1)
     # 检查 pkg-config 是否存在
     PKG_CONFIG_EXISTS := $(shell pkg-config --exists $(GTK_PKG) && echo 1 || echo 0)
-    
+
     ifeq ($(PKG_CONFIG_EXISTS), 1)
         CXXFLAGS += `pkg-config --cflags $(GTK_PKG)`
         LIBS += `pkg-config --libs $(GTK_PKG)`
@@ -85,98 +117,25 @@ LOCALEDIR ?= $(DATADIR)/locale
 
 # CXXFLAGS += $(shell pkg-config --cflags nlohmann_json 2>/dev/null || echo "-I/usr/include/nlohmann")
 # LIBS += $(shell pkg-config --libs nlohmann_json 2>/dev/null || echo "-ljson")
-# 默认目标
-.PHONY: all locales
-all: $(APPNAME) locales
 
+# locale 生成（仍用于 install 兼容逻辑）
+.PHONY: locales
 locales: locale/zh_CN/LC_MESSAGES/sfd_tool.mo
 
 locale/zh_CN/LC_MESSAGES/sfd_tool.mo: locale/zh_CN/LC_MESSAGES/sfd_tool.po
 	msgfmt $< -o $@
 
-# 主目标
-SOURCES = main.cpp main_console.cpp common.cpp GtkWidgetHelper.cpp \
-          ui_common.cpp \
-          core/logging.cpp core/file_io.cpp core/pac_extract.cpp \
-          core/usb_transport.cpp core/spd_protocol.cpp \
-          pages/page_connect.cpp pages/page_partition.cpp \
-          pages/page_manual.cpp pages/page_advanced_op.cpp \
-          pages/page_advanced_set.cpp pages/page_debug.cpp \
-          pages/page_about.cpp pages/page_log.cpp \
-          pages/page_pac_flash.cpp
-
-$(APPNAME): $(SOURCES)
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(LIBS)
-
-# 调试版本
-.PHONY: debug
-debug: CXXFLAGS += -g -D_DEBUG -O0
-debug: $(APPNAME)
-
-# Termux
-.PHONY: termux
-termux: LIBS += -lexecinfo
-termux: $(APPNAME)
-
-# 发布版本
-.PHONY: release
-release: CXXFLAGS += -O3 -DNDEBUG
-release: $(APPNAME)
-
-# 静态分析
-.PHONY: analyze
-analyze: CXXFLAGS += -fanalyzer
-analyze: debug
-
-# 清理目标
-.PHONY: clean
-clean:
-	rm -f $(APPNAME) *.o *.dSYM
-	rm -f locale/zh_CN/LC_MESSAGES/sfd_tool.mo
-
-# 安装目标
+# 安装目标（通过 CMake install 收敛生命周期）
 .PHONY: install
-install: $(APPNAME)
-	install -d $(DESTDIR)$(BINDIR)
-	install -d $(DESTDIR)$(APPDIR)
-	install -d $(DESTDIR)$(DOCDIR)
-	install -d $(DESTDIR)$(ICONDIR)/256x256/apps
-	install -d $(DESTDIR)$(ICONDIR)/48x48/apps
-	install -d $(DESTDIR)$(ICONDIR)/32x32/apps
-	install -d $(DESTDIR)$(ICONDIR)/16x16/apps
-	install -d $(DESTDIR)$(LOCALEDIR)/zh_CN/LC_MESSAGES
-	
-	# 安装二进制
-	install -m 755 $(APPNAME) $(DESTDIR)$(BINDIR)/
-	
-	# 安装桌面文件
-	sed 's|Icon=sfd_tool|Icon=sfd-tool|' packaging/sfd_tool.desktop > $(DESTDIR)$(APPDIR)/sfd-tool.desktop
-	chmod 644 $(DESTDIR)$(APPDIR)/sfd-tool.desktop
-	
-	# 安装图标（从 icon.png 转换不同尺寸）
-	if [ -f assets/icon.png ]; then \
-		convert assets/icon.png -resize 16x16 $(DESTDIR)$(ICONDIR)/16x16/apps/sfd-tool.png; \
-		convert assets/icon.png -resize 32x32 $(DESTDIR)$(ICONDIR)/32x32/apps/sfd-tool.png; \
-		convert assets/icon.png -resize 48x48 $(DESTDIR)$(ICONDIR)/48x48/apps/sfd-tool.png; \
-		convert assets/icon.png -resize 256x256 $(DESTDIR)$(ICONDIR)/256x256/apps/sfd-tool.png; \
-	fi
-	
-	# 安装文档
-	install -m 644 LICENSE.txt $(DESTDIR)$(DOCDIR)/copyright
-	install -m 644 README.md $(DESTDIR)$(DOCDIR)/
-	install -m 644 README_ZH.md $(DESTDIR)$(DOCDIR)/
-	
-	# 安装国际化文件
-	install -m 644 locale/zh_CN/LC_MESSAGES/sfd_tool.mo $(DESTDIR)$(LOCALEDIR)/zh_CN/LC_MESSAGES/
-	
-	# 更新图标缓存
-	if [ -x /usr/bin/gtk-update-icon-cache ] && [ -z "$(DESTDIR)" ]; then \
-		gtk-update-icon-cache -q -t -f $(ICONDIR); \
-	fi
+install: all
+	# 使用 CMake 安装，复用 CMakeLists.txt 中的安装规则
+	cmake --install $(BUILD_DIR) --prefix $(DESTDIR)$(PREFIX)
 
 # 卸载目标
 .PHONY: uninstall
 uninstall:
+	# CMake 本身没有通用卸载逻辑，这里保留简单的清理示例；
+	# 如需更精确的卸载建议使用发行版包管理器或手工删除。
 	rm -f $(DESTDIR)$(BINDIR)/$(APPNAME)
 	rm -f $(DESTDIR)$(APPDIR)/sfd-tool.desktop
 	rm -rf $(DESTDIR)$(DOCDIR)
@@ -202,13 +161,15 @@ endif
 .PHONY: help
 help:
 	@echo "Available targets:"
-	@echo "  all       - Build the application (default)"
-	@echo "  debug     - Build with debug symbols"
-	@echo "  release   - Build with optimization"
-	@echo "  clean     - Remove build artifacts"
-	@echo "  install   - Install to /usr/local/bin"
+	@echo "  all       - Configure & build via CMake (default)"
+	@echo "  debug     - Debug build via CMake (CMAKE_BUILD_TYPE=Debug)"
+	@echo "  clean     - Remove CMake build directory ($(BUILD_DIR))"
+	@echo "  install   - Install to /usr/local/bin (legacy target, still available)"
 	@echo "  uninstall - Uninstall from /usr/local/bin"
 	@echo "  check-deps - Check required dependencies"
 	@echo "  help      - Show this help"
 	@echo ""
-	@echo "  make CXX=clang++ - Use clang++ compiler (macOS)"
+	@echo "Notes:"
+	@echo "  - Direct 'make' now uses CMake under the hood, consistent with ./scripts/dev.sh."
+	@echo "  - Use BUILD_DIR=/path/to/build to customize the CMake build directory."
+	@echo "  - Use GENERATOR=\"Unix Makefiles\" if Ninja is not desired."

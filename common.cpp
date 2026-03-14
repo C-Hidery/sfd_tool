@@ -12,7 +12,7 @@ void usleep(unsigned int us) {
 #endif
 
 
-extern int m_bOpened;
+extern int& m_bOpened;
 extern AppState g_app_state;
 
 
@@ -583,7 +583,7 @@ int scan_xml_partitions(spdio_t *io, const char *fn, uint8_t *buf, size_t buf_si
 #define SECTOR_SIZE 512
 #define MAX_SECTORS 32
 
-static int& selected_ab = g_app_state.selected_ab;
+static int& selected_ab = g_app_state.flash.selected_ab;
 int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
 	FILE *fp = my_oxfopen("pgpt.bin", "rb");
 	if (fp == nullptr) {
@@ -684,8 +684,8 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 	size = dump_partition(io, "user_partition", 0, 32 * 1024, "pgpt.bin", 4096);
 	io->verbose = verbose;
 	if (32 * 1024 == size)
-		g_app_state.gpt_failed = gpt_info(ptable, fn, part_count_ptr);
-	if (g_app_state.gpt_failed) {
+		g_app_state.flash.gpt_failed = gpt_info(ptable, fn, part_count_ptr);
+	if (g_app_state.flash.gpt_failed) {
 		remove("pgpt.bin");
 		encode_msg_nocpy(io, BSL_CMD_READ_PARTITION, 0);
 		send_msg(io);
@@ -695,14 +695,14 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 		if (ret != BSL_REP_READ_PARTITION) {
 			const char* name = get_bsl_enum_name(ret);
 			DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
-			g_app_state.gpt_failed = -1;
+			g_app_state.flash.gpt_failed = -1;
 			delete[](ptable);
 			return nullptr;
 		}
 		size = READ16_BE(io->raw_buf + 2);
 		if (size % 0x4c) {
 			DEG_LOG(I,"Not divisible by struct size (0x%04lx)", size);
-			g_app_state.gpt_failed = -1;
+			g_app_state.flash.gpt_failed = -1;
 			delete[](ptable);
 			return nullptr;
 		}
@@ -753,7 +753,7 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 		*part_count_ptr = n;
 		DEG_LOG(W,"Unable to get standard gpt table");
 		DEG_LOG(I,"Sprd partition list packet saved to sprdpart.bin");
-		g_app_state.gpt_failed = 0;
+		g_app_state.flash.gpt_failed = 0;
 	}
 	if (*part_count_ptr) {
 		if (strcmp(fn, "-")) DEG_LOG(I,"Partition list saved to %s\n", fn);
@@ -773,7 +773,7 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 		return ptable;
 	}
 	else {
-		g_app_state.gpt_failed = -1;
+		g_app_state.flash.gpt_failed = -1;
 		delete[](ptable);
 		return nullptr;
 	}
@@ -1136,7 +1136,7 @@ void repartition(spdio_t *io, const char *fn) {
 	int n = scan_xml_partitions(io, fn, buf, 0xffff);
 	// print_mem(stderr, io->temp_buf, n * 0x4c);
 	encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-	if (!send_and_check(io)) g_app_state.gpt_failed = 0;
+	if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
 }
 
 void erase_partition(spdio_t *io, const char *name, int CMethod) {
@@ -1690,7 +1690,7 @@ void get_partition_info(spdio_t *io, const char *name, int need_size) {
 			io->verbose = verbose;
 			return;
 		}
-		if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+		if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 		if (i > io->part_count) {
 			DEG_LOG(E,"part not exist");
 			gPartInfo.size = 0;

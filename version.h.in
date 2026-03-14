@@ -1,0 +1,2 @@
+#pragma once
+#define SFD_TOOL_VERSION "@SFD_TOOL_VERSION_STR@"

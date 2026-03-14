@@ -4,13 +4,19 @@
 
 #include <stdio.h>
 #include "common.h"
+#include "core/device_attach_helpers.h"
 #include "main.h"
+#include "version.h"
 #include "GenTosNoAvb.h"
+#include "core/flash_service.h"
 #ifdef __linux__
 #include <unistd.h>
 #endif
 
 extern AppState g_app_state;
+
+// 兼容旧代码的便捷访问器：直接操作 AppState::flash.isCMethod
+static int& isCMethod = g_app_state.flash.isCMethod;
 
 void print_help() {
 	//TODO
@@ -204,7 +210,7 @@ void ThrowExit() {
 
 int main_console(int argc, char** argv) {
 	ThrowExit();
-	spdio_t* io = nullptr;
+	spdio_t*& io = g_app_state.transport.io;
 	int ret;
 	int conn_wait = 30 * REOPEN_FREQ;
 	int keep_charge = 1, end_data = 0, blk_size = 0, skip_confirm = 1, highspeed = 0, cve_v2 = 0;
@@ -245,7 +251,7 @@ int main_console(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	snprintf(fn_partlist, sizeof(fn_partlist), "partition_%lld.xml", (long long)time(nullptr));
-	printf("sfd_tool Long-time version 1.7.6.0 Console mode\n");
+	printf("sfd_tool Long-time version %s Console mode\n", SFD_TOOL_VERSION);
 	printf("Copyright 2026 Ryan Crepa\n");
 #if _DEBUG
 	DBG_LOG("version:debug, core version:%s\n", Version);
@@ -340,7 +346,7 @@ int main_console(int argc, char** argv) {
 		at = 0;
 	}
 #ifdef __ANDROID__
-	g_app_state.bListenLibusb = 0;
+	g_app_state.transport.bListenLibusb = 0;
 	DEG_LOG(OP, "Try to convert termux transfered usb port fd.");
 	// handle
 	if (xfd < 0)
@@ -361,7 +367,7 @@ int main_console(int argc, char** argv) {
 	call_Initialize_libusb(io);
 #else
 #if !USE_LIBUSB
-	g_app_state.bListenLibusb = 0;
+	g_app_state.transport.bListenLibusb = 0;
 	if (at || bootmode >= 0) {
 		io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
 		if (io->hThread == nullptr) return -1;
@@ -372,7 +378,7 @@ int main_console(int argc, char** argv) {
 #else
 	if (!libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG)) {
 		DBG_LOG("hotplug unsupported on this platform\n");
-		g_app_state.bListenLibusb = 0;
+		g_app_state.transport.bListenLibusb = 0;
 		bootmode = -1;
 		at = 0;
 	}
@@ -382,10 +388,10 @@ int main_console(int argc, char** argv) {
 		conn_wait = 30 * REOPEN_FREQ;
 		stage = -1;
 	}
-	if (!g_app_state.bListenLibusb) startUsbEventHandle();
+	if (!g_app_state.transport.bListenLibusb) startUsbEventHandle();
 #endif
 #if _WIN32
-	if (!g_app_state.bListenLibusb) {
+	if (!g_app_state.transport.bListenLibusb) {
 		if (io->hThread == nullptr) io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
 		if (io->hThread == nullptr) return -1;
 	}
@@ -405,7 +411,7 @@ int main_console(int argc, char** argv) {
 		ThrowExit();
 		for (i = 0; ; i++) {
 #if USE_LIBUSB
-			if (g_app_state.bListenLibusb) {
+			if (g_app_state.transport.bListenLibusb) {
 				if (curPort) {
 					if (libusb_open(curPort, &io->dev_handle) >= 0) call_Initialize_libusb(io);
 					else ERR_EXIT("Failed to connect\n");
@@ -489,12 +495,12 @@ int main_console(int argc, char** argv) {
 			//check stage
 			if (ret == BSL_REP_VER) {
 				if (fdl1_loaded == 1) {
-					g_app_state.device_stage = FDL1;
+					g_app_state.device.device_stage = FDL1;
 					DEG_LOG(OP, "FDL1 connected.");
 					if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
 					break;
 				} else {
-					g_app_state.device_stage = BROM;
+					g_app_state.device.device_stage = BROM;
 					DEG_LOG(OP, "Check baud BROM");
 					if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) {
 						fdl1_loaded = -1;
@@ -518,7 +524,7 @@ int main_console(int argc, char** argv) {
 			}
 			if (fdl1_loaded == 1) {
 				DEG_LOG(OP, "FDL1 connected.");
-				g_app_state.device_stage = FDL1;
+				g_app_state.device.device_stage = FDL1;
 				if (keep_charge) {
 					encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
 					if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
@@ -526,7 +532,7 @@ int main_console(int argc, char** argv) {
 				break;
 			} else {
 				DEG_LOG(OP, "BROM connected.");
-				g_app_state.device_stage = BROM;
+				g_app_state.device.device_stage = BROM;
 				break;
 			}
 		}
@@ -537,7 +543,7 @@ int main_console(int argc, char** argv) {
 				io->flags &= ~FLAGS_TRANSCODE;
 				DEG_LOG(OP, "Try to disable transcode 0x7D.");
 				fdl2_executed = 1;
-				g_app_state.device_stage = FDL2;
+				g_app_state.device.device_stage = FDL2;
 				int o = io->verbose;
 				io->verbose = -1;
 				g_spl_size = check_partition(io, "splloader", 1);
@@ -587,30 +593,30 @@ int main_console(int argc, char** argv) {
 		}
 	}
 	DEG_LOG(I, "SPRD3 Current : %d", found);
-	if (!found && isKickMode) g_app_state.device_mode = SPRD4;
-	else g_app_state.device_mode = SPRD3;
+	if (!found && isKickMode) g_app_state.device.device_mode = SPRD4;
+	else g_app_state.device.device_mode = SPRD3;
 	char** save_argv = nullptr;
 	if (fdl1_loaded == -1) argc += 2;
 	if (fdl2_executed == -1) argc += 1;
 	init_stage = 2;
 	ThrowExit();
 	if (fdl2_executed > 0) {
-		if (g_app_state.device_mode == SPRD3) {
+		if (g_app_state.device.device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: FDL2/SPRD3");
 		} else DEG_LOG(I, "Device stage: FDL2/SPRD4(AutoD)");
 	} else if (fdl1_loaded > 0) {
-		if (g_app_state.device_mode == SPRD3) {
+		if (g_app_state.device.device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: FDL1/SPRD3");
 		} else DEG_LOG(I, "Device stage: FDL1/SPRD4(AutoD)");
-	} else if (g_app_state.device_stage == BROM) {
-		if (g_app_state.device_mode == SPRD3) {
+	} else if (g_app_state.device.device_stage == BROM) {
+		if (g_app_state.device.device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: BROM/SPRD3");
 		} else DEG_LOG(I, "Device stage: BROM/SPRD4(AutoD)");
 	} else {
-		if (g_app_state.device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
+		if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
 		else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
 	}
-	if (isKickMode && g_app_state.device_mode == SPRD4 && g_app_state.device_stage != FDL2 && !no_fdl_mode) {
+	if (isKickMode && g_app_state.device.device_mode == SPRD4 && g_app_state.device.device_stage != FDL2 && !no_fdl_mode) {
 		DEG_LOG(I, "SPRD4 mode detected, but No-FDL mode not enabled.");
 		DEG_LOG(I, "You can get in FDL2 without FDL manually.");
 		DEG_LOG(I, "By execute following commands:");
@@ -1031,9 +1037,9 @@ int main_console(int argc, char** argv) {
 				} else if (Da_Info.dwStorageType == 0x102) {
 					io->ptable = partition_list(io, fn_partlist, &io->part_count);
 				} else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
-				if (g_app_state.gpt_failed != 1) {
-					if (g_app_state.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
-					else if (g_app_state.selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
+				if (g_app_state.flash.gpt_failed != 1) {
+					if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
+					else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
 					else {
 						DEG_LOG(I, "Device is not using VAB\n");
 						if (Da_Info.bSupportRawData) {
@@ -1291,7 +1297,7 @@ int main_console(int argc, char** argv) {
 			}
 
 			name = str2[2];
-			if (g_app_state.selected_ab < 0) select_ab(io);
+			if (g_app_state.flash.selected_ab < 0) select_ab(io);
 			int v = io->verbose;
 			io->verbose = -1;
 			DEG_LOG(I, "%s: ", name);
@@ -1309,7 +1315,7 @@ int main_console(int argc, char** argv) {
 			}
 
 			name = str2[2];
-			if (g_app_state.selected_ab < 0) select_ab(io);
+			if (g_app_state.flash.selected_ab < 0) select_ab(io);
 			long long r = (long long)check_partition(io, name, 0);
 			if (r == 1) {
 				DEG_LOG(I, "%s: Exist.", name);
@@ -1397,14 +1403,14 @@ int main_console(int argc, char** argv) {
 			}
 			if (!strcmp(name, "preset_modem")) {
 				start_signal();
-				if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+				if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 				if (!io->part_count) {
 					DEG_LOG(W, "Partition table not available");
 					argc -= 2;
 					argv += 2;
 					continue;
 				}
-				if (g_app_state.selected_ab > 0) {
+				if (g_app_state.flash.selected_ab > 0) {
 					DEG_LOG(OP, "Saving slot info");
 					dump_partition(io, "misc", 0, 1048576, "misc.bin", blk_size);
 				}
@@ -1422,7 +1428,7 @@ int main_console(int argc, char** argv) {
 				start_signal();
 
 				if (!isCMethod) {
-					if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+					if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 					if (!io->part_count) {
 						DEG_LOG(W, "Partition table not available\n");
 						argc -= 2;
@@ -1467,7 +1473,7 @@ int main_console(int argc, char** argv) {
 				start_signal();
 
 				if (!isCMethod) {
-					if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+					if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 					if (!io->part_count) {
 						DEG_LOG(E, "Partition table not available\n");
 						argc -= 2;
@@ -1482,8 +1488,8 @@ int main_console(int argc, char** argv) {
 						if (!strncmp((*(io->ptable + i)).name, "blackbox", 8)) continue;
 						else if (!strncmp((*(io->ptable + i)).name, "cache", 5)) continue;
 						else if (!strncmp((*(io->ptable + i)).name, "userdata", 8)) continue;
-						if (g_app_state.selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_b")) continue;
-						else if (g_app_state.selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_a")) continue;
+						if (g_app_state.flash.selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_b")) continue;
+						else if (g_app_state.flash.selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_a")) continue;
 						snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->ptable + i)).name);
 						dump_partition(io, (*(io->ptable + i)).name, 0, (*(io->ptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
 					}
@@ -1502,8 +1508,8 @@ int main_console(int argc, char** argv) {
 						if (!strncmp((*(io->Cptable + i)).name, "blackbox", 8)) continue;
 						else if (!strncmp((*(io->Cptable + i)).name, "cache", 5)) continue;
 						else if (!strncmp((*(io->Cptable + i)).name, "userdata", 8)) continue;
-						if (g_app_state.selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_b")) continue;
-						else if (g_app_state.selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_a")) continue;
+						if (g_app_state.flash.selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_b")) continue;
+						else if (g_app_state.flash.selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_a")) continue;
 						snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->Cptable + i)).name);
 						dump_partition(io, (*(io->Cptable + i)).name, 0, (*(io->Cptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
 					}
@@ -1562,7 +1568,7 @@ rloop:
 			argc -= 2;
 			argv += 2;
 
-		} 
+		}
 		else if(!strcmp(str2[1], "pac")){
 			const char* fn;
 			FILE* fi;
@@ -1581,8 +1587,30 @@ rloop:
 			} else fclose(fi);
 			if(check_confirm("flash pac"))
 			{
-				pac_extract(fn, "pac_extract");
-				load_partitions(io, "pac_extract", blk_size ? blk_size : DEFAULT_BLK_SIZE, g_app_state.selected_ab, isCMethod);
+				auto service = sfd::createFlashService();
+				service->setContext(io, &g_app_state);
+
+				sfd::FlashPacOptions opts;
+				opts.pac_path        = fn;
+				opts.slot_selection  = static_cast<sfd::SlotSelection>(g_app_state.flash.selected_ab <= 0 ? 0 : g_app_state.flash.selected_ab);
+				opts.compatibility_mode = g_app_state.flash.isCMethod != 0;
+
+				sfd::FlashStatus st = service->flashPac(opts, nullptr);
+				if (!st.success) {
+					DEG_LOG(E, "flashPac failed: %s", st.message.c_str());
+				} else {
+					DEG_LOG(I, "PAC flash completed successfully.");
+				}
+
+#ifdef _WIN32
+				DEG_LOG(I, "PAC 操作结束，程序将在 5 秒后退出...");
+				Sleep(5000);
+#else
+				DEG_LOG(I, "PAC 操作结束，程序将在 5 秒后退出...");
+				sleep(5);
+#endif
+				spdio_free(io);
+				return 0;
 			}
 			argc -= 2;
 			argv += 2;
@@ -1594,7 +1622,7 @@ rloop:
 					argc = 1;
 					continue;
 				}
-				if (g_app_state.gpt_failed == 1) io->ptable = partition_list(io, str2[2], &io->part_count);
+				if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, str2[2], &io->part_count);
 				if (!io->part_count) {
 					DEG_LOG(E, "Partition table not available");
 					argc -= 2;
@@ -2089,7 +2117,7 @@ rloop:
 				argc = 1;
 				continue;
 			}
-			g_app_state.selected_ab =atoi(str2[2]);
+			g_app_state.flash.selected_ab =atoi(str2[2]);
 			argc -= 2;
 			argv += 2;
 		} else if (!strcmp(str2[1], "chip_uid")) {
@@ -2239,8 +2267,7 @@ rloop:
 			for (i = 1; i < argcount; i++)
 				delete[](str2[i]);
 		delete[](str2);
-		if (m_bOpened == -1) {
-			DEG_LOG(E, "device unattached, exiting...");
+		if (is_device_unattached_and_log(io)) {
 			break;
 		}
 

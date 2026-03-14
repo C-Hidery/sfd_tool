@@ -1,6 +1,6 @@
 # sfd_tool
 
-[**中文文档**](https://github.com/C-Hidery/sfd_tool/blob/master/README_ZH.md)
+[**中文文档**](README_ZH.md) · [User Guide (ZH)](docs/USER_GUIDE_ZH.md) · [Architecture](ARCHITECTURE.md) · [Release Guide (ZH)](docs/RELEASE_GUIDE_ZH.md) · [CMake Guide (ZH)](docs/cmake.md) · [CMake Guide (EN)](docs/cmake_EN.md) · [Version Log](docs/VERSION_LOG.md)
 
 ![Logo](/assets/icon.png)
 
@@ -38,7 +38,53 @@ make
 make locales
 # Termux
 make termux
+# Cmake method see docs/cmake_EN.md
 ```
+
+> Note: The Makefile-based build is kept for compatibility. For cross-platform development, CMake is the recommended entry.
+
+### Build with CMake (recommended)
+
+On Linux/macOS:
+
+```bash
+cmake -S . -B build
+cmake --build build
+```
+
+On Windows (Visual Studio 2022):
+
+```bash
+cmake -S . -B build -G "Visual Studio 17 2022"
+```
+
+Then open `build/sfd_tool.sln` in Visual Studio.
+The legacy solution file at the repository root, [sfd_tool.sln](sfd_tool.sln), is kept for compatibility only and may lag behind the CMake build. Please prefer the CMake-generated solution for development.
+
+### Packaging & Release
+
+On Debian/Ubuntu, you can build a `.deb` package using the helper script:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential debhelper devscripts \
+  libgtk-3-dev libusb-1.0-0-dev pkg-config g++ \
+  imagemagick desktop-file-utils cmake
+
+./packaging/build-deb.sh
+```
+
+The script runs `dpkg-buildpackage` in a temporary directory under `/tmp/build-sfd-tool/` and produces `sfd-tool_*.deb` packages.
+
+### Prebuilt binaries (GitHub Releases)
+
+Official GitHub Releases provide:
+
+- **sfd_tool_SPRD_Release**: Windows x86 build using the official SPRD serial driver (Channel9.dll). This variant has the best compatibility and is recommended for older machines or when stability matters most.
+- **sfd_tool_LibUSB_Release**: Windows x64 build using libusb, suitable for modern 64-bit Windows systems.
+- **Linux DEB / RPM packages** for mainstream Debian/Ubuntu and Fedora/RPM-based distributions.
+- **macOS DMG** installer.
+
 
 ### Internationalization (i18n)
 This tool supports multi-language adaptation:

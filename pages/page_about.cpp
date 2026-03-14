@@ -1,9 +1,10 @@
 #include "page_about.h"
 #include "../i18n.h"
+#include <string>
 
-extern const char *AboutText;
+extern std::string g_about_text;
 
-GtkWidget* create_about_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
+GtkWidget* AboutPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* aboutPage = helper.createGrid("about_page", 5, 5);
 	helper.addNotebookPage(notebook, aboutPage, _("About"));
 
@@ -19,10 +20,20 @@ GtkWidget* create_about_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_widget_set_name(aboutTextView, "about_text");
 	helper.addWidget("about_text", aboutTextView);
 	GtkTextBuffer* buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(aboutTextView));
-	gtk_text_buffer_set_text(buffer, AboutText, -1);
+	gtk_text_buffer_set_text(buffer, g_about_text.c_str(), -1);
 
 	gtk_container_add(GTK_CONTAINER(scrolledAbout), aboutTextView);
 	helper.addToGrid(aboutPage, scrolledAbout, 0, 0, 1, 1);
 
 	return aboutPage;
+}
+
+void AboutPage::bindSignals(GtkWidgetHelper& helper) {
+	// About 页当前没有特定信号需要绑定
+	(void)helper;
+}
+
+GtkWidget* create_about_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
+    AboutPage page;
+    return page.init(helper, notebook);
 }

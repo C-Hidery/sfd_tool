@@ -503,7 +503,7 @@ msgstr "大小（MB）："
 
 #: main.cpp:2758
 msgid "Part after this new part:"
-msgstr "新分区放置在该分区之后："
+msgstr "新分区放置在该分区之前："
 
 #: main.cpp:2761
 msgid "[Remove partition] Please check a partition you want to remove"
@@ -863,3 +863,9 @@ msgstr "PAC文件解包失败！"
 
 msgid "Device unattached, exiting...\n设备已断开连接！正在退出...\n"
 msgstr "设备已断开连接！正在退出...\n"
+
+msgid "Language will take effect after restart."
+msgstr "语言将在重启后生效。"
+
+msgid "Apply"
+msgstr "应用"

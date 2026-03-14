@@ -1,5 +1,8 @@
 #include "spd_protocol.h"
+#include "logging.h"
+#include "device_attach_helpers.h"
 #include "../common.h"
+#include "result.h"
 
 int spd_transcode(uint8_t *dst, uint8_t *src, int len) {
 	int i, a, n = 0;
@@ -160,7 +163,7 @@ int send_msg(spdio_t *io) {
 	if (!io->enc_len)
 		ERR_EXIT("empty message\n");
 
-	if (m_bOpened == -1) {
+	if (is_device_unattached_and_log(io)) {
 		spdio_free(io);
 		ERR_EXIT("device unattached, exiting...\n");
 	}
@@ -178,25 +181,20 @@ int send_msg(spdio_t *io) {
 		else DEG_LOG(E,"send: unknown message");
 	}
 
-#if USE_LIBUSB
-	int err = libusb_bulk_transfer(io->dev_handle, io->endp_out, io->send_buf, io->enc_len, &ret, io->timeout);
-	if (err < 0)
-		ERR_EXIT("usb_send failed : %s\n", libusb_error_name(err));
-	// UMS9117 waits too long after a Integer multiple byte block.
-	if (io->endp_out_blk > 0 && !((unsigned)io->enc_len % io->endp_out_blk)) {
-		int dummy;
-		// signal end of transfer
-		libusb_bulk_transfer(io->dev_handle,
-			io->endp_out, NULL, 0, &dummy, io->timeout);
+	IUsbTransport *t = spdio_get_transport(io);
+	ret = usb_transport_send(t, io->send_buf, io->enc_len, io->timeout);
+
+	if (ret < 0) {
+		spdio_free(io);
+		ERR_EXIT("device unattached, exiting...\n");
 	}
-#else
-	ret = call_Write(io->handle, io->send_buf, io->enc_len);
-#endif
+
 	if (ret != io->enc_len)
 		ERR_EXIT("usb_send failed (%d / %d)\n", ret, io->enc_len);
 
 	return ret;
 }
+
 const char* CommonPartitions[] = {
 	"splloader", "prodnv", "miscdata", "recovery", "misc", "trustos", "trustos_bak",
 	"sml", "sml_bak", "uboot", "uboot_bak", "logo", "logo_1", "logo_2", "logo_3",
@@ -322,6 +320,33 @@ int recv_check_crc(spdio_t *io) {
 	return nread;
 }
 
+// Boot/握手阶段：根据初始响应更新 CRC 模式和 FDL1 状态
+// bytes_read 为当前 recv_buf 内有效字节数
+// 返回 1 表示响应类型在 BSL_REP_VER/BSL_REP_VERIFY_ERROR/BSL_REP_UNSUPPORTED_COMMAND 范围内且已完成校验与状态更新
+// 返回 0 表示响应类型不在上述集合内，由调用方继续处理
+int spd_boot_update_crc_and_stage(spdio_t *io, int bytes_read) {
+	if (io->recv_buf[2] != BSL_REP_VER &&
+		io->recv_buf[2] != BSL_REP_VERIFY_ERROR &&
+		io->recv_buf[2] != BSL_REP_UNSUPPORTED_COMMAND) {
+		return 0;
+	}
+
+	int chk1, chk2;
+	int a = READ16_BE(io->recv_buf + bytes_read - 3);
+	chk1 = spd_crc16(0, io->recv_buf + 1, bytes_read - 4);
+	if (a == chk1) {
+		io->flags |= FLAGS_CRC16;
+	} else {
+		chk2 = spd_checksum(0, io->recv_buf + 1, bytes_read - 4, CHK_ORIG);
+		if (a == chk2) {
+			fdl1_loaded = 1;
+		} else {
+			ERR_EXIT("bad checksum (0x%04x, expected 0x%04x or 0x%04x)\n", a, chk1, chk2);
+		}
+	}
+	return 1;
+}
+
 int recv_msg_orig(spdio_t *io) {
 	int plen = 6;
 	memset(io->recv_buf, 0, 8);
@@ -360,8 +385,9 @@ int recv_msg(spdio_t *io) {
 		// only retry in fdl2 stage
 		if (!ret) {
 			if (fdl2_executed) {
+				IUsbTransport *t = spdio_get_transport(io);
 #if !USE_LIBUSB
-				if (io->raw_len) { call_Clear(io->handle); io->raw_len = 0; }
+				if (io->raw_len) { usb_transport_clear(t); io->raw_len = 0; }
 #endif
 				send_msg(io);
 				if (io->m_dwRecvThreadID) ret = recv_msg_async(io);
@@ -390,16 +416,28 @@ unsigned recv_type(spdio_t *io) {
 	return READ16_BE(io->raw_buf);
 }
 
-int send_and_check(spdio_t *io) {
+static sfd::Result<void> send_and_check_result(spdio_t *io) {
 	int ret;
 	send_msg(io);
 	ret = recv_msg(io);
-	if (!ret) ERR_EXIT("timeout reached\n");
+	if (!ret) {
+		ERR_EXIT("timeout reached\n");
+		// 按当前行为依然视为 fatal，Result 仅用于统一错误模型
+		return sfd::Result<void>::error(sfd::ErrorCode::Timeout, "timeout reached");
+	}
+
 	ret = recv_type(io);
 	if (ret != BSL_REP_ACK) {
 		const char* name = get_bsl_enum_name(ret);
 		DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
-		return -1;
+		return sfd::Result<void>::error(sfd::ErrorCode::ProtocolError, "expected BSL_REP_ACK");
 	}
+
+	return sfd::Result<void>::ok();
+}
+
+int send_and_check(spdio_t *io) {
+	auto r = send_and_check_result(io);
+	if (!r) return -1;
 	return 0;
 }

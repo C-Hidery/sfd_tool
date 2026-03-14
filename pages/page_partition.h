@@ -1,10 +1,19 @@
 #pragma once
 #include "../GtkWidgetHelper.hpp"
 #include "../common.h"
+#include "../core/flash_service.h"
+#include "../ui_page.h"
 #include <vector>
 
-// 填充分区列表到 TreeView
-void populatePartitionList(GtkWidgetHelper& helper, const std::vector<partition_t>& partitions);
+// Partition 页面实现 IPage 接口，同时对外保留原有辅助函数
+class PartitionPage : public IPage {
+public:
+    GtkWidget* init(GtkWidgetHelper& helper, GtkWidget* notebook) override;
+    void bindSignals(GtkWidgetHelper& helper) override;
+};
+
+// 填充分区列表到 TreeView（使用 Service 层的 DevicePartitionInfo）
+void populatePartitionList(GtkWidgetHelper& helper, const std::vector<sfd::DevicePartitionInfo>& partitions);
 
 // 获取选中的分区名称
 std::string getSelectedPartitionName(GtkWidgetHelper& helper);
