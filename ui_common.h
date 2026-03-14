@@ -1,6 +1,8 @@
 #pragma once
 #include "GtkWidgetHelper.hpp"
 
+// 初始化允许控件
+void Enable_Startup(GtkWidgetHelper helper);
 // 启用/禁用全部控件
 void EnableWidgets(GtkWidgetHelper helper);
 void DisableWidgets(GtkWidgetHelper helper);

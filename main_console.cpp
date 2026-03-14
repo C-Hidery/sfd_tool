@@ -1581,8 +1581,15 @@ rloop:
 			} else fclose(fi);
 			if(check_confirm("flash pac"))
 			{
-				pac_extract(fn, "pac_extract");
-				load_partitions(io, "pac_extract", blk_size ? blk_size : DEFAULT_BLK_SIZE, g_app_state.selected_ab, isCMethod);
+				bool op = pac_extract(fn, "pac_extract");
+				if(GetStage() != BROM)
+				{
+					DEG_LOG(E,"pac command only support for BROM stage");
+				}
+				else if(op)
+				{
+					pac_flash("pac_extract", io);
+				}
 			}
 			argc -= 2;
 			argv += 2;

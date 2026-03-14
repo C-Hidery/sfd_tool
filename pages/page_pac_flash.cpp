@@ -89,13 +89,16 @@ void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 		}, GTK_WINDOW(helper.getWidget("main_window")));
 		return;
 	}
-	load_partitions(
-		io,
-		"pac_unpack_output",
-		blk_size ? blk_size : DEFAULT_BLK_SIZE,
-		g_app_state.selected_ab,
-		isCMethod
-	);
+	bool op = pac_flash("pac_unpack_output", io);
+	if (op) {
+		gui_idle_call_wait_drag([helper]() {
+			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Success")))), _("PAC flashing completed successfully.\nPAC刷写成功完成！"));
+		}, GTK_WINDOW(helper.getWidget("main_window")));
+	} else {
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")),_(_(_(("Error")))), _("PAC flashing failed.\nPAC刷写失败！"));
+		}, GTK_WINDOW(helper.getWidget("main_window")));
+	}
 }
 
 // ===== UI 构建 =====

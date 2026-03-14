@@ -367,6 +367,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		if (g_app_state.device_stage == BROM) helper.setLabelText(helper.getWidget("mode"), "BROM");
 		else if (g_app_state.device_stage == FDL1) helper.setLabelText(helper.getWidget("mode"), "FDL1");
 		else if (g_app_state.device_stage == FDL2) helper.setLabelText(helper.getWidget("mode"), "FDL2");
+		if (g_app_state.device_stage == BROM) Enable_Startup(helper); // 初始化允许控件
 	},GTK_WINDOW(helper.getWidget("main_window")));
 
 }
