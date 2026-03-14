@@ -77,7 +77,15 @@ sudo apt-get install -y build-essential debhelper devscripts \
 ./packaging/build-deb.sh
 ```
 
-脚本会在临时目录 `/tmp/build-sfd-tool/` 下执行 `dpkg-buildpackage`，并生成 `sfd-tool_*.deb` 安装包。
+### 预编译二进制（GitHub Releases）
+
+GitHub Releases 页面会提供以下预编译包：
+
+- **sfd_tool_SPRD_Release**：Windows x86 版本，使用官方 SPRD 串口驱动（兼容性最佳，推荐在老机器或对兼容性要求高的环境使用）
+- **sfd_tool_LibUSB_Release**：Windows x64 版本，使用 libusb 驱动（适合现代 64 位 Windows 系统）
+- **Linux DEB / RPM 包**：适用于主流 Debian/Ubuntu 和 Fedora/RPM 系发行版
+- **macOS DMG**：macOS 安装包
+
 
 ### 多语言国际化 (i18n)
 本工具支持中英文等多种语言适配：
