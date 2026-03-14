@@ -11,6 +11,14 @@ set(SFD_TEST_COMMON_SOURCES
     ${CMAKE_SOURCE_DIR}/ui_common.cpp
 )
 
+# Windows x86/Channel9 模式下，测试也需要链接 BMPlatform / Wrapper
+if (WIN32 AND NOT USE_LIBUSB)
+    list(APPEND SFD_TEST_COMMON_SOURCES
+        ${CMAKE_SOURCE_DIR}/BMPlatform.cpp
+        ${CMAKE_SOURCE_DIR}/Wrapper.cpp
+    )
+endif()
+
 add_executable(test_pac_extract
     test_pac_extract.cpp
     ${SFD_TEST_COMMON_SOURCES}
