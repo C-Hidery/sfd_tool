@@ -2,6 +2,8 @@
 #include "common.h"
 #include "main.h"
 #include "i18n.h"
+#include <thread>
+#include <chrono>
 
 extern spdio_t*& io;
 extern AppState g_app_state;
@@ -115,8 +117,15 @@ void ensure_device_attached_or_exit(GtkWidgetHelper helper) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Device unattached, exiting..."));
-			exit(1);
 		}, GTK_WINDOW(helper.getWidget("main_window")));
+
+        // 在单独线程中等待 5 秒后退出 GTK 主循环
+        std::thread([]() {
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            gui_idle_call([]() {
+                gtk_main_quit();
+            });
+        }).detach();
 	}
 }
 
@@ -199,6 +208,26 @@ void run_long_task(const LongTaskConfig& cfg) {
                 cfg.on_finished();
             });
         }
+    }).detach();
+}
+
+void showExitAfterDelayDialog(GtkWindow* parent,
+                              const char* title,
+                              const char* message,
+                              int seconds) {
+    // 在 GUI 线程弹出提示对话框
+    gui_idle_call_wait_drag([parent, title, message]() {
+        showInfoDialog(parent, title, message);
+    }, parent);
+
+    // 后台等待指定时间后退出 GTK 主循环
+    std::thread([seconds]() {
+        if (seconds > 0) {
+            std::this_thread::sleep_for(std::chrono::seconds(seconds));
+        }
+        gui_idle_call([]() {
+            gtk_main_quit();
+        });
     }).detach();
 }
 

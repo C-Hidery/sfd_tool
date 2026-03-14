@@ -43,3 +43,9 @@ struct LongTaskConfig {
 
 // 在后台启动一个长任务，并在开始/结束时在 GUI 线程执行回调
 void run_long_task(const LongTaskConfig& cfg);
+
+// 显示提示后在若干秒后退出 GTK 主循环（用于 PAC 烧录等场景）
+void showExitAfterDelayDialog(GtkWindow* parent,
+                              const char* title,
+                              const char* message,
+                              int seconds);

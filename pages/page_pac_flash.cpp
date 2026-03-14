@@ -224,10 +224,24 @@ void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 				gui_idle_call_wait_drag([helper, msg = st.message]() {
 					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), msg.c_str());
 				}, GTK_WINDOW(helper.getWidget("main_window")));
+
+				// 失败后提示即将退出
+				GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+				showExitAfterDelayDialog(parent,
+				                        _("PAC Flash Failed"),
+				                        _("PAC flash failed. The program will exit in 5 seconds."),
+				                        5);
 			} else {
 				gui_idle_call_wait_drag([helper]() {
 					showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC flash completed successfully."));
 				}, GTK_WINDOW(helper.getWidget("main_window")));
+
+				// 成功后提示即将退出
+				GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+				showExitAfterDelayDialog(parent,
+				                        _("PAC Flash Completed"),
+				                        _("PAC flash completed successfully. The program will exit in 5 seconds."),
+				                        5);
 			}
 		},
 		// on_started：GUI 线程中执行，设置状态与禁用按钮
