@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 1.7.7.0 LTV Edition
+Version 1.7.7.3 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -55,6 +55,10 @@ Add slot flash/read manually set, add storage/slot showing
 Add PAC flash func, auto FDL send
 ---v 1.7.7.0---
 UI Refactor, optimization code logic.
+---v 1.7.7.3---
+- Fix CI build issues for x86 (GitHub Actions)
+- Fix missing .mo file when packaging
+- Fix build.yml parsing error
 
 
 Under GPL v3 License
