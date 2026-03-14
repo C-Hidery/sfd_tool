@@ -1567,7 +1567,7 @@ rloop:
 			argc -= 2;
 			argv += 2;
 
-		} 
+		}
 		else if(!strcmp(str2[1], "pac")){
 			const char* fn;
 			FILE* fi;
@@ -1586,8 +1586,24 @@ rloop:
 			} else fclose(fi);
 			if(check_confirm("flash pac"))
 			{
-				pac_extract(fn, "pac_extract");
-				load_partitions(io, "pac_extract", blk_size ? blk_size : DEFAULT_BLK_SIZE, g_app_state.flash.selected_ab, isCMethod);
+				// 先解包到固定目录，再调用带 FDL 流程的 pac_flash
+				if (!pac_extract(fn, "pac_extract")) {
+					DEG_LOG(E, "pac_extract failed, abort pac flash.");
+				} else if (!pac_flash("pac_extract", io)) {
+					DEG_LOG(E, "pac_flash failed.");
+				} else {
+					DEG_LOG(I, "PAC flash completed successfully.");
+				}
+
+#ifdef _WIN32
+				DEG_LOG(I, "PAC 操作结束，程序将在 5 秒后退出...");
+				Sleep(5000);
+#else
+				DEG_LOG(I, "PAC 操作结束，程序将在 5 秒后退出...");
+				sleep(5);
+#endif
+				spdio_free(io);
+				return 0;
 			}
 			argc -= 2;
 			argv += 2;
