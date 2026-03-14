@@ -360,44 +360,28 @@ cpack -G NSIS -C Release
 ```
 
 生成的安装包会放在 `build/` 下（例如 `sfd_tool-1.0.0-Linux.tar.gz`、`sfd_tool-1.0.0-win64.exe`）。
-## 9. 本项目推荐的日常命令（dev / release）
+## 9.3 兼容 Make 用法（内部仍由 CMake 驱动）
 
-为避免每次记不同的 CMake 命令，本项目在 [scripts/](../scripts/) 目录下提供了统一脚本，类似 `pnpm dev` / `pnpm build`：
+为兼容历史使用习惯，项目根目录仍保留了一个 `Makefile`，但它现在只是 CMake 的薄封装：
 
-### 9.1 开发调试（Debug）
+- `make` / `make all`：
+  - 等价于：
+    ```bash
+    cmake -S . -B build_cmake_make -G "Ninja" \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    cmake --build build_cmake_make -j
+    ```
+  - 若系统未安装 `ninja`，则自动退回 `Unix Makefiles` 生成器。
+- `make debug`：
+  - 使用 `CMAKE_BUILD_TYPE=Debug`，其余流程同上。
+- 构建产物：
+  - 可执行文件位于 `build_cmake_make/sfd_tool`（或对应生成器的默认输出路径）。
 
-```bash
-# 在项目根目录执行
-./scripts/dev.sh
-```
+注意：
 
-等价流程：
-
-```bash
-# 1. 生成/更新 Debug 构建目录（优先使用 Ninja）
-cmake -S . -B build_cmake_debug -G "Ninja" \
-  -DCMAKE_BUILD_TYPE=Debug \
-  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-
-# 2. 编译 Debug 版本
-cmake --build build_cmake_debug -j
-
-# 3. 运行 Debug 版 GUI（语言由 per-user 配置文件中的 ui_language 决定）
-./build_cmake_debug/sfd_tool
-```
-
-`dev.sh` 会自动：
-
-- 检测是否安装 `ninja`，有则用 `Ninja`，否则退回 `Unix Makefiles`
-- 使用 `build_cmake_debug/` 作为 Debug 构建目录
-- 始终以 Debug 模式编译
-- 直接运行 `./build_cmake_debug/sfd_tool`，程序会从 per-user 配置文件读取 `ui_language` 并默认使用中文（首次运行时写出默认配置）。
-
-### 9.2 发布构建（Release）
-
-```bash
-# 在项目根目录执行
-./scripts/release.sh
+- 历史上 `Makefile` 直接调用编译器编译源文件，此方式不会生成 `version.h` 等 CMake 中间文件，已经被废弃；
+- 如需手工控制 CMake 选项（例如关闭 GTK、Libusb 或启用测试），请直接使用前文的 `cmake -S . -B ...` 命令，而不是修改 `Makefile`。
 ```
 
 等价流程：
