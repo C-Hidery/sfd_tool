@@ -172,7 +172,12 @@ find_package(PkgConfig QUIET)
 if (USE_GTK)
     if (WIN32)
         # Windows: headers/libraries are provided by MSYS2 GTK in the CI image.
-        set(_gtk_root "C:/msys64/mingw64")
+        # Use mingw64 for 64-bit builds and mingw32 for 32-bit (x86) builds.
+        if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+            set(_gtk_root "C:/msys64/mingw64")
+        else()
+            set(_gtk_root "C:/msys64/mingw32")
+        endif()
 
         foreach(tgt IN LISTS SFD_COMMON_TARGETS)
             target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
