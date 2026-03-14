@@ -448,16 +448,18 @@ jobs:
           # 处理 Windows 文件
           cp master/*.md output/
           cp master/third_party/Lib/libusb-1.0.dll output/sfd_tool_x64_Release/
+          cp master/third_party/Lib/Channel9.dll output/sfd_tool_x86_Release/
+          cp master/third_party/Lib/Channel.ini output/sfd_tool_x86_Release/
 
           cd output
 
-          # 如果存在 x86 构建目录，则删除，避免发布中混入未正式支持的 x86 版本
+          # 处理 Windows x86 SPRD 驱动版本
           if [ -d "sfd_tool_x86_Release" ]; then
-            echo "移除 CI 生成的 x86 构建目录（仅用于 CI 验证，不随 Release 发布）..."
-            rm -rf "sfd_tool_x86_Release"
+            echo "准备 Windows x86 SPRD 驱动版本..."
+            mv sfd_tool_x86_Release sfd_tool_SPRD_Release
           fi
 
-          # 重命名 Windows x64 目录
+          # 重命名 Windows x64 LibUSB 版本目录
           mv sfd_tool_x64_Release sfd_tool_LibUSB_Release
 
           # 创建 ZIP 包
@@ -482,20 +484,22 @@ jobs:
             ## sfd_tool Release
 
             ### 版本说明:
+            - **sfd_tool_SPRD_Release**: Windows x86 版本，使用官方 SPRD 串口驱动（Channel9.dll），兼容性最佳
             - **sfd_tool_LibUSB_Release**: Windows x64 版本，使用 libusb 驱动
             - **sfd_tool_macos**: macOS 版本（DMG 包）
             - **Linux DEB 包**: Ubuntu/Debian 系统安装包
             - **Linux RPM 包**: Fedora/RPM-Based 系统安装包
 
             ### 使用说明:
-            1. Windows x64 版本需要 libusb 驱动
-            2. macOS 版本需要已安装 GTK3 与 libusb 运行时（见项目 README）
+            1. Windows x86 版本推荐在老机器或需要最佳兼容性的环境使用，需要预先安装官方 SPRD 驱动（设备管理器中能看到对应的串口设备）
+            2. Windows x64 版本需要 libusb 驱动（可使用 Zadig 等工具为设备安装 libusb-win32 / libusbK 驱动）
+            3. macOS 版本需要已安装 GTK3 与 libusb 运行时（见项目 README）
 
             ### 文件列表:
-            - sfd_tool.exe - Windows 主程序
-            - sfd_tool - Linux 主程序
-            - *.dll - Windows 运行时依赖库
+            - sfd_tool_SPRD_Release/** - Windows x86 SPRD 驱动版
+            - sfd_tool_LibUSB_Release/** - Windows x64 LibUSB 驱动版
             - *.deb/*.rpm - Linux 安装包
+            - *.dmg - macOS 安装包
             - README.md - 说明文档
           files: |
             ${{ env.RELEASE_TAG }}.zip
