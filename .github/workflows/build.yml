@@ -25,8 +25,19 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     strategy:
       matrix:
-        arch: [x64]
-        config: [Release]
+        include:
+          - arch: x64
+            config: Release
+            msys_gtk_arch: mingw64
+            cmake_platform: x64
+            use_libusb: ON
+            vcpkg_triplet: x64-windows
+          - arch: x86
+            config: Release
+            msys_gtk_arch: mingw32
+            cmake_platform: Win32
+            use_libusb: OFF
+            vcpkg_triplet: x86-windows
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -43,9 +54,9 @@ jobs:
             C:\vcpkg\installed
             C:\vcpkg\packages
             C:\vcpkg\downloads
-          key: vcpkg-${{ runner.os }}-x64-windows-gettext-v1
+          key: vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-gettext-v1
           restore-keys: |
-            vcpkg-${{ runner.os }}-x64-windows-gettext-
+            vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-gettext-
 
       - name: Install gettext (libintl) via vcpkg
         shell: pwsh
@@ -59,7 +70,7 @@ jobs:
           }
           Write-Host "Using vcpkg: $vcpkgExe"
           # 安装 x64 的 gettext（包含 libintl）
-          & $vcpkgExe install gettext:x64-windows
+          & $vcpkgExe install "gettext:${{ matrix.vcpkg_triplet }}"
 
       - name: Install MSYS2 and GTK3
         run: |
@@ -71,9 +82,15 @@ jobs:
           # 更新软件包数据库（不做完整滚动升级）
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
 
-          # 安装 x64 GTK3 完整开发包（仅安装缺失的包）
-          Write-Host "安装 x64 GTK3 完整开发包..."
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
+          # 根据架构安装对应的 GTK3 完整开发包（仅安装缺失的包）
+          if ("${{ matrix.msys_gtk_arch }}" -eq "mingw64") {
+            Write-Host "安装 x64 GTK3 完整开发包..."
+            & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
+          } else {
+            Write-Host "安装 x86 GTK3 完整开发包..."
+            & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-i686-gtk3 mingw-w64-i686-harfbuzz mingw-w64-i686-pango mingw-w64-i686-cairo mingw-w64-i686-glib2"
+          }
+
 
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.arch }}/${{ matrix.config }}/
@@ -81,8 +98,8 @@ jobs:
       - name: Configure (CMake)
         shell: pwsh
         run: |
-          $platform = if ("${{ matrix.arch }}" -eq "x64") { "x64" } else { "Win32" }
-          $useLibusb = if ("${{ matrix.arch }}" -eq "x64") { "ON" } else { "OFF" }
+          $platform = "${{ matrix.cmake_platform }}"
+          $useLibusb = "${{ matrix.use_libusb }}"
 
           cmake -S . -B build_cmake `
             -G "Visual Studio 17 2022" `
@@ -97,7 +114,7 @@ jobs:
         shell: pwsh
         run: |
           # 确保在运行单元测试前，GTK3 和 libintl 等 DLL 在 PATH 中
-          $env:Path = "C:\msys64\mingw64\bin;C:\vcpkg\installed\x64-windows\bin;" + $env:Path
+          $env:Path = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin;C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin;" + $env:Path
 
           cmake --build build_cmake --config ${{ matrix.config }} -- /m
           ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
@@ -129,22 +146,22 @@ jobs:
       - name: Copy ALL DLLs from GTK3 bin directory
         run: |
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
-          
+
           # 确定 GTK3 bin 目录
-          $gtkBinPath = "C:\msys64\mingw64\bin"
-          
+          $gtkBinPath = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin"
+
           Write-Host "复制所有 DLL 从: $gtkBinPath"
           Write-Host "复制到: $destDir"
-          
+
           # 检查源目录是否存在
           if (-not (Test-Path $gtkBinPath)) {
             Write-Error "GTK3 bin 目录不存在: $gtkBinPath"
             exit 1
           }
-          
+
           # 复制所有 DLL 文件
           $dllFiles = Get-ChildItem -Path $gtkBinPath -Filter "*.dll"
-          
+
           if ($dllFiles.Count -eq 0) {
             Write-Warning "没有找到 DLL 文件！"
             Write-Host "目录内容:"
@@ -154,7 +171,7 @@ jobs:
               Copy-Item $dll.FullName -Destination $destDir -Force
             }
             Write-Host "已复制 $($dllFiles.Count) 个 DLL 文件"
-            
+
             # 显示前10个复制的文件
             Write-Host "前10个 DLL 文件:"
             $dllFiles | Select-Object -First 10 Name | ForEach-Object { Write-Host "  - $($_.Name)" }
@@ -164,7 +181,7 @@ jobs:
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
 
           # 确定 MSYS2 目录
-          $msysPrefix = "C:\msys64\mingw64"
+          $msysPrefix = "C:\msys64\${{ matrix.msys_gtk_arch }}"
 
           Write-Host "复制 GTK 运行时数据文件..."
 
@@ -432,10 +449,17 @@ jobs:
           cp master/*.md output/
           cp master/third_party/Lib/libusb-1.0.dll output/sfd_tool_x64_Release/
 
-          # 重命名 Windows 目录
           cd output
+
+          # 如果存在 x86 构建目录，则删除，避免发布中混入未正式支持的 x86 版本
+          if [ -d "sfd_tool_x86_Release" ]; then
+            echo "移除 CI 生成的 x86 构建目录（仅用于 CI 验证，不随 Release 发布）..."
+            rm -rf "sfd_tool_x86_Release"
+          fi
+
+          # 重命名 Windows x64 目录
           mv sfd_tool_x64_Release sfd_tool_LibUSB_Release
-          
+
           # 创建 ZIP 包
           zip -r -v ../${{ env.RELEASE_TAG }}.zip .
 
