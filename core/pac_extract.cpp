@@ -723,6 +723,7 @@ std::string FindFDLInExtFloder(const char* folder, Stages mode)
 // WIP
 bool pac_extract(const char* fn, const char* floder)
 {
+#if 0
 	int pac_part_count;
 	Unpac unpac;
 	unpac.setDirectory(floder);
@@ -865,6 +866,111 @@ bool pac_extract(const char* fn, const char* floder)
 	// 更新显示
 	gtk_widget_queue_draw(part_list);
 	delete[] pacptable;
+#endif
+
+	auto result = sfd::pac_unpack_and_analyze(fn, floder);
+	if (!result) {
+		DEG_LOG(E, "pac_unpack_and_analyze failed: %s", result.message.c_str());
+		if (isHelperInit) {
+			auto message = result.message;
+			gui_idle_call_wait_drag([message]() {
+				const char* ui_message = nullptr;
+
+				if (message == "openPacFile failed") {
+					ui_message = "Failed to open PAC file.\n无法打开PAC文件\n";
+				} else if (message == "extractFiles failed") {
+					ui_message = "Failed to extract files from PAC file.\n无法从PAC文件中提取文件\n";
+				} else if (message == "XML file not found in unpack folder") {
+					ui_message = "No XML file found in the extracted folder.\n在解压后的文件夹中未找到XML文件\n";
+				} else if (message == "no partition info found in XML") {
+					ui_message = "No partition info found in xml\n不能在xml中找到分区信息\n";
+				} else if (message == "failed to create temporary partitions XML file") {
+					ui_message = "Failed to create temporary partitions XML file.\n无法创建临时分区XML文件\n";
+				}
+
+				if (ui_message) {
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", ui_message);
+				} else {
+					std::string generic = "Failed to unpack PAC file: ";
+					generic += message;
+					generic += "\n解包 PAC 文件失败，请检查文件是否有效\n";
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", generic.c_str());
+				}
+			}, GTK_WINDOW(helper.getWidget("main_window")));
+		}
+		return false;
+	}
+
+	const PacUnpackInfo& info = result.value;
+
+	GtkWidget* part_list = helper.getWidget("pac_list");
+	if (!part_list || !GTK_IS_TREE_VIEW(part_list)) {
+		std::cerr << "pac_list not found or not a TreeView" << std::endl;
+		if (isHelperInit) gui_idle_call_wait_drag([]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Partition list view not found.\n未找到分区列表视图\n");
+		}, GTK_WINDOW(helper.getWidget("main_window")));
+		return false;
+	}
+
+	GtkTreeModel* model = gtk_tree_view_get_model(GTK_TREE_VIEW(part_list));
+	if (!model) {
+		std::cerr << "TreeView model not found" << std::endl;
+		if (isHelperInit) gui_idle_call_wait_drag([]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Partition list model not found.\n未找到分区列表模型\n");
+		}, GTK_WINDOW(helper.getWidget("main_window")));
+		return false;
+	}
+
+	GtkListStore* store = GTK_LIST_STORE(model);
+	gtk_list_store_clear(store);
+
+	int index = 1;
+	GtkTreeIter iter_spl;
+	gtk_list_store_append(store, &iter_spl);
+	long long spl_size = g_spl_size > 0 ? g_spl_size : 0;
+	std::string display_name = std::to_string(index) + ". splloader";
+	std::string size_str;
+	if (spl_size < 1024) {
+		size_str = std::to_string(spl_size) + " B";
+	} else {
+		size_str = std::to_string(spl_size / 1024) + " KB";
+	}
+	gtk_list_store_set(store, &iter_spl,
+				   0, display_name.c_str(),
+				   1, size_str.c_str(),
+				   2, "splloader",
+				   -1);
+
+	index++;
+	for (const auto& partition : info.partitions) {
+		GtkTreeIter iter;
+		gtk_list_store_append(store, &iter);
+
+		std::string display_name = std::to_string(index) + ". " + partition.name;
+
+		std::string size_str;
+		auto size = partition.size_bytes;
+		if (size < 1024) {
+			size_str = std::to_string(size) + " B";
+		} else if (size < 1024 * 1024) {
+			size_str = std::to_string(size / 1024) + " KB";
+		} else if (size < 1024ull * 1024ull * 1024ull) {
+			size_str = std::to_string(size / (1024 * 1024)) + " MB";
+		} else {
+			double gb = static_cast<double>(size) / (1024.0 * 1024.0 * 1024.0);
+			size_str = std::to_string(gb) + " GB";
+		}
+
+		gtk_list_store_set(store, &iter,
+					   0, display_name.c_str(),
+					   1, size_str.c_str(),
+					   2, partition.name.c_str(),
+					   -1);
+
+		index++;
+	}
+
+	gtk_widget_queue_draw(part_list);
 	return true;
 }
 
@@ -919,204 +1025,6 @@ std::string findBaseForID(const std::string& filename, const std::string& target
     return ""; // 未找到
 }
 
-bool pac_flash(const char* folder, spdio_t* io)
-{
-    uint64_t blk_size = DEFAULT_BLK_SIZE;
-    uint32_t baudrate = 0;
-    std::string fdl1_path = FindFDLInExtFloder(folder, FDL1);
-    std::string fdl2_path = FindFDLInExtFloder(folder, FDL2);
-    if (fdl1_path.empty() || fdl2_path.empty()) {
-        std::cerr << "FDL files not found in the folder." << std::endl;
-        if(isHelperInit) gui_idle_call_wait_drag([](){
-            showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "FDL files not found in the PAC folder.\n在PAC文件夹中未找到FDL文件\n");
-        },GTK_WINDOW(helper.getWidget("main_window")));
-        return false;
-    }
-    std::string xmlPath = FindFirstXMLFile(folder);
-    if (xmlPath.empty())
-    {
-        std::cerr << "XML file not found in the folder." << std::endl;
-        if(isHelperInit) gui_idle_call_wait_drag([](){
-            showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "XML file not found in the PAC folder.\n在PAC文件夹中未找到XML文件\n");
-        },GTK_WINDOW(helper.getWidget("main_window")));
-        return false;
-    }
-    uint32_t fdl1_addr = strtoul(findBaseForID(xmlPath, "FDL1").c_str(), nullptr, 16);
-    uint32_t fdl2_addr = strtoul(findBaseForID(xmlPath, "FDL2").c_str(), nullptr, 16);
-    int highspeed = 0;
-    if (fdl1_addr == 0 || fdl2_addr == 0)
-    {
-        std::cerr << "Failed to find FDL base addresses in XML." << std::endl;
-        if(isHelperInit) gui_idle_call_wait_drag([](){
-            showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Failed to find FDL base addresses in XML file.\n在XML文件中未找到FDL基地址\n");
-        },GTK_WINDOW(helper.getWidget("main_window")));
-        return false;
-    }
-    int ret = 0;
-    int fdl1_loaded = 0;
-    int fdl2_executed = 0;
-    FILE* fi = oxfopen(fdl1_path.c_str(), "r");
-    if (fi == nullptr) {
-        DEG_LOG(W, "File does not exist.\n");
-        if (isHelperInit) gui_idle_call_wait_drag([](){
-            showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Warning", "File does not exist.\n文件不存在\n");
-        },GTK_WINDOW(helper.getWidget("main_window")));
-        return false;
-    } else fclose(fi);
-    send_file(io, fdl1_path.c_str(), fdl1_addr, 0, 528, 0, 0);
-    encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-    if (send_and_check(io)) ERR_EXIT("FDL exec failed");
-
-    DEG_LOG(OP, "Execute FDL1");
-    // Tiger 310(0x5500) and Tiger 616(0x65000800) need to change baudrate after FDL1
-    if (fdl1_addr == 0x5500 || fdl1_addr == 0x65000800) {
-        highspeed = 1;
-        if (!baudrate) baudrate = 921600;
-    }
-
-    /* FDL1 (chk = sum) */
-    io->flags &= ~FLAGS_CRC16;
-
-    encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
-    for (int i = 0; ; i++) {
-        send_msg(io);
-        recv_msg(io);
-        if (recv_type(io) == BSL_REP_VER) break;
-        DEG_LOG(W, "Failed to check baud, retry...");
-        if (i == 4) {
-            const char* o_exception = "Failed to check baud FDL1";
-            ERR_EXIT("Can not execute FDL: %s,please reboot your phone by pressing POWER and VOL_UP for 7-10 seconds.\n", o_exception);
-        }
-        usleep(500000);
-    }
-    DEG_LOG(I, "Check baud FDL1 done.");
-
-    DEG_LOG(I, "Device REP_Version: ");
-    print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
-
-#if FDL1_DUMP_MEM
-    // read dump mem (kept from upstream, disabled by default)
-    int pagecount = 0;
-    char* pdump;
-    char chdump;
-    FILE* fdump;
-    fdump = my_oxfopen("memdump.bin", "wb");
-    encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
-    while (1) {
-        send_msg(io);
-        ret = recv_msg(io);
-        if (!ret) ERR_EXIT("timeout reached\n");
-        if (recv_type(io) == BSL_CMD_READ_END) break;
-        pdump = (char*)(io->raw_buf + 4);
-        for (i = 0; i < 512; i++) {
-            chdump = *(pdump++);
-            if (chdump == 0x7d) {
-                if (*pdump == 0x5d || *pdump == 0x5e) chdump = *(pdump++) + 0x20;
-            }
-            fputc(chdump, fdump);
-        }
-        DEG_LOG(I, "dump page count %d", ++pagecount);
-    }
-    fclose(fdump);
-    DEG_LOG(I, "dump mem end");
-#endif
-
-    encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-    if (send_and_check(io)) ERR_EXIT("FDL connect failed");
-    DEG_LOG(I, "FDL1 connected.");
-#if !USE_LIBUSB
-    if (baudrate) {
-        uint8_t* data = io->temp_buf;
-        WRITE32_BE(data, baudrate);
-        encode_msg_nocpy(io, BSL_CMD_CHANGE_BAUD, 4);
-        if (!send_and_check(io)) {
-            DEG_LOG(OP, "Change baud FDL1 to %d", baudrate);
-            call_SetProperty(io->handle, 0, 100, (LPCVOID)&baudrate);
-        }
-    }
-#endif
-    encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
-    if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
-    fdl1_loaded = 1;
-
-    fi = oxfopen(fdl2_path.c_str(), "r");
-    if (fi == nullptr) {
-        DEG_LOG(W, "File does not exist.");
-        if (isHelperInit) gui_idle_call_wait_drag([](){
-             showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Warning", "File does not exist.\n文件不存在\n");
-         },GTK_WINDOW(helper.getWidget("main_window")));
-        return false;
-    } else fclose(fi);
-    send_file(io, fdl2_path.c_str(), fdl2_addr, 0, 528, 0, 0);
-    memset(&Da_Info, 0, sizeof(Da_Info));
-    encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-    send_msg(io);
-    // Feature phones respond immediately,
-    // but it may take a second for a smartphone to respond.
-    ret = recv_msg_timeout(io, 15000);
-    if (!ret) {
-        ERR_EXIT("timeout reached\n");
-    }
-    ret = recv_type(io);
-    // Is it always bullshit?
-    if (ret == BSL_REP_INCOMPATIBLE_PARTITION)
-        get_Da_Info(io);
-    else if (ret != BSL_REP_ACK) {
-        const char* name = get_bsl_enum_name(ret);
-        ERR_EXIT("excepted response (%s : 0x%04x)\n", name, ret);
-    }
-    DEG_LOG(OP, "Execute FDL2");
-
-    if (Da_Info.bDisableHDLC) {
-        encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
-        if (!send_and_check(io)) {
-            io->flags &= ~FLAGS_TRANSCODE;
-            DEG_LOG(OP, "Try to disable transcode 0x7D.");
-        }
-    }
-    int o = io->verbose;
-    io->verbose = -1;
-    g_spl_size = check_partition(io, "splloader", 1);
-    io->verbose = o;
-    if (Da_Info.bSupportRawData) {
-        blk_size = 0xf800;
-        io->ptable = partition_list(io, fn_partlist, &io->part_count);
-        if (fdl2_executed) {
-            Da_Info.bSupportRawData = 0;
-            DEG_LOG(OP, "Raw data mode disabled for SPRD4.");
-        } else {
-            encode_msg_nocpy(io, BSL_CMD_ENABLE_RAW_DATA, 0);
-            if (!send_and_check(io)) DEG_LOG(OP, "Raw data mode enabled.");
-        }
-    }
-    else if (highspeed || Da_Info.dwStorageType == 0x103) {
-        blk_size = 0xf800;
-        io->ptable = partition_list(io, fn_partlist, &io->part_count);
-    } else if (Da_Info.dwStorageType == 0x102) {
-        io->ptable = partition_list(io, fn_partlist, &io->part_count);
-    } else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
-    if (g_app_state.flash.gpt_failed != 1) {
-        if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
-        else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
-        else {
-            DEG_LOG(I, "Device is not using VAB\n");
-            if (Da_Info.bSupportRawData) {
-                DEG_LOG(I, "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.", (unsigned)Da_Info.bSupportRawData);
-                Da_Info.bSupportRawData = 0;
-            }
-        }
-    }
-    uint8_t nand_id = DEFAULT_NAND_ID;
-    int nand_info[3];
-    if (nand_id == DEFAULT_NAND_ID) {
-        nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
-        nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
-        nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
-    }
-    fdl2_executed = 1;
-    load_partitions(io, folder, blk_size, g_app_state.flash.selected_ab, 0);
-    return true;
-}
 
 static ::sfd::Result<void> check_pac_crc_result(const char* fn) {
     Unpac unpac;
