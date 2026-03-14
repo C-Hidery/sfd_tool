@@ -76,6 +76,16 @@ sudo apt-get install -y build-essential debhelper devscripts \
 
 The script runs `dpkg-buildpackage` in a temporary directory under `/tmp/build-sfd-tool/` and produces `sfd-tool_*.deb` packages.
 
+### Prebuilt binaries (GitHub Releases)
+
+Official GitHub Releases provide:
+
+- **sfd_tool_SPRD_Release**: Windows x86 build using the official SPRD serial driver (Channel9.dll). This variant has the best compatibility and is recommended for older machines or when stability matters most.
+- **sfd_tool_LibUSB_Release**: Windows x64 build using libusb, suitable for modern 64-bit Windows systems.
+- **Linux DEB / RPM packages** for mainstream Debian/Ubuntu and Fedora/RPM-based distributions.
+- **macOS DMG** installer.
+
+
 ### Internationalization (i18n)
 This tool supports multi-language adaptation:
 * `make` will build the core application in English.
