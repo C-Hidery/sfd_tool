@@ -922,7 +922,7 @@ std::string findBaseForID(const std::string& filename, const std::string& target
 bool pac_flash(const char* folder, spdio_t* io)
 {
     uint64_t blk_size = DEFAULT_BLK_SIZE;
-    uint8_t baudrate = 0;
+    uint32_t baudrate = 0;
     std::string fdl1_path = FindFDLInExtFloder(folder, FDL1);
     std::string fdl2_path = FindFDLInExtFloder(folder, FDL2);
     if (fdl1_path.empty() || fdl2_path.empty()) {
