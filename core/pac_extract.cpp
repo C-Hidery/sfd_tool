@@ -1162,6 +1162,23 @@ sfd::Result<PacUnpackInfo> pac_unpack_and_analyze_impl(const char* pac_path,
 
 namespace sfd {
 
+Result<void> pac_extract_result(const char* fn, const char* folder) {
+    // 基础参数校验：用于测试和统一错误模型
+    if (!fn || !*fn || !folder || !*folder) {
+        return Result<void>::error(ErrorCode::InvalidArgument,
+                                   "empty pac path or output folder");
+    }
+
+    // 复用新的 PAC 解包 + 分析逻辑，只关心成功/失败
+    auto r = pac_unpack_and_analyze(fn, folder);
+    if (!r) {
+        // 将底层错误码与消息直接透传给调用方
+        return Result<void>::error(r.code, r.message);
+    }
+
+    return Result<void>::ok();
+}
+
 Result<PacUnpackInfo> pac_unpack_and_analyze(const char* pac_path,
                                              const char* out_folder) {
     return pac_unpack_and_analyze_impl(pac_path, out_folder);
