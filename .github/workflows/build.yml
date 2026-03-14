@@ -92,7 +92,9 @@ jobs:
           }
 
           # 安装 gettext，提供 msgfmt 用于生成 .mo 语言文件
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed gettext"      - name: Create Build Directory
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed gettext"
+
+      - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.arch }}/${{ matrix.config }}/
 
       - name: Configure (CMake)
