@@ -91,13 +91,16 @@ jobs:
             & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-i686-gtk3 mingw-w64-i686-harfbuzz mingw-w64-i686-pango mingw-w64-i686-cairo mingw-w64-i686-glib2"
           }
 
-
-      - name: Create Build Directory
+          # 安装 gettext，提供 msgfmt 用于生成 .mo 语言文件
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed gettext"      - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.arch }}/${{ matrix.config }}/
 
       - name: Configure (CMake)
         shell: pwsh
         run: |
+          # 让 CMake 能在 Windows 下找到 msgfmt
+          $env:Path = "C:\msys64\usr\bin;" + $env:Path
+
           $platform = "${{ matrix.cmake_platform }}"
           $useLibusb = "${{ matrix.use_libusb }}"
 
