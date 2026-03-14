@@ -29,6 +29,12 @@ endif()
 option(USE_LIBUSB "Enable libusb backend" ON)
 option(USE_GTK "Enable GTK3 UI" ON)
 
+# Windows x86 (Win32) 不支持 libusb：强制关闭，统一走 Channel9 封装
+if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4 AND USE_LIBUSB)
+    message(STATUS "USE_LIBUSB=ON is not supported on Win32 (x86); forcing USE_LIBUSB=OFF (Channel9 backend)")
+    set(USE_LIBUSB OFF CACHE BOOL "Enable libusb backend" FORCE)
+endif()
+
 
 # Termux 支持：与 Makefile 的 termux 目标对应
 option(TERMUX "Enable Termux specific build options" OFF)
