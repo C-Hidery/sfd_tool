@@ -694,6 +694,9 @@ void ChangeMode(spdio_t *io, int ms, int bootmode, int at) {
 				}
 			}
 		}
+		if (!at) done = 1;
+	}
+}
 
 #else
 void ChangeMode(spdio_t *io, int ms, int bootmode, int at) {
