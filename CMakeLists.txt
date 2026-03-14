@@ -126,7 +126,12 @@ endif()
 
 # Windows: libintl (gettext) via vcpkg
 if (WIN32)
-    set(_vcpkg_triplet "x64-windows")
+    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+        set(_vcpkg_triplet "x64-windows")
+    else()
+        # 32-bit (Win32) build
+        set(_vcpkg_triplet "x86-windows")
+    endif()
 
     # Try to infer vcpkg root from toolchain file first, then env, then default C:/vcpkg
     set(_vcpkg_root "")
