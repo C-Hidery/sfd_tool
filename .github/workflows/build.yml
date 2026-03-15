@@ -285,6 +285,7 @@ jobs:
     timeout-minutes: 30
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      MACOSX_DEPLOYMENT_TARGET: '11.0'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
