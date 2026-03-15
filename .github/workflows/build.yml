@@ -456,7 +456,7 @@ jobs:
           mv sfd_tool_x64_Release sfd_tool_LibUSB_Release
 
           # 创建 ZIP 包（Windows 打包，文件名带版本）
-          zip -r -v ../sfd_tool_windows_${{ env.RELEASE_TAG }}.zip .
+          zip -r -v sfd_tool_windows_${{ env.RELEASE_TAG }}.zip .
 
           # 复制 Linux 包
           cp -r sfd_tool_linux_deb/*.deb .
@@ -469,7 +469,6 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          overwrite: true
           token: ${{ secrets.RELEASE_TOKEN }}
           tag_name: ${{ env.RELEASE_TAG }}
           target_commitish: ${{ github.sha }}
@@ -498,7 +497,7 @@ jobs:
             - *.dmg - macOS 安装包
             - README.md - 说明文档
           files: |
-            ${{ env.RELEASE_TAG }}.zip
+            output/sfd_tool_windows_${{ env.RELEASE_TAG }}.zip
             output/*.deb
             output/*.rpm
             output/*.dmg
