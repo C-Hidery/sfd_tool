@@ -103,6 +103,24 @@ Official GitHub Releases provide:
 - **Linux DEB / RPM packages** for mainstream Debian/Ubuntu and Fedora/RPM-based distributions.
 - **macOS DMG** installer.
 
+#### macOS notes
+
+- The current macOS build is shipped as a standalone binary that **depends on system GTK3/libusb/gettext** and does **not** bundle these libraries inside the DMG.
+- If these runtimes are not installed yet, you can install them with Homebrew:
+
+  ```bash
+  brew install gtk+3 libusb gettext
+  ```
+
+- After downloading the DMG/binary from a browser, macOS Gatekeeper may show a warning such as “cannot be opened because the developer cannot be verified” or similar:
+  - Recommended: in Finder, **right-click the `sfd_tool` binary → Open**, then confirm again in the dialog.
+  - If the file is still quarantined, advanced users can clear the download quarantine attribute explicitly:
+
+    ```bash
+    xattr -d com.apple.quarantine /path/to/sfd_tool
+    ```
+
+  This only removes the “downloaded from the Internet” flag and does not modify the program contents.
 
 ### Internationalization (i18n)
 This tool supports multi-language adaptation:
@@ -135,7 +153,7 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 **This command is equivalent to the `partition_list` command.**
 
     exec_addr [BINARY FILE] [ADDR]
-    
+
 **Modified, you need to provide file path and address**
 
     exec <ADDR>
@@ -151,7 +169,7 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 **New option, execute it if you want to connect to device without FDL1/2(Only Sprd4 Mode).**
 
     cptable
-    
+
 **New command, use it to get partition table through compatibility method(FDL2 only)**
 
     --no-gui

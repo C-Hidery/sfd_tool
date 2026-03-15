@@ -114,9 +114,64 @@ static std::string choose_locale_dir() {
     return std::string();
 }
 
+static std::string load_about_from_path(const std::string& path) {
+    std::ifstream in(path);
+    if (!in) {
+        return std::string();
+    }
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    return ss.str();
+}
+
+static std::string load_installed_about_text() {
+    // 1) 优先使用编译期指定的文档目录（Linux 安装包）
+#ifdef SFD_TOOL_DOC_DIR
+    {
+        std::string doc_path = std::string(SFD_TOOL_DOC_DIR) + "/VERSION_LOG.md";
+        std::string content = load_about_from_path(doc_path);
+        if (!content.empty()) {
+            return content;
+        }
+    }
+#endif
+
+    // 2) 其次使用可执行文件所在目录（macOS DMG、Windows 目录运行等）
+    std::string exe_dir = get_executable_dir();
+    if (!exe_dir.empty()) {
+        {
+            std::string path = exe_dir + "/VERSION_LOG.md";
+            std::string content = load_about_from_path(path);
+            if (!content.empty()) {
+                return content;
+            }
+        }
+        {
+            std::string path = exe_dir + "/docs/VERSION_LOG.md";
+            std::string content = load_about_from_path(path);
+            if (!content.empty()) {
+                return content;
+            }
+        }
+#if defined(__APPLE__)
+        // 预留给 .app Bundle 的资源路径：Contents/MacOS/../Resources
+        {
+            std::string path = exe_dir + "/../Resources/VERSION_LOG.md";
+            std::string content = load_about_from_path(path);
+            if (!content.empty()) {
+                return content;
+            }
+        }
+#endif
+    }
+
+    return std::string();
+}
+
 } // namespace
 
 std::string load_about_text() {
+	// 1) 开发环境：当前工作目录中的相对路径
 	const char* candidates[] = {
 		"docs/VERSION_LOG.md",
 		"VERSION_LOG.md",
@@ -130,6 +185,14 @@ std::string load_about_text() {
 			return ss.str();
 		}
 	}
+
+	// 2) 已安装环境：使用编译期/可执行文件路径推导出的版本记录文件
+	std::string installed = load_installed_about_text();
+	if (!installed.empty()) {
+		return installed;
+	}
+
+	// 3) 仍然找不到时，回退到原有提示
 	return "SFD Tool GUI\n\nAbout information file missing.\n";
 }
 

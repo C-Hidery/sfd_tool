@@ -320,6 +320,9 @@ jobs:
           cp build_cmake/sfd_tool dist/macos/
           cp README*.md dist/macos/ 2>/dev/null || true
           cp LICENSE.txt dist/macos/ 2>/dev/null || true
+          # 版本记录用于 GUI About 页面
+          mkdir -p dist/macos/docs
+          cp docs/VERSION_LOG.md dist/macos/docs/ 2>/dev/null || true
 
       - name: Copy locale (.mo) files (macOS)
         run: |

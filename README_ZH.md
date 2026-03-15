@@ -104,6 +104,24 @@ GitHub Releases 页面会提供以下预编译包：
 - **Linux DEB / RPM 包**：适用于主流 Debian/Ubuntu 和 Fedora/RPM 系发行版
 - **macOS DMG**：macOS 安装包
 
+#### macOS 使用注意事项
+
+- 当前 macOS 版本为 **独立二进制 + 依赖系统 GTK3/libusb/gettext** 的形式，并 **没有** 将 GTK3/libusb 等运行库一并打包到 DMG 中。
+- 如在运行前尚未安装依赖，建议使用 Homebrew 安装：
+
+  ```bash
+  brew install gtk+3 libusb gettext
+  ```
+
+- 从浏览器下载 DMG / 二进制后，macOS 可能会因为 Gatekeeper 显示“无法验证开发者”或“疑似恶意软件”等提示：
+  - 推荐做法：在 Finder 中 **右键 sfd_tool / 打开**，按照系统提示再次确认即可。
+  - 如仍被系统标记为隔离文件，可在终端中手动清除下载隔离标记（高级用法）：
+
+    ```bash
+    xattr -d com.apple.quarantine /path/to/sfd_tool
+    ```
+
+  以上命令只会移除系统的“从互联网下载”标签，不会修改程序内容。
 
 ### 多语言国际化 (i18n)
 本工具支持中英文等多种语言适配：
@@ -136,7 +154,7 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 **等同于命令`partition_list`**
 
     exec_addr [镜像文件] [地址]
-    
+
 **你需要同时提供文件路径和地址**
 
     exec <地址>
