@@ -42,6 +42,19 @@
 
 ## 1. 更新版本号（唯一来源）
 
+> 推荐：从 1.7.7.4 起，可以使用脚本自动完成本节和后面“更新版本记录”“同步 Windows 资源版本”的大部分工作：
+>
+> - 在 Linux/macOS 上：`./scripts/bump_version.sh`
+> - 在 Windows PowerShell 上：`.\scripts\bump_version.ps1`
+>
+> 脚本会：
+> - 修改根目录 `VERSION.txt`
+> - 更新并追加 `docs/VERSION_LOG.md`
+> - 同步 `packaging/rpm-build/sfd-tool.spec` 中的 `Version` 字段
+> - 更新 `assets/app.rc` 中的版本号
+> 并自动创建一条 `git commit`（提交信息形如 `Version: 1.7.7.4`）。
+> 如果你更倾向于手工操作，仍然可以按照下面的步骤进行。
+
 1. 编辑根目录 `VERSION.txt`，把第一行改成新版本号，例如：
    ```
    1.7.7.0
