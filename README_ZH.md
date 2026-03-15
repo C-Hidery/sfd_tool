@@ -62,6 +62,24 @@ cmake -S . -B build -G "Visual Studio 17 2022"
 
 根目录下的旧版解决方案文件 [sfd_tool.sln](sfd_tool.sln) 仅作为兼容/参考，可能与当前 CMake 配置存在一定滞后，请以 CMake 生成的解决方案为准。
 
+### 开发/发布辅助脚本
+
+在 Linux/macOS 上：
+
+```bash
+./scripts/dev.sh       # 使用 CMake 生成 Debug 构建并直接运行
+./scripts/release.sh   # 使用 CMake 生成 Release 构建
+./scripts/bump_version.sh # 交互式更新版本号和 docs/VERSION_LOG.md
+```
+
+在 Windows（PowerShell）上：
+
+```powershell
+.\scripts\dev.ps1         # 使用 CMake/VS 生成 Debug 构建并启动程序
+.\scripts\release.ps1     # 使用 CMake/VS 生成 Release 构建
+.\scripts\bump_version.ps1 # 交互式更新版本号和 docs/VERSION_LOG.md
+```
+
 ### 打包与发布
 
 > 详细发布与版本维护流程见：[RELEASE_GUIDE_ZH](docs/RELEASE_GUIDE_ZH.md)
