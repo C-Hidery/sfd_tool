@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 1.7.7.8 LTV Edition
+Version 1.7.7.9 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -75,6 +75,9 @@ UI Refactor, optimization code logic.
 
 ---v 1.7.7.8---
 优化：打包文件全部都放在 output 下
+
+---v 1.7.7.9---
+移除fdl路径占位配置
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
