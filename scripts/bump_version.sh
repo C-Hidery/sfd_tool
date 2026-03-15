@@ -15,7 +15,7 @@ fi
 
 # 读取版本号（容错：自动去掉空白、中文句号等）
 while :; do
-  read -rp "请输入新版本号 (格式 X.Y.Z.W，例如 1.7.8.0，输入 q 退出): " NEW_VERSION_RAW
+  read -erp "请输入新版本号 (格式 X.Y.Z.W，例如 1.7.8.0，输入 q 退出): " NEW_VERSION_RAW
   # 允许直接退出
   if [[ "$NEW_VERSION_RAW" == "q" || "$NEW_VERSION_RAW" == "Q" ]]; then
     echo "已取消"
@@ -37,7 +37,7 @@ while :; do
 done
 
 echo
-read -rp "请输入本次更新内容（用于 docs/VERSION_LOG.md，单行描述即可）: " LOG_LINE
+read -erp "请输入本次更新内容（用于 docs/VERSION_LOG.md，单行描述即可）: " LOG_LINE
 if [[ -z "$LOG_LINE" ]]; then
   LOG_LINE="No details provided."
 fi
