@@ -199,6 +199,7 @@ git add VERSION.txt
 [[ -f docs/VERSION_LOG.md ]] && git add docs/VERSION_LOG.md
 [[ -f packaging/rpm-build/sfd-tool.spec ]] && git add packaging/rpm-build/sfd-tool.spec
 [[ -f assets/app.rc ]] && git add assets/app.rc
+[[ -f packaging/debian/changelog ]] && git add packaging/debian/changelog
 
 git commit -m "Version: $NEW_VERSION"
 
