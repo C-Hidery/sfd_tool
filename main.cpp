@@ -315,6 +315,25 @@ void crash_handler(int sig) {
 	}).detach();
 
 }
+
+// 全局快捷键处理：在 macOS 上支持 Command+Q，其他平台支持 Ctrl+Q 退出
+static gboolean on_main_window_key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data) {
+	(void)widget;
+	(void)user_data;
+
+#if defined(__APPLE__)
+	if ((event->state & GDK_META_MASK) && event->keyval == GDK_KEY_q) {
+		gtk_main_quit();
+		return TRUE;
+	}
+#else
+	if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_KEY_q) {
+		gtk_main_quit();
+		return TRUE;
+	}
+#endif
+	return FALSE;
+}
  //fdl exec
 std::string fdl1_path_json;
 std::string fdl2_path_json;
@@ -345,6 +364,10 @@ int gtk_kmain(int argc, char** argv) {
 	GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	gtk_window_set_title(GTK_WINDOW(window), "SFD Tool GUI By Ryan Crepa");
 	gtk_window_set_default_size(GTK_WINDOW(window), 1174, 765);
+
+	// 启用键盘事件（用于快捷键）
+	gtk_widget_add_events(window, GDK_KEY_PRESS_MASK);
+	g_signal_connect(window, "key-press-event", G_CALLBACK(on_main_window_key_press), NULL);
 
 	// 设置关闭信号
 	g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
