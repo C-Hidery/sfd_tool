@@ -307,7 +307,8 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DUSE_GTK=ON \
             -DUSE_LIBUSB=ON \
-            -DSFD_ENABLE_TESTS=ON
+            -DSFD_ENABLE_TESTS=ON \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
 
       - name: Build and Test (CMake)
         run: |

@@ -65,7 +65,8 @@ echo "[release] 使用生成器: ${GENERATOR}"
 
 echo "[release] 配置 Release 构建..."
 cmake -S . -B "${BUILD_DIR}" -G "${GENERATOR}" \
-  -DCMAKE_BUILD_TYPE=Release
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
 
 echo "[release] 编译 Release 构建..."
 cmake --build "${BUILD_DIR}" -j
