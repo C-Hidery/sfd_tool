@@ -455,18 +455,21 @@ jobs:
           # 重命名 Windows x64 LibUSB 版本目录
           mv sfd_tool_x64_Release sfd_tool_LibUSB_Release
 
-          # 创建 ZIP 包
-          zip -r -v ../${{ env.RELEASE_TAG }}.zip .
+          # 创建 ZIP 包（Windows 打包，文件名带版本）
+          zip -r -v ../sfd_tool_windows_${{ env.RELEASE_TAG }}.zip .
 
           # 复制 Linux 包
           cp -r sfd_tool_linux_deb/*.deb .
           cp -r sfd_tool_rpm_package/*/*.rpm .
-          # 复制 macOS DMG
-          cp -r sfd_tool_macos_dmg/*.dmg .
+          # 复制 macOS DMG（并带上版本号）
+          for dmg in sfd_tool_macos_dmg/*.dmg; do
+            cp "$dmg" "sfd_tool_macos_${{ env.RELEASE_TAG }}.dmg"
+          done
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          overwrite: true
           token: ${{ secrets.RELEASE_TOKEN }}
           tag_name: ${{ env.RELEASE_TAG }}
           target_commitish: ${{ github.sha }}
