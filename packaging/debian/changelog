@@ -1,3 +1,9 @@
+sfd-tool (1.7.7.5-1-ltv) unstable; urgency=medium
+
+  * 完善各平台打包脚本，支持快捷键退出
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sun, 15 Mar 2026 15:08:50 +0800
+
 sfd-tool (1.7.7.4-1-ltv) unstable; urgency=medium
 
   * Bump upstream to 1.7.7.4 LTV
