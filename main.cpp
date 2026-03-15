@@ -101,6 +101,18 @@ static bool dir_exists(const std::string& path) {
 
 static std::string choose_locale_dir() {
     std::string exe_dir = get_executable_dir();
+
+#if defined(__APPLE__)
+    // macOS .app Bundle: 优先从 Contents/Resources/locale 查找
+    if (!exe_dir.empty()) {
+        // exe_dir 形如 /.../SFD Tool.app/Contents/MacOS
+        std::string bundle_locale = exe_dir + "/../Resources/locale";
+        if (dir_exists(bundle_locale)) {
+            return bundle_locale;
+        }
+    }
+#endif
+
     if (!exe_dir.empty()) {
         std::string exe_locale = exe_dir + "/locale";
         if (dir_exists(exe_locale)) {

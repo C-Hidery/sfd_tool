@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key>
+  <string>SFD Tool</string>
+
+  <key>CFBundleDisplayName</key>
+  <string>SFD Tool</string>
+
+  <key>CFBundleExecutable</key>
+  <string>sfd_tool</string>
+
+  <key>CFBundleIdentifier</key>
+  <string>com.github.sfdtool</string>
+
+  <key>CFBundleVersion</key>
+  <string>@SFD_TOOL_VERSION_STR@</string>
+
+  <key>CFBundleShortVersionString</key>
+  <string>@SFD_TOOL_VERSION_STR@</string>
+
+  <key>CFBundleIconFile</key>
+  <string>SFDTool.icns</string>
+
+  <key>LSMinimumSystemVersion</key>
+  <string>10.15</string>
+
+  <key>NSPrincipalClass</key>
+  <string>NSApplication</string>
+
+  <key>LSApplicationCategoryType</key>
+  <string>public.app-category.utilities</string>
+
+  <key>NSHighResolutionCapable</key>
+  <true/>
+</dict>
+</plist>

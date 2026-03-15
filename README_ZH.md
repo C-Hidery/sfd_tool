@@ -102,26 +102,32 @@ GitHub Releases 页面会提供以下预编译包：
 - **sfd_tool_SPRD_Release**：Windows x86 版本，使用官方 SPRD 串口驱动（兼容性最佳，推荐在老机器或对兼容性要求高的环境使用）
 - **sfd_tool_LibUSB_Release**：Windows x64 版本，使用 libusb 驱动（适合现代 64 位 Windows 系统）
 - **Linux DEB / RPM 包**：适用于主流 Debian/Ubuntu 和 Fedora/RPM 系发行版
-- **macOS DMG**：macOS 安装包
+- **macOS DMG**：macOS 安装包，内含标准的 `SFD Tool.app` 应用
 
 #### macOS 使用注意事项
 
-- 当前 macOS 版本为 **独立二进制 + 依赖系统 GTK3/libusb/gettext** 的形式，并 **没有** 将 GTK3/libusb 等运行库一并打包到 DMG 中。
-- 如在运行前尚未安装依赖，建议使用 Homebrew 安装：
+- 当前 macOS 版本以 **SFD Tool.app 应用程序 + 依赖系统 GTK3/libusb/gettext** 的形式发布，即未对 GTK3/libusb/gettext 等运行库做完全静态/内置打包。
+- 对于从源码编译，请参考前文的 `brew install libusb gtk+3 pkg-config` 命令。对于直接使用发行版 DMG 的用户，如果在启动时遇到缺少库的报错，同样可以使用 Homebrew 安装以下依赖：
 
   ```bash
   brew install gtk+3 libusb gettext
   ```
 
-- 从浏览器下载 DMG / 二进制后，macOS 可能会因为 Gatekeeper 显示“无法验证开发者”或“疑似恶意软件”等提示：
-  - 推荐做法：在 Finder 中 **右键 sfd_tool / 打开**，按照系统提示再次确认即可。
-  - 如仍被系统标记为隔离文件，可在终端中手动清除下载隔离标记（高级用法）：
+- 使用方式：
+  1. 从 GitHub Releases 下载 `sfd_tool_macos.dmg`；
+  2. 双击打开 DMG，将 `SFD Tool.app` 拖动到 `/Applications`；
+  3. 在 Launchpad 或 Finder 中打开 `SFD Tool` 即可。
 
-    ```bash
-    xattr -d com.apple.quarantine /path/to/sfd_tool
-    ```
+- Gatekeeper 相关说明：
+  - 从浏览器下载 DMG / 应用后，macOS 可能会因为 Gatekeeper 显示“无法验证开发者”等提示：
+    - 推荐做法：在 Finder 中 **右键 SFD Tool.app / 打开**，按照系统提示再次确认即可；
+    - 如仍被系统标记为隔离文件，可在终端中手动清除下载隔离标记（高级用法）：
 
-  以上命令只会移除系统的“从互联网下载”标签，不会修改程序内容。
+      ```bash
+      xattr -d com.apple.quarantine /Applications/SFD\ Tool.app
+      ```
+
+    以上命令只会移除系统的“从互联网下载”标签，不会修改程序内容。
 
 ### 多语言国际化 (i18n)
 本工具支持中英文等多种语言适配：

@@ -101,26 +101,32 @@ Official GitHub Releases provide:
 - **sfd_tool_SPRD_Release**: Windows x86 build using the official SPRD serial driver (Channel9.dll). This variant has the best compatibility and is recommended for older machines or when stability matters most.
 - **sfd_tool_LibUSB_Release**: Windows x64 build using libusb, suitable for modern 64-bit Windows systems.
 - **Linux DEB / RPM packages** for mainstream Debian/Ubuntu and Fedora/RPM-based distributions.
-- **macOS DMG** installer.
+- **macOS DMG** installer containing a standard `SFD Tool.app` application.
 
 #### macOS notes
 
-- The current macOS build is shipped as a standalone binary that **depends on system GTK3/libusb/gettext** and does **not** bundle these libraries inside the DMG.
-- If these runtimes are not installed yet, you can install them with Homebrew:
+- The macOS release is shipped as a `SFD Tool.app` bundle that still **depends on system GTK3/libusb/gettext** at runtime; these libraries are not fully statically bundled.
+- For building from source, please refer to the earlier `brew install libusb gtk+3 pkg-config` instructions. For users running the prebuilt DMG, if you encounter missing-library errors at launch, you can install the runtime dependencies via Homebrew:
 
   ```bash
   brew install gtk+3 libusb gettext
   ```
 
-- After downloading the DMG/binary from a browser, macOS Gatekeeper may show a warning such as “cannot be opened because the developer cannot be verified” or similar:
-  - Recommended: in Finder, **right-click the `sfd_tool` binary → Open**, then confirm again in the dialog.
-  - If the file is still quarantined, advanced users can clear the download quarantine attribute explicitly:
+- Usage:
+  1. Download `sfd_tool_macos.dmg` from GitHub Releases;
+  2. Double-click the DMG and drag `SFD Tool.app` into `/Applications`;
+  3. Launch `SFD Tool` from Launchpad or Finder.
 
-    ```bash
-    xattr -d com.apple.quarantine /path/to/sfd_tool
-    ```
+- Gatekeeper and quarantine:
+  - After downloading from a browser, macOS Gatekeeper may show a warning such as “cannot be opened because the developer cannot be verified”.
+    - Recommended: in Finder, **right-click `SFD Tool.app` → Open**, then confirm in the dialog; subsequent launches will be normal.
+    - If the app is still quarantined, advanced users can clear the download quarantine attribute explicitly:
 
-  This only removes the “downloaded from the Internet” flag and does not modify the program contents.
+      ```bash
+      xattr -d com.apple.quarantine /Applications/SFD\ Tool.app
+      ```
+
+    This only removes the “downloaded from the Internet” flag and does not modify the program contents.
 
 ### Internationalization (i18n)
 This tool supports multi-language adaptation:

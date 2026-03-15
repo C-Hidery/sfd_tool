@@ -314,28 +314,69 @@ jobs:
           cmake --build build_cmake --config Release -- -j$(sysctl -n hw.logicalcpu)
           ctest --test-dir build_cmake -C Release --output-on-failure
 
-      - name: Prepare macOS bundle directory
+      - name: Create SFD Tool.app bundle
         run: |
-          mkdir -p dist/macos
-          cp build_cmake/sfd_tool dist/macos/
-          cp README*.md dist/macos/ 2>/dev/null || true
-          cp LICENSE.txt dist/macos/ 2>/dev/null || true
-          # 版本记录用于 GUI About 页面
-          mkdir -p dist/macos/docs
-          cp docs/VERSION_LOG.md dist/macos/docs/ 2>/dev/null || true
+          APP_ROOT="dist/SFD Tool.app"
+          APP_MACOS="$APP_ROOT/Contents/MacOS"
+          APP_RES="$APP_ROOT/Contents/Resources"
 
-      - name: Copy locale (.mo) files (macOS)
-        run: |
-          mkdir -p dist/macos/locale/zh_CN/LC_MESSAGES
+          mkdir -p "$APP_MACOS" "$APP_RES" "$APP_RES/locale/zh_CN/LC_MESSAGES" dist/macos
+
+          # 主二进制
+          cp build_cmake/sfd_tool "$APP_MACOS/"
+
+          # 版本记录用于 GUI About 页面
+          cp docs/VERSION_LOG.md "$APP_RES/VERSION_LOG.md" 2>/dev/null || true
+
+          # 本地化 .mo 文件（优先使用构建产物）
           if [ -f build_cmake/locale/zh_CN/LC_MESSAGES/sfd_tool.mo ]; then
-            cp build_cmake/locale/zh_CN/LC_MESSAGES/sfd_tool.mo dist/macos/locale/zh_CN/LC_MESSAGES/
+            cp build_cmake/locale/zh_CN/LC_MESSAGES/sfd_tool.mo "$APP_RES/locale/zh_CN/LC_MESSAGES/"
           else
             echo "Warning: sfd_tool.mo not found in build_cmake/locale/zh_CN/LC_MESSAGES" >&2
           fi
 
+          # 将 README / LICENSE 放在 DMG 根目录
+          cp README*.md dist/macos/ 2>/dev/null || true
+          cp LICENSE.txt dist/macos/ 2>/dev/null || true
+
+      - name: Generate macOS .icns icon
+        run: |
+          ICONSET_DIR="dist/SFDTool.iconset"
+          SRC_ICON="assets/icon.png"
+          mkdir -p "$ICONSET_DIR"
+
+          for size in 16 32 64 128 256 512; do
+            sips -z $size $size "$SRC_ICON" --out "$ICONSET_DIR/icon_${size}x${size}.png"
+            RETINA=$((size * 2))
+            sips -z $RETINA $RETINA "$SRC_ICON" --out "$ICONSET_DIR/icon_${size}x${size}@2x.png"
+          done
+
+          ICON_OUT="dist/SFDTool.icns"
+          iconutil -c icns "$ICONSET_DIR" -o "$ICON_OUT"
+
+          APP_RES="dist/SFD Tool.app/Contents/Resources"
+          cp "$ICON_OUT" "$APP_RES/" || true
+
+      - name: Generate Info.plist
+        run: |
+          APP_ROOT="dist/SFD Tool.app"
+          PLIST_TEMPLATE="packaging/macos/Info.plist.in"
+          PLIST_OUT="$APP_ROOT/Contents/Info.plist"
+
+          VERSION_STR=$(grep "^SFD_TOOL_VERSION" version.h | sed 's/.*"\(.*\)".*/\1/' || echo "0.0.0")
+
+          sed "s/@SFD_TOOL_VERSION_STR@/$VERSION_STR/g" "$PLIST_TEMPLATE" > "$PLIST_OUT"
+
+      - name: Prepare DMG folder
+        run: |
+          DMG_ROOT="dist/macos"
+          APP_ROOT="dist/SFD Tool.app"
+          mkdir -p "$DMG_ROOT"
+          cp -R "$APP_ROOT" "$DMG_ROOT/"
+
       - name: Create DMG
         run: |
-          hdiutil create -volname "sfd_tool_macos" -srcfolder dist/macos -ov -format UDZO sfd_tool_macos.dmg
+          hdiutil create -volname "SFD Tool" -srcfolder dist/macos -ov -format UDZO sfd_tool_macos.dmg
 
       - name: Upload macOS DMG Artifact
         uses: actions/upload-artifact@v4
