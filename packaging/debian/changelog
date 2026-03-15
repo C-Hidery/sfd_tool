@@ -1,3 +1,9 @@
+sfd-tool (1.7.7.8-1-ltv) unstable; urgency=medium
+
+  * 优化：打包文件全部都放在 output 下
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sun, 15 Mar 2026 21:02:02 +0800
+
 sfd-tool (1.7.7.7-1-ltv) unstable; urgency=medium
 
   * 优化版本命名
