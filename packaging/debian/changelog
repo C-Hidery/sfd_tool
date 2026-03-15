@@ -1,3 +1,9 @@
+sfd-tool (1.7.7.7-1-ltv) unstable; urgency=medium
+
+  * 优化版本命名
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sun, 15 Mar 2026 20:08:15 +0800
+
 sfd-tool (1.7.7.6-1-ltv) unstable; urgency=medium
 
   * 修复：编译脚本-mscos最低支持版本11.0
