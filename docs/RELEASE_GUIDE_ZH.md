@@ -153,3 +153,78 @@ git push
 2. 重新用 Visual Studio 或 CMake 构建 Windows 版本。
 
 此步骤只影响 Windows 文件属性展示，不影响 CI 构建和 Linux/macOS 版本号。
+
+## 6. GitHub Actions CI 构建矩阵概览
+
+本仓库使用单个工作流文件 [build.yml](../.github/workflows/build.yml) 完成多平台构建和自动发布。下面仅做概要说明，具体命令以工作流文件为准。
+
+### 6.1 触发条件
+
+- 推送到 `master` 分支的 commit
+- 推送以 `v` 开头的 tag（例如 `v1.7.7`）：在完成各平台构建后，会触发 `release` job 自动创建 GitHub Release
+- 针对 `master` 的 Pull Request
+
+### 6.2 各 job 简介
+
+- `build-windows`
+  - 运行环境：`windows-latest`
+  - 使用 vcpkg (`C:\vcpkg`) 安装 `gettext`（用于生成 .mo 语言文件，提供 `msgfmt`）
+  - 使用预装 MSYS2 (`C:\msys64`) 安装 GTK3、glib、pango、cairo 等依赖
+  - 通过 CMake 生成 Visual Studio 2022 工程（`build_cmake`），开启 `SFD_ENABLE_TESTS=ON`
+  - 矩阵构建：
+    - x64：`USE_LIBUSB=ON`，对应最终的 `sfd_tool_LibUSB_Release`
+    - x86：`USE_LIBUSB=OFF`，使用官方 SPRD 驱动，对应 `sfd_tool_SPRD_Release`
+  - 构建并运行单元测试 (`ctest`)，随后将可执行文件与 GTK 运行时 DLL、图标、schema 等一起拷贝到 `./build/<arch>/<config>/` 目录，并作为构建产物上传
+
+- `build-macos`
+  - 运行环境：`macos-latest`
+  - 使用 Homebrew 安装 `gtk+3`, `libusb`, `gettext`, `cmake`, `ninja`
+  - 使用 CMake+Ninja 构建 Release 版本并运行单元测试
+  - 将可执行文件、README、LICENSE 以及 `.mo` 语言文件整理到 `dist/macos/`，再打包成 `sfd_tool_macos.dmg` 作为构建产物上传
+
+- `build-linux-deb`
+  - 运行环境：`ubuntu-latest`
+  - 安装 Debian 打包依赖（`build-essential`, `debhelper`, `devscripts`, `libgtk-3-dev`, `libusb-1.0-0-dev` 等）
+  - 调用 [packaging/build-deb.sh](../packaging/build-deb.sh) 在 `/tmp/build-sfd-tool/` 下构建 `.deb` 包及相关元数据，并上传为构建产物
+
+- `build-linux-rpm`
+  - 运行环境：`ubuntu-latest`，在 `fedora:latest` 容器内执行
+  - 安装 `rpm-build`, `gtk3-devel`, `libusb1-devel`, `cmake`, `ninja-build` 等依赖
+  - 调用 [packaging/build-rpm.sh](../packaging/build-rpm.sh) 在 `~/rpmbuild/RPMS/` 下生成 `.rpm` 包并上传
+
+- `release`
+  - 仅当当前 ref 为 `refs/tags/v*` 时执行
+  - 依赖前面四个构建 job 成功（Windows/macOS/Linux deb & rpm）
+  - 下载各平台构建产物到 `output/` 目录，拷贝 README、第三方 DLL 等
+  - 将 `sfd_tool_x86_Release` 重命名为 `sfd_tool_SPRD_Release`，`sfd_tool_x64_Release` 重命名为 `sfd_tool_LibUSB_Release`
+  - 打出一个包含全部内容的压缩包 `${TAG}.zip`，并把 `.deb`、`.rpm`、`.dmg` 一并作为附件上传
+  - 使用 `softprops/action-gh-release@v2` + 仓库 Secret `RELEASE_TOKEN` 创建对应 tag 的 GitHub Release
+
+### 6.3 修改 CI 时的注意事项
+
+1. **保持 artifact 名称和目录结构稳定**
+   - `build-windows`/`build-macos`/`build-linux-*` 中上传的 artifact 名称（如 `sfd_tool_*_Release`, `sfd_tool_macos_dmg`, `sfd_tool_linux_deb`, `sfd_tool_rpm_package`）以及内部目录结构被 `release` job 依赖。
+   - 如需调整 artifact 名称或路径，必须同步更新 `release` job 中的 `download-artifact` 以及后续 `cp`/`mv`/`zip` 命令，否则自动发布会失败或缺文件。
+
+2. **依赖安装方式与本地脚本保持一致**
+   - Windows 端：工作流假定存在 `C:\vcpkg` 与 `C:\msys64`，并在其中安装 GTK3、gettext 等。如果你改动 vcpkg/MSYS2 路径或依赖安装方式，需要一并更新：
+     - `.github/workflows/build.yml` 中对应的命令
+     - 本地脚本如 [scripts/dev.ps1](../scripts/dev.ps1)、[scripts/release.ps1](../scripts/release.ps1)
+   - macOS/Linux 端：如果 CMake 选项或依赖（如 `USE_GTK`, `USE_LIBUSB`, `SFD_ENABLE_TESTS`）有变动，请同步更新：
+     - 本地脚本 [scripts/dev.sh](../scripts/dev.sh)、[scripts/release.sh](../scripts/release.sh)
+     - GitHub Actions 工作流中的 CMake 命令与依赖安装步骤（`brew`/`apt`/`dnf`）
+
+3. **Release Token 与权限**
+   - `release` job 使用仓库 Secret `RELEASE_TOKEN` 调用 GitHub Releases API，其配置方式见前文“0. 一次性配置 GitHub 发布令牌（RELEASE_TOKEN）”。
+   - 如果在 `Create GitHub Release` 步骤看到 `Resource not accessible by integration` 等 403 错误，优先检查：
+     - 是否配置了 `RELEASE_TOKEN` Secret 且未过期；
+     - PAT 是否至少包含 `repo` 权限；
+     - 当前 tag 是否推送到主仓库而不是 fork。
+
+4. **测试与本地复现**
+   - CI 中所有构建都启用了 `SFD_ENABLE_TESTS=ON` 并运行 `ctest`。如需在本地复现 CI 环境，可尽量使用与 CI 一致的命令：
+     - Windows：参考 `build-windows` job 中的 CMake 生成与配置选项
+     - macOS：使用 `cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DUSE_GTK=ON -DUSE_LIBUSB=ON -DSFD_ENABLE_TESTS=ON`
+     - Linux：优先使用 [packaging/build-deb.sh](../packaging/build-deb.sh) 与 [packaging/build-rpm.sh](../packaging/build-rpm.sh) 进行打包测试
+
+这样，当你调整 CMake/依赖或新增平台支持时，可以快速定位需要同步修改的工作流片段，避免破坏自动发布流程。
