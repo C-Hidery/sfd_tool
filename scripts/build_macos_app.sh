@@ -32,6 +32,8 @@ APP_MACOS="$APP_ROOT/Contents/MacOS"
 APP_RES="$APP_ROOT/Contents/Resources"
 APP_FW="$APP_ROOT/Contents/Frameworks"
 
+# 始终从干净的构建/打包目录开始，避免权限残留或陈旧文件导致奇怪问题
+rm -rf "$BUILD_DIR" "$DIST_DIR"
 mkdir -p "$DIST_DIR"
 
 # 1. Ensure we have a Release build available
