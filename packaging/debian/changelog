@@ -1,3 +1,14 @@
+sfd-tool (1.7.7.4-1-ltv) unstable; urgency=medium
+
+  * Bump upstream to 1.7.7.4 LTV
+  * UI refactor and logic optimizations
+  * Fix CI build issues for x86 (GitHub Actions)
+  * Fix missing .mo file when packaging
+  * Fix build.yml parsing error
+  * Add version update helper scripts and docs/VERSION_LOG.md integration
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Fri, 20 Feb 2026 18:30:00 +0800
+
 sfd-tool (1.7.6.0-1-ltv) unstable; urgency=medium
 
   * Initial Debian package release
