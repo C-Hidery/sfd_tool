@@ -128,6 +128,49 @@ else
   echo "Warning: packaging/rpm-build/sfd-tool.spec 不存在，跳过" >&2
 fi
 
+# Debian changelog 条目（可选）
+if [[ -f packaging/debian/changelog ]]; then
+  echo "[附加] 更新 packaging/debian/changelog..."
+  DEB_VERSION="${NEW_VERSION}-1-ltv"
+  DEB_DATE="$(date -R)"
+  DEB_FILE="packaging/debian/changelog"
+  tmp_file="$(mktemp)"
+  {
+    echo "sfd-tool ($DEB_VERSION) unstable; urgency=medium"
+    echo
+    echo "  * $LOG_LINE"
+    echo
+    echo " -- RyanCrepa <Ryan110413@outlook.com>  $DEB_DATE"
+    echo
+    cat "$DEB_FILE"
+  } > "$tmp_file"
+  mv "$tmp_file" "$DEB_FILE"
+else
+  echo "Warning: packaging/debian/changelog 不存在，跳过" >&2
+fi
+
+# RPM spec 的 %changelog 条目（可选）
+if [[ -f packaging/rpm-build/sfd-tool.spec ]]; then
+  echo "[附加] 更新 packaging/rpm-build/sfd-tool.spec %changelog..."
+  RPM_FILE="packaging/rpm-build/sfd-tool.spec"
+  RPM_DATE="$(LC_ALL=C date '+%a %b %d %Y')"
+  RPM_VER="${NEW_VERSION}-1-ltv"
+  tmp_file="$(mktemp)"
+  awk -v d="$RPM_DATE" -v v="$RPM_VER" -v log="$LOG_LINE" '
+    BEGIN { inserted=0 }
+    /^%changelog/ && !inserted {
+      print "%changelog"
+      print "* " d " RyanCrepa <Ryan110413@outlook.com> - " v
+      print "- " log
+      print ""
+      inserted=1
+      next
+    }
+    { print }
+  ' "$RPM_FILE" > "$tmp_file"
+  mv "$tmp_file" "$RPM_FILE"
+fi
+
 # Windows 资源文件中的版本（可选）
 if [[ -f assets/app.rc ]]; then
   echo "[附加] 更新 assets/app.rc 里的版本号..."

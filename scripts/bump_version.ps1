@@ -101,10 +101,13 @@ else {
     Write-Warning "docs/VERSION_LOG.md 不存在，跳过"
 }
 
-# [4/4] 更新 packaging/rpm-build/sfd-tool.spec 中的 Version 字段
+# [4/4] 更新 packaging/rpm-build/sfd-tool.spec 中的 Version 字段，并可选更新 %changelog
 if (Test-Path "packaging/rpm-build/sfd-tool.spec") {
     Write-Host "[4/4] 更新 packaging/rpm-build/sfd-tool.spec 版本号..."
-    $specLines = Get-Content "packaging/rpm-build/sfd-tool.spec"
+    $specPath = "packaging/rpm-build/sfd-tool.spec"
+    $specLines = Get-Content $specPath
+
+    # 更新 Version 行
     for ($i = 0; $i -lt $specLines.Count; $i++) {
         if ($specLines[$i] -match '^(Version:\s*)([0-9.]+)') {
             $prefix = $Matches[1]
@@ -112,10 +115,62 @@ if (Test-Path "packaging/rpm-build/sfd-tool.spec") {
             break
         }
     }
-    Set-Content -Path "packaging/rpm-build/sfd-tool.spec" -Value $specLines -Encoding UTF8
+
+    # 更新 %changelog：在现有 %changelog 顶部插入新条目
+    $rpmDate = Get-Date -Format "ddd MMM dd yyyy"
+    $rpmVer  = "$newVersion-1-ltv"
+    $output = New-Object System.Collections.Generic.List[string]
+    $inserted = $false
+    for ($i = 0; $i -lt $specLines.Count; $i++) {
+        $line = $specLines[$i]
+        if (-not $inserted -and $line -match '^\%changelog') {
+            $output.Add('%changelog')
+            $output.Add("* $rpmDate RyanCrepa <Ryan110413@outlook.com> - $rpmVer")
+            $output.Add("- $logLine")
+            $output.Add("")
+            $inserted = $true
+            continue  # 跳过原始 %changelog 行，其余按原样追加
+        }
+        $output.Add($line)
+    }
+    if (-not $inserted) {
+        # 如果 spec 里没有 %changelog，就简单把原内容加上新的 %changelog 段
+        $output.Add('%changelog')
+        $output.Add("* $rpmDate RyanCrepa <Ryan110413@outlook.com> - $rpmVer")
+        $output.Add("- $logLine")
+        $output.Add("")
+    }
+
+    Set-Content -Path $specPath -Value $output -Encoding UTF8
 }
 else {
     Write-Warning "packaging/rpm-build/sfd-tool.spec 不存在，跳过"
+}
+
+# 附加：更新 Debian changelog（packaging/debian/changelog）
+if (Test-Path "packaging/debian/changelog") {
+    Write-Host "[附加] 更新 packaging/debian/changelog..."
+    $debVersion = "$newVersion-1-ltv"
+    $debDate = Get-Date -Format "ddd, dd MMM yyyy HH:mm:ss K"
+    $changelogPath = "packaging/debian/changelog"
+    $existing = Get-Content $changelogPath
+
+    $newEntry = @()
+    $newEntry += "sfd-tool ($debVersion) unstable; urgency=medium"
+    $newEntry += ""
+    $newEntry += "  * $logLine"
+    $newEntry += ""
+    $newEntry += " -- RyanCrepa <Ryan110413@outlook.com>  $debDate"
+    $newEntry += ""
+
+    $finalChangelog = @()
+    $finalChangelog += $newEntry
+    $finalChangelog += $existing
+
+    Set-Content -Path $changelogPath -Value $finalChangelog -Encoding UTF8
+}
+else {
+    Write-Warning "packaging/debian/changelog 不存在，跳过"
 }
 
 # 附加：更新 Windows 资源文件中的版本
