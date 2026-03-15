@@ -36,16 +36,12 @@ mkdir -p "$DIST_DIR"
 
 # 1. Ensure we have a Release build available
 if [[ ! -x "$BUILD_DIR/sfd_tool" ]]; then
-  echo "[macos-app] build_cmake/sfd_tool not found, trying to build Release..."
+  echo "[macos-app] build_cmake/sfd_tool not found, invoking scripts/release.sh..."
   if [[ -x "./scripts/release.sh" ]]; then
     ./scripts/release.sh
   else
-    GEN="Ninja"
-    if ! command -v ninja >/dev/null 2>&1; then
-      GEN="Unix Makefiles"
-    fi
-    cmake -S . -B "$BUILD_DIR" -G "$GEN" -DCMAKE_BUILD_TYPE=Release -DUSE_GTK=ON -DUSE_LIBUSB=ON
-    cmake --build "$BUILD_DIR" --config Release -j"$(sysctl -n hw.logicalcpu || echo 4)"
+    echo "[macos-app] Error: scripts/release.sh not found; please build Release manually (e.g. via CMake) before running this script." >&2
+    exit 1
   fi
 fi
 
@@ -218,14 +214,28 @@ else
   done
 fi
 
-# 6. Prepare a simple DMG root folder (README / LICENSE only)
-mkdir -p "$DIST_DIR/macos"
+# 6. Prepare DMG root folder (app + README / LICENSE) and create DMG
+DMG_ROOT="$DIST_DIR/macos"
+mkdir -p "$DMG_ROOT"
+
+# 放入 .app
+cp -R "$APP_ROOT" "$DMG_ROOT/"
+
+# 放入 README / LICENSE，方便用户查看
 if compgen -G "README*.md" >/dev/null 2>&1; then
-  cp README*.md "$DIST_DIR/macos/" 2>/dev/null || true
+  cp README*.md "$DMG_ROOT/" 2>/dev/null || true
 fi
 if [[ -f "LICENSE.txt" ]]; then
-  cp LICENSE.txt "$DIST_DIR/macos/" 2>/dev/null || true
+  cp LICENSE.txt "$DMG_ROOT/" 2>/dev/null || true
 fi
+
+DMG_PATH="$DIST_DIR/sfd_tool_macos.dmg"
+rm -f "$DMG_PATH"
+
+hdiutil create \
+  -volname "SFD Tool" \
+  -srcfolder "$DMG_ROOT" \
+  -ov -format UDZO "$DMG_PATH"
 
 cat <<EOF
 [macos-app] Done.
@@ -233,11 +243,11 @@ cat <<EOF
 生成的自包含应用位于：
   $APP_ROOT
 
+已自动创建 DMG：
+  $DMG_PATH
+
 你可以手动测试：
   1) 在 Finder 中打开 $DIST_DIR
   2) 将 "SFD Tool.app" 拖到 /Applications
   3) 从 Launchpad 或 Finder 直接启动，无需额外 brew install gtk+3 libusb gettext
-
-如需手动创建 DMG，可执行类似命令：
-  hdiutil create -volname "SFD Tool" -srcfolder "$DIST_DIR/macos" -ov -format UDZO sfd_tool_macos.dmg
 EOF
