@@ -61,6 +61,24 @@ cmake -S . -B build -G "Visual Studio 17 2022"
 Then open `build/sfd_tool.sln` in Visual Studio.
 The legacy solution file at the repository root, [sfd_tool.sln](sfd_tool.sln), is kept for compatibility only and may lag behind the CMake build. Please prefer the CMake-generated solution for development.
 
+### Helper scripts
+
+On Linux/macOS:
+
+```bash
+./scripts/dev.sh     # Configure + build Debug with CMake and run sfd_tool
+./scripts/release.sh # Configure + build Release with CMake
+./scripts/bump_version.sh # Interactive version bump & changelog update
+```
+
+On Windows (PowerShell):
+
+```powershell
+.\scripts\dev.ps1       # Configure + build Debug with CMake/VS and start sfd_tool
+.\scripts\release.ps1   # Configure + build Release with CMake/VS
+.\scripts\bump_version.ps1 # Interactive version bump & changelog update
+```
+
 ### Packaging & Release
 
 On Debian/Ubuntu, you can build a `.deb` package using the helper script:
