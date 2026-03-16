@@ -2,6 +2,47 @@
 
 [**中文文档**](README_ZH.md) · [User Guide (ZH)](docs/USER_GUIDE_ZH.md) · [Architecture](ARCHITECTURE.md) · [Release Guide (ZH)](docs/RELEASE_GUIDE_ZH.md) · [CMake Guide (ZH)](docs/cmake.md) · [CMake Guide (EN)](docs/cmake_EN.md) · [Version Log](docs/VERSION_LOG.md)
 
+## Documentation index
+
+### For end users
+
+- **Quick start & GUI usage (ZH)**
+  See [docs/USER_GUIDE_ZH.md](docs/USER_GUIDE_ZH.md) for:
+  - GUI tab overview (Connect / Partition Operation / PAC Flash / Manual / Advanced / Debug / Log / About)
+  - Typical workflows (partition backup, PAC flashing)
+  - Command-line mode basics (`--no-gui`) and common commands
+
+- **Configuration & UI language**
+  Per-user config file location and the `ui_language` field semantics are documented in:
+  - [docs/cmake_EN.md](docs/cmake_EN.md) – “UI language and per‑user configuration” section (English)
+  - [docs/cmake.md](docs/cmake.md) – 对应的中文章节
+
+- **Platform-specific usage**
+  - Termux / Android (no GUI): see the Termux usage section below and CLI notes in [docs/USER_GUIDE_ZH.md](docs/USER_GUIDE_ZH.md).
+  - macOS / Windows / Linux prebuilt releases: see “Prebuilt binaries (GitHub Releases)” below.
+
+### For developers
+
+- **Architecture & internals**
+  High-level design and module responsibilities: [ARCHITECTURE.md](ARCHITECTURE.md)
+
+- **Build & development**
+  - CMake usage (EN): [docs/cmake_EN.md](docs/cmake_EN.md)
+  - CMake usage (ZH): [docs/cmake.md](docs/cmake.md)
+  - Helper scripts (`dev.sh`, `release.sh`, `bump_version.sh`, etc.): see the “Helper scripts” section below.
+
+- **Testing & CI**
+  - CTest usage: section 6 in [docs/cmake_EN.md](docs/cmake_EN.md) / [docs/cmake.md](docs/cmake.md)
+  - CI and release matrix overview: [docs/RELEASE_GUIDE_ZH.md](docs/RELEASE_GUIDE_ZH.md)
+
+### Versioning & release
+
+- **Version history (user-visible changes)**
+  [docs/VERSION_LOG.md](docs/VERSION_LOG.md) — also shown in the GUI “About” tab.
+
+- **Release process**
+  [docs/RELEASE_GUIDE_ZH.md](docs/RELEASE_GUIDE_ZH.md) — how to bump `VERSION.txt`, update `docs/VERSION_LOG.md`, and trigger CI-based releases.
+
 ![Logo](/assets/icon.png)
 
 ![License](https://img.shields.io/github/license/C-Hidery/sfd_tool)
@@ -105,13 +146,6 @@ Official GitHub Releases provide:
 
 #### macOS notes
 
-- The macOS release is shipped as a `SFD Tool.app` bundle that still **depends on system GTK3/libusb/gettext** at runtime; these libraries are not fully statically bundled.
-- For building from source, please refer to the earlier `brew install libusb gtk+3 pkg-config` instructions. For users running the prebuilt DMG, if you encounter missing-library errors at launch, you can install the runtime dependencies via Homebrew:
-
-  ```bash
-  brew install gtk+3 libusb gettext
-  ```
-
 - Usage:
   1. Download `sfd_tool_macos.dmg` from GitHub Releases;
   2. Double-click the DMG and drag `SFD Tool.app` into `/Applications`;
@@ -148,6 +182,8 @@ termux-usb -r /dev/bus/usb/xxx/xxx
 termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 ```
 
+> Note: `--usb-fd` is an internal flag intended to be used together with `termux-usb -e`, which passes a file descriptor to `sfd_tool`. You normally do not need to specify a raw fd manually.
+
 **WARN : You may must run tool as root to connect to device correctly!**
 
 ---
@@ -181,3 +217,5 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
     --no-gui
 
 **New parameter, open sfd_tool without GUI**
+
+For a full list of console commands and options, please run `./sfd_tool --help` (or, on Linux, see the `sfd-tool(1)` manpage if installed).

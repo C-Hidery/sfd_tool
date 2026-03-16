@@ -2,6 +2,47 @@
 
 [English README](README.md) · [架构文档](ARCHITECTURE.md) · [操作手册](docs/USER_GUIDE_ZH.md) · [发布流程](docs/RELEASE_GUIDE_ZH.md) · [CMake 使用指南](docs/cmake.md) · [版本记录](docs/VERSION_LOG.md)
 
+## 文档索引
+
+### 面向普通用户
+
+- **使用手册（GUI + 命令行）**
+  详细操作说明（图形界面各标签页、常见刷机流程、命令行模式）：
+  [docs/USER_GUIDE_ZH.md](docs/USER_GUIDE_ZH.md)
+
+- **配置文件与界面语言**
+  per-user 配置路径、旧版配置迁移、`ui_language` 字段说明：
+  [docs/cmake.md](docs/cmake.md) 中的「界面语言与 per-user 配置」章节（英文版参见 [docs/cmake_EN.md](docs/cmake_EN.md)）
+
+- **平台特定用法**
+  - Termux / Android（无图形界面）：示例命令见本 README 末尾以及 [docs/USER_GUIDE_ZH.md](docs/USER_GUIDE_ZH.md) 中的「只使用命令行模式」一节；
+  - macOS / Windows / Linux 预编译版本说明：见下文「预编译二进制（GitHub Releases）」小节。
+
+### 面向开发者
+
+- **架构与内部设计**
+  模块分层、core/service/ui 责任划分、重构方向：
+  [ARCHITECTURE.md](ARCHITECTURE.md)
+
+- **构建与开发工作流**
+  - CMake 使用指南（中文）：[docs/cmake.md](docs/cmake.md)
+  - CMake Usage Guide（English）：[docs/cmake_EN.md](docs/cmake_EN.md)
+  - 本地开发/发布脚本（`dev.sh` / `release.sh` / `bump_version.sh` 等）：见下文「开发/发布辅助脚本」一节。
+
+- **测试与 CI**
+  - CTest 测试说明：见 CMake 指南第 6 章；
+  - GitHub Actions 构建矩阵与自动发布流程：
+    [docs/RELEASE_GUIDE_ZH.md](docs/RELEASE_GUIDE_ZH.md)
+
+### 版本与发布
+
+- **版本记录（用户可见变化）**
+  [docs/VERSION_LOG.md](docs/VERSION_LOG.md) —— 同步展示在 GUI「About」标签页中。
+
+- **版本号策略与发布流程**
+  如何更新 `VERSION.txt` / `docs/VERSION_LOG.md`，以及通过 CI 自动生成 Release：
+  [docs/RELEASE_GUIDE_ZH.md](docs/RELEASE_GUIDE_ZH.md)
+
 ![Logo](/assets/icon.png)
 
 ![License](https://img.shields.io/github/license/C-Hidery/sfd_tool)
@@ -106,13 +147,6 @@ GitHub Releases 页面会提供以下预编译包：
 
 #### macOS 使用注意事项
 
-- 当前 macOS 版本以 **SFD Tool.app 应用程序 + 依赖系统 GTK3/libusb/gettext** 的形式发布，即未对 GTK3/libusb/gettext 等运行库做完全静态/内置打包。
-- 对于从源码编译，请参考前文的 `brew install libusb gtk+3 pkg-config` 命令。对于直接使用发行版 DMG 的用户，如果在启动时遇到缺少库的报错，同样可以使用 Homebrew 安装以下依赖：
-
-  ```bash
-  brew install gtk+3 libusb gettext
-  ```
-
 - 使用方式：
   1. 从 GitHub Releases 下载 `sfd_tool_macos.dmg`；
   2. 双击打开 DMG，将 `SFD Tool.app` 拖动到 `/Applications`；
@@ -149,6 +183,8 @@ termux-usb -r /dev/bus/usb/xxx/xxx
 termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 ```
 
+> 说明：`--usb-fd` 为配合 `termux-usb -e` 使用的内部参数，Termux 会将 USB 设备的文件描述符传递给 `sfd_tool`；一般情况下无需手工填写 fd 数字。
+
 **警告：您可能必须以 root 用户运行该工具才能正确连接设备!**
 
 ---
@@ -182,3 +218,5 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
     --no-gui
 
 **新增参数，以命令行方式打开工具**
+
+完整命令与参数列表请以 `./sfd_tool --help` 或 Linux 下的 `man sfd-tool` 为准。
