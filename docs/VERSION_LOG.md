@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 1.7.7.11 LTV Edition
+Version 1.7.7.12 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -84,6 +84,9 @@ UI Refactor, optimization code logic.
 
 ---v 1.7.7.11---
 修复：windows和linux找不到mo文件；windows找不到intl-8.dll或libintl-8.dll
+
+---v 1.7.7.12---
+修复：linux下关于无法展示版本日志；windows缺失vcpkg gettext运行库
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
