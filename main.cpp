@@ -475,6 +475,8 @@ int main(int argc, char** argv) {
 	// 用于调试：记录当前配置语言
 	LOG_INFO("ui_language at startup: %s", cfg.ui_language.c_str());
 
+	bool locale_from_config = false;
+
 #if defined(__linux__) || defined(__APPLE__)
 	if (cfg.ui_language == "zh_CN") {
 		setenv("LANGUAGE", "zh_CN", 1);
@@ -483,20 +485,25 @@ int main(int argc, char** argv) {
 	}
 	// "auto" 或空字符串：不设置 LANGUAGE，沿用环境／系统默认
 #elif defined(_WIN32)
-	// Windows 上也根据 ui_language 主动设置 C 运行时 locale，保证中英文切换生效
+	// Windows 上根据 ui_language 主动设置 C 运行时 locale，保证中英文切换生效
 	std::string lc_all = get_effective_lc_all_from_ui_language(cfg.ui_language);
 	if (!lc_all.empty()) {
 		LOG_INFO("setlocale(LC_ALL, %s) on Windows", lc_all.c_str());
 		setlocale(LC_ALL, lc_all.c_str());
+		locale_from_config = true;
 	} else {
 		LOG_INFO("ui_language is auto/empty, using system default locale");
 	}
 #endif
 
-	// 如果上面未设置特定语言，这里仍然调用一次 setlocale("")，
+	// 如果没有通过配置显式设置 locale，则调用一次 setlocale(LC_ALL, "")，
 	// 让 C 库从环境变量或系统默认解析 locale。
-	setlocale(LC_ALL, "");
-	LOG_INFO("effective locale after setlocale(\"\"): %s", setlocale(LC_ALL, nullptr));
+	if (!locale_from_config) {
+		setlocale(LC_ALL, "");
+		LOG_INFO("effective locale after setlocale(\"\"): %s", setlocale(LC_ALL, nullptr));
+	} else {
+		LOG_INFO("effective locale after config locale: %s", setlocale(LC_ALL, nullptr));
+	}
 
 	// 根据可执行文件路径选择 locale 目录
 	std::string locale_dir = choose_locale_dir();
