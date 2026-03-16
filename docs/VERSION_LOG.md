@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 1.7.7.4 LTV Edition
+Version 1.7.7.16 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -63,6 +63,33 @@ UI Refactor, optimization code logic.
 
 ---v 1.7.7.4---
 新增更新版本脚本
+
+---v 1.7.7.5---
+完善各平台打包脚本，支持快捷键退出
+
+---v 1.7.7.6---
+修复：编译脚本-mscos最低支持版本11.0
+
+---v 1.7.7.7---
+优化版本命名
+
+---v 1.7.7.8---
+优化：打包文件全部都放在 output 下
+
+---v 1.7.7.9---
+移除fdl路径占位配置
+
+---v 1.7.7.10---
+修复：打包规则
+
+---v 1.7.7.11---
+修复：windows和linux找不到mo文件；windows找不到intl-8.dll或libintl-8.dll
+
+---v 1.7.7.12---
+修复：linux下关于无法展示版本日志；windows缺失vcpkg gettext运行库
+
+---v 1.7.7.16---
+修复：widnows下中英文切换
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool

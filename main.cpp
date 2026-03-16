@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstring>
 #include <string>
+#include <cstdlib>
 #include "common.h"
 #include "main.h"
 #include "GtkWidgetHelper.hpp"
@@ -34,6 +35,7 @@
 #elif defined(_WIN32)
 #include <windows.h>
 #include <dbghelp.h>
+#include <sys/stat.h>
 #endif
 
 std::string g_about_text;
@@ -80,6 +82,19 @@ static std::string get_executable_dir() {
         return std::string();
     }
     return p.substr(0, pos);
+#elif defined(_WIN32)
+    char path[MAX_PATH] = {0};
+    DWORD len = GetModuleFileNameA(NULL, path, MAX_PATH);
+    if (len == 0 || len == MAX_PATH) {
+        return std::string();
+    }
+    std::string p(path);
+    // Windows 路径用反斜杠分隔
+    auto pos = p.find_last_of('\\');
+    if (pos == std::string::npos) {
+        return std::string();
+    }
+    return p.substr(0, pos);
 #else
     return std::string();
 #endif
@@ -92,6 +107,12 @@ static bool dir_exists(const std::string& path) {
         return true;
     }
     return false;
+#elif defined(_WIN32)
+    DWORD attr = GetFileAttributesA(path.c_str());
+    if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY)) {
+        return true;
+    }
+    return false;
 #else
     // 简单实现：其他平台暂不检查，直接使用给定路径
     (void)path;
@@ -101,6 +122,18 @@ static bool dir_exists(const std::string& path) {
 
 static std::string choose_locale_dir() {
     std::string exe_dir = get_executable_dir();
+
+#if defined(__APPLE__)
+    // macOS .app Bundle: 优先从 Contents/Resources/locale 查找
+    if (!exe_dir.empty()) {
+        // exe_dir 形如 /.../SFD Tool.app/Contents/MacOS
+        std::string bundle_locale = exe_dir + "/../Resources/locale";
+        if (dir_exists(bundle_locale)) {
+            return bundle_locale;
+        }
+    }
+#endif
+
     if (!exe_dir.empty()) {
         std::string exe_locale = exe_dir + "/locale";
         if (dir_exists(exe_locale)) {
@@ -114,9 +147,64 @@ static std::string choose_locale_dir() {
     return std::string();
 }
 
+static std::string load_about_from_path(const std::string& path) {
+    std::ifstream in(path);
+    if (!in) {
+        return std::string();
+    }
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    return ss.str();
+}
+
+static std::string load_installed_about_text() {
+    // 1) 优先使用编译期指定的文档目录（Linux 安装包）
+#ifdef SFD_TOOL_DOC_DIR
+    {
+        std::string doc_path = std::string(SFD_TOOL_DOC_DIR) + "/VERSION_LOG.md";
+        std::string content = load_about_from_path(doc_path);
+        if (!content.empty()) {
+            return content;
+        }
+    }
+#endif
+
+    // 2) 其次使用可执行文件所在目录（macOS DMG、Windows 目录运行等）
+    std::string exe_dir = get_executable_dir();
+    if (!exe_dir.empty()) {
+        {
+            std::string path = exe_dir + "/VERSION_LOG.md";
+            std::string content = load_about_from_path(path);
+            if (!content.empty()) {
+                return content;
+            }
+        }
+        {
+            std::string path = exe_dir + "/docs/VERSION_LOG.md";
+            std::string content = load_about_from_path(path);
+            if (!content.empty()) {
+                return content;
+            }
+        }
+#if defined(__APPLE__)
+        // 预留给 .app Bundle 的资源路径：Contents/MacOS/../Resources
+        {
+            std::string path = exe_dir + "/../Resources/VERSION_LOG.md";
+            std::string content = load_about_from_path(path);
+            if (!content.empty()) {
+                return content;
+            }
+        }
+#endif
+    }
+
+    return std::string();
+}
+
 } // namespace
 
 std::string load_about_text() {
+	// 1) 开发环境：当前工作目录中的相对路径
 	const char* candidates[] = {
 		"docs/VERSION_LOG.md",
 		"VERSION_LOG.md",
@@ -130,6 +218,14 @@ std::string load_about_text() {
 			return ss.str();
 		}
 	}
+
+	// 2) 已安装环境：使用编译期/可执行文件路径推导出的版本记录文件
+	std::string installed = load_installed_about_text();
+	if (!installed.empty()) {
+		return installed;
+	}
+
+	// 3) 仍然找不到时，回退到原有提示
 	return "SFD Tool GUI\n\nAbout information file missing.\n";
 }
 
@@ -240,6 +336,25 @@ void crash_handler(int sig) {
 	}).detach();
 
 }
+
+// 全局快捷键处理：在 macOS 上支持 Command+Q，其他平台支持 Ctrl+Q 退出
+static gboolean on_main_window_key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data) {
+	(void)widget;
+	(void)user_data;
+
+#if defined(__APPLE__)
+	if ((event->state & GDK_META_MASK) && event->keyval == GDK_KEY_q) {
+		gtk_main_quit();
+		return TRUE;
+	}
+#else
+	if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_KEY_q) {
+		gtk_main_quit();
+		return TRUE;
+	}
+#endif
+	return FALSE;
+}
  //fdl exec
 std::string fdl1_path_json;
 std::string fdl2_path_json;
@@ -270,6 +385,10 @@ int gtk_kmain(int argc, char** argv) {
 	GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	gtk_window_set_title(GTK_WINDOW(window), "SFD Tool GUI By Ryan Crepa");
 	gtk_window_set_default_size(GTK_WINDOW(window), 1174, 765);
+
+	// 启用键盘事件（用于快捷键）
+	gtk_widget_add_events(window, GDK_KEY_PRESS_MASK);
+	g_signal_connect(window, "key-press-event", G_CALLBACK(on_main_window_key_press), NULL);
 
 	// 设置关闭信号
 	g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
@@ -354,6 +473,11 @@ int main(int argc, char** argv) {
 	sfd::AppConfig cfg;
 	sfd::loadAppConfigOrDefault(cfg); // 即使失败也会填充默认值（含 ui_language）
 
+	// 用于调试：记录当前配置语言
+	LOG_INFO("ui_language at startup: %s", cfg.ui_language.c_str());
+
+	bool locale_from_config = false;
+
 #if defined(__linux__) || defined(__APPLE__)
 	if (cfg.ui_language == "zh_CN") {
 		setenv("LANGUAGE", "zh_CN", 1);
@@ -361,18 +485,46 @@ int main(int argc, char** argv) {
 		setenv("LANGUAGE", "en_US", 1);
 	}
 	// "auto" 或空字符串：不设置 LANGUAGE，沿用环境／系统默认
+#elif defined(_WIN32)
+	// Windows 上也设置 LANGUAGE 环境变量，libintl 会读取它来决定翻译语言
+	if (cfg.ui_language == "zh_CN") {
+		_putenv_s("LANGUAGE", "zh_CN");
+	} else if (cfg.ui_language == "en_US") {
+		_putenv_s("LANGUAGE", "en_US");
+	}
+	LOG_INFO("LANGUAGE on Windows after config: %s",
+	         std::getenv("LANGUAGE") ? std::getenv("LANGUAGE") : "(null)");
+
+	// 同时设置 C 运行时 locale，便于 std::locale / C API 使用
+	std::string lc_all = get_effective_lc_all_from_ui_language(cfg.ui_language);
+	if (!lc_all.empty()) {
+		LOG_INFO("setlocale(LC_ALL, %s) on Windows", lc_all.c_str());
+		setlocale(LC_ALL, lc_all.c_str());
+		locale_from_config = true;
+	} else {
+		LOG_INFO("ui_language is auto/empty, using system default locale");
+	}
 #endif
 
-	// 让 C 库从环境变量中解析 locale（包含上面设置的 LANGUAGE 等）
-	setlocale(LC_ALL, "");
+	// 如果没有通过配置显式设置 locale，则调用一次 setlocale(LC_ALL, "")，
+	// 让 C 库从环境变量或系统默认解析 locale。
+	if (!locale_from_config) {
+		setlocale(LC_ALL, "");
+		LOG_INFO("effective locale after setlocale(\"\"): %s", setlocale(LC_ALL, nullptr));
+	} else {
+		LOG_INFO("effective locale after config locale: %s", setlocale(LC_ALL, nullptr));
+	}
 
 	// 根据可执行文件路径选择 locale 目录
 	std::string locale_dir = choose_locale_dir();
+	LOG_INFO("chosen locale_dir: %s", locale_dir.c_str());
 	if (!locale_dir.empty()) {
+		// 开发 / 便携包：使用 exe 同目录或 ./locale
 		bindtextdomain("sfd_tool", locale_dir.c_str());
-	} else {
-		bindtextdomain("sfd_tool", "./locale");
 	}
+	// 如果 locale_dir 为空：不调用 bindtextdomain，
+	// 让 gettext 使用系统默认路径（通常是 /usr/share/locale）
+
 	textdomain("sfd_tool");
 	bind_textdomain_codeset("sfd_tool", "UTF-8");
 

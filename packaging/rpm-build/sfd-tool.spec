@@ -6,7 +6,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        1.7.7.4
+Version:        1.7.7.16
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -59,5 +59,49 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Mon Mar 16 2026 RyanCrepa <Ryan110413@outlook.com> - 1.7.7.16-1-ltv
+- -inf
+
+* Mon Mar 16 2026 RyanCrepa <Ryan110413@outlook.com> - 1.7.7.15-1-ltv
+- -inf
+
+* Mon Mar 16 2026 RyanCrepa <Ryan110413@outlook.com> - 1.7.7.14-1-ltv
+- -inf
+
+* Mon Mar 16 2026 RyanCrepa <Ryan110413@outlook.com> - 1.7.7.13-1-ltv
+- -inf
+
+* Mon Mar 16 2026 RyanCrepa <Ryan110413@outlook.com> - 1.7.7.12-1-ltv
+- -inf
+
+* Mon Mar 16 2026 RyanCrepa <Ryan110413@outlook.com> - 1.7.7.11-1-ltv
+- -inf
+
+* Mon Mar 16 2026 RyanCrepa <Ryan110413@outlook.com> - 1.7.7.10-1-ltv
+- -inf
+
+* Sun Mar 15 2026 RyanCrepa <Ryan110413@outlook.com> - 1.7.7.9-1-ltv
+- -inf
+
+* Sun Mar 15 2026 RyanCrepa <Ryan110413@outlook.com> - 1.7.7.8-1-ltv
+- -inf
+
+* Sun Mar 15 2026 RyanCrepa <Ryan110413@outlook.com> - 1.7.7.7-1-ltv
+- -inf
+
+* Sun Mar 15 2026 RyanCrepa <Ryan110413@outlook.com> - 1.7.7.6-1-ltv
+- -inf
+
+* Sun Mar 15 2026 RyanCrepa <Ryan110413@outlook.com> - 1.7.7.5-1-ltv
+- -inf
+
+* Fri Feb 20 2026 RyanCrepa <Ryan110413@outlook.com> - 1.7.7.4-1-ltv
+- Bump upstream to 1.7.7.4 LTV
+- UI refactor and logic optimizations
+- Fix CI build issues for x86 (GitHub Actions)
+- Fix missing .mo file when packaging
+- Fix build.yml parsing error
+- Add version update helper scripts and docs/VERSION_LOG.md integration
+
 * Fri Feb 20 2026 RyanCrepa <Ryan110413@outlook.com> - 1.7.6.0-1-ltv
 - Initial RPM package (migrated to CMake-based build)

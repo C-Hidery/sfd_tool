@@ -181,6 +181,37 @@ jobs:
             Write-Host "前10个 DLL 文件:"
             $dllFiles | Select-Object -First 10 Name | ForEach-Object { Write-Host "  - $($_.Name)" }
           }
+
+      - name: Copy gettext runtime DLLs from vcpkg
+        shell: pwsh
+        run: |
+          $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
+
+          # 与上游步骤保持一致：始终使用 GitHub 经典 vcpkg 安装目录
+          $vcpkgRoot = "C:\vcpkg"
+          $vcpkgBin = Join-Path $vcpkgRoot "installed\${{ matrix.vcpkg_triplet }}\bin"
+          Write-Host "复制 vcpkg gettext 运行时 DLL 从: $vcpkgBin"
+
+          if (-not (Test-Path $vcpkgBin)) {
+            Write-Error "vcpkg bin 目录不存在: $vcpkgBin"
+            exit 1
+          }
+
+          # 拷贝 vcpkg bin 目录下所有 DLL（包括 intl-8.dll / libintl-8.dll / iconv-2.dll 等）
+          $dlls = Get-ChildItem $vcpkgBin -Filter "*.dll" -ErrorAction SilentlyContinue
+
+          if (-not $dlls -or $dlls.Count -eq 0) {
+            Write-Warning "在 $vcpkgBin 未找到任何 DLL"
+            Get-ChildItem $vcpkgBin | Select-Object -First 20
+          } else {
+            foreach ($dll in $dlls) {
+              Copy-Item $dll.FullName -Destination $destDir -Force
+            }
+            Write-Host "已从 vcpkg 复制 $($dlls.Count) 个 DLL 到 $destDir"
+            Write-Host "前 10 个 DLL 示例:"
+            $dlls | Select-Object -First 10 Name | ForEach-Object { Write-Host "  - $($_.Name)" }
+          }
+
       - name: Copy GTK Runtime Data Files
         run: |
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
@@ -285,6 +316,7 @@ jobs:
     timeout-minutes: 30
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      MACOSX_DEPLOYMENT_TARGET: '11.0'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -307,38 +339,25 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DUSE_GTK=ON \
             -DUSE_LIBUSB=ON \
-            -DSFD_ENABLE_TESTS=ON
+            -DSFD_ENABLE_TESTS=ON \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
 
       - name: Build and Test (CMake)
         run: |
           cmake --build build_cmake --config Release -- -j$(sysctl -n hw.logicalcpu)
           ctest --test-dir build_cmake -C Release --output-on-failure
 
-      - name: Prepare macOS bundle directory
+      - name: Build self-contained macOS app & DMG
         run: |
-          mkdir -p dist/macos
-          cp build_cmake/sfd_tool dist/macos/
-          cp README*.md dist/macos/ 2>/dev/null || true
-          cp LICENSE.txt dist/macos/ 2>/dev/null || true
-
-      - name: Copy locale (.mo) files (macOS)
-        run: |
-          mkdir -p dist/macos/locale/zh_CN/LC_MESSAGES
-          if [ -f build_cmake/locale/zh_CN/LC_MESSAGES/sfd_tool.mo ]; then
-            cp build_cmake/locale/zh_CN/LC_MESSAGES/sfd_tool.mo dist/macos/locale/zh_CN/LC_MESSAGES/
-          else
-            echo "Warning: sfd_tool.mo not found in build_cmake/locale/zh_CN/LC_MESSAGES" >&2
-          fi
-
-      - name: Create DMG
-        run: |
-          hdiutil create -volname "sfd_tool_macos" -srcfolder dist/macos -ov -format UDZO sfd_tool_macos.dmg
+          chmod +x scripts/release.sh scripts/build_macos_app.sh
+          ./scripts/release.sh
+          ./scripts/build_macos_app.sh
 
       - name: Upload macOS DMG Artifact
         uses: actions/upload-artifact@v4
         with:
           name: sfd_tool_macos_dmg
-          path: sfd_tool_macos.dmg
+          path: dist/sfd_tool_macos.dmg
 
   build-linux-deb:
     runs-on: ubuntu-latest
@@ -455,26 +474,44 @@ jobs:
           cp master/third_party/Lib/libusb-1.0.dll output/sfd_tool_x64_Release/
           cp master/third_party/Lib/Channel9.dll output/sfd_tool_x86_Release/
           cp master/third_party/Lib/Channel.ini output/sfd_tool_x86_Release/
+          # 为 Windows 版本附带 VERSION_LOG.md，方便 About 页面读取
+          if [ -d "output/sfd_tool_x86_Release" ]; then
+            cp master/docs/VERSION_LOG.md output/sfd_tool_x86_Release/ || true
+          fi
+          if [ -d "output/sfd_tool_x64_Release" ]; then
+            cp master/docs/VERSION_LOG.md output/sfd_tool_x64_Release/ || true
+          fi
 
           cd output
 
           # 处理 Windows x86 SPRD 驱动版本
           if [ -d "sfd_tool_x86_Release" ]; then
             echo "准备 Windows x86 SPRD 驱动版本..."
-            mv sfd_tool_x86_Release sfd_tool_SPRD_Release
+            mv sfd_tool_x86_Release sfd_tool_x86_SPRD_Release
           fi
 
           # 重命名 Windows x64 LibUSB 版本目录
-          mv sfd_tool_x64_Release sfd_tool_LibUSB_Release
-
-          # 创建 ZIP 包
-          zip -r -v ../${{ env.RELEASE_TAG }}.zip .
+          if [ -d "sfd_tool_x64_Release" ]; then
+            mv sfd_tool_x64_Release sfd_tool_x64_LibUSB_Release
+          fi
 
           # 复制 Linux 包
-          cp -r sfd_tool_linux_deb/*.deb .
-          cp -r sfd_tool_rpm_package/*/*.rpm .
-          # 复制 macOS DMG
-          cp -r sfd_tool_macos_dmg/*.dmg .
+          cp -r sfd_tool_linux_deb/*.deb . || true
+          cp -r sfd_tool_rpm_package/*/*.rpm . || true
+
+          # 复制 macOS DMG（并带上版本号）
+          for dmg in sfd_tool_macos_dmg/*.dmg; do
+            [ -f "$dmg" ] || continue
+            cp "$dmg" "sfd_tool_macos_${{ env.RELEASE_TAG }}.dmg"
+          done
+
+          # 创建 Windows 独立 ZIP（只包含 Windows 目录）
+          zip -r -v sfd_tool_windows_${{ env.RELEASE_TAG }}.zip \
+            sfd_tool_x86_SPRD_Release \
+            sfd_tool_x64_LibUSB_Release
+
+          # 创建包含所有平台构建产物的总包
+          zip -r -v sfd_tool_all_${{ env.RELEASE_TAG }}.zip .
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -489,8 +526,8 @@ jobs:
             ## sfd_tool Release
 
             ### 版本说明:
-            - **sfd_tool_SPRD_Release**: Windows x86 版本，使用官方 SPRD 串口驱动（Channel9.dll），兼容性最佳
-            - **sfd_tool_LibUSB_Release**: Windows x64 版本，使用 libusb 驱动
+            - **sfd_tool_x86_SPRD_Release**: Windows x86 版本，使用官方 SPRD 串口驱动（Channel9.dll），兼容性最佳
+            - **sfd_tool_x64_LibUSB_Release**: Windows x64 版本，使用 libusb 驱动
             - **sfd_tool_macos**: macOS 版本（DMG 包）
             - **Linux DEB 包**: Ubuntu/Debian 系统安装包
             - **Linux RPM 包**: Fedora/RPM-Based 系统安装包
@@ -501,13 +538,14 @@ jobs:
             3. macOS 版本需要已安装 GTK3 与 libusb 运行时（见项目 README）
 
             ### 文件列表:
-            - sfd_tool_SPRD_Release/** - Windows x86 SPRD 驱动版
-            - sfd_tool_LibUSB_Release/** - Windows x64 LibUSB 驱动版
+            - sfd_tool_x86_SPRD_Release/** - Windows x86 SPRD 驱动版
+            - sfd_tool_x64_LibUSB_Release/** - Windows x64 LibUSB 驱动版
             - *.deb/*.rpm - Linux 安装包
             - *.dmg - macOS 安装包
             - README.md - 说明文档
           files: |
-            ${{ env.RELEASE_TAG }}.zip
+            output/sfd_tool_windows_${{ env.RELEASE_TAG }}.zip
+            output/sfd_tool_all_${{ env.RELEASE_TAG }}.zip
             output/*.deb
             output/*.rpm
             output/*.dmg

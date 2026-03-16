@@ -1,3 +1,68 @@
+sfd-tool (1.7.7.16-1-ltv) unstable; urgency=medium
+
+  * 修复：widnows下中英文切换
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Mon, 16 Mar 2026 11:36:20 +0800
+
+sfd-tool (1.7.7.12-1-ltv) unstable; urgency=medium
+
+  * 修复：linux下关于无法展示版本日志；windows缺失vcpkg gettext运行库
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Mon, 16 Mar 2026 11:01:00 +0800
+
+sfd-tool (1.7.7.11-1-ltv) unstable; urgency=medium
+
+  * 修复：windows和linux找不到mo文件；windows找不到intl-8.dll或libintl-8.dll
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Mon, 16 Mar 2026 10:40:01 +0800
+
+sfd-tool (1.7.7.10-1-ltv) unstable; urgency=medium
+
+  * 修复：打包规则
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Mon, 16 Mar 2026 08:49:05 +0800
+
+sfd-tool (1.7.7.9-1-ltv) unstable; urgency=medium
+
+  * 移除fdl路径占位配置
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sun, 15 Mar 2026 21:30:40 +0800
+
+sfd-tool (1.7.7.8-1-ltv) unstable; urgency=medium
+
+  * 优化：打包文件全部都放在 output 下
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sun, 15 Mar 2026 21:02:02 +0800
+
+sfd-tool (1.7.7.7-1-ltv) unstable; urgency=medium
+
+  * 优化版本命名
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sun, 15 Mar 2026 20:08:15 +0800
+
+sfd-tool (1.7.7.6-1-ltv) unstable; urgency=medium
+
+  * 修复：编译脚本-mscos最低支持版本11.0
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sun, 15 Mar 2026 19:12:45 +0800
+
+sfd-tool (1.7.7.5-1-ltv) unstable; urgency=medium
+
+  * 完善各平台打包脚本，支持快捷键退出
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sun, 15 Mar 2026 15:08:50 +0800
+
+sfd-tool (1.7.7.4-1-ltv) unstable; urgency=medium
+
+  * Bump upstream to 1.7.7.4 LTV
+  * UI refactor and logic optimizations
+  * Fix CI build issues for x86 (GitHub Actions)
+  * Fix missing .mo file when packaging
+  * Fix build.yml parsing error
+  * Add version update helper scripts and docs/VERSION_LOG.md integration
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Fri, 20 Feb 2026 18:30:00 +0800
+
 sfd-tool (1.7.6.0-1-ltv) unstable; urgency=medium
 
   * Initial Debian package release
