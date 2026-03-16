@@ -180,7 +180,7 @@ void gui_idle_call_with_callback(Func&& func, Callback&& callback, GtkWindow* wi
     }, new std::pair<FuncType*, CallbackType*>(func_ptr, callback_ptr));
 }
 std::string showFileChooser(GtkWindow* parent, bool open = true);
-const char *showFolderChooser(GtkWindow* parent);
+std::string showFolderChooser(GtkWindow* parent);
 void showInfoDialog(GtkWindow* parent, const char* title, const char* message);
 void showWarningDialog(GtkWindow* parent, const char* title, const char* message);
 void showErrorDialog(GtkWindow* parent, const char* title, const char* message);
