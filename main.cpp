@@ -472,6 +472,9 @@ int main(int argc, char** argv) {
 	sfd::AppConfig cfg;
 	sfd::loadAppConfigOrDefault(cfg); // 即使失败也会填充默认值（含 ui_language）
 
+	// 用于调试：记录当前配置语言
+	LOG_INFO("ui_language at startup: %s", cfg.ui_language.c_str());
+
 #if defined(__linux__) || defined(__APPLE__)
 	if (cfg.ui_language == "zh_CN") {
 		setenv("LANGUAGE", "zh_CN", 1);
@@ -483,16 +486,21 @@ int main(int argc, char** argv) {
 	// Windows 上也根据 ui_language 主动设置 C 运行时 locale，保证中英文切换生效
 	std::string lc_all = get_effective_lc_all_from_ui_language(cfg.ui_language);
 	if (!lc_all.empty()) {
+		LOG_INFO("setlocale(LC_ALL, %s) on Windows", lc_all.c_str());
 		setlocale(LC_ALL, lc_all.c_str());
+	} else {
+		LOG_INFO("ui_language is auto/empty, using system default locale");
 	}
 #endif
 
 	// 如果上面未设置特定语言，这里仍然调用一次 setlocale("")，
 	// 让 C 库从环境变量或系统默认解析 locale。
 	setlocale(LC_ALL, "");
+	LOG_INFO("effective locale after setlocale(\"\"): %s", setlocale(LC_ALL, nullptr));
 
 	// 根据可执行文件路径选择 locale 目录
 	std::string locale_dir = choose_locale_dir();
+	LOG_INFO("chosen locale_dir: %s", locale_dir.c_str());
 	if (!locale_dir.empty()) {
 		// 开发 / 便携包：使用 exe 同目录或 ./locale
 		bindtextdomain("sfd_tool", locale_dir.c_str());
