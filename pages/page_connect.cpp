@@ -376,14 +376,6 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	else g_app_state.device.device_mode = SPRD3;
 
 	// 使用 DeviceService 视图统一记录阶段/模式信息
-	auto* devSvc = ensure_device_service();
-	if (devSvc) {
-		sfd::DeviceInfo info{};
-		sfd::DeviceStatus st = devSvc->probeDevice(info);
-		if (st.success) {
-			DEG_LOG(I, "Device stage(view): %d, mode(view): %d", (int)info.stage, (int)info.mode);
-		}
-	}
 
 	if (fdl2_executed > 0) {
 		if (g_app_state.device.device_mode == SPRD3) {
@@ -594,6 +586,18 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			helper.setLabelText(helper.getWidget("mode"), "FDL2");
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
+
+		// FDL2 执行完成后，再通过 DeviceService 探测一次设备信息
+		auto* devSvc = ensure_device_service();
+		if (devSvc) {
+			sfd::DeviceInfo info{};
+			sfd::DeviceStatus st = devSvc->probeDevice(info);
+			if (st.success) {
+				DEG_LOG(I, "Device stage(view): %d, mode(view): %d", (int)info.stage, (int)info.mode);
+			} else {
+				DEG_LOG(W, "DeviceService::probeDevice after FDL2 failed: %s", st.message.c_str());
+			}
+		}
 		if(!(helper.getSwitchState(helper.getWidget("exec_addr"))) && g_app_state.device.device_mode == SPRD3)
 		{
 			// 1) 保留原有 fdl_info.json 写入逻辑，兼容旧行为
