@@ -182,7 +182,7 @@ jobs:
             $dllFiles | Select-Object -First 10 Name | ForEach-Object { Write-Host "  - $($_.Name)" }
           }
 
-      - name: Copy libintl DLL from vcpkg
+      - name: Copy gettext runtime DLLs from vcpkg
         shell: pwsh
         run: |
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
@@ -190,24 +190,26 @@ jobs:
           # 与上游步骤保持一致：始终使用 GitHub 经典 vcpkg 安装目录
           $vcpkgRoot = "C:\vcpkg"
           $vcpkgBin = Join-Path $vcpkgRoot "installed\${{ matrix.vcpkg_triplet }}\bin"
-          Write-Host "复制 libintl DLL 从: $vcpkgBin"
+          Write-Host "复制 vcpkg gettext 运行时 DLL 从: $vcpkgBin"
 
           if (-not (Test-Path $vcpkgBin)) {
             Write-Error "vcpkg bin 目录不存在: $vcpkgBin"
             exit 1
           }
 
-          # 通常是 intl-8.dll 或 libintl-8.dll，这里都处理
-          $intlDlls = Get-ChildItem $vcpkgBin -Filter "*intl*8.dll" -ErrorAction SilentlyContinue
+          # 拷贝 vcpkg bin 目录下所有 DLL（包括 intl-8.dll / libintl-8.dll / iconv-2.dll 等）
+          $dlls = Get-ChildItem $vcpkgBin -Filter "*.dll" -ErrorAction SilentlyContinue
 
-          if (-not $intlDlls -or $intlDlls.Count -eq 0) {
-            Write-Warning "未在 $vcpkgBin 找到 intl-8.dll / libintl-8.dll"
+          if (-not $dlls -or $dlls.Count -eq 0) {
+            Write-Warning "在 $vcpkgBin 未找到任何 DLL"
             Get-ChildItem $vcpkgBin | Select-Object -First 20
           } else {
-            foreach ($dll in $intlDlls) {
+            foreach ($dll in $dlls) {
               Copy-Item $dll.FullName -Destination $destDir -Force
-              Write-Host "已复制 $($dll.Name) 到 $destDir"
             }
+            Write-Host "已从 vcpkg 复制 $($dlls.Count) 个 DLL 到 $destDir"
+            Write-Host "前 10 个 DLL 示例:"
+            $dlls | Select-Object -First 10 Name | ForEach-Object { Write-Host "  - $($_.Name)" }
           }
 
       - name: Copy GTK Runtime Data Files
