@@ -34,6 +34,7 @@
 #elif defined(_WIN32)
 #include <windows.h>
 #include <dbghelp.h>
+#include <sys/stat.h>
 #endif
 
 std::string g_about_text;
@@ -80,13 +81,26 @@ static std::string get_executable_dir() {
         return std::string();
     }
     return p.substr(0, pos);
+#elif defined(_WIN32)
+    char path[MAX_PATH] = {0};
+    DWORD len = GetModuleFileNameA(NULL, path, MAX_PATH);
+    if (len == 0 || len == MAX_PATH) {
+        return std::string();
+    }
+    std::string p(path);
+    // Windows 路径用反斜杠分隔
+    auto pos = p.find_last_of('\\');
+    if (pos == std::string::npos) {
+        return std::string();
+    }
+    return p.substr(0, pos);
 #else
     return std::string();
 #endif
 }
 
 static bool dir_exists(const std::string& path) {
-#if defined(__linux__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
     struct stat st;
     if (stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
         return true;
