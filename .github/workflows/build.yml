@@ -181,6 +181,39 @@ jobs:
             Write-Host "前10个 DLL 文件:"
             $dllFiles | Select-Object -First 10 Name | ForEach-Object { Write-Host "  - $($_.Name)" }
           }
+
+      - name: Copy libintl DLL from vcpkg
+        shell: pwsh
+        run: |
+          $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
+
+          # 优先用环境里的 VCPKG_ROOT，退回到 C:\vcpkg
+          $vcpkgRoot = $env:VCPKG_ROOT
+          if (-not $vcpkgRoot) {
+            $vcpkgRoot = "C:\vcpkg"
+          }
+
+          $vcpkgBin = Join-Path $vcpkgRoot "installed\${{ matrix.vcpkg_triplet }}\bin"
+          Write-Host "复制 libintl DLL 从: $vcpkgBin"
+
+          if (-not (Test-Path $vcpkgBin)) {
+            Write-Error "vcpkg bin 目录不存在: $vcpkgBin"
+            exit 1
+          }
+
+          # 通常是 intl-8.dll 或 libintl-8.dll，这里都处理
+          $intlDlls = Get-ChildItem $vcpkgBin -Filter "*intl*8.dll" -ErrorAction SilentlyContinue
+
+          if (-not $intlDlls -or $intlDlls.Count -eq 0) {
+            Write-Warning "未在 $vcpkgBin 找到 intl-8.dll / libintl-8.dll"
+            Get-ChildItem $vcpkgBin | Select-Object -First 20
+          } else {
+            foreach ($dll in $intlDlls) {
+              Copy-Item $dll.FullName -Destination $destDir -Force
+              Write-Host "已复制 $($dll.Name) 到 $destDir"
+            }
+          }
+
       - name: Copy GTK Runtime Data Files
         run: |
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
