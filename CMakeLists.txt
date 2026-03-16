@@ -300,7 +300,8 @@ endif()
 include(GNUInstallDirs)
 
 # 为运行时 About 页面提供已安装文档目录（用于查找 VERSION_LOG.md）
-add_compile_definitions(SFD_TOOL_DOC_DIR="${CMAKE_INSTALL_DATADIR}/doc/sfd-tool")
+# 使用 CMAKE_INSTALL_FULL_DATADIR，确保包含安装前缀（例如 /usr/share）
+add_compile_definitions(SFD_TOOL_DOC_DIR="${CMAKE_INSTALL_FULL_DATADIR}/doc/sfd-tool")
 
 # 对标 Makefile 中的变量
 # BINDIR -> CMAKE_INSTALL_BINDIR
