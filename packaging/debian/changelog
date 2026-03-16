@@ -1,3 +1,9 @@
+sfd-tool (1.7.7.11-1-ltv) unstable; urgency=medium
+
+  * 修复：windows和linux找不到mo文件；windows找不到intl-8.dll或libintl-8.dll
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Mon, 16 Mar 2026 10:40:01 +0800
+
 sfd-tool (1.7.7.10-1-ltv) unstable; urgency=medium
 
   * 修复：打包规则
