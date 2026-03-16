@@ -1,3 +1,9 @@
+sfd-tool (1.7.7.13-1-ltv) unstable; urgency=medium
+
+  * 修复：windows无法展示中文
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Mon, 16 Mar 2026 11:23:36 +0800
+
 sfd-tool (1.7.7.12-1-ltv) unstable; urgency=medium
 
   * 修复：linux下关于无法展示版本日志；windows缺失vcpkg gettext运行库
