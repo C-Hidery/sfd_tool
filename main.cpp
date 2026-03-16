@@ -467,10 +467,12 @@ int main(int argc, char** argv) {
 	// 根据可执行文件路径选择 locale 目录
 	std::string locale_dir = choose_locale_dir();
 	if (!locale_dir.empty()) {
+		// 开发 / 便携包：使用 exe 同目录或 ./locale
 		bindtextdomain("sfd_tool", locale_dir.c_str());
-	} else {
-		bindtextdomain("sfd_tool", "./locale");
 	}
+	// 如果 locale_dir 为空：不调用 bindtextdomain，
+	// 让 gettext 使用系统默认路径（通常是 /usr/share/locale）
+
 	textdomain("sfd_tool");
 	bind_textdomain_codeset("sfd_tool", "UTF-8");
 
