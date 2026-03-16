@@ -1,12 +1,6 @@
-sfd-tool (1.7.7.15-1-ltv) unstable; urgency=medium
+sfd-tool (1.7.7.16-1-ltv) unstable; urgency=medium
 
-  * 修复：windows无法展示中文
-
- -- RyanCrepa <Ryan110413@outlook.com>  Mon, 16 Mar 2026 13:55:32 +0800
-
-sfd-tool (1.7.7.14-1-ltv) unstable; urgency=medium
-
-  * 修复：windows无法展示中文
+  * 修复：widnows下中英文切换
 
  -- RyanCrepa <Ryan110413@outlook.com>  Mon, 16 Mar 2026 11:36:20 +0800
 
