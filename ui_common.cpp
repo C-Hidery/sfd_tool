@@ -188,8 +188,10 @@ void append_log_to_ui(int type, const char* message) {
 void run_long_task(const LongTaskConfig& cfg) {
     // 在 GUI 线程执行 on_started（如果提供）
     if (cfg.on_started) {
-        gui_idle_call([&cfg]() {
-            cfg.on_started();
+        gui_idle_call([cfg]() mutable {
+            if (cfg.on_started) {
+                cfg.on_started();
+            }
         });
     }
 
