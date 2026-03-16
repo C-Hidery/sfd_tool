@@ -74,11 +74,11 @@ static void on_button_clicked_m_write(GtkWidgetHelper helper) {
 			},GTK_WINDOW(helper.getWidget("main_window")));
 		},
 		// on_started：GUI 线程中执行，设置状态
-		[&helper]() {
+		[helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Writing partition");
 		},
 		// on_finished：GUI 线程中执行，恢复状态
-		[&helper]() {
+		[helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
@@ -121,11 +121,11 @@ static void on_button_clicked_m_read(GtkWidgetHelper helper) {
 			},GTK_WINDOW(helper.getWidget("main_window")));
 		},
 		// on_started：GUI 线程中执行，设置状态
-		[&helper]() {
+		[helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Reading partition");
 		},
 		// on_finished：GUI 线程中执行，恢复状态
-		[&helper]() {
+		[helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
@@ -158,11 +158,11 @@ static void on_button_clicked_m_erase(GtkWidgetHelper helper) {
 			},GTK_WINDOW(helper.getWidget("main_window")));
 		},
 		// on_started：GUI 线程中执行，设置状态
-		[&helper]() {
+		[helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Erase partition");
 		},
 		// on_finished：GUI 线程中执行，恢复状态
-		[&helper]() {
+		[helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};

@@ -245,12 +245,12 @@ void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 			}
 		},
 		// on_started：GUI 线程中执行，设置状态与禁用按钮
-		[&helper]() {
+		[helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Flashing PAC...");
 			helper.disableWidget("pac_flash_start");
 		},
 		// on_finished：GUI 线程中执行，恢复按钮与状态
-		[&helper]() {
+		[helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 			helper.enableWidget("pac_flash_start");
 		}
@@ -398,37 +398,37 @@ GtkWidget* PacFlashPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 void PacFlashPage::bindSignals(GtkWidgetHelper& helper) {
 	GtkWidget* pacSelectBtn = helper.getWidget("pac_select");
 	if (pacSelectBtn) {
-		helper.bindClick(pacSelectBtn, [&helper]() {
+		helper.bindClick(pacSelectBtn, [helper]() {
 			on_button_clicked_pac_select(helper);
 		});
 	}
 	GtkWidget* pacUnpackBtn = helper.getWidget("pac_unpack");
 	if (pacUnpackBtn) {
-		helper.bindClick(pacUnpackBtn, [&helper]() {
+		helper.bindClick(pacUnpackBtn, [helper]() {
 			on_button_clicked_pac_unpack(helper);
 		});
 	}
 	GtkWidget* pacFlashBtn = helper.getWidget("pac_flash_start");
 	if (pacFlashBtn) {
-		helper.bindClick(pacFlashBtn, [&helper]() {
+		helper.bindClick(pacFlashBtn, [helper]() {
 			on_button_clicked_pac_flash_start(helper);
 		});
 	}
 	GtkWidget* abpart_auto = helper.getWidget("abpart_auto");
 	if (abpart_auto) {
-		helper.bindClick(abpart_auto, [&helper]() {
+		helper.bindClick(abpart_auto, [helper]() {
 			on_button_clicked_abpart_auto(helper);
 		});
 	}
 	GtkWidget* abpart_a = helper.getWidget("abpart_a");
 	if (abpart_a) {
-		helper.bindClick(abpart_a, [&helper]() {
+		helper.bindClick(abpart_a, [helper]() {
 			on_button_clicked_abpart_a(helper);
 		});
 	}
 	GtkWidget* abpart_b = helper.getWidget("abpart_b");
 	if (abpart_b) {
-		helper.bindClick(abpart_b, [&helper]() {
+		helper.bindClick(abpart_b, [helper]() {
 			on_button_clicked_abpart_b(helper);
 		});
 	}

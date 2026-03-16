@@ -173,10 +173,10 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 				}
 			}, GTK_WINDOW(helper.getWidget("main_window")));
 		},
-		[&helper]() {
+		[helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Writing partition");
 		},
-		[&helper]() {
+		[helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
@@ -229,10 +229,10 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 				}
 			}, GTK_WINDOW(helper.getWidget("main_window")));
 		},
-		[&helper]() {
+		[helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Force Writing partition");
 		},
-		[&helper]() {
+		[helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
@@ -260,13 +260,16 @@ void on_button_clicked_list_read(GtkWidgetHelper helper) {
 	opts.file_path = savePath;
 	opts.block_size = blk_size;
 
+	// 使用全局 helper 来做 UI 更新，避免使用局部 GtkWidgetHelper 拷贝
+	extern GtkWidgetHelper helper; // 声明 common.cpp 中的全局 helper
+
 	LongTaskConfig cfg{
 		helper,
-		[parent, helper, opts](std::atomic_bool& cancel_flag) {
+		[parent, opts](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag;
 			auto* svc = ensure_flash_service();
 			sfd::FlashStatus st = svc->readPartitionToFile(opts);
-			gui_idle_call_wait_drag([parent, helper, st]() mutable {
+			gui_idle_call_wait_drag([parent, st]() mutable {
 				if (!st.success) {
 					showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
 				} else {
@@ -274,10 +277,10 @@ void on_button_clicked_list_read(GtkWidgetHelper helper) {
 				}
 			}, GTK_WINDOW(helper.getWidget("main_window")));
 		},
-		[&helper]() {
+		[]() {
 			helper.setLabelText(helper.getWidget("con"), "Reading partition");
 		},
-		[&helper]() {
+		[]() {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
@@ -305,10 +308,10 @@ void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 				}
 			}, GTK_WINDOW(helper.getWidget("main_window")));
 		},
-		[&helper]() {
+		[helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Erase partition");
 		},
-		[&helper]() {
+		[helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
