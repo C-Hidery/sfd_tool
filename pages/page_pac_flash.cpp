@@ -201,7 +201,6 @@ void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 	opts.compatibility_mode = g_app_state.flash.isCMethod != 0;
 
 	LongTaskConfig cfg{
-		helper,
 		// worker：在后台线程中执行 PAC 刷机
 		[helper, opts](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag; // 当前实现暂不支持取消，仅保留扩展点
@@ -245,12 +244,12 @@ void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 			}
 		},
 		// on_started：GUI 线程中执行，设置状态与禁用按钮
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Flashing PAC...");
 			helper.disableWidget("pac_flash_start");
 		},
 		// on_finished：GUI 线程中执行，恢复按钮与状态
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 			helper.enableWidget("pac_flash_start");
 		}

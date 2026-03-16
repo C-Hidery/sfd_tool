@@ -31,8 +31,6 @@ void append_log_to_ui(int type, const char* message);
 
 // 长任务执行封装：统一线程创建、取消标志与开始/结束回调
 struct LongTaskConfig {
-    GtkWidgetHelper helper; // GUI helper 实例
-
     // 后台执行的任务体，在工作线程中运行
     std::function<void(std::atomic_bool& cancel_flag)> worker;
 

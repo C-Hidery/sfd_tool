@@ -133,7 +133,6 @@ static void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
 	bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Warning")))), _("This operation may break your device, and not all devices support this, if your device is broken, flash backup in backup_tos, continue?"));
 	if (i_is) {
 		LongTaskConfig cfg{
-			helper,
 			// worker：在后台线程中执行 trustos 读取/打补丁/回写
 			[helper, patcher](std::atomic_bool& cancel_flag) mutable {
 				(void)cancel_flag; // 当前实现暂不支持取消
@@ -176,11 +175,11 @@ static void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
 				}
 			},
 			// on_started：GUI 线程中执行，设置状态
-			[&helper]() {
+			[helper]() mutable {
 				helper.setLabelText(helper.getWidget("con"), "Patching trustos");
 			},
 			// on_finished：GUI 线程中执行，恢复状态
-			[&helper]() {
+			[helper]() mutable {
 				helper.setLabelText(helper.getWidget("con"), "Ready");
 			}
 		};

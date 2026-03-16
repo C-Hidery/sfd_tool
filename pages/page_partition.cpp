@@ -160,7 +160,7 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 	opts.force = false;
 
 	LongTaskConfig cfg{
-		helper,
+		// worker：在后台线程中执行分区写入
 		[parent, helper, opts](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag;
 			auto* svc = ensure_flash_service();
@@ -173,10 +173,10 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 				}
 			}, GTK_WINDOW(helper.getWidget("main_window")));
 		},
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Writing partition");
 		},
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
@@ -216,7 +216,7 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 	opts.force = true;
 
 	LongTaskConfig cfg{
-		helper,
+		// worker：在后台线程中执行分区写入（强制）
 		[parent, helper, opts](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag;
 			auto* svc = ensure_flash_service();
@@ -229,10 +229,10 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 				}
 			}, GTK_WINDOW(helper.getWidget("main_window")));
 		},
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Force Writing partition");
 		},
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
@@ -261,7 +261,6 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 	opts.block_size = blk_size;
 
 	LongTaskConfig cfg{
-		helper,
 		[parent, helper, opts](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag;
 			auto* svc = ensure_flash_service();
@@ -274,10 +273,10 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 				}
 			}, GTK_WINDOW(helper.getWidget("main_window")));
 		},
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Reading partition");
 		},
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
@@ -292,7 +291,6 @@ void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
 
 	LongTaskConfig cfg{
-		helper,
 		[parent, helper, part_name](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag;
 			auto* svc = ensure_flash_service();
@@ -305,10 +303,10 @@ void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 				}
 			}, GTK_WINDOW(helper.getWidget("main_window")));
 		},
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Erase partition");
 		},
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
