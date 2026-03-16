@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstring>
 #include <string>
+#include <cstdlib>
 #include "common.h"
 #include "main.h"
 #include "GtkWidgetHelper.hpp"
@@ -485,7 +486,16 @@ int main(int argc, char** argv) {
 	}
 	// "auto" 或空字符串：不设置 LANGUAGE，沿用环境／系统默认
 #elif defined(_WIN32)
-	// Windows 上根据 ui_language 主动设置 C 运行时 locale，保证中英文切换生效
+	// Windows 上也设置 LANGUAGE 环境变量，libintl 会读取它来决定翻译语言
+	if (cfg.ui_language == "zh_CN") {
+		_putenv_s("LANGUAGE", "zh_CN");
+	} else if (cfg.ui_language == "en_US") {
+		_putenv_s("LANGUAGE", "en_US");
+	}
+	LOG_INFO("LANGUAGE on Windows after config: %s",
+	         std::getenv("LANGUAGE") ? std::getenv("LANGUAGE") : "(null)");
+
+	// 同时设置 C 运行时 locale，便于 std::locale / C API 使用
 	std::string lc_all = get_effective_lc_all_from_ui_language(cfg.ui_language);
 	if (!lc_all.empty()) {
 		LOG_INFO("setlocale(LC_ALL, %s) on Windows", lc_all.c_str());
