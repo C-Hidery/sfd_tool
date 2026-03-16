@@ -176,11 +176,11 @@ static void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
 				}
 			},
 			// on_started：GUI 线程中执行，设置状态
-			[helper]() {
+			[&helper]() {
 				helper.setLabelText(helper.getWidget("con"), "Patching trustos");
 			},
 			// on_finished：GUI 线程中执行，恢复状态
-			[helper]() {
+			[&helper]() {
 				helper.setLabelText(helper.getWidget("con"), "Ready");
 			}
 		};

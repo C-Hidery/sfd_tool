@@ -59,6 +59,7 @@ static void on_button_clicked_m_write(GtkWidgetHelper helper) {
 	opts.force = false;
 
 	LongTaskConfig cfg{
+		helper,
 		// worker：在后台线程中执行分区写入
 		[parent, helper, opts](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag; // 当前实现暂不支持取消
@@ -73,11 +74,11 @@ static void on_button_clicked_m_write(GtkWidgetHelper helper) {
 			},GTK_WINDOW(helper.getWidget("main_window")));
 		},
 		// on_started：GUI 线程中执行，设置状态
-		[helper]() {
+		[&helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Writing partition");
 		},
 		// on_finished：GUI 线程中执行，恢复状态
-		[helper]() {
+		[&helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
@@ -105,6 +106,7 @@ static void on_button_clicked_m_read(GtkWidgetHelper helper) {
 	opts.block_size = blk_size;
 
 	LongTaskConfig cfg{
+		helper,
 		// worker：在后台线程中执行分区读取
 		[parent, helper, opts](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag; // 当前实现暂不支持取消
@@ -119,11 +121,11 @@ static void on_button_clicked_m_read(GtkWidgetHelper helper) {
 			},GTK_WINDOW(helper.getWidget("main_window")));
 		},
 		// on_started：GUI 线程中执行，设置状态
-		[helper]() {
+		[&helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Reading partition");
 		},
 		// on_finished：GUI 线程中执行，恢复状态
-		[helper]() {
+		[&helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
@@ -141,6 +143,7 @@ static void on_button_clicked_m_erase(GtkWidgetHelper helper) {
 	}
 
 	LongTaskConfig cfg{
+		helper,
 		// worker：在后台线程中执行分区擦除
 		[parent, helper, part_name](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag; // 当前实现暂不支持取消
@@ -155,11 +158,11 @@ static void on_button_clicked_m_erase(GtkWidgetHelper helper) {
 			},GTK_WINDOW(helper.getWidget("main_window")));
 		},
 		// on_started：GUI 线程中执行，设置状态
-		[helper]() {
+		[&helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Erase partition");
 		},
 		// on_finished：GUI 线程中执行，恢复状态
-		[helper]() {
+		[&helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};

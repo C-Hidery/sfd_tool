@@ -245,12 +245,12 @@ void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 			}
 		},
 		// on_started：GUI 线程中执行，设置状态与禁用按钮
-		[helper]() {
+		[&helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Flashing PAC...");
 			helper.disableWidget("pac_flash_start");
 		},
 		// on_finished：GUI 线程中执行，恢复按钮与状态
-		[helper]() {
+		[&helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 			helper.enableWidget("pac_flash_start");
 		}

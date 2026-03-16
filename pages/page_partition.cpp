@@ -173,10 +173,10 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 				}
 			}, GTK_WINDOW(helper.getWidget("main_window")));
 		},
-		[helper]() {
+		[&helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Writing partition");
 		},
-		[helper]() {
+		[&helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
@@ -229,10 +229,10 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 				}
 			}, GTK_WINDOW(helper.getWidget("main_window")));
 		},
-		[helper]() {
+		[&helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Force Writing partition");
 		},
-		[helper]() {
+		[&helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
@@ -261,6 +261,7 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 	opts.block_size = blk_size;
 
 	LongTaskConfig cfg{
+		helper,
 		[parent, helper, opts](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag;
 			auto* svc = ensure_flash_service();
@@ -273,10 +274,10 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 				}
 			}, GTK_WINDOW(helper.getWidget("main_window")));
 		},
-		[helper]() {
+		[&helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Reading partition");
 		},
-		[helper]() {
+		[&helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
@@ -304,10 +305,10 @@ void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 				}
 			}, GTK_WINDOW(helper.getWidget("main_window")));
 		},
-		[helper]() {
+		[&helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Erase partition");
 		},
-		[helper]() {
+		[&helper]() {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
