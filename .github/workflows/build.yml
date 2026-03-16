@@ -187,12 +187,8 @@ jobs:
         run: |
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
 
-          # 优先用环境里的 VCPKG_ROOT，退回到 C:\vcpkg
-          $vcpkgRoot = $env:VCPKG_ROOT
-          if (-not $vcpkgRoot) {
-            $vcpkgRoot = "C:\vcpkg"
-          }
-
+          # 与上游步骤保持一致：始终使用 GitHub 经典 vcpkg 安装目录
+          $vcpkgRoot = "C:\vcpkg"
           $vcpkgBin = Join-Path $vcpkgRoot "installed\${{ matrix.vcpkg_triplet }}\bin"
           Write-Host "复制 libintl DLL 从: $vcpkgBin"
 
