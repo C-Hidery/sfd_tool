@@ -100,9 +100,15 @@ static std::string get_executable_dir() {
 }
 
 static bool dir_exists(const std::string& path) {
-#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
+#if defined(__linux__) || defined(__APPLE__)
     struct stat st;
     if (stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
+        return true;
+    }
+    return false;
+#elif defined(_WIN32)
+    DWORD attr = GetFileAttributesA(path.c_str());
+    if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY)) {
         return true;
     }
     return false;
