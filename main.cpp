@@ -479,9 +479,16 @@ int main(int argc, char** argv) {
 		setenv("LANGUAGE", "en_US", 1);
 	}
 	// "auto" 或空字符串：不设置 LANGUAGE，沿用环境／系统默认
+#elif defined(_WIN32)
+	// Windows 上也根据 ui_language 主动设置 C 运行时 locale，保证中英文切换生效
+	std::string lc_all = get_effective_lc_all_from_ui_language(cfg.ui_language);
+	if (!lc_all.empty()) {
+		setlocale(LC_ALL, lc_all.c_str());
+	}
 #endif
 
-	// 让 C 库从环境变量中解析 locale（包含上面设置的 LANGUAGE 等）
+	// 如果上面未设置特定语言，这里仍然调用一次 setlocale("")，
+	// 让 C 库从环境变量或系统默认解析 locale。
 	setlocale(LC_ALL, "");
 
 	// 根据可执行文件路径选择 locale 目录
