@@ -36,18 +36,18 @@ int print_to_string(char* dest, size_t dest_size, const void* src, size_t n, int
 // 注意：宏本身不带分号，调用时写成 LOG_INFO("..."); 形式
 
 // 无模块名版本
-#define LOG_INFO(fmt, ...)   logMessage(LogLevel::Info,   nullptr, fmt, ##__VA_ARGS__)
-#define LOG_WARN(fmt, ...)   logMessage(LogLevel::Warning, nullptr, fmt, ##__VA_ARGS__)
-#define LOG_ERROR(fmt, ...)  logMessage(LogLevel::Error,  nullptr, fmt, ##__VA_ARGS__)
-#define LOG_OP(fmt, ...)     logMessage(LogLevel::Op,     nullptr, fmt, ##__VA_ARGS__)
-#define LOG_DEBUG(fmt, ...)  logMessage(LogLevel::Debug,  nullptr, fmt, ##__VA_ARGS__)
+#define LOG_INFO(...)   logMessage(LogLevel::Info,   nullptr, __VA_ARGS__)
+#define LOG_WARN(...)   logMessage(LogLevel::Warning, nullptr, __VA_ARGS__)
+#define LOG_ERROR(...)  logMessage(LogLevel::Error,  nullptr, __VA_ARGS__)
+#define LOG_OP(...)     logMessage(LogLevel::Op,     nullptr, __VA_ARGS__)
+#define LOG_DEBUG(...)  logMessage(LogLevel::Debug,  nullptr, __VA_ARGS__)
 
 // 带模块名版本
-#define LOGM_INFO(module, fmt, ...)   logMessage(LogLevel::Info,  module, fmt, ##__VA_ARGS__)
-#define LOGM_WARN(module, fmt, ...)   logMessage(LogLevel::Warning, module, fmt, ##__VA_ARGS__)
-#define LOGM_ERROR(module, fmt, ...)  logMessage(LogLevel::Error, module, fmt, ##__VA_ARGS__)
-#define LOGM_OP(module, fmt, ...)     logMessage(LogLevel::Op,    module, fmt, ##__VA_ARGS__)
-#define LOGM_DEBUG(module, fmt, ...)  logMessage(LogLevel::Debug, module, fmt, ##__VA_ARGS__)
+#define LOGM_INFO(...)   logMessage(LogLevel::Info,  __VA_ARGS__)
+#define LOGM_WARN(...)   logMessage(LogLevel::Warning, __VA_ARGS__)
+#define LOGM_ERROR(...)  logMessage(LogLevel::Error, __VA_ARGS__)
+#define LOGM_OP(...)     logMessage(LogLevel::Op,    __VA_ARGS__)
+#define LOGM_DEBUG(...)  logMessage(LogLevel::Debug, __VA_ARGS__)
 
 // 每个 .cpp 文件可声明自己的模块名，供 LOGM_* 使用
 #define DECLARE_LOG_MODULE(name) \
