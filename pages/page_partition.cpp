@@ -156,7 +156,7 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 	sfd::PartitionIoOptions opts;
 	opts.partition_name = part_name;
 	opts.file_path = filename;
-	opts.block_size = blk_size;
+	opts.block_size = GetEffectiveManualBlockSize();
 	opts.force = false;
 
 	LongTaskConfig cfg{
@@ -1017,11 +1017,24 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 
 	helper.setLabelText(helper.getWidget("con"), "Backup partitions");
 	std::thread([helper]() mutable {
-		auto* svc = ensure_flash_service();
+		auto& settings = GetGuiIoSettings();
+
+		if (settings.mode == BlockSizeMode::AUTO_DEFAULT) {
+			// 旧链路：使用 common.cpp 的 dump_partitions，保持与控制台一致的行为
+			int nand_info[4] = {0};
+			unsigned step = blk_size > 0 ? static_cast<unsigned>(blk_size) : DEFAULT_BLK_SIZE;
+			dump_partitions(io, "partition.xml", nand_info, step);
+			gui_idle_call_wait_drag([helper]() mutable {
+				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Completed"))), _("Partition backup completed!"));
+				helper.setLabelText(helper.getWidget("con"), "Ready");
+			}, GTK_WINDOW(helper.getWidget("main_window")));
+			return;
+		}
+
+		std::unique_ptr<sfd::FlashService> svc = sfd::createFlashService();
+		svc->setContext(io, &g_app_state);
 
 #if defined(__APPLE__)
-		// macOS .app 启动时，如果 savepath 已设置，则将分区备份
-		// 放到文稿目录下的 sfd_tool/YYYYMMDD_HHMMSS 子目录中。
 		std::string output_dir;
 		if (savepath[0]) {
 			char time_buf[32];
@@ -1038,7 +1051,7 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 #endif
 		std::vector<std::string> names; // 为空表示备份全部
 
-		std::uint32_t step = blk_size > 0 ? static_cast<std::uint32_t>(blk_size) : 0;
+		std::uint32_t step = GetEffectiveManualBlockSize();
 
 		sfd::FlashStatus st = svc->backupPartitions(names, output_dir, sfd::SlotSelection::Auto, step);
 		gui_idle_call_wait_drag([helper, st]() mutable {
@@ -1051,6 +1064,7 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 		}, GTK_WINDOW(helper.getWidget("main_window")));
 	}).detach();
 }
+
 void confirm_partition_c(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
 	gui_idle_call_with_callback(
