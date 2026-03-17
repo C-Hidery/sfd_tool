@@ -2,6 +2,7 @@
 #include "../common.h"
 #include "../main.h"
 #include "../i18n.h"
+#include "../ui_common.h"
 #include "../GenTosNoAvb.h"
 #include "page_partition.h"
 #include "../core/flash_service.h"
@@ -141,7 +142,7 @@ static void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
 				sfd::PartitionIoOptions read_opts;
 				read_opts.partition_name = "trustos";
 				read_opts.file_path = "trustos.bin";
-				read_opts.block_size = blk_size;
+				read_opts.block_size = GetEffectiveManualBlockSize();
 
 				sfd::FlashStatus st_read = svc->readPartitionToFile(read_opts);
 				if (!st_read.success) {
@@ -154,7 +155,7 @@ static void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
 					sfd::PartitionIoOptions write_opts;
 					write_opts.partition_name = "trustos";
 					write_opts.file_path = "tos-noavb.bin";
-					write_opts.block_size = blk_size;
+					write_opts.block_size = GetEffectiveManualBlockSize();
 					write_opts.force = false;
 
 					sfd::FlashStatus st_write = svc->writePartitionFromFile(write_opts);

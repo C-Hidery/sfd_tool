@@ -2,6 +2,7 @@
 #include "../common.h"
 #include "../main.h"
 #include "../i18n.h"
+#include "../ui_common.h"
 #include "../core/flash_service.h"
 #include "../ui_common.h"
 #include <thread>
@@ -99,10 +100,42 @@ static void on_button_clicked_m_read(GtkWidgetHelper helper) {
 		return;
 	}
 
+	auto& settings = GetGuiIoSettings();
+
+	if (settings.mode == BlockSizeMode::AUTO_DEFAULT) {
+		LongTaskConfig cfg{
+			// worker：在后台线程中执行分区读取（旧链路）
+			[parent, helper, part_name, savePath](std::atomic_bool& cancel_flag) {
+				(void)cancel_flag; // 当前实现暂不支持取消
+				unsigned step = blk_size > 0 ? static_cast<unsigned>(blk_size) : DEFAULT_BLK_SIZE;
+				uint64_t len = check_partition(io, part_name.c_str(), 1);
+				uint64_t saved = dump_partition(io, part_name.c_str(), 0, len, savePath.c_str(), step);
+				gui_idle_call_wait_drag([parent, helper, saved, len]() mutable {
+					if (saved != len) {
+						showErrorDialog(GTK_WINDOW(parent), _(_(_(("Error")))), _("Partition read failed!"));
+					} else {
+						showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("Partition read completed!"));
+					}
+				}, GTK_WINDOW(helper.getWidget("main_window")));
+			},
+			// on_started：GUI 线程中执行，设置状态
+			[helper]() mutable {
+				helper.setLabelText(helper.getWidget("con"), "Reading partition");
+			},
+			// on_finished：GUI 线程中执行，恢复状态
+			[helper]() mutable {
+				helper.setLabelText(helper.getWidget("con"), "Ready");
+			}
+		};
+
+		run_long_task(cfg);
+		return;
+	}
+
 	sfd::PartitionIoOptions opts;
 	opts.partition_name = part_name;
 	opts.file_path = savePath;
-	opts.block_size = blk_size;
+	opts.block_size = GetEffectiveManualBlockSize();
 
 	LongTaskConfig cfg{
 		// worker：在后台线程中执行分区读取

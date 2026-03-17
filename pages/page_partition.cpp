@@ -212,7 +212,7 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 	sfd::PartitionIoOptions opts;
 	opts.partition_name = part_name;
 	opts.file_path = filename;
-	opts.block_size = blk_size;
+	opts.block_size = GetEffectiveManualBlockSize();
 	opts.force = true;
 
 	LongTaskConfig cfg{

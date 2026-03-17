@@ -3,7 +3,6 @@
 #include "../main.h"
 #include "../i18n.h"
 #include "../ui_common.h"
-#include "../ui_common.h"
 #include "../core/config_service.h"
 
 extern spdio_t*& io;
