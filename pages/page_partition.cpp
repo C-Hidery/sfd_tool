@@ -264,7 +264,20 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 		[parent, helper, opts](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag;
 			auto* svc = ensure_flash_service();
+
+#if defined(__APPLE__)
+			// macOS 下，如果通过 .app 启动且 savepath 已设置，
+			// 直接保存到固定备份目录，不再使用用户选择的路径。
+			std::string finalPath = opts.file_path;
+			if (savepath[0]) {
+				finalPath = std::string(savepath) + "/" + opts.partition_name + ".img";
+			}
+			sfd::PartitionIoOptions realOpts = opts;
+			realOpts.file_path = finalPath;
+			sfd::FlashStatus st = svc->readPartitionToFile(realOpts);
+#else
 			sfd::FlashStatus st = svc->readPartitionToFile(opts);
+#endif
 			gui_idle_call_wait_drag([parent, helper, st]() mutable {
 				if (!st.success) {
 					showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
@@ -968,25 +981,47 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 
 	helper.setLabelText(helper.getWidget("con"), "Backup partitions");
 	std::thread([helper]() mutable {
-		std::unique_ptr<sfd::FlashService> svc = sfd::createFlashService();
-		svc->setContext(io, &g_app_state);
+-		std::unique_ptr<sfd::FlashService> svc = sfd::createFlashService();
+-		svc->setContext(io, &g_app_state);
+-
+-		std::string output_dir = "partitions_backup";
++		std::unique_ptr<sfd::FlashService> svc = sfd::createFlashService();
++		svc->setContext(io, &g_app_state);
++
++#if defined(__APPLE__)
++		// macOS .app 启动时，如果 savepath 已设置，则将全盘备份
++		// 放到文稿目录下的 sfd_tool/YYYYMMDD_HHMMSS 子目录中。
++		std::string output_dir;
++		if (savepath[0]) {
++			char time_buf[32];
++			std::time_t now = std::time(nullptr);
++			std::tm tm_now{};
++			localtime_r(&now, &tm_now);
++			std::strftime(time_buf, sizeof(time_buf), "%Y%m%d_%H%M%S", &tm_now);
++			output_dir = std::string(savepath) + "/" + time_buf;
++		} else {
++			output_dir = "partitions_backup";
++		}
++#else
++		std::string output_dir = "partitions_backup";
++#endif
+ 		std::vector<std::string> names; // 为空表示备份全部
 
-		std::string output_dir = "partitions_backup";
-		std::vector<std::string> names; // 为空表示备份全部
+ 		extern int blk_size;
+ 		std::uint32_t step = blk_size > 0 ? static_cast<std::uint32_t>(blk_size) : 0;
 
-		extern int blk_size;
-		std::uint32_t step = blk_size > 0 ? static_cast<std::uint32_t>(blk_size) : 0;
-
-		sfd::FlashStatus st = svc->backupPartitions(names, output_dir, sfd::SlotSelection::Auto, step);
-		gui_idle_call_wait_drag([helper, st]() mutable {
-			if (!st.success) {
-				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), st.message.c_str());
-			} else {
-				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Completed"))), _("Partition backup completed!"));
-			}
-			helper.setLabelText(helper.getWidget("con"), "Ready");
-		}, GTK_WINDOW(helper.getWidget("main_window")));
-	}).detach();
+ 		sfd::FlashStatus st = svc->backupPartitions(names, output_dir, sfd::SlotSelection::Auto, step);
+-		gui_idle_call_wait_drag([helper, st]() mutable {
++		gui_idle_call_wait_drag([helper, st]() mutable {
+ 			if (!st.success) {
+ 				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), st.message.c_str());
+ 			} else {
+-				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Completed"))), _("Partition backup completed!"));
++				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Completed"))), _("Partition backup completed!"));
+ 			}
+ 			helper.setLabelText(helper.getWidget("con"), "Ready");
+ 		}, GTK_WINDOW(helper.getWidget("main_window")));
+ 	}).detach();
 }
 
 
