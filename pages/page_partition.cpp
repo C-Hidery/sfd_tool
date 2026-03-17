@@ -971,11 +971,13 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 		std::unique_ptr<sfd::FlashService> svc = sfd::createFlashService();
 		svc->setContext(io, &g_app_state);
 
-		// 使用当前工作目录下的 partitions_backup 目录
 		std::string output_dir = "partitions_backup";
 		std::vector<std::string> names; // 为空表示备份全部
 
-		sfd::FlashStatus st = svc->backupPartitions(names, output_dir);
+		extern int blk_size;
+		std::uint32_t step = blk_size > 0 ? static_cast<std::uint32_t>(blk_size) : 0;
+
+		sfd::FlashStatus st = svc->backupPartitions(names, output_dir, sfd::SlotSelection::Auto, step);
 		gui_idle_call_wait_drag([helper, st]() mutable {
 			if (!st.success) {
 				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), st.message.c_str());

@@ -214,7 +214,7 @@ public:
 
         emit_stage(FlashPacStage::ExecuteFlash);
         // Stage 5: ExecuteFlash
-        unsigned step = DEFAULT_BLK_SIZE;
+        unsigned step = block_size ? block_size : DEFAULT_BLK_SIZE;
         DEG_LOG(OP,
                 "executePacFlash: stage=ExecuteFlash load_partitions(dir=%s, step=%u, ab=%d, CMethod=%d)",
                 unpack_dir,
@@ -405,7 +405,8 @@ public:
 
     FlashStatus backupPartitions(const std::vector<std::string>& partition_names,
                                  const std::string& output_directory,
-                                 SlotSelection /*slot_selection*/) override {
+                                 SlotSelection /*slot_selection*/,
+                                 std::uint32_t block_size) override {
         if (!io_ || !app_) {
             DEG_LOG(E, "backupPartitions: context not set");
             return make_error(FlashErrorCode::InternalError, "context not set");
@@ -433,7 +434,7 @@ public:
             }
         }
 
-        unsigned step = DEFAULT_BLK_SIZE;
+        unsigned step = block_size ? block_size : DEFAULT_BLK_SIZE;
 
         for (const auto& name : names) {
             get_partition_info(io_, name.c_str(), 1);
