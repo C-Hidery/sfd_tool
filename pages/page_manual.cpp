@@ -107,7 +107,7 @@ static void on_button_clicked_m_read(GtkWidgetHelper helper) {
 			// worker：在后台线程中执行分区读取（旧链路）
 			[parent, helper, part_name, savePath](std::atomic_bool& cancel_flag) {
 				(void)cancel_flag; // 当前实现暂不支持取消
-				unsigned step = blk_size > 0 ? static_cast<unsigned>(blk_size) : DEFAULT_BLK_SIZE;
+				unsigned step = DEFAULT_BLK_SIZE;
 				uint64_t len = check_partition(io, part_name.c_str(), 1);
 				uint64_t saved = dump_partition(io, part_name.c_str(), 0, len, savePath.c_str(), step);
 				gui_idle_call_wait_drag([parent, helper, saved, len]() mutable {

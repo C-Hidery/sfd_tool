@@ -123,6 +123,9 @@ static bool dir_exists(const std::string& path) {
 
 static std::string choose_locale_dir() {
     std::string exe_dir = get_executable_dir();
+#if defined(__APPLE__)
+    g_is_macos_bundle = (!exe_dir.empty() && exe_dir.find(".app/Contents/MacOS") != std::string::npos);
+#endif
 
 #if defined(__APPLE__)
     // macOS .app Bundle: 优先从 Contents/Resources/locale 查找
@@ -172,6 +175,9 @@ static std::string load_installed_about_text() {
 
     // 2) 其次使用可执行文件所在目录（macOS DMG、Windows 目录运行等）
     std::string exe_dir = get_executable_dir();
+#if defined(__APPLE__)
+    g_is_macos_bundle = (!exe_dir.empty() && exe_dir.find(".app/Contents/MacOS") != std::string::npos);
+#endif
     if (!exe_dir.empty()) {
         {
             std::string path = exe_dir + "/VERSION_LOG.md";
@@ -386,6 +392,9 @@ int gtk_kmain(int argc, char** argv) {
 	// macOS: 如果通过 .app Bundle 启动，默认将备份文件保存到 ~/Documents/sfd_tool
 	{
 		std::string exe_dir = get_executable_dir();
+#if defined(__APPLE__)
+    g_is_macos_bundle = (!exe_dir.empty() && exe_dir.find(".app/Contents/MacOS") != std::string::npos);
+#endif
 		if (!exe_dir.empty() && exe_dir.find(".app/Contents/MacOS") != std::string::npos) {
 			const char* home = std::getenv("HOME");
 			if (home && *home) {

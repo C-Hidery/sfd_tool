@@ -246,36 +246,69 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 	std::string part_name = getSelectedPartitionName(helper);
 
 #if defined(__APPLE__)
-	// macOS Finder 双击 .app 时，savepath 在 gtk_kmain 中已设置，
-	// 直接保存到固定目录，不再弹出路径选择对话框。
-	ensure_device_attached_or_exit(helper);
-	if (io->part_count == 0 && io->part_count_c == 0) {
-		showErrorDialog(parent, _(_(("Error"))), _("No partition table loaded, cannot write partition list!"));
-		return;
-	}
+	if (g_is_macos_bundle) {
+		// macOS Finder 双击 .app 时，savepath 在 gtk_kmain 中已设置，
+		// 直接保存到固定目录，不再弹出路径选择对话框。
+		ensure_device_attached_or_exit(helper);
+		if (io->part_count == 0 && io->part_count_c == 0) {
+			showErrorDialog(parent, _(_(("Error"))), _("No partition table loaded, cannot write partition list!"));
+			return;
+		}
 
-	auto& settings = GetGuiIoSettings();
+		auto& settings = GetGuiIoSettings();
 
-	// 默认路径：savepath/partition.img，如果 savepath 为空则退回当前目录
-	std::string finalPath;
-	if (savepath[0]) {
-		finalPath = std::string(savepath) + "/" + part_name + ".img";
-	} else {
-		finalPath = part_name + ".img";
-	}
+		// 默认路径：savepath/partition.img，如果 savepath 为空则退回当前目录
+		std::string finalPath;
+		if (savepath[0]) {
+			finalPath = std::string(savepath) + "/" + part_name + ".img";
+		} else {
+			finalPath = part_name + ".img";
+		}
 
-	if (settings.mode == BlockSizeMode::AUTO_DEFAULT) {
+		if (settings.mode == BlockSizeMode::AUTO_DEFAULT) {
+			LongTaskConfig cfg{
+				[parent, helper, part_name, finalPath](std::atomic_bool& cancel_flag) {
+					(void)cancel_flag;
+					unsigned step = DEFAULT_BLK_SIZE;
+					uint64_t len = check_partition(io, part_name.c_str(), 1);
+					uint64_t saved = dump_partition(io, part_name.c_str(), 0, len, finalPath.c_str(), step);
+					gui_idle_call_wait_drag([parent, helper, saved, len, finalPath]() mutable {
+						if (saved != len) {
+							showErrorDialog(parent, _(_(("Error"))), _("Partition read failed!"));
+						} else {
+							std::string msg = std::string(_("Partition read completed! Saved to: ")) + finalPath;
+							showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), msg.c_str());
+						}
+					}, GTK_WINDOW(helper.getWidget("main_window")));
+				},
+				[helper]() mutable {
+					helper.setLabelText(helper.getWidget("con"), "Reading partition");
+				},
+				[helper]() mutable {
+					helper.setLabelText(helper.getWidget("con"), "Ready");
+				}
+			};
+
+			run_long_task(cfg);
+			return;
+		}
+
+		sfd::PartitionIoOptions opts;
+		opts.partition_name = part_name;
+		opts.file_path = finalPath;
+		opts.block_size = GetEffectiveManualBlockSize();
+
 		LongTaskConfig cfg{
-			[parent, helper, part_name, finalPath](std::atomic_bool& cancel_flag) {
+			[parent, helper, opts](std::atomic_bool& cancel_flag) {
 				(void)cancel_flag;
-				unsigned step = blk_size > 0 ? static_cast<unsigned>(blk_size) : DEFAULT_BLK_SIZE;
-				uint64_t len = check_partition(io, part_name.c_str(), 1);
-				uint64_t saved = dump_partition(io, part_name.c_str(), 0, len, finalPath.c_str(), step);
-				gui_idle_call_wait_drag([parent, helper, saved, len, finalPath]() mutable {
-					if (saved != len) {
-						showErrorDialog(parent, _(_(("Error"))), _("Partition read failed!"));
+				auto* svc = ensure_flash_service();
+				sfd::FlashStatus st = svc->readPartitionToFile(opts);
+				std::string path = opts.file_path;
+				gui_idle_call_wait_drag([parent, helper, st, path]() mutable {
+					if (!st.success) {
+						showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
 					} else {
-						std::string msg = std::string(_("Partition read completed! Saved to: ")) + finalPath;
+						std::string msg = std::string(_("Partition read completed! Saved to: ")) + path;
 						showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), msg.c_str());
 					}
 				}, GTK_WINDOW(helper.getWidget("main_window")));
@@ -291,38 +324,9 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 		run_long_task(cfg);
 		return;
 	}
+#endif
 
-	sfd::PartitionIoOptions opts;
-	opts.partition_name = part_name;
-	opts.file_path = finalPath;
-	opts.block_size = GetEffectiveManualBlockSize();
-
-	LongTaskConfig cfg{
-		[parent, helper, opts](std::atomic_bool& cancel_flag) {
-			(void)cancel_flag;
-			auto* svc = ensure_flash_service();
-			sfd::FlashStatus st = svc->readPartitionToFile(opts);
-			std::string path = opts.file_path;
-			gui_idle_call_wait_drag([parent, helper, st, path]() mutable {
-				if (!st.success) {
-					showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
-				} else {
-					std::string msg = std::string(_("Partition read completed! Saved to: ")) + path;
-					showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), msg.c_str());
-				}
-			}, GTK_WINDOW(helper.getWidget("main_window")));
-		},
-		[helper]() mutable {
-			helper.setLabelText(helper.getWidget("con"), "Reading partition");
-		},
-		[helper]() mutable {
-			helper.setLabelText(helper.getWidget("con"), "Ready");
-		}
-	};
-
-	run_long_task(cfg);
-
-#else
+	// 非 macOS 或 macOS 下 CLI 运行：始终弹出保存路径对话框
 	std::string savePath = showSaveFileDialog(parent, part_name + ".img");
 	ensure_device_attached_or_exit(helper);
 	if (savePath.empty()) {
@@ -340,7 +344,7 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 		LongTaskConfig cfg{
 			[parent, helper, part_name, savePath](std::atomic_bool& cancel_flag) {
 				(void)cancel_flag;
-				unsigned step = blk_size > 0 ? static_cast<unsigned>(blk_size) : DEFAULT_BLK_SIZE;
+				unsigned step = DEFAULT_BLK_SIZE;
 				uint64_t len = check_partition(io, part_name.c_str(), 1);
 				uint64_t saved = dump_partition(io, part_name.c_str(), 0, len, savePath.c_str(), step);
 				gui_idle_call_wait_drag([parent, helper, saved, len]() mutable {
@@ -390,10 +394,7 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 	};
 
 	run_long_task(cfg);
-#endif
-
 }
-
 void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
 	std::string part_name = getSelectedPartitionName(helper);
