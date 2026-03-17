@@ -195,7 +195,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
 	gtk_box_pack_start(GTK_BOX(blkBox), sliderBox, FALSE, FALSE, 0);
 
-	GtkWidget* blkResetBtn = helper.createButton("恢复默认块大小", "blk_reset", nullptr, 0, 0, 160, 32);
+	GtkWidget* blkResetBtn = helper.createButton(_("Reset to default block size"), "blk_reset", nullptr, 0, 0, 220, 32);
 	gtk_box_pack_start(GTK_BOX(blkBox), blkResetBtn, FALSE, FALSE, 0);
 
 	gtk_box_pack_start(GTK_BOX(mainBox), blkFrame, FALSE, FALSE, 0);
