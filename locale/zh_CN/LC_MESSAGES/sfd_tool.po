@@ -876,5 +876,5 @@ msgstr "恢复默认块大小"
 msgid "Partition backup completed!"
 msgstr "分区备份完成！"
 
-msgid "Partition read completed! Saved to:"
+msgid "Partition read completed! Saved to: "
 msgstr "分区读取完成！保存到："
