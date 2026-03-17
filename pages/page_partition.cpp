@@ -254,8 +254,8 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 		return;
 	}
 
-	sfd::PartitionIoOptions opts;
-	opts.partition_name = part_name;
+	auto& settings = GetGuiIoSettings();
+
 	// 默认路径：savepath/partition.img，如果 savepath 为空则退回当前目录
 	std::string finalPath;
 	if (savepath[0]) {
@@ -263,8 +263,40 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 	} else {
 		finalPath = part_name + ".img";
 	}
+
+	if (settings.mode == BlockSizeMode::AUTO_DEFAULT) {
+		// 旧链路：直接调用 dump_partition 保持高性能
+		LongTaskConfig cfg{
+			[parent, helper, part_name, finalPath](std::atomic_bool& cancel_flag) {
+				(void)cancel_flag;
+				unsigned step = blk_size > 0 ? static_cast<unsigned>(blk_size) : DEFAULT_BLK_SIZE;
+				uint64_t len = check_partition(io, part_name.c_str(), 1);
+				uint64_t saved = dump_partition(io, part_name.c_str(), 0, len, finalPath.c_str(), step);
+				gui_idle_call_wait_drag([parent, helper, saved, len, finalPath]() mutable {
+					if (saved != len) {
+						showErrorDialog(parent, _(_(("Error"))), _("Partition read failed!"));
+					} else {
+						std::string msg = std::string(_("Partition read completed! Saved to: ")) + finalPath;
+						showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), msg.c_str());
+					}
+				}, GTK_WINDOW(helper.getWidget("main_window")));
+			},
+			[helper]() mutable {
+				helper.setLabelText(helper.getWidget("con"), "Reading partition");
+			},
+			[helper]() mutable {
+				helper.setLabelText(helper.getWidget("con"), "Ready");
+			}
+		};
+
+		run_long_task(cfg);
+		return;
+	}
+
+	sfd::PartitionIoOptions opts;
+	opts.partition_name = part_name;
 	opts.file_path = finalPath;
-	opts.block_size = blk_size;
+	opts.block_size = GetEffectiveManualBlockSize();
 
 	LongTaskConfig cfg{
 		[parent, helper, opts](std::atomic_bool& cancel_flag) {
@@ -303,10 +335,39 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 		return;
 	}
 
+	auto& settings = GetGuiIoSettings();
+
+	if (settings.mode == BlockSizeMode::AUTO_DEFAULT) {
+		LongTaskConfig cfg{
+			[parent, helper, part_name, savePath](std::atomic_bool& cancel_flag) {
+				(void)cancel_flag;
+				unsigned step = blk_size > 0 ? static_cast<unsigned>(blk_size) : DEFAULT_BLK_SIZE;
+				uint64_t len = check_partition(io, part_name.c_str(), 1);
+				uint64_t saved = dump_partition(io, part_name.c_str(), 0, len, savePath.c_str(), step);
+				gui_idle_call_wait_drag([parent, helper, saved, len]() mutable {
+					if (saved != len) {
+						showErrorDialog(parent, _(_(("Error"))), _("Partition read failed!"));
+					} else {
+						showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), _("Partition read completed!"));
+					}
+				}, GTK_WINDOW(helper.getWidget("main_window")));
+			},
+			[helper]() mutable {
+				helper.setLabelText(helper.getWidget("con"), "Reading partition");
+			},
+			[helper]() mutable {
+				helper.setLabelText(helper.getWidget("con"), "Ready");
+			}
+		};
+
+		run_long_task(cfg);
+		return;
+	}
+
 	sfd::PartitionIoOptions opts;
 	opts.partition_name = part_name;
 	opts.file_path = savePath;
-	opts.block_size = blk_size;
+	opts.block_size = GetEffectiveManualBlockSize();
 
 	LongTaskConfig cfg{
 		[parent, helper, opts](std::atomic_bool& cancel_flag) {
