@@ -244,6 +244,54 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
 	std::string part_name = getSelectedPartitionName(helper);
+
+#if defined(__APPLE__)
+	// macOS Finder 双击 .app 时，savepath 在 gtk_kmain 中已设置，
+	// 直接保存到固定目录，不再弹出路径选择对话框。
+	ensure_device_attached_or_exit(helper);
+	if (io->part_count == 0 && io->part_count_c == 0) {
+		showErrorDialog(parent, _(_(("Error"))), _("No partition table loaded, cannot write partition list!"));
+		return;
+	}
+
+	sfd::PartitionIoOptions opts;
+	opts.partition_name = part_name;
+	// 默认路径：savepath/partition.img，如果 savepath 为空则退回当前目录
+	std::string finalPath;
+	if (savepath[0]) {
+		finalPath = std::string(savepath) + "/" + part_name + ".img";
+	} else {
+		finalPath = part_name + ".img";
+	}
+	opts.file_path = finalPath;
+	opts.block_size = blk_size;
+
+	LongTaskConfig cfg{
+		[parent, helper, opts](std::atomic_bool& cancel_flag) {
+			(void)cancel_flag;
+			auto* svc = ensure_flash_service();
+			sfd::FlashStatus st = svc->readPartitionToFile(opts);
+			std::string path = opts.file_path;
+			gui_idle_call_wait_drag([parent, helper, st, path]() mutable {
+				if (!st.success) {
+					showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
+				} else {
+					std::string msg = std::string(_("Partition read completed! Saved to: ")) + path;
+					showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), msg.c_str());
+				}
+			}, GTK_WINDOW(helper.getWidget("main_window")));
+		},
+		[helper]() mutable {
+			helper.setLabelText(helper.getWidget("con"), "Reading partition");
+		},
+		[helper]() mutable {
+			helper.setLabelText(helper.getWidget("con"), "Ready");
+		}
+	};
+
+	run_long_task(cfg);
+
+#else
 	std::string savePath = showSaveFileDialog(parent, part_name + ".img");
 	ensure_device_attached_or_exit(helper);
 	if (savePath.empty()) {
@@ -264,20 +312,7 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 		[parent, helper, opts](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag;
 			auto* svc = ensure_flash_service();
-
-#if defined(__APPLE__)
-			// macOS 下，如果通过 .app 启动且 savepath 已设置，
-			// 直接保存到固定备份目录，不再使用用户选择的路径。
-			std::string finalPath = opts.file_path;
-			if (savepath[0]) {
-				finalPath = std::string(savepath) + "/" + opts.partition_name + ".img";
-			}
-			sfd::PartitionIoOptions realOpts = opts;
-			realOpts.file_path = finalPath;
-			sfd::FlashStatus st = svc->readPartitionToFile(realOpts);
-#else
 			sfd::FlashStatus st = svc->readPartitionToFile(opts);
-#endif
 			gui_idle_call_wait_drag([parent, helper, st]() mutable {
 				if (!st.success) {
 					showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
@@ -295,6 +330,7 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 	};
 
 	run_long_task(cfg);
+#endif
 
 }
 
@@ -981,50 +1017,40 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 
 	helper.setLabelText(helper.getWidget("con"), "Backup partitions");
 	std::thread([helper]() mutable {
--		std::unique_ptr<sfd::FlashService> svc = sfd::createFlashService();
--		svc->setContext(io, &g_app_state);
--
--		std::string output_dir = "partitions_backup";
-+		std::unique_ptr<sfd::FlashService> svc = sfd::createFlashService();
-+		svc->setContext(io, &g_app_state);
-+
-+#if defined(__APPLE__)
-+		// macOS .app 启动时，如果 savepath 已设置，则将全盘备份
-+		// 放到文稿目录下的 sfd_tool/YYYYMMDD_HHMMSS 子目录中。
-+		std::string output_dir;
-+		if (savepath[0]) {
-+			char time_buf[32];
-+			std::time_t now = std::time(nullptr);
-+			std::tm tm_now{};
-+			localtime_r(&now, &tm_now);
-+			std::strftime(time_buf, sizeof(time_buf), "%Y%m%d_%H%M%S", &tm_now);
-+			output_dir = std::string(savepath) + "/" + time_buf;
-+		} else {
-+			output_dir = "partitions_backup";
-+		}
-+#else
-+		std::string output_dir = "partitions_backup";
-+#endif
- 		std::vector<std::string> names; // 为空表示备份全部
+		auto* svc = ensure_flash_service();
 
- 		extern int blk_size;
- 		std::uint32_t step = blk_size > 0 ? static_cast<std::uint32_t>(blk_size) : 0;
+#if defined(__APPLE__)
+		// macOS .app 启动时，如果 savepath 已设置，则将分区备份
+		// 放到文稿目录下的 sfd_tool/YYYYMMDD_HHMMSS 子目录中。
+		std::string output_dir;
+		if (savepath[0]) {
+			char time_buf[32];
+			std::time_t now = std::time(nullptr);
+			std::tm tm_now{};
+			localtime_r(&now, &tm_now);
+			std::strftime(time_buf, sizeof(time_buf), "%Y%m%d_%H%M%S", &tm_now);
+			output_dir = std::string(savepath) + "/" + time_buf;
+		} else {
+			output_dir = "partitions_backup";
+		}
+#else
+		std::string output_dir = "partitions_backup";
+#endif
+		std::vector<std::string> names; // 为空表示备份全部
 
- 		sfd::FlashStatus st = svc->backupPartitions(names, output_dir, sfd::SlotSelection::Auto, step);
--		gui_idle_call_wait_drag([helper, st]() mutable {
-+		gui_idle_call_wait_drag([helper, st]() mutable {
- 			if (!st.success) {
- 				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), st.message.c_str());
- 			} else {
--				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Completed"))), _("Partition backup completed!"));
-+				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Completed"))), _("Partition backup completed!"));
- 			}
- 			helper.setLabelText(helper.getWidget("con"), "Ready");
- 		}, GTK_WINDOW(helper.getWidget("main_window")));
- 	}).detach();
+		std::uint32_t step = blk_size > 0 ? static_cast<std::uint32_t>(blk_size) : 0;
+
+		sfd::FlashStatus st = svc->backupPartitions(names, output_dir, sfd::SlotSelection::Auto, step);
+		gui_idle_call_wait_drag([helper, st]() mutable {
+			if (!st.success) {
+				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), st.message.c_str());
+			} else {
+				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Completed"))), _("Partition backup completed!"));
+			}
+			helper.setLabelText(helper.getWidget("con"), "Ready");
+		}, GTK_WINDOW(helper.getWidget("main_window")));
+	}).detach();
 }
-
-
 void confirm_partition_c(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
 	gui_idle_call_with_callback(
