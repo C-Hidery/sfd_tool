@@ -569,7 +569,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			io->Cptable = partition_list_d(io);
 			isCMethod = 1;
 		}
-		if (!io->part_count) {
+		if (!io->part_count && !io->part_count_c) {
 			DEG_LOG(W, "No partition table found on current device");
 			confirm_partition_c(helper);
 		}
