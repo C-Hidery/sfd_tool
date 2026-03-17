@@ -32,6 +32,7 @@
 #include <mach-o/dyld.h>
 #include <limits.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #elif defined(_WIN32)
 #include <windows.h>
 #include <dbghelp.h>
@@ -380,6 +381,30 @@ int gtk_kmain(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	snprintf(fn_partlist, sizeof(fn_partlist), "partition_%lld.xml", (long long)time(nullptr));
+
+#if defined(__APPLE__)
+	// macOS: 如果通过 .app Bundle 启动，默认将备份文件保存到 ~/Documents/sfd_tool
+	{
+		std::string exe_dir = get_executable_dir();
+		if (!exe_dir.empty() && exe_dir.find(".app/Contents/MacOS") != std::string::npos) {
+			const char* home = std::getenv("HOME");
+			if (home && *home) {
+				std::string docs_dir = std::string(home) + "/Documents/sfd_tool";
+				struct stat st{};
+				if (stat(docs_dir.c_str(), &st) != 0) {
+					// 目录不存在则尝试创建，失败时静默忽略，退回到当前工作目录策略
+					mkdir(docs_dir.c_str(), 0755);
+				}
+				if (stat(docs_dir.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
+					if (docs_dir.size() < sizeof(savepath)) {
+						std::snprintf(savepath, sizeof(savepath), "%s", docs_dir.c_str());
+						DEG_LOG(I, "macOS bundle detected, savepath set to %s", savepath);
+					}
+				}
+			}
+		}
+	}
+#endif
 
 	// Window Setup
 	GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
