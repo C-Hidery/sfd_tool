@@ -194,6 +194,10 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_box_pack_start(GTK_BOX(sliderBox), sizeCon, FALSE, FALSE, 0);
 
 	gtk_box_pack_start(GTK_BOX(blkBox), sliderBox, FALSE, FALSE, 0);
+
+	GtkWidget* blkResetBtn = helper.createButton("恢复默认块大小", "blk_reset", nullptr, 0, 0, 160, 32);
+	gtk_box_pack_start(GTK_BOX(blkBox), blkResetBtn, FALSE, FALSE, 0);
+
 	gtk_box_pack_start(GTK_BOX(mainBox), blkFrame, FALSE, FALSE, 0);
 
 	// 2. Rawdata模式设置部分
@@ -371,6 +375,11 @@ void AdvancedSetPage::bindSignals(GtkWidgetHelper& helper) {
 		GtkWidget* sc = helper.getWidget("size_con");
 		gtk_label_set_text(GTK_LABEL(sc), std::to_string(intValue).c_str());
 		blk_size = intValue;
+	});
+	helper.bindClick(helper.getWidget("blk_reset"), [&]() {
+		blk_size = 0;
+		GtkWidget* sc = helper.getWidget("size_con");
+		gtk_label_set_text(GTK_LABEL(sc), "0");
 	});
 	helper.bindClick(helper.getWidget("raw_data_en"), [&]() {
 		on_button_clicked_raw_data_en(helper);

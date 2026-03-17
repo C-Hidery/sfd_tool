@@ -214,7 +214,7 @@ public:
 
         emit_stage(FlashPacStage::ExecuteFlash);
         // Stage 5: ExecuteFlash
-        unsigned step = block_size ? block_size : DEFAULT_BLK_SIZE;
+        unsigned step = DEFAULT_BLK_SIZE;
         DEG_LOG(OP,
                 "executePacFlash: stage=ExecuteFlash load_partitions(dir=%s, step=%u, ab=%d, CMethod=%d)",
                 unpack_dir,
