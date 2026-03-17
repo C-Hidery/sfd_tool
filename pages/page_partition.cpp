@@ -265,7 +265,6 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 	}
 
 	if (settings.mode == BlockSizeMode::AUTO_DEFAULT) {
-		// 旧链路：直接调用 dump_partition 保持高性能
 		LongTaskConfig cfg{
 			[parent, helper, part_name, finalPath](std::atomic_bool& cancel_flag) {
 				(void)cancel_flag;

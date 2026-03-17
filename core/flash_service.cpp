@@ -325,9 +325,21 @@ public:
         DEG_LOG(OP, "readPartitionToFile: %s -> %s, size=%lld, step=%u",
                 gPartInfo.name, options.file_path.c_str(), (long long)gPartInfo.size, step);
 
-        dump_partition(io_, gPartInfo.name, 0, gPartInfo.size, options.file_path.c_str(), step);
+        // 重置取消标志，支持读取过程中的取消
+        start_signal();
 
-        // 暂不根据返回值细化错误，保持与现有行为一致
+        uint64_t saved = dump_partition(io_, gPartInfo.name, 0, gPartInfo.size, options.file_path.c_str(), step);
+        if (saved != (uint64_t)gPartInfo.size) {
+            if (isCancel) {
+                DEG_LOG(W, "readPartitionToFile: cancelled, saved=%llu / %lld",
+                        (unsigned long long)saved, (long long)gPartInfo.size);
+                return make_error(FlashErrorCode::Cancelled, "partition read cancelled");
+            }
+            DEG_LOG(E, "readPartitionToFile: short read, saved=%llu / %lld",
+                    (unsigned long long)saved, (long long)gPartInfo.size);
+            return make_error(FlashErrorCode::IoError, "partition read incomplete");
+        }
+
         return make_ok();
     }
 
@@ -436,7 +448,15 @@ public:
 
         unsigned step = block_size ? block_size : DEFAULT_BLK_SIZE;
 
+        // 重置取消标志，支持备份过程中的取消
+        start_signal();
+
         for (const auto& name : names) {
+            if (isCancel) {
+                DEG_LOG(W, "backupPartitions: cancelled before partition %s", name.c_str());
+                return make_error(FlashErrorCode::Cancelled, "partition backup cancelled");
+            }
+
             get_partition_info(io_, name.c_str(), 1);
             if (!gPartInfo.size) {
                 DEG_LOG(W, "backupPartitions: skip missing partition %s", name.c_str());
@@ -447,8 +467,24 @@ public:
             DEG_LOG(OP, "backupPartitions: %s -> %s, size=%lld, step=%u",
                     gPartInfo.name, out_path.string().c_str(), (long long)gPartInfo.size, step);
 
-            dump_partition(io_, gPartInfo.name, 0, gPartInfo.size,
-                           out_path.string().c_str(), step);
+            uint64_t saved = dump_partition(io_, gPartInfo.name, 0, gPartInfo.size,
+                                           out_path.string().c_str(), step);
+            if (saved != (uint64_t)gPartInfo.size) {
+                if (isCancel) {
+                    DEG_LOG(W,
+                            "backupPartitions: cancelled while backing up %s, saved=%llu / %lld",
+                            gPartInfo.name,
+                            (unsigned long long)saved,
+                            (long long)gPartInfo.size);
+                    return make_error(FlashErrorCode::Cancelled, "partition backup cancelled");
+                }
+                DEG_LOG(E,
+                        "backupPartitions: short read on %s, saved=%llu / %lld",
+                        gPartInfo.name,
+                        (unsigned long long)saved,
+                        (long long)gPartInfo.size);
+                return make_error(FlashErrorCode::IoError, "partition backup incomplete");
+            }
         }
 
         return make_ok();
