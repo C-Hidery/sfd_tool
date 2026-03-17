@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 1.7.7.16 LTV Edition
+Version 1.8.0.0 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -90,6 +90,9 @@ UI Refactor, optimization code logic.
 
 ---v 1.7.7.16---
 修复：widnows下中英文切换
+
+---v 1.8.0.0---
+修复：自动探测硬件信息导致fdl执行失败；helper空引用导致读取分区后程序崩溃；兼容分区表模式下清理 GPT 计数，避免读 prodnv 仍错误访问失效 ptable 崩溃
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
