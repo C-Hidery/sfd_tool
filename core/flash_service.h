@@ -138,10 +138,11 @@ public:
     // 将文件写入单个分区
     virtual FlashStatus writePartitionFromFile(const PartitionIoOptions& options) = 0;
 
-    // 备份若干分区（names 为空表示全部）到目录
+// 备份若干分区（names 为空表示全部）到目录
     virtual FlashStatus backupPartitions(const std::vector<std::string>& partition_names,
                                          const std::string& output_directory,
-                                         SlotSelection slot_selection = SlotSelection::Auto) = 0;
+                                         SlotSelection slot_selection = SlotSelection::Auto,
+                                         std::uint32_t block_size = 0) = 0;
 
     // 对指定分区做简单校验
     virtual FlashStatus verifyPartition(const std::string& partition_name,

@@ -87,7 +87,7 @@ std::string showFileChooser(GtkWindow* parent, bool open) {
 }
 
 // 选择文件夹
-const char* showFolderChooser(GtkWindow* parent) {
+std::string showFolderChooser(GtkWindow* parent) {
 	GtkWidget* dialog = gtk_file_chooser_dialog_new(_("Select folder"),
 	                    parent,
 	                    GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER,
@@ -96,7 +96,7 @@ const char* showFolderChooser(GtkWindow* parent) {
 	                    NULL);
 
 	gint result = gtk_dialog_run(GTK_DIALOG(dialog));
-	const char* folder = nullptr;
+	std::string folder;
 
 	if (result == GTK_RESPONSE_ACCEPT) {
 		char* dir = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));

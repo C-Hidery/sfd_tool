@@ -3,6 +3,21 @@
 #include <functional>
 #include <atomic>
 
+// 块大小模式：自动默认（legacy 路径）与手动块大小（FlashService 路径）
+enum class BlockSizeMode {
+    AUTO_DEFAULT,
+    MANUAL_BLOCK_SIZE
+};
+
+// GUI 侧块大小 / IO 模式设置
+struct GuiIoSettings {
+    BlockSizeMode mode;
+    uint32_t      manual_block_size;
+};
+
+GuiIoSettings& GetGuiIoSettings();
+uint32_t GetEffectiveManualBlockSize();
+
 // 初始化允许控件
 void Enable_Startup(GtkWidgetHelper helper);
 // 启用/禁用全部控件
@@ -31,8 +46,6 @@ void append_log_to_ui(int type, const char* message);
 
 // 长任务执行封装：统一线程创建、取消标志与开始/结束回调
 struct LongTaskConfig {
-    GtkWidgetHelper& helper;
-
     // 后台执行的任务体，在工作线程中运行
     std::function<void(std::atomic_bool& cancel_flag)> worker;
 

@@ -11,6 +11,19 @@ extern int& m_bOpened;
 // 兼容旧逻辑：isCMethod 映射到 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
 
+GuiIoSettings& GetGuiIoSettings() {
+    static GuiIoSettings s_settings{
+        BlockSizeMode::AUTO_DEFAULT,
+        DEFAULT_BLK_SIZE
+    };
+    return s_settings;
+}
+
+uint32_t GetEffectiveManualBlockSize() {
+    auto& s = GetGuiIoSettings();
+    return s.manual_block_size ? s.manual_block_size : DEFAULT_BLK_SIZE;
+}
+
 // 前向声明回调函数（来自其他页面模块）
 void on_button_clicked_poweroff(GtkWidgetHelper helper);
 void on_button_clicked_reboot(GtkWidgetHelper helper);
@@ -188,8 +201,10 @@ void append_log_to_ui(int type, const char* message) {
 void run_long_task(const LongTaskConfig& cfg) {
     // 在 GUI 线程执行 on_started（如果提供）
     if (cfg.on_started) {
-        gui_idle_call([&cfg]() {
-            cfg.on_started();
+        gui_idle_call([cfg]() mutable {
+            if (cfg.on_started) {
+                cfg.on_started();
+            }
         });
     }
 

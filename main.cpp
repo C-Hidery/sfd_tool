@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstring>
 #include <string>
+#include <cstdlib>
 #include "common.h"
 #include "main.h"
 #include "GtkWidgetHelper.hpp"
@@ -31,6 +32,7 @@
 #include <mach-o/dyld.h>
 #include <limits.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #elif defined(_WIN32)
 #include <windows.h>
 #include <dbghelp.h>
@@ -380,6 +382,30 @@ int gtk_kmain(int argc, char** argv) {
 #endif
 	snprintf(fn_partlist, sizeof(fn_partlist), "partition_%lld.xml", (long long)time(nullptr));
 
+#if defined(__APPLE__)
+	// macOS: 如果通过 .app Bundle 启动，默认将备份文件保存到 ~/Documents/sfd_tool
+	{
+		std::string exe_dir = get_executable_dir();
+		if (!exe_dir.empty() && exe_dir.find(".app/Contents/MacOS") != std::string::npos) {
+			const char* home = std::getenv("HOME");
+			if (home && *home) {
+				std::string docs_dir = std::string(home) + "/Documents/sfd_tool";
+				struct stat st{};
+				if (stat(docs_dir.c_str(), &st) != 0) {
+					// 目录不存在则尝试创建，失败时静默忽略，退回到当前工作目录策略
+					mkdir(docs_dir.c_str(), 0755);
+				}
+				if (stat(docs_dir.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
+					if (docs_dir.size() < sizeof(savepath)) {
+						std::snprintf(savepath, sizeof(savepath), "%s", docs_dir.c_str());
+						DEG_LOG(I, "macOS bundle detected, savepath set to %s", savepath);
+					}
+				}
+			}
+		}
+	}
+#endif
+
 	// Window Setup
 	GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	gtk_window_set_title(GTK_WINDOW(window), "SFD Tool GUI By Ryan Crepa");
@@ -472,6 +498,11 @@ int main(int argc, char** argv) {
 	sfd::AppConfig cfg;
 	sfd::loadAppConfigOrDefault(cfg); // 即使失败也会填充默认值（含 ui_language）
 
+	// 用于调试：记录当前配置语言
+	LOG_INFO("ui_language at startup: %s", cfg.ui_language.c_str());
+
+	bool locale_from_config = false;
+
 #if defined(__linux__) || defined(__APPLE__)
 	if (cfg.ui_language == "zh_CN") {
 		setenv("LANGUAGE", "zh_CN", 1);
@@ -480,19 +511,38 @@ int main(int argc, char** argv) {
 	}
 	// "auto" 或空字符串：不设置 LANGUAGE，沿用环境／系统默认
 #elif defined(_WIN32)
-	// Windows 上也根据 ui_language 主动设置 C 运行时 locale，保证中英文切换生效
+	// Windows 上也设置 LANGUAGE 环境变量，libintl 会读取它来决定翻译语言
+	if (cfg.ui_language == "zh_CN") {
+		_putenv_s("LANGUAGE", "zh_CN");
+	} else if (cfg.ui_language == "en_US") {
+		_putenv_s("LANGUAGE", "en_US");
+	}
+	LOG_INFO("LANGUAGE on Windows after config: %s",
+	         std::getenv("LANGUAGE") ? std::getenv("LANGUAGE") : "(null)");
+
+	// 同时设置 C 运行时 locale，便于 std::locale / C API 使用
 	std::string lc_all = get_effective_lc_all_from_ui_language(cfg.ui_language);
 	if (!lc_all.empty()) {
+		LOG_INFO("setlocale(LC_ALL, %s) on Windows", lc_all.c_str());
 		setlocale(LC_ALL, lc_all.c_str());
+		locale_from_config = true;
+	} else {
+		LOG_INFO("ui_language is auto/empty, using system default locale");
 	}
 #endif
 
-	// 如果上面未设置特定语言，这里仍然调用一次 setlocale("")，
+	// 如果没有通过配置显式设置 locale，则调用一次 setlocale(LC_ALL, "")，
 	// 让 C 库从环境变量或系统默认解析 locale。
-	setlocale(LC_ALL, "");
+	if (!locale_from_config) {
+		setlocale(LC_ALL, "");
+		LOG_INFO("effective locale after setlocale(\"\"): %s", setlocale(LC_ALL, nullptr));
+	} else {
+		LOG_INFO("effective locale after config locale: %s", setlocale(LC_ALL, nullptr));
+	}
 
 	// 根据可执行文件路径选择 locale 目录
 	std::string locale_dir = choose_locale_dir();
+	LOG_INFO("chosen locale_dir: %s", locale_dir.c_str());
 	if (!locale_dir.empty()) {
 		// 开发 / 便携包：使用 exe 同目录或 ./locale
 		bindtextdomain("sfd_tool", locale_dir.c_str());

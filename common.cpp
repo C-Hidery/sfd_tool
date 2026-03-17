@@ -1103,6 +1103,7 @@ partition_t* partition_list_d(spdio_t* io) {
 	DEG_LOG(I,"Total number of partitions: %d", n);
 	delete[] io->ptable;
 	io->ptable = nullptr;
+	io->part_count = 0;
 	io->part_count_c = n;
 	return ptable;
 }
