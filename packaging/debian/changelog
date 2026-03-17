@@ -1,3 +1,9 @@
+sfd-tool (1.8.0.1-1-ltv) unstable; urgency=medium
+
+  * 修复：数据块大小问题，macOS下.app应用写入文件权限导致崩溃的问题
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Tue, 17 Mar 2026 15:50:58 +0800
+
 sfd-tool (1.8.0.0-1-ltv) unstable; urgency=medium
 
   * 修复：自动探测硬件信息导致fdl执行失败；helper空引用导致读取分区后程序崩溃；兼容分区表模式下清理 GPT 计数，避免读 prodnv 仍错误访问失效 ptable 崩溃
