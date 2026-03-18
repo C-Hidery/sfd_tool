@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 1.8.0.1 LTV Edition
+Version 1.8.0.2 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -88,6 +88,9 @@ UI Refactor, optimization code logic.
 ---v 1.7.7.12---
 修复：linux下关于无法展示版本日志；windows缺失vcpkg gettext运行库
 
+---v 1.7.7.15---
+修复：windows无法展示中文
+
 ---v 1.7.7.16---
 修复：widnows下中英文切换
 
@@ -97,8 +100,28 @@ UI Refactor, optimization code logic.
 ---v 1.8.0.1---
 修复：数据块大小问题，macOS下.app应用写入文件权限导致崩溃的问题
 
----v 1.7.7.15---
-修复：windows无法展示中文
+---v 1.8.0.2---
+修复
+    修复 CI 在 macOS 平台编译报错的问题
+    修复 GUI 全分区备份路径以及取消提示的本地化问题
+    修复部分界面文案未翻译的问题
+    修复全盘备份打包路径错误的问题
+    修复 AUTO_DEFAULT 模式下执行全盘备份导致程序崩溃的问题
+    修复“恢复默认块大小”时未正确回退到握手默认步长并恢复 AUTO 读速率的问题
+    修复并区分 macOS .app 与 CLI 的分区读取路径行为，确保“恢复默认块大小”后回到旧链路的默认读速率
+优化
+    优化分区表读取：仅在启用兼容模式时通过兼容方法读取分区表，避免每次执行 FDL2 时重复遍历分区表导致的额外延迟
+    优化 macOS .app 备份取消路径的选择逻辑，并在取消时提示实际保存位置
+    优化 macOS .app 备份保存路径：统一使用固定文稿目录，并为全盘备份自动创建按时间命名的子目录
+调整 / 重构相关
+    在 ui_common 中引入块大小模式配置结构，为后续块大小相关重构做准备
+    引入块大小模式配置，并根据该配置在 GUI 中切换分区备份新旧链路
+    单分区读取根据块大小模式在旧链路与 FlashService 之间自动切换
+    统一 GUI 中 block_size 的使用方式，全面接入新的块大小模式配置
+    为分区读取和全盘备份接入取消逻辑，支持在操作中途安全取消
+    为块大小模式与分区读写路径增加详细日志，便于排查“恢复默认块大小”后读速异常等问题
+    更新 sfd_tool.po 多语言翻译文件
+    合并 master 分支最新改动到 develop 分支
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
