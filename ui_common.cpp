@@ -59,6 +59,14 @@ sfd::BlockSizeConfig MakeBlockSizeConfigFromGui() {
     return cfg;
 }
 
+void ResetBlockSizeToDefault() {
+    auto& s = GetGuiIoSettings();
+    s.mode = sfd::BlockSizeMode::AUTO_DEFAULT;
+    s.manual_block_size = DEFAULT_BLK_SIZE;
+    blk_size = 0;
+    LogBlkState("reset_blk_size");
+}
+
 // 前向声明回调函数（来自其他页面模块）
 void on_button_clicked_poweroff(GtkWidgetHelper helper);
 void on_button_clicked_reboot(GtkWidgetHelper helper);

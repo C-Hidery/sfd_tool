@@ -382,12 +382,10 @@ void AdvancedSetPage::bindSignals(GtkWidgetHelper& helper) {
 		LogBlkState("adv_set slider_changed");
 	});
 	helper.bindClick(helper.getWidget("blk_reset"), [&]() {
-		blk_size = g_default_blk_size;
+		ResetBlockSizeToDefault();
 		auto& s = GetGuiIoSettings();
-		s.mode = sfd::BlockSizeMode::AUTO_DEFAULT;
-		s.manual_block_size = DEFAULT_BLK_SIZE;
 		GtkWidget* sc = helper.getWidget("size_con");
-		gtk_label_set_text(GTK_LABEL(sc), std::to_string(DEFAULT_BLK_SIZE).c_str());
+		gtk_label_set_text(GTK_LABEL(sc), std::to_string(s.manual_block_size).c_str());
 		LogBlkState("adv_set blk_reset");
 	});
 	helper.bindClick(helper.getWidget("raw_data_en"), [&]() {

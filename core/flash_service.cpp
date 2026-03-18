@@ -85,13 +85,7 @@ public:
         PartitionReadInfo actual_info = info;
         actual_info.size = (std::uint64_t)gPartInfo.size;
 
-        unsigned step = 0;
-        const BlockSizeConfig& cfg = options.block_cfg;
-        if (cfg.mode == BlockSizeMode::MANUAL_BLOCK_SIZE && cfg.manual_block_size) {
-            step = cfg.manual_block_size;
-        } else {
-            step = DEFAULT_BLK_SIZE;
-        }
+        unsigned step = ResolveBlockStep(options.block_cfg, DEFAULT_BLK_SIZE);
 
         DEG_LOG(OP, "PartitionReadService::readOne: %s -> %s, size=%lld, step=%u",\
                 gPartInfo.name, options.output_path.c_str(), (long long)gPartInfo.size, step);
@@ -396,39 +390,29 @@ public:
             return make_error(FlashErrorCode::InvalidPacFile, "invalid partition io options");
         }
 
-        // 确保分区表存在
-        if (!io_->part_count && !io_->part_count_c) {
-            DEG_LOG(E, "readPartitionToFile: no partition table loaded");
-            return make_error(FlashErrorCode::PartitionTableNotLoaded, "no partition table loaded");
+        // 构造 PartitionReadInfo
+        PartitionReadInfo info{};
+        info.name = options.partition_name;
+
+        // 构造 BlockSizeConfig：GUI/CLI 通过 block_size 选择 AUTO 或 MANUAL
+        BlockSizeConfig blk_cfg{};
+        if (options.block_size) {
+            blk_cfg.mode = BlockSizeMode::MANUAL_BLOCK_SIZE;
+            blk_cfg.manual_block_size = options.block_size;
+        } else {
+            blk_cfg.mode = BlockSizeMode::AUTO_DEFAULT;
+            blk_cfg.manual_block_size = 0;
         }
 
-        get_partition_info(io_, options.partition_name.c_str(), 1);
-        if (!gPartInfo.size) {
-            DEG_LOG(E, "readPartitionToFile: partition %s not found", options.partition_name.c_str());
-            return make_error(FlashErrorCode::PartitionNotFound, "partition not found");
-        }
+        PartitionReadOptions read_opts{};
+        read_opts.output_path = options.file_path;
+        read_opts.block_cfg = blk_cfg;
 
-        unsigned step = options.block_size ? options.block_size : DEFAULT_BLK_SIZE;
+        DEG_LOG(OP, "readPartitionToFile: via PartitionReadService, part=%s, file=%s, blk_mode=%d, blk_manual=%u",\
+                options.partition_name.c_str(), options.file_path.c_str(),\
+                static_cast<int>(blk_cfg.mode), blk_cfg.manual_block_size);
 
-        DEG_LOG(OP, "readPartitionToFile: %s -> %s, size=%lld, step=%u",
-                gPartInfo.name, options.file_path.c_str(), (long long)gPartInfo.size, step);
-
-        // 重置取消标志，支持读取过程中的取消
-        start_signal();
-
-        uint64_t saved = dump_partition(io_, gPartInfo.name, 0, gPartInfo.size, options.file_path.c_str(), step);
-        if (saved != (uint64_t)gPartInfo.size) {
-            if (isCancel) {
-                DEG_LOG(W, "readPartitionToFile: cancelled, saved=%llu / %lld",
-                        (unsigned long long)saved, (long long)gPartInfo.size);
-                return make_error(FlashErrorCode::Cancelled, "partition read cancelled");
-            }
-            DEG_LOG(E, "readPartitionToFile: short read, saved=%llu / %lld",
-                    (unsigned long long)saved, (long long)gPartInfo.size);
-            return make_error(FlashErrorCode::IoError, "partition read incomplete");
-        }
-
-        return make_ok();
+        return partition_reader_.readOne(info, read_opts, nullptr);
     }
 
     FlashStatus writePartitionFromFile(const PartitionIoOptions& options) override {

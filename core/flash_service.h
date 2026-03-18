@@ -115,6 +115,17 @@ struct BlockSizeConfig {
     bool use_compat_chain = false;       // 预留：是否强制走兼容旧链路
 };
 
+inline unsigned ResolveBlockStep(const BlockSizeConfig& cfg,
+                                 unsigned default_step) {
+    switch (cfg.mode) {
+    case BlockSizeMode::AUTO_DEFAULT:
+        return default_step;
+    case BlockSizeMode::MANUAL_BLOCK_SIZE:
+        return cfg.manual_block_size ? cfg.manual_block_size : default_step;
+    }
+    return default_step;
+}
+
 // 分区读取统一抽象
 struct PartitionReadInfo {
     std::string   name;       // 分区名

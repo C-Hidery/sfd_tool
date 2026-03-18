@@ -272,13 +272,17 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 			LongTaskConfig cfg{
 				[parent, helper, part_name, finalPath](std::atomic_bool& cancel_flag) {
 					(void)cancel_flag;
-					unsigned step = DEFAULT_BLK_SIZE;
-					DEG_LOG(I, "[blk] list_read(macos, AUTO) part=%s step=%u", part_name.c_str(), step);
-					uint64_t len = check_partition(io, part_name.c_str(), 1);
-					uint64_t saved = dump_partition(io, part_name.c_str(), 0, len, finalPath.c_str(), step);
-					gui_idle_call_wait_drag([parent, helper, saved, len, finalPath]() mutable {
-						if (saved != len) {
-							showErrorDialog(parent, _(_(("Error"))), _("Partition read failed!"));
+					sfd::PartitionReadInfo info{};
+					info.name = part_name;
+					sfd::PartitionReadOptions opts{};
+					opts.output_path = finalPath;
+					opts.block_cfg = MakeBlockSizeConfigFromGui();
+					DEG_LOG(I, "[blk] list_read(macos, AUTO) part=%s", part_name.c_str());
+					auto* svc = ensure_flash_service();
+					sfd::FlashStatus st = svc->partitionReader().readOne(info, opts, nullptr);
+					gui_idle_call_wait_drag([parent, helper, st, finalPath]() mutable {
+						if (!st.success) {
+							showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
 						} else {
 							std::string msg = std::string(_("Partition read completed! Saved to: ")) + finalPath;
 							showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), msg.c_str());
@@ -345,50 +349,25 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 
 	auto& settings = GetGuiIoSettings();
 
-	if (settings.mode == BlockSizeMode::AUTO_DEFAULT) {
-		LongTaskConfig cfg{
-			[parent, helper, part_name, savePath](std::atomic_bool& cancel_flag) {
-				(void)cancel_flag;
-				unsigned step = blk_size > 0 ? static_cast<unsigned>(blk_size) : DEFAULT_BLK_SIZE;
-				DEG_LOG(I, "[blk] list_read(AUTO) part=%s step=%u", part_name.c_str(), step);
-				uint64_t len = check_partition(io, part_name.c_str(), 1);
-				uint64_t saved = dump_partition(io, part_name.c_str(), 0, len, savePath.c_str(), step);
-				gui_idle_call_wait_drag([parent, helper, saved, len]() mutable {
-					if (saved != len) {
-						showErrorDialog(parent, _(_(("Error"))), _("Partition read failed!"));
-					} else {
-						showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), _("Partition read completed!"));
-					}
-				}, GTK_WINDOW(helper.getWidget("main_window")));
-			},
-			[helper]() mutable {
-				helper.setLabelText(helper.getWidget("con"), "Reading partition");
-			},
-			[helper]() mutable {
-				helper.setLabelText(helper.getWidget("con"), "Ready");
-			}
-		};
-
-		run_long_task(cfg);
-		return;
-	}
-
-	sfd::PartitionIoOptions opts;
-	opts.partition_name = part_name;
-	opts.file_path = savePath;
-	opts.block_size = GetEffectiveManualBlockSize();
-	DEG_LOG(I, "[blk] list_read(MANUAL) part=%s block_size=%u", opts.partition_name.c_str(), opts.block_size);
-
 	LongTaskConfig cfg{
-		[parent, helper, opts](std::atomic_bool& cancel_flag) {
+		[parent, helper, part_name, savePath, settings](std::atomic_bool& cancel_flag) mutable {
 			(void)cancel_flag;
+			sfd::PartitionReadInfo info{};
+			info.name = part_name;
+
+			sfd::PartitionReadOptions opts{};
+			opts.output_path = savePath;
+			opts.block_cfg = MakeBlockSizeConfigFromGui();
+
+			DEG_LOG(I, "[blk] list_read GUI part=%s", part_name.c_str());
 			auto* svc = ensure_flash_service();
-			sfd::FlashStatus st = svc->readPartitionToFile(opts);
-			gui_idle_call_wait_drag([parent, helper, st]() mutable {
+			sfd::FlashStatus st = svc->partitionReader().readOne(info, opts, nullptr);
+			gui_idle_call_wait_drag([parent, helper, st, savePath]() mutable {
 				if (!st.success) {
 					showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
 				} else {
-					showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), _("Partition read completed!"));
+					std::string msg = std::string(_("Partition read completed! Saved to: ")) + savePath;
+					showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), msg.c_str());
 				}
 			}, GTK_WINDOW(helper.getWidget("main_window")));
 		},

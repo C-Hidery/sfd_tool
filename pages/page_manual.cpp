@@ -137,15 +137,19 @@ static void on_button_clicked_m_read(GtkWidgetHelper helper) {
 	sfd::PartitionIoOptions opts;
 	opts.partition_name = part_name;
 	opts.file_path = savePath;
-	opts.block_size = GetEffectiveManualBlockSize();
-	DEG_LOG(I, "[blk] m_read(MANUAL) part=%s block_size=%u", opts.partition_name.c_str(), opts.block_size);
+	DEG_LOG(I, "[blk] m_read GUI part=%s", opts.partition_name.c_str());
 
 	LongTaskConfig cfg{
 		// worker：在后台线程中执行分区读取
 		[parent, helper, opts](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag; // 当前实现暂不支持取消
+			sfd::PartitionReadInfo info{};
+			info.name = opts.partition_name;
+			sfd::PartitionReadOptions read_opts{};
+			read_opts.output_path = opts.file_path;
+			read_opts.block_cfg = MakeBlockSizeConfigFromGui();
 			auto* svc = ensure_flash_service();
-			sfd::FlashStatus st = svc->readPartitionToFile(opts);
+			sfd::FlashStatus st = svc->partitionReader().readOne(info, read_opts, nullptr);
 			gui_idle_call_wait_drag([parent, helper, st]() mutable {
 				if (!st.success) {
 					showErrorDialog(GTK_WINDOW(parent), _(_(_(("Error")))), st.message.c_str());
