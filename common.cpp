@@ -337,6 +337,12 @@ unsigned long long GetTickCount64() {
 
 #define PROGRESS_BAR_WIDTH 40
 
+struct UiProgressData {
+    double   percent;
+    uint64_t done;
+    double   speed_mb_s;
+};
+
 void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned long long time0) {
     static int completed0 = 0;
     static uint64_t done0 = 0;
@@ -350,7 +356,7 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
     int completed = (int)(PROGRESS_BAR_WIDTH * done / (double)total);
     if (completed != completed0 && isCancel == 0) {
         int remaining = PROGRESS_BAR_WIDTH - completed;
-        DBG_LOG("[");
+        DBG_LOG("[" );
         for (int i = 0; i < completed; i++) {
             DBG_LOG("=");
         }
@@ -361,18 +367,20 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
         if(io->nor_bar) DBG_LOG("\n");
         completed0 = completed;
         done0 = done;
-        
+
         // 更新UI进度条和百分比标签
         if (isHelperInit) {
             // 计算进度百分比
             double progress_percent = done / (double)total;
-            
+            double speed_mb_s = (time > time0) ? (double)1000 * done / (double)(time - time0) / 1024.0 / 1024.0 : 0.0;
+
             // 在主线程中更新UI
             g_idle_add([](gpointer data) -> gboolean {
-                auto* progress_data = static_cast<std::pair<double, uint64_t>*>(data);
-                double percent = progress_data->first;
-                uint64_t done_value = progress_data->second;
-                
+                auto* progress_data = static_cast<UiProgressData*>(data);
+                double   percent     = progress_data->percent;
+                uint64_t done_value  = progress_data->done;
+                double   speed_mb_s  = progress_data->speed_mb_s;
+
                 if (isHelperInit) {
                     // 更新进度条
                     GtkWidget* progressBar = helper.getWidget("progressBar_1");
@@ -386,7 +394,7 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
                         gtk_progress_bar_set_show_text(GTK_PROGRESS_BAR(progressBar), TRUE);
 						*/
                     }
-                    
+
                     // 更新百分比标签
                     GtkWidget* percentLabel = helper.getWidget("percent");
                     if (percentLabel && GTK_IS_LABEL(percentLabel)) {
@@ -394,11 +402,23 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
                         snprintf(percent_text, sizeof(percent_text), "%.1f%%", percent * 100);
                         gtk_label_set_text(GTK_LABEL(percentLabel), percent_text);
                     }
+
+                    // 更新底部连接状态文本，展示当前进度与速度
+                    GtkWidget* conStatus = helper.getWidget("con");
+                    if (conStatus && GTK_IS_LABEL(conStatus)) {
+                        char status_text[128];
+                        double mb_done = done_value / (1024.0 * 1024.0);
+                        snprintf(status_text, sizeof(status_text), "Progress: %.1f%% | %.1f MB | %.2f MB/s",
+                                 percent * 100.0,
+                                 mb_done,
+                                 speed_mb_s);
+                        gtk_label_set_text(GTK_LABEL(conStatus), status_text);
+                    }
                 }
-                
+
                 delete progress_data;
                 return G_SOURCE_REMOVE;
-            }, new std::pair<double, uint64_t>(progress_percent, done));
+            }, new UiProgressData{progress_percent, done, speed_mb_s});
         }
     }
 }

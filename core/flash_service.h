@@ -115,6 +115,39 @@ struct BlockSizeConfig {
     bool use_compat_chain = false;       // 预留：是否强制走兼容旧链路
 };
 
+// 分区读取统一抽象
+struct PartitionReadInfo {
+    std::string   name;       // 分区名
+    std::uint64_t start = 0;  // 起始位置（如可用）
+    std::uint64_t size = 0;   // 读取总字节数
+};
+
+struct PartitionReadOptions {
+    std::string     output_path;   // 输出文件完整路径
+    BlockSizeConfig block_cfg;     // 块大小与链路配置
+};
+
+struct PartitionReadCallbacks {
+    // 开始读取某个分区时回调
+    std::function<void(const PartitionReadInfo&)> on_start;
+
+    // 读取进度回调：bytes_read 为当前已完成字节数，speed_mb_s 为当前估算速度
+    std::function<void(const PartitionReadInfo&, std::uint64_t /*bytes_read*/, double /*speed_mb_s*/)> on_progress;
+
+    // 完成当前分区读取后的回调，携带结果状态
+    std::function<void(const PartitionReadInfo&, const FlashStatus&)> on_finished;
+};
+
+class PartitionReadService {
+public:
+    virtual ~PartitionReadService() = default;
+
+    // 读取单个分区到指定文件
+    virtual FlashStatus readOne(const PartitionReadInfo& info,
+                                const PartitionReadOptions& options,
+                                const PartitionReadCallbacks* callbacks = nullptr) = 0;
+};
+
 // 用例级 Flash 服务接口：PAC 刷机、分区读写、备份等
 class FlashService {
 public:
@@ -143,6 +176,9 @@ public:
     virtual FlashStatus getCachedDevicePartitions(std::vector<DevicePartitionInfo>& out_partitions) const = 0;
 
     // ===== 单分区读写与备份 =====
+
+    // 暴露统一的分区读取服务
+    virtual PartitionReadService& partitionReader() = 0;
 
     // 从设备读取单个分区到文件
     virtual FlashStatus readPartitionToFile(const PartitionIoOptions& options) = 0;
