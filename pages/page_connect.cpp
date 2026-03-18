@@ -566,6 +566,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			gui_idle_call_wait_drag([helper, partitions]() mutable {
 				populatePartitionList(helper, partitions);
 			},GTK_WINDOW(helper.getWidget("main_window")));
+		} else if (isUseCptable) {
 			io->Cptable = partition_list_d(io);
 			isCMethod = 1;
 		}
