@@ -1185,11 +1185,18 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 		DEG_LOG(I, "[blk] backup_all(MANUAL) step=%u", step);
 
 		sfd::FlashStatus st = svc->backupPartitions(names, output_dir, sfd::SlotSelection::Auto, step);
-		gui_idle_call_wait_drag([helper, st]() mutable {
+		gui_idle_call_wait_drag([helper, st, output_dir]() mutable {
 			if (!st.success) {
-				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), st.message.c_str());
+				// 备份取消：使用可本地化字符串
+				if (st.code == sfd::FlashErrorCode::Cancelled) {
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("partition backup cancelled"));
+				} else {
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), st.message.c_str());
+				}
 			} else {
-				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Completed"))), _("Partition backup completed!"));
+				// 成功时提示输出目录
+				std::string msg = std::string(_("Partition backup completed! Saved to: ")) + output_dir;
+				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Completed"))), msg.c_str());
 			}
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}, GTK_WINDOW(helper.getWidget("main_window")));
