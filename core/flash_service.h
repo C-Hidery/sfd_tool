@@ -103,6 +103,18 @@ struct PartitionIoOptions {
     bool verify = false;           // 写入后校验
 };
 
+// GUI/调用层统一的块大小模式
+enum class BlockSizeMode {
+    AUTO_DEFAULT,      // 使用 legacy/AUTO 模式（握手默认步长和速率）
+    MANUAL_BLOCK_SIZE, // 固定块大小，由调用层指定
+};
+
+struct BlockSizeConfig {
+    BlockSizeMode mode = BlockSizeMode::AUTO_DEFAULT;
+    std::uint32_t manual_block_size = 0; // MANUAL_BLOCK_SIZE 模式下有效
+    bool use_compat_chain = false;       // 预留：是否强制走兼容旧链路
+};
+
 // 用例级 Flash 服务接口：PAC 刷机、分区读写、备份等
 class FlashService {
 public:
@@ -138,7 +150,7 @@ public:
     // 将文件写入单个分区
     virtual FlashStatus writePartitionFromFile(const PartitionIoOptions& options) = 0;
 
-// 备份若干分区（names 为空表示全部）到目录
+    // 备份若干分区（names 为空表示全部）到目录
     virtual FlashStatus backupPartitions(const std::vector<std::string>& partition_names,
                                          const std::string& output_directory,
                                          SlotSelection slot_selection = SlotSelection::Auto,

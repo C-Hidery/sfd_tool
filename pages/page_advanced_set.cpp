@@ -377,14 +377,14 @@ void AdvancedSetPage::bindSignals(GtkWidgetHelper& helper) {
 		gtk_label_set_text(GTK_LABEL(sc), std::to_string(intValue).c_str());
 		blk_size = intValue;
 		auto& s = GetGuiIoSettings();
-		s.mode = BlockSizeMode::MANUAL_BLOCK_SIZE;
+		s.mode = sfd::BlockSizeMode::MANUAL_BLOCK_SIZE;
 		s.manual_block_size = static_cast<uint32_t>(intValue);
 		LogBlkState("adv_set slider_changed");
 	});
 	helper.bindClick(helper.getWidget("blk_reset"), [&]() {
 		blk_size = g_default_blk_size;
 		auto& s = GetGuiIoSettings();
-		s.mode = BlockSizeMode::AUTO_DEFAULT;
+		s.mode = sfd::BlockSizeMode::AUTO_DEFAULT;
 		s.manual_block_size = DEFAULT_BLK_SIZE;
 		GtkWidget* sc = helper.getWidget("size_con");
 		gtk_label_set_text(GTK_LABEL(sc), std::to_string(DEFAULT_BLK_SIZE).c_str());

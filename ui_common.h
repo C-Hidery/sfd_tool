@@ -2,12 +2,10 @@
 #include "GtkWidgetHelper.hpp"
 #include <functional>
 #include <atomic>
+#include "core/flash_service.h"  // 引入 sfd::BlockSizeMode/BlockSizeConfig
 
-// 块大小模式：自动默认（legacy 路径）与手动块大小（FlashService 路径）
-enum class BlockSizeMode {
-    AUTO_DEFAULT,
-    MANUAL_BLOCK_SIZE
-};
+using BlockSizeMode = sfd::BlockSizeMode;
+using BlockSizeConfig = sfd::BlockSizeConfig;
 
 // GUI 侧块大小 / IO 模式设置
 struct GuiIoSettings {
@@ -18,6 +16,7 @@ struct GuiIoSettings {
 GuiIoSettings& GetGuiIoSettings();
 uint32_t GetEffectiveManualBlockSize();
 void LogBlkState(const char* where);
+BlockSizeConfig MakeBlockSizeConfigFromGui();
 
 // 初始化允许控件
 void Enable_Startup(GtkWidgetHelper helper);

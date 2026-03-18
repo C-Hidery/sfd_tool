@@ -21,7 +21,7 @@ void LogBlkState(const char* where) {
     DEG_LOG(I,
             "[blk] %s: mode=%s manual=%u blk_size=%d fblk_size=%llu mac_bundle=%d",
             where,
-            s.mode == BlockSizeMode::AUTO_DEFAULT ? "AUTO" : "MANUAL",
+            s.mode == sfd::BlockSizeMode::AUTO_DEFAULT ? "AUTO" : "MANUAL",
             (unsigned)s.manual_block_size,
             blk_size,
             (unsigned long long)fblk_size,
@@ -35,7 +35,7 @@ void LogBlkState(const char* where) {
 
 GuiIoSettings& GetGuiIoSettings() {
     static GuiIoSettings s_settings{
-        BlockSizeMode::AUTO_DEFAULT,
+        sfd::BlockSizeMode::AUTO_DEFAULT,
         DEFAULT_BLK_SIZE
     };
     return s_settings;
@@ -44,6 +44,19 @@ GuiIoSettings& GetGuiIoSettings() {
 uint32_t GetEffectiveManualBlockSize() {
     auto& s = GetGuiIoSettings();
     return s.manual_block_size ? s.manual_block_size : DEFAULT_BLK_SIZE;
+}
+
+sfd::BlockSizeConfig MakeBlockSizeConfigFromGui() {
+    auto& s = GetGuiIoSettings();
+    sfd::BlockSizeConfig cfg;
+    cfg.mode = s.mode;
+    if (s.mode == sfd::BlockSizeMode::MANUAL_BLOCK_SIZE) {
+        cfg.manual_block_size = s.manual_block_size;
+    } else {
+        cfg.manual_block_size = DEFAULT_BLK_SIZE;
+    }
+    cfg.use_compat_chain = true;
+    return cfg;
 }
 
 // 前向声明回调函数（来自其他页面模块）
