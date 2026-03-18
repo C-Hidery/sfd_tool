@@ -382,7 +382,7 @@ void AdvancedSetPage::bindSignals(GtkWidgetHelper& helper) {
 		LogBlkState("adv_set slider_changed");
 	});
 	helper.bindClick(helper.getWidget("blk_reset"), [&]() {
-		blk_size = 0;
+		blk_size = g_default_blk_size;
 		auto& s = GetGuiIoSettings();
 		s.mode = BlockSizeMode::AUTO_DEFAULT;
 		s.manual_block_size = DEFAULT_BLK_SIZE;

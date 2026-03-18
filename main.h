@@ -1,6 +1,5 @@
 #include <cstdint>
 #include "core/app_state.h"
-extern AppState g_app_state;
 extern const char* o_exception;
 extern int init_stage;
 extern uint64_t fblk_size;
@@ -16,4 +15,5 @@ extern int in_quote;
 extern char **str2;
 extern int no_fdl_mode;
 extern int& m_bOpened;
+extern int g_default_blk_size;
 int main_console(int argc, char** argv);

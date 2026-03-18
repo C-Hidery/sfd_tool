@@ -507,6 +507,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		io->verbose = o;
 		if (Da_Info.bSupportRawData) {
 			blk_size = 0xf800;
+			g_default_blk_size = blk_size;
 			io->ptable = partition_list(io, fn_partlist, &io->part_count);
 			if (fdl2_executed) {
 				Da_Info.bSupportRawData = 0;
@@ -517,6 +518,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			}
 		} else if (highspeed || Da_Info.dwStorageType == 0x103) { // ufs
 			blk_size = 0xf800;
+			g_default_blk_size = blk_size;
 			io->ptable = partition_list(io, fn_partlist, &io->part_count);
 		} else if (Da_Info.dwStorageType == 0x102) { // emmc
 			io->ptable = partition_list(io, fn_partlist, &io->part_count);

@@ -349,7 +349,7 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 		LongTaskConfig cfg{
 			[parent, helper, part_name, savePath](std::atomic_bool& cancel_flag) {
 				(void)cancel_flag;
-				unsigned step = DEFAULT_BLK_SIZE;
+				unsigned step = blk_size > 0 ? static_cast<unsigned>(blk_size) : DEFAULT_BLK_SIZE;
 				DEG_LOG(I, "[blk] list_read(AUTO) part=%s step=%u", part_name.c_str(), step);
 				uint64_t len = check_partition(io, part_name.c_str(), 1);
 				uint64_t saved = dump_partition(io, part_name.c_str(), 0, len, savePath.c_str(), step);
