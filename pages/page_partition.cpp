@@ -1108,10 +1108,19 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 			}
 
 			// 复用 legacy 单分区读逻辑：splloader + 各分区循环 dump，与旧版本保持一致
+			// 输出路径统一为 legacy_backup 目录，避免与新链路冲突
+			std::string legacy_dir = "legacy_backup";
+			try {
+				std::filesystem::create_directories(legacy_dir);
+			} catch (...) {
+				DEG_LOG(W, "[blk] backup_all(AUTO) failed to create legacy_backup directory, fallback to CWD");
+			}
+
 			// 1) 先备份 splloader
 			if (g_spl_size > 0) {
-				DEG_LOG(I, "[blk] backup_all(AUTO) dumping splloader, size=0x%llx", (unsigned long long)g_spl_size);
-				dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", step);
+				std::string spl_path = legacy_dir + "/splloader.bin";
+				DEG_LOG(I, "[blk] backup_all(AUTO) dumping splloader, size=0x%llx -> %s", (unsigned long long)g_spl_size, spl_path.c_str());
+				dump_partition(io, "splloader", 0, g_spl_size, spl_path.c_str(), step);
 			}
 
 			// 2) 再按旧逻辑遍历 ptable 逐个分区 dump
@@ -1131,6 +1140,7 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 
 				char dfile[40];
 				std::snprintf(dfile, sizeof(dfile), "%s.bin", name);
+				std::string full_path = legacy_dir + "/" + dfile;
 
 				// 使用 legacy dump_partition，根据分区 size 进行完整备份
 				uint64_t part_size = io->ptable[i].size;
@@ -1139,12 +1149,13 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 					continue;
 				}
 
-				DEG_LOG(I, "[blk] backup_all(AUTO) dump %s size=0x%llx", name, (unsigned long long)part_size);
-				dump_partition(io, name, 0, part_size, dfile, step);
+				DEG_LOG(I, "[blk] backup_all(AUTO) dump %s size=0x%llx -> %s", name, (unsigned long long)part_size, full_path.c_str());
+				dump_partition(io, name, 0, part_size, full_path.c_str(), step);
 			}
 
-			gui_idle_call_wait_drag([helper]() mutable {
-				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Completed"))), _("Partition backup completed!"));
+			gui_idle_call_wait_drag([helper, legacy_dir]() mutable {
+				std::string msg = std::string("Partition backup completed! Saved to: ") + legacy_dir;
+				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Completed"))), msg.c_str());
 				helper.setLabelText(helper.getWidget("con"), "Ready");
 			}, GTK_WINDOW(helper.getWidget("main_window")));
 			return;
