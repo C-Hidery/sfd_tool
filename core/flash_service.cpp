@@ -476,7 +476,7 @@ public:
                             gPartInfo.name,
                             (unsigned long long)saved,
                             (long long)gPartInfo.size);
-                    return make_error(FlashErrorCode::Cancelled, _("partition backup cancelled"));
+                    return make_error(FlashErrorCode::Cancelled, "partition backup cancelled");
                 }
                 DEG_LOG(E,
                         "backupPartitions: short read on %s, saved=%llu / %lld",
