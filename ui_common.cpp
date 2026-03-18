@@ -8,8 +8,30 @@
 extern spdio_t*& io;
 extern AppState g_app_state;
 extern int& m_bOpened;
+extern int blk_size;
+extern uint64_t fblk_size;
+#if defined(__APPLE__)
+extern bool g_is_macos_bundle;
+#endif
 // 兼容旧逻辑：isCMethod 映射到 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
+
+void LogBlkState(const char* where) {
+    auto& s = GetGuiIoSettings();
+    DEG_LOG(I,
+            "[blk] %s: mode=%s manual=%u blk_size=%d fblk_size=%llu mac_bundle=%d",
+            where,
+            s.mode == BlockSizeMode::AUTO_DEFAULT ? "AUTO" : "MANUAL",
+            (unsigned)s.manual_block_size,
+            blk_size,
+            (unsigned long long)fblk_size,
+#if defined(__APPLE__)
+            g_is_macos_bundle ? 1 : 0
+#else
+            0
+#endif
+    );
+}
 
 GuiIoSettings& GetGuiIoSettings() {
     static GuiIoSettings s_settings{

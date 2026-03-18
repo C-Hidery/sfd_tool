@@ -17,6 +17,7 @@ struct GuiIoSettings {
 
 GuiIoSettings& GetGuiIoSettings();
 uint32_t GetEffectiveManualBlockSize();
+void LogBlkState(const char* where);
 
 // 初始化允许控件
 void Enable_Startup(GtkWidgetHelper helper);

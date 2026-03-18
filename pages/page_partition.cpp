@@ -245,6 +245,9 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
 	std::string part_name = getSelectedPartitionName(helper);
 
+	auto& settings_enter = GetGuiIoSettings();
+	LogBlkState("partition list_read enter");
+
 #if defined(__APPLE__)
 	if (g_is_macos_bundle) {
 		// macOS Finder 双击 .app 时，savepath 在 gtk_kmain 中已设置，
@@ -270,6 +273,7 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 				[parent, helper, part_name, finalPath](std::atomic_bool& cancel_flag) {
 					(void)cancel_flag;
 					unsigned step = DEFAULT_BLK_SIZE;
+					DEG_LOG(I, "[blk] list_read(macos, AUTO) part=%s step=%u", part_name.c_str(), step);
 					uint64_t len = check_partition(io, part_name.c_str(), 1);
 					uint64_t saved = dump_partition(io, part_name.c_str(), 0, len, finalPath.c_str(), step);
 					gui_idle_call_wait_drag([parent, helper, saved, len, finalPath]() mutable {
@@ -297,6 +301,7 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 		opts.partition_name = part_name;
 		opts.file_path = finalPath;
 		opts.block_size = GetEffectiveManualBlockSize();
+		DEG_LOG(I, "[blk] list_read(macos, MANUAL) part=%s block_size=%u", opts.partition_name.c_str(), opts.block_size);
 
 		LongTaskConfig cfg{
 			[parent, helper, opts](std::atomic_bool& cancel_flag) {
@@ -345,6 +350,7 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 			[parent, helper, part_name, savePath](std::atomic_bool& cancel_flag) {
 				(void)cancel_flag;
 				unsigned step = DEFAULT_BLK_SIZE;
+				DEG_LOG(I, "[blk] list_read(AUTO) part=%s step=%u", part_name.c_str(), step);
 				uint64_t len = check_partition(io, part_name.c_str(), 1);
 				uint64_t saved = dump_partition(io, part_name.c_str(), 0, len, savePath.c_str(), step);
 				gui_idle_call_wait_drag([parent, helper, saved, len]() mutable {
@@ -371,6 +377,7 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 	opts.partition_name = part_name;
 	opts.file_path = savePath;
 	opts.block_size = GetEffectiveManualBlockSize();
+	DEG_LOG(I, "[blk] list_read(MANUAL) part=%s block_size=%u", opts.partition_name.c_str(), opts.block_size);
 
 	LongTaskConfig cfg{
 		[parent, helper, opts](std::atomic_bool& cancel_flag) {
@@ -1084,6 +1091,7 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 			// 旧链路：使用 common.cpp 的 dump_partitions，保持与控制台一致的行为
 			int nand_info[4] = {0};
 			unsigned step = blk_size > 0 ? static_cast<unsigned>(blk_size) : DEFAULT_BLK_SIZE;
+			DEG_LOG(I, "[blk] backup_all(AUTO) step=%u", step);
 			dump_partitions(io, "partition.xml", nand_info, step);
 			gui_idle_call_wait_drag([helper]() mutable {
 				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Completed"))), _("Partition backup completed!"));
@@ -1113,6 +1121,7 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 		std::vector<std::string> names; // 为空表示备份全部
 
 		std::uint32_t step = GetEffectiveManualBlockSize();
+		DEG_LOG(I, "[blk] backup_all(MANUAL) step=%u", step);
 
 		sfd::FlashStatus st = svc->backupPartitions(names, output_dir, sfd::SlotSelection::Auto, step);
 		gui_idle_call_wait_drag([helper, st]() mutable {

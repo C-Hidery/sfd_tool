@@ -410,6 +410,12 @@ uint64_t dump_partition(spdio_t *io,
 	uint32_t n, nread, t32; uint64_t offset, n64, saved_size = 0;
 	int ret, mode64 = (start + len) >> 32;
 	char name_tmp[36];
+	DEG_LOG(OP, "dump_partition: name=%s start=0x%llx len=0x%llx step=%u fblk_size=%llu",
+	        name,
+	        (unsigned long long)start,
+	        (unsigned long long)len,
+	        step,
+	        (unsigned long long)fblk_size);
 	double rtime = get_time();
 	DEG_LOG(OP,"Start to read partition %s",name);
 	DEG_LOG(I,"Type CTRL + C to cancel...");
@@ -471,12 +477,19 @@ uint64_t dump_partition(spdio_t *io,
 	}
 	double etime = get_time();
 	double time_spent = etime - rtime;
-	
+
+	double mb = len / (1024.0 * 1024.0);
+	double speed = time_spent > 0 ? (mb / time_spent) : 0.0;
+	DEG_LOG(I, "dump_partition done: name=%s len=%.1fMB time=%.3fs speed=%.2fMB/s",
+	        name,
+	        mb,
+	        time_spent,
+	        speed);
 	DEG_LOG(I,"Read partition %s(+0x%llx) successfully, target: 0x%llx, read: 0x%llx",
 		name, (long long)start, (long long)len,
 		(long long)(offset - start));
 	DEG_LOG(I, "Cost time %.6f seconds", time_spent);
-	fclose(fo);	
+	fclose(fo);
 
 	encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
 	send_and_check(io);

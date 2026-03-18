@@ -101,6 +101,7 @@ static void on_button_clicked_m_read(GtkWidgetHelper helper) {
 	}
 
 	auto& settings = GetGuiIoSettings();
+	LogBlkState("manual m_read enter");
 
 	if (settings.mode == BlockSizeMode::AUTO_DEFAULT) {
 		LongTaskConfig cfg{
@@ -108,6 +109,7 @@ static void on_button_clicked_m_read(GtkWidgetHelper helper) {
 			[parent, helper, part_name, savePath](std::atomic_bool& cancel_flag) {
 				(void)cancel_flag; // 当前实现暂不支持取消
 				unsigned step = DEFAULT_BLK_SIZE;
+				DEG_LOG(I, "[blk] m_read(AUTO) part=%s step=%u", part_name.c_str(), step);
 				uint64_t len = check_partition(io, part_name.c_str(), 1);
 				uint64_t saved = dump_partition(io, part_name.c_str(), 0, len, savePath.c_str(), step);
 				gui_idle_call_wait_drag([parent, helper, saved, len]() mutable {
@@ -136,6 +138,7 @@ static void on_button_clicked_m_read(GtkWidgetHelper helper) {
 	opts.partition_name = part_name;
 	opts.file_path = savePath;
 	opts.block_size = GetEffectiveManualBlockSize();
+	DEG_LOG(I, "[blk] m_read(MANUAL) part=%s block_size=%u", opts.partition_name.c_str(), opts.block_size);
 
 	LongTaskConfig cfg{
 		// worker：在后台线程中执行分区读取
