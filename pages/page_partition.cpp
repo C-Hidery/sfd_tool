@@ -1154,7 +1154,7 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 			}
 
 			gui_idle_call_wait_drag([helper, legacy_dir]() mutable {
-				std::string msg = std::string("Partition backup completed! Saved to: ") + legacy_dir;
+				std::string msg = std::string(_("Partition backup completed! Saved to: ")) + legacy_dir;
 				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Completed"))), msg.c_str());
 				helper.setLabelText(helper.getWidget("con"), "Ready");
 			}, GTK_WINDOW(helper.getWidget("main_window")));

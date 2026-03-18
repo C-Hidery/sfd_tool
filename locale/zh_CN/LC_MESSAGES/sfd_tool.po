@@ -882,3 +882,6 @@ msgstr "分区读取完成！保存到："
 msgid "Partition backup completed! Saved to: "
 msgstr "分区备份完成！保存到："
 
+msgid "partition backup cancelled"
+msgstr "分区备份已取消"
+
