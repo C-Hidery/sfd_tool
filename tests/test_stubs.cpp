@@ -12,6 +12,8 @@ int fdl1_loaded = 0;           // FDL1 加载状态，占位
 int fdl2_executed = 0;         // FDL2 执行状态，占位
 uint64_t g_spl_size = 0;       // SPL 大小，占位
 uint64_t fblk_size = 0;        // dump 时限速用的块大小，占位
+int blk_size = 0;              // GUI/控制台共用块大小，占位
+int g_default_blk_size = 0;    // 默认块大小，占位
 
 // io/m_bOpened 在 UI 和协议层中以引用形式存在，这里提供测试专用的后备存储
 static spdio_t* g_test_io = nullptr;
