@@ -1092,7 +1092,57 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 			int nand_info[4] = {0};
 			unsigned step = blk_size > 0 ? static_cast<unsigned>(blk_size) : DEFAULT_BLK_SIZE;
 			DEG_LOG(I, "[blk] backup_all(AUTO) step=%u", step);
-			dump_partitions(io, "partition.xml", nand_info, step);
+
+			// GUI 路径下，直接使用内存中的分区表 io->ptable 备份全部分区，
+			// 而不是依赖外部 partition.xml 文件，避免 xml 不存在导致的 Load file failed。
+			if (!io->part_count && g_app_state.flash.gpt_failed == 1) {
+				io->ptable = partition_list(io, fn_partlist, &io->part_count);
+			}
+			if (!io->part_count) {
+				DEG_LOG(E, "Partition table not available for backup_all(AUTO)");
+				gui_idle_call_wait_drag([helper]() mutable {
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), "Partition table not available for backup_all(AUTO)");
+					helper.setLabelText(helper.getWidget("con"), "Ready");
+				}, GTK_WINDOW(helper.getWidget("main_window")));
+				return;
+			}
+
+			// 复用 legacy 单分区读逻辑：splloader + 各分区循环 dump，与旧版本保持一致
+			// 1) 先备份 splloader
+			if (g_spl_size > 0) {
+				DEG_LOG(I, "[blk] backup_all(AUTO) dumping splloader, size=0x%llx", (unsigned long long)g_spl_size);
+				dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", step);
+			}
+
+			// 2) 再按旧逻辑遍历 ptable 逐个分区 dump
+			for (int i = 0; i < io->part_count; ++i) {
+				if (isCancel) break;
+				const char* name = io->ptable[i].name;
+				std::size_t namelen = std::strlen(name);
+
+				// 跳过黑盒、cache、userdata 等与旧版本保持一致
+				if (!std::strncmp(name, "blackbox", 8)) continue;
+				if (!std::strncmp(name, "cache", 5)) continue;
+				if (!std::strncmp(name, "userdata", 8)) continue;
+
+				// 按 slot 过滤 _a/_b 分区
+				if (g_app_state.flash.selected_ab == 1 && namelen > 2 && std::strcmp(name + namelen - 2, "_b") == 0) continue;
+				if (g_app_state.flash.selected_ab == 2 && namelen > 2 && std::strcmp(name + namelen - 2, "_a") == 0) continue;
+
+				char dfile[40];
+				std::snprintf(dfile, sizeof(dfile), "%s.bin", name);
+
+				// 使用 legacy dump_partition，根据分区 size 进行完整备份
+				uint64_t part_size = io->ptable[i].size;
+				if (part_size == 0) {
+					DEG_LOG(W, "[blk] backup_all(AUTO) skip %s: size=0", name);
+					continue;
+				}
+
+				DEG_LOG(I, "[blk] backup_all(AUTO) dump %s size=0x%llx", name, (unsigned long long)part_size);
+				dump_partition(io, name, 0, part_size, dfile, step);
+			}
+
 			gui_idle_call_wait_drag([helper]() mutable {
 				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Completed"))), _("Partition backup completed!"));
 				helper.setLabelText(helper.getWidget("con"), "Ready");
