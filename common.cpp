@@ -1,4 +1,5 @@
 #include "common.h"
+#include <functional>
 int isCancel = 0;
 bool isHelperInit = false;
 GtkWidgetHelper helper;

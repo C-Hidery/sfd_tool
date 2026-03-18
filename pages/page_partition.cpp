@@ -1059,6 +1059,24 @@ void on_button_clicked_export_part_xml(GtkWidgetHelper helper) {
 	showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("Partition table export completed!"));
 }
 
+#if defined(__APPLE__)
+static std::string BuildBackupRootDirForGuiBackup() {
+    if (savepath[0]) {
+        char time_buf[32];
+        std::time_t now = std::time(nullptr);
+        std::tm tm_now{};
+        localtime_r(&now, &tm_now);
+        std::strftime(time_buf, sizeof(time_buf), "%Y%m%d_%H%M%S", &tm_now);
+        return std::string(savepath) + "/" + time_buf;
+    }
+    return std::string("partitions_backup");
+}
+#else
+static std::string BuildBackupRootDirForGuiBackup() {
+    return std::string("partitions_backup");
+}
+#endif
+
 void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
 
@@ -1066,102 +1084,14 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 	std::thread([helper]() mutable {
 		auto& settings = GetGuiIoSettings();
 
-		if (settings.mode == BlockSizeMode::AUTO_DEFAULT) {
-			// 旧链路：使用 common.cpp 的 dump_partitions，保持与控制台一致的行为
-			int nand_info[4] = {0};
-			unsigned step = blk_size > 0 ? static_cast<unsigned>(blk_size) : DEFAULT_BLK_SIZE;
-			DEG_LOG(I, "[blk] backup_all(AUTO) step=%u", step);
-
-			// GUI 路径下，直接使用内存中的分区表 io->ptable 备份全部分区，
-			// 而不是依赖外部 partition.xml 文件，避免 xml 不存在导致的 Load file failed。
-			if (!io->part_count && g_app_state.flash.gpt_failed == 1) {
-				io->ptable = partition_list(io, fn_partlist, &io->part_count);
-			}
-			if (!io->part_count) {
-				DEG_LOG(E, "Partition table not available for backup_all(AUTO)");
-				gui_idle_call_wait_drag([helper]() mutable {
-					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), "Partition table not available for backup_all(AUTO)");
-					helper.setLabelText(helper.getWidget("con"), "Ready");
-				}, GTK_WINDOW(helper.getWidget("main_window")));
-				return;
-			}
-
-			// 复用 legacy 单分区读逻辑：splloader + 各分区循环 dump，与旧版本保持一致
-			// 输出路径统一为 legacy_backup 目录，避免与新链路冲突
-			std::string legacy_dir = "legacy_backup";
-			try {
-				std::filesystem::create_directories(legacy_dir);
-			} catch (...) {
-				DEG_LOG(W, "[blk] backup_all(AUTO) failed to create legacy_backup directory, fallback to CWD");
-			}
-
-			// 1) 先备份 splloader
-			if (g_spl_size > 0) {
-				std::string spl_path = legacy_dir + "/splloader.bin";
-				DEG_LOG(I, "[blk] backup_all(AUTO) dumping splloader, size=0x%llx -> %s", (unsigned long long)g_spl_size, spl_path.c_str());
-				dump_partition(io, "splloader", 0, g_spl_size, spl_path.c_str(), step);
-			}
-
-			// 2) 再按旧逻辑遍历 ptable 逐个分区 dump
-			for (int i = 0; i < io->part_count; ++i) {
-				if (isCancel) break;
-				const char* name = io->ptable[i].name;
-				std::size_t namelen = std::strlen(name);
-
-				// 跳过黑盒、cache、userdata 等与旧版本保持一致
-				if (!std::strncmp(name, "blackbox", 8)) continue;
-				if (!std::strncmp(name, "cache", 5)) continue;
-				if (!std::strncmp(name, "userdata", 8)) continue;
-
-				// 按 slot 过滤 _a/_b 分区
-				if (g_app_state.flash.selected_ab == 1 && namelen > 2 && std::strcmp(name + namelen - 2, "_b") == 0) continue;
-				if (g_app_state.flash.selected_ab == 2 && namelen > 2 && std::strcmp(name + namelen - 2, "_a") == 0) continue;
-
-				char dfile[40];
-				std::snprintf(dfile, sizeof(dfile), "%s.bin", name);
-				std::string full_path = legacy_dir + "/" + dfile;
-
-				// 使用 legacy dump_partition，根据分区 size 进行完整备份
-				uint64_t part_size = io->ptable[i].size;
-				if (part_size == 0) {
-					DEG_LOG(W, "[blk] backup_all(AUTO) skip %s: size=0", name);
-					continue;
-				}
-
-				DEG_LOG(I, "[blk] backup_all(AUTO) dump %s size=0x%llx -> %s", name, (unsigned long long)part_size, full_path.c_str());
-				dump_partition(io, name, 0, part_size, full_path.c_str(), step);
-			}
-
-			gui_idle_call_wait_drag([helper, legacy_dir]() mutable {
-				std::string msg = std::string(_("Partition backup completed! Saved to: ")) + legacy_dir;
-				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Completed"))), msg.c_str());
-				helper.setLabelText(helper.getWidget("con"), "Ready");
-			}, GTK_WINDOW(helper.getWidget("main_window")));
-			return;
-		}
-
 		std::unique_ptr<sfd::FlashService> svc = sfd::createFlashService();
 		svc->setContext(io, &g_app_state);
 
-#if defined(__APPLE__)
-		std::string output_dir;
-		if (savepath[0]) {
-			char time_buf[32];
-			std::time_t now = std::time(nullptr);
-			std::tm tm_now{};
-			localtime_r(&now, &tm_now);
-			std::strftime(time_buf, sizeof(time_buf), "%Y%m%d_%H%M%S", &tm_now);
-			output_dir = std::string(savepath) + "/" + time_buf;
-		} else {
-			output_dir = "partitions_backup";
-		}
-#else
-		std::string output_dir = "partitions_backup";
-#endif
+		std::string output_dir = BuildBackupRootDirForGuiBackup();
 		std::vector<std::string> names; // 为空表示备份全部
 
 		std::uint32_t step = GetEffectiveManualBlockSize();
-		DEG_LOG(I, "[blk] backup_all(MANUAL) step=%u", step);
+		DEG_LOG(I, "[blk] backup_all GUI step=%u", step);
 
 		sfd::FlashStatus st = svc->backupPartitions(names, output_dir, sfd::SlotSelection::Auto, step);
 		gui_idle_call_wait_drag([helper, st, output_dir]() mutable {
