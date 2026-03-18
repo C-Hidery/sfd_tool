@@ -347,13 +347,13 @@ struct UiProgressData {
 void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned long long time0) {
     static int completed0 = 0;
     static uint64_t done0 = 0;
-    
+
     unsigned long long time = GetTickCount64();
-    if (completed0 == PROGRESS_BAR_WIDTH) { 
-        completed0 = 0; 
-        done0 = 0; 
+    if (completed0 == PROGRESS_BAR_WIDTH) {
+        completed0 = 0;
+        done0 = 0;
     }
-    
+
     int completed = (int)(PROGRESS_BAR_WIDTH * done / (double)total);
     if (completed != completed0 && isCancel == 0) {
         int remaining = PROGRESS_BAR_WIDTH - completed;

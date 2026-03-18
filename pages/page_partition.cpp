@@ -241,6 +241,7 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 
 }
 
+
 void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
 	std::string part_name = getSelectedPartitionName(helper);
@@ -268,56 +269,38 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 			finalPath = part_name + ".img";
 		}
 
-		if (settings.mode == BlockSizeMode::AUTO_DEFAULT) {
-			LongTaskConfig cfg{
-				[parent, helper, part_name, finalPath](std::atomic_bool& cancel_flag) {
-					(void)cancel_flag;
-					sfd::PartitionReadInfo info{};
-					info.name = part_name;
-					sfd::PartitionReadOptions opts{};
-					opts.output_path = finalPath;
-					opts.block_cfg = MakeBlockSizeConfigFromGui();
-					DEG_LOG(I, "[blk] list_read(macos, AUTO) part=%s", part_name.c_str());
-					auto* svc = ensure_flash_service();
-					sfd::FlashStatus st = svc->partitionReader().readOne(info, opts, nullptr);
-					gui_idle_call_wait_drag([parent, helper, st, finalPath]() mutable {
-						if (!st.success) {
-							showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
-						} else {
-							std::string msg = std::string(_("Partition read completed! Saved to: ")) + finalPath;
-							showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), msg.c_str());
-						}
-					}, GTK_WINDOW(helper.getWidget("main_window")));
-				},
-				[helper]() mutable {
-					helper.setLabelText(helper.getWidget("con"), "Reading partition");
-				},
-				[helper]() mutable {
-					helper.setLabelText(helper.getWidget("con"), "Ready");
-				}
-			};
-
-			run_long_task(cfg);
-			return;
-		}
-
-		sfd::PartitionIoOptions opts;
-		opts.partition_name = part_name;
-		opts.file_path = finalPath;
-		opts.block_size = GetEffectiveManualBlockSize();
-		DEG_LOG(I, "[blk] list_read(macos, MANUAL) part=%s block_size=%u", opts.partition_name.c_str(), opts.block_size);
-
 		LongTaskConfig cfg{
-			[parent, helper, opts](std::atomic_bool& cancel_flag) {
+			[parent, helper, part_name, finalPath](std::atomic_bool& cancel_flag) {
 				(void)cancel_flag;
+				sfd::PartitionReadInfo info{};
+				info.name = part_name;
+				sfd::PartitionReadOptions opts{};
+				opts.output_path = finalPath;
+				opts.block_cfg = MakeBlockSizeConfigFromGui();
+				DEG_LOG(I, "[blk] list_read(macos) part=%s", part_name.c_str());
+				sfd::PartitionReadCallbacks cb;
+				cb.on_progress = [helper](const sfd::PartitionReadInfo& p, std::uint64_t bytes_read, double speed_mb_s) {
+					gui_idle_call([helper, p, bytes_read, speed_mb_s]() mutable {
+						GtkWidget* conStatus = helper.getWidget("con");
+						if (conStatus && GTK_IS_LABEL(conStatus)) {
+							char status_text[256];
+							snprintf(status_text, sizeof(status_text),
+							         "Backing up %s | size: %llu | read: %llu | speed: %.1f MB/s",
+							         p.name.c_str(),
+							         static_cast<unsigned long long>(p.size),
+							         static_cast<unsigned long long>(bytes_read),
+							         speed_mb_s);
+							gtk_label_set_text(GTK_LABEL(conStatus), status_text);
+						}
+					});
+				};
 				auto* svc = ensure_flash_service();
-				sfd::FlashStatus st = svc->readPartitionToFile(opts);
-				std::string path = opts.file_path;
-				gui_idle_call_wait_drag([parent, helper, st, path]() mutable {
+				sfd::FlashStatus st = svc->partitionReader().readOne(info, opts, &cb);
+				gui_idle_call_wait_drag([parent, helper, st, finalPath]() mutable {
 					if (!st.success) {
 						showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
 					} else {
-						std::string msg = std::string(_("Partition read completed! Saved to: ")) + path;
+						std::string msg = std::string(_("Partition read completed! Saved to: ")) + finalPath;
 						showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), msg.c_str());
 					}
 				}, GTK_WINDOW(helper.getWidget("main_window")));
@@ -347,10 +330,8 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 		return;
 	}
 
-	auto& settings = GetGuiIoSettings();
-
 	LongTaskConfig cfg{
-		[parent, helper, part_name, savePath, settings](std::atomic_bool& cancel_flag) mutable {
+		[parent, helper, part_name, savePath](std::atomic_bool& cancel_flag) mutable {
 			(void)cancel_flag;
 			sfd::PartitionReadInfo info{};
 			info.name = part_name;
@@ -360,8 +341,25 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 			opts.block_cfg = MakeBlockSizeConfigFromGui();
 
 			DEG_LOG(I, "[blk] list_read GUI part=%s", part_name.c_str());
+			sfd::PartitionReadCallbacks cb;
+			cb.on_progress = [helper](const sfd::PartitionReadInfo& p, std::uint64_t bytes_read, double speed_mb_s) {
+				gui_idle_call([helper, p, bytes_read, speed_mb_s]() mutable {
+					GtkWidget* conStatus = helper.getWidget("con");
+					if (conStatus && GTK_IS_LABEL(conStatus)) {
+						char status_text[256];
+						snprintf(status_text, sizeof(status_text),
+						         "Backing up %s | size: %llu | read: %llu | speed: %.1f MB/s",
+						         p.name.c_str(),
+						         static_cast<unsigned long long>(p.size),
+						         static_cast<unsigned long long>(bytes_read),
+						         speed_mb_s);
+						gtk_label_set_text(GTK_LABEL(conStatus), status_text);
+					}
+				});
+			};
+
 			auto* svc = ensure_flash_service();
-			sfd::FlashStatus st = svc->partitionReader().readOne(info, opts, nullptr);
+			sfd::FlashStatus st = svc->partitionReader().readOne(info, opts, &cb);
 			gui_idle_call_wait_drag([parent, helper, st, savePath]() mutable {
 				if (!st.success) {
 					showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
@@ -381,6 +379,7 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 
 	run_long_task(cfg);
 }
+
 void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
 	std::string part_name = getSelectedPartitionName(helper);
