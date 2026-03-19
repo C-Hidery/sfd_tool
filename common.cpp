@@ -407,11 +407,16 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
                     // 更新底部连接状态文本，展示当前进度与速度
                     GtkWidget* conStatus = helper.getWidget("con");
                     if (conStatus && GTK_IS_LABEL(conStatus)) {
-                        char status_text[128];
+                        char status_text[160];
                         double mb_done = done_value / (1024.0 * 1024.0);
-                        snprintf(status_text, sizeof(status_text), "Progress: %.1f%% | %.1f MB | %.2f MB/s",
-                                 percent * 100.0,
+                        double mb_total = total_size_global / (1024.0 * 1024.0);
+                        double start_mb = start_offset_global / (1024.0 * 1024.0);
+                        snprintf(status_text, sizeof(status_text),
+                                 "Reading %s @ %.1f MB (%.1f/%.1f MB) | %.2f MB/s",
+                                 current_partition_name,
+                                 start_mb,
                                  mb_done,
+                                 mb_total,
                                  speed_mb_s);
                         gtk_label_set_text(GTK_LABEL(conStatus), status_text);
                     }
