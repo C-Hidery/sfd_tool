@@ -34,6 +34,7 @@ add_executable(test_blocksize_and_backup_service
     test_blocksize_and_backup_service.cpp
     ${SFD_TEST_COMMON_SOURCES}
 )
+
 target_link_libraries(test_blocksize_and_backup_service PRIVATE core_lib)
 
 add_test(NAME pac_extract_tests COMMAND test_pac_extract)
@@ -49,3 +50,14 @@ set(SFD_TEST_TARGETS
     test_partition_backup_paths
     test_blocksize_and_backup_service
 )
+
+# 让测试目标也能找到顶层头文件（common.h / ui_common.h 等）
+foreach(tgt IN LISTS SFD_TEST_TARGETS)
+    target_include_directories(${tgt}
+        PRIVATE
+            ${CMAKE_SOURCE_DIR}
+            ${CMAKE_SOURCE_DIR}/core
+            ${CMAKE_SOURCE_DIR}/pages
+            ${CMAKE_BINARY_DIR}/generated
+    )
+endforeach()

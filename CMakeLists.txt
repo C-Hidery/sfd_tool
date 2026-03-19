@@ -81,7 +81,7 @@ target_link_libraries(sfd_tool
 )
 
 # 公共目标列表，方便批量设置编译选项
-set(SFD_COMMON_TARGETS sfd_tool core_lib pages_lib)
+set(SFD_COMMON_TARGETS sfd_tool core_lib pages_lib ${SFD_TEST_TARGETS})
 
 # 头文件路径
 target_include_directories(sfd_tool
