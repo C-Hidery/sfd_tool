@@ -50,6 +50,8 @@ set(SFD_TEST_TARGETS
     test_partition_backup_paths
     test_blocksize_and_backup_service
 )
+# 将测试目标导出到父作用域，方便顶层 CMake 统一设置编译选项（如 USE_GTK/USE_LIBUSB）
+set(SFD_TEST_TARGETS ${SFD_TEST_TARGETS} PARENT_SCOPE)
 
 # 让测试目标也能找到顶层头文件（common.h / ui_common.h 等）
 foreach(tgt IN LISTS SFD_TEST_TARGETS)
