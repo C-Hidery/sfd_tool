@@ -7,6 +7,7 @@
 #define SFD_TOOL_MINI_DOCTEST_H
 
 #include <cassert>
+#include <cstdlib>
 #include <iostream>
 #include <vector>
 #include <functional>
@@ -43,6 +44,13 @@ inline void doctest_register(doctest_test_case_reg::func_t f, const char* name) 
 } while (0)
 
 #define CHECK_FALSE(expr) CHECK(!(expr))
+
+#define REQUIRE(expr) do { \
+    if (!(expr)) { \
+        std::cerr << "REQUIRE failed: " #expr " at " __FILE__ ":" << __LINE__ << "\n"; \
+        std::abort(); \
+    } \
+} while (0)
 
 int main() {
     auto& tests = doctest_registry();
