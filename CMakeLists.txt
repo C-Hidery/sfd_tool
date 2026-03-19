@@ -44,10 +44,6 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-# ================= 子目录模块 =================
-add_subdirectory(core)
-add_subdirectory(pages)
-
 option(SFD_ENABLE_TESTS "Enable unit tests (ctest)" OFF)
 if (SFD_ENABLE_TESTS)
     include(CTest)
