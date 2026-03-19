@@ -1,9 +1,6 @@
 # 为测试可执行补充 core 之外运行所需的公共实现
 set(SFD_TEST_COMMON_SOURCES
     test_stubs.cpp
-    ${CMAKE_SOURCE_DIR}/common.cpp
-    ${CMAKE_SOURCE_DIR}/GtkWidgetHelper.cpp
-    ${CMAKE_SOURCE_DIR}/ui_common.cpp
 )
 
 # Windows x86/Channel9 模式下，测试也需要链接 BMPlatform / Wrapper
