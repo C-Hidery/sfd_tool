@@ -119,8 +119,12 @@ inline unsigned ResolveBlockStep(const BlockSizeConfig& cfg,
                                  unsigned default_step) {
     switch (cfg.mode) {
     case BlockSizeMode::AUTO_DEFAULT:
-        return default_step;
+        // AUTO_DEFAULT：优先使用 cfg.manual_block_size 中已经解析好的“默认步长”
+        // （例如握手阶段得到的 0xF800），仅当其为 0 时退回协议层默认步长。
+        return cfg.manual_block_size ? cfg.manual_block_size : default_step;
     case BlockSizeMode::MANUAL_BLOCK_SIZE:
+        // MANUAL_BLOCK_SIZE：固定块大小模式，同样以 cfg.manual_block_size 为准，
+        // 在未设置时退回 default_step。
         return cfg.manual_block_size ? cfg.manual_block_size : default_step;
     }
     return default_step;

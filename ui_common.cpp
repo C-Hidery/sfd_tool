@@ -51,9 +51,14 @@ sfd::BlockSizeConfig MakeBlockSizeConfigFromGui() {
     sfd::BlockSizeConfig cfg;
     cfg.mode = s.mode;
     if (s.mode == sfd::BlockSizeMode::MANUAL_BLOCK_SIZE) {
+        // 手动模式：直接使用用户设定的块大小（已经经过对齐和裁剪）
         cfg.manual_block_size = s.manual_block_size;
     } else {
-        cfg.manual_block_size = DEFAULT_BLK_SIZE;
+        // AUTO_DEFAULT 模式：优先使用握手阶段探测出来的默认块大小
+        // （例如 FDL2 之后 UFS 设备的 0xF800），只有在没有握手默认值时
+        // 才退回协议层 DEFAULT_BLK_SIZE（0x1000）。
+        uint32_t step = g_default_blk_size > 0 ? (uint32_t)g_default_blk_size : DEFAULT_BLK_SIZE;
+        cfg.manual_block_size = step;
     }
     cfg.use_compat_chain = true;
     return cfg;
@@ -61,8 +66,13 @@ sfd::BlockSizeConfig MakeBlockSizeConfigFromGui() {
 
 void ResetBlockSizeToDefault() {
     auto& s = GetGuiIoSettings();
+    // 回到 AUTO_DEFAULT 模式，并将 GUI 侧记录的“默认步长”
+    // 重置为当前握手得到的默认块大小（例如 0xF800）。
     s.mode = sfd::BlockSizeMode::AUTO_DEFAULT;
-    s.manual_block_size = DEFAULT_BLK_SIZE;
+    s.manual_block_size = g_default_blk_size > 0 ? (uint32_t)g_default_blk_size : DEFAULT_BLK_SIZE;
+
+    // legacy 全局 blk_size 置 0，触发所有旧代码路径中的
+    // `blk_size ? blk_size : DEFAULT_BLK_SIZE` 使用握手默认值。
     blk_size = 0;
     LogBlkState("reset_blk_size");
 }
