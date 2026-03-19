@@ -249,6 +249,7 @@ extern partition_t gPartInfo;
 
 extern GtkWidgetHelper helper;
 extern bool isHelperInit;
+extern bool isUseCptable;
 
 enum msg_type{
 	I = 1,

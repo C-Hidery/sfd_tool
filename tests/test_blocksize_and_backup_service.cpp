@@ -5,6 +5,7 @@
 #include "ui_common.h"
 #include "app_state.h"
 #include "common.h"
+#include "usb_transport.h"
 
 extern int blk_size;
 extern AppState g_app_state;
@@ -38,7 +39,9 @@ TEST_CASE("backupPartitions enumerates partitions and builds X/name.img paths") 
     std::strncpy(fake_table[2].name, "missing", sizeof(fake_table[2].name) - 1);
     fake_table[2].size = 4096 * 1024;
 
-    spdio_t* test_io = new spdio_t{};
+    spdio_t* test_io = spdio_init(0);
+    REQUIRE(test_io != nullptr);
+
     test_io->ptable = fake_table;
     test_io->part_count = 3;
     test_io->part_count_c = 0;
@@ -56,5 +59,8 @@ TEST_CASE("backupPartitions enumerates partitions and builds X/name.img paths") 
 
     CHECK(st.success);
 
-    delete test_io;
+    // 避免 spdio_free 试图释放测试用的静态分区表
+    test_io->ptable = nullptr;
+    test_io->Cptable = nullptr;
+    spdio_free(test_io);
 }

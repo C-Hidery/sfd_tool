@@ -246,7 +246,7 @@ int& selected_ab = g_app_state.flash.selected_ab;
 int no_fdl_mode = 0;
 uint64_t fblk_size = 0;
 uint64_t g_spl_size;
-bool isUseCptable = false;
+extern bool isUseCptable;
 const char* o_exception;
 int init_stage = -1;
 int& device_stage = g_app_state.device.device_stage;

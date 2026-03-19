@@ -27,6 +27,7 @@ bool g_is_macos_bundle = false;
 
 DA_INFO_T Da_Info;
 partition_t gPartInfo;
+bool isUseCptable = false;
 
 
 

@@ -55,13 +55,31 @@ if (SFD_ENABLE_TESTS)
     add_subdirectory(tests)
 endif()
 
+# ================= 公共 UI / CLI 静态库（主程序和测试共用） =================
+add_library(sfd_ui STATIC
+    common.cpp
+    GtkWidgetHelper.cpp
+    ui_common.cpp
+)
+
+target_link_libraries(sfd_ui
+    PUBLIC
+        pages_lib
+        core_lib
+)
+
+target_include_directories(sfd_ui
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/core
+        ${CMAKE_CURRENT_SOURCE_DIR}/pages
+        ${CMAKE_BINARY_DIR}/generated
+)
+
 # ================= 主可执行程序 =================
 add_executable(sfd_tool
     main.cpp
     main_console.cpp
-    common.cpp
-    GtkWidgetHelper.cpp
-    ui_common.cpp
 )
 
 # Windows: Channel9 封装（x86 使用，不依赖 libusb）
@@ -72,16 +90,14 @@ if (WIN32)
     )
 endif()
 
-# 链接子模块
-# pages_lib 依赖 core_lib（在静态链接下，依赖方需排在被依赖库之前）
+# 链接子模块和公共 UI 库
 target_link_libraries(sfd_tool
     PRIVATE
-        pages_lib
-        core_lib
+        sfd_ui
 )
 
 # 公共目标列表，方便批量设置编译选项
-set(SFD_COMMON_TARGETS sfd_tool core_lib pages_lib ${SFD_TEST_TARGETS})
+set(SFD_COMMON_TARGETS sfd_tool core_lib pages_lib sfd_ui ${SFD_TEST_TARGETS})
 
 # 头文件路径
 target_include_directories(sfd_tool
@@ -228,8 +244,11 @@ if (USE_GTK)
             target_link_directories(${tgt} PRIVATE ${GTK3_LIBRARY_DIRS})
         endforeach()
 
-        # 只在最终可执行文件上链接 GTK 库
+        # 在最终可执行文件和测试可执行文件上链接 GTK 库
         target_link_libraries(sfd_tool PRIVATE ${GTK3_LIBRARIES})
+        foreach(tgt IN LISTS SFD_TEST_TARGETS)
+            target_link_libraries(${tgt} PRIVATE ${GTK3_LIBRARIES})
+        endforeach()
     endif()
 else()
     foreach(tgt IN LISTS SFD_COMMON_TARGETS)
@@ -263,8 +282,11 @@ if (USE_LIBUSB)
             target_link_directories(${tgt} PRIVATE ${LIBUSB_LIBRARY_DIRS})
         endforeach()
 
-        # 同样只在最终可执行文件上链接 libusb 库
+        # 在最终可执行文件和测试可执行文件上链接 libusb 库
         target_link_libraries(sfd_tool PRIVATE ${LIBUSB_LIBRARIES})
+        foreach(tgt IN LISTS SFD_TEST_TARGETS)
+            target_link_libraries(${tgt} PRIVATE ${LIBUSB_LIBRARIES})
+        endforeach()
     endif()
 else()
     foreach(tgt IN LISTS SFD_COMMON_TARGETS)
