@@ -139,9 +139,26 @@ static void on_button_clicked_m_read(GtkWidgetHelper helper) {
 	opts.file_path = savePath;
 	DEG_LOG(I, "[blk] m_read GUI part=%s", opts.partition_name.c_str());
 
+	sfd::PartitionReadCallbacks cb;
+	cb.on_progress = [helper](const sfd::PartitionReadInfo& p, std::uint64_t bytes_read, double speed_mb_s) {
+		gui_idle_call([helper, p, bytes_read, speed_mb_s]() mutable {
+			GtkWidget* conStatus = helper.getWidget("con");
+			if (conStatus && GTK_IS_LABEL(conStatus)) {
+				char status_text[256];
+				snprintf(status_text, sizeof(status_text),
+				         "Backing up %s | size: %llu | read: %llu | speed: %.1f MB/s",
+				         p.name.c_str(),
+				         static_cast<unsigned long long>(p.size),
+				         static_cast<unsigned long long>(bytes_read),
+				         speed_mb_s);
+				gtk_label_set_text(GTK_LABEL(conStatus), status_text);
+			}
+		});
+	};
+
 	LongTaskConfig cfg{
 		// worker：在后台线程中执行分区读取
-		[parent, helper, opts](std::atomic_bool& cancel_flag) {
+		[parent, helper, opts, cb](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag; // 当前实现暂不支持取消
 			sfd::PartitionReadInfo info{};
 			info.name = opts.partition_name;
@@ -149,12 +166,12 @@ static void on_button_clicked_m_read(GtkWidgetHelper helper) {
 			read_opts.output_path = opts.file_path;
 			read_opts.block_cfg = MakeBlockSizeConfigFromGui();
 			auto* svc = ensure_flash_service();
-			sfd::FlashStatus st = svc->partitionReader().readOne(info, read_opts, nullptr);
+			sfd::FlashStatus st = svc->partitionReader().readOne(info, read_opts, &cb);
 			gui_idle_call_wait_drag([parent, helper, st]() mutable {
 				if (!st.success) {
-					showErrorDialog(GTK_WINDOW(parent), _(_(_(("Error")))), st.message.c_str());
+					showErrorDialog(GTK_WINDOW(parent), _(_(_((("Error"))))), st.message.c_str());
 				} else {
-					showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("Partition read completed!"));
+					showInfoDialog(GTK_WINDOW(parent), _(_(_((("Completed"))))), _("Partition read completed!"));
 				}
 			},GTK_WINDOW(helper.getWidget("main_window")));
 		},

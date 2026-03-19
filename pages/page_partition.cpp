@@ -241,6 +241,9 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 
 }
 
+#if defined(__APPLE__)
+static std::string BuildBackupRootDirForGuiBackup();
+#endif
 
 void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
@@ -264,7 +267,8 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 		// 默认路径：savepath/partition.img，如果 savepath 为空则退回当前目录
 		std::string finalPath;
 		if (savepath[0]) {
-			finalPath = std::string(savepath) + "/" + part_name + ".img";
+			std::string root = BuildBackupRootDirForGuiBackup();
+			finalPath = root + "/" + part_name + ".img";
 		} else {
 			finalPath = part_name + ".img";
 		}

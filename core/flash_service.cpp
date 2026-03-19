@@ -97,8 +97,20 @@ public:
 
         // 这里直接调用 legacy dump_partition，保持行为与原来一致
         start_signal();
+        double start_ts = get_time();
         uint64_t saved = dump_partition(io, gPartInfo.name, 0, gPartInfo.size,
                                         options.output_path.c_str(), step);
+        double end_ts = get_time();
+
+        // 粗粒度进度回调：整个分区读完后上报一次
+        if (callbacks && callbacks->on_progress) {
+            double elapsed_s = (end_ts > start_ts) ? (end_ts - start_ts) : 0.0;
+            double speed_mb_s = 0.0;
+            if (elapsed_s > 0.0 && gPartInfo.size > 0) {
+                speed_mb_s = (static_cast<double>(gPartInfo.size) / (1024.0 * 1024.0)) / elapsed_s;
+            }
+            callbacks->on_progress(actual_info, saved, speed_mb_s);
+        }
 
         FlashStatus result;
         if (saved != (uint64_t)gPartInfo.size) {
