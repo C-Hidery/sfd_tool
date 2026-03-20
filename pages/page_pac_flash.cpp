@@ -161,7 +161,7 @@ void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 
 	// 从解包目录自动探测 FDL1/FDL2 文件路径，并写入配置，方便 Connect 页面复用
 	{
-		const char* unpack_dir = "pac_unpack_output";
+		const char* unpack_dir = ".";
 		std::string fdl1 = FindFDLInExtFloder(unpack_dir, FDL1);
 		std::string fdl2 = FindFDLInExtFloder(unpack_dir, FDL2);
 
