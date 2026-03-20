@@ -90,10 +90,10 @@ jobs:
           $mirrorFile = "$msysPath\etc\pacman.d\mirrorlist.mingw32"
           $mirrorContent = @"
           ## 32-bit Mingw-w64 repository (Tsinghua University Mirror)
-          Server = https://mirrors.tuna.tsinghua.edu.cn/msys2
+          Server = https://mirrors.tuna.tsinghua.edu.cn/msys2/mingw/mingw32
           "@
         
-          $mirrorContent | Out-File -FilePath $mirrorFile -Encoding utf8 -Force
+          $mirrorContent | Out-File -FilePath $mirrorFile -Encoding utf8
         
           # 强制刷新包数据库
           Write-Host "Force refreshing package database..."
