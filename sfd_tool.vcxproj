@@ -1,14 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
-    <ProjectConfiguration Include="Debug|Win32">
-      <Configuration>Debug</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Release|Win32">
-      <Configuration>Release</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
       <Platform>x64</Platform>
@@ -76,7 +68,7 @@
     <Image Include="assets\icon.ico" />
   </ItemGroup>
   
-  <!-- vcpkg 配置 -->
+  <!-- ==================== 全局属性 ==================== -->
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
@@ -90,36 +82,28 @@
     <VcpkgRoot Condition="'$(VcpkgRoot)'==''">C:\vcpkg</VcpkgRoot>
   </PropertyGroup>
   
-  <!-- 默认 vcpkg triplet，可通过命令行 /p:VcpkgTriplet=xxx 覆盖 -->
+  <!-- 默认 vcpkg triplet -->
   <PropertyGroup Condition="'$(VcpkgTriplet)'==''">
-    <VcpkgTriplet Condition="'$(Platform)'=='x64'">x64-windows</VcpkgTriplet>
-    <VcpkgTriplet Condition="'$(Platform)'=='Win32'">x86-windows</VcpkgTriplet>
+    <VcpkgTriplet>x64-windows</VcpkgTriplet>
   </PropertyGroup>
   
-  <!-- 是否使用 libusb（默认 x64 使用，x86 不使用）-->
+  <!-- 是否使用 libusb（默认 ON）-->
   <PropertyGroup Condition="'$(UseLibusb)'==''">
-    <UseLibusb Condition="'$(Platform)'=='x64'">true</UseLibusb>
-    <UseLibusb Condition="'$(Platform)'=='Win32'">false</UseLibusb>
+    <UseLibusb>true</UseLibusb>
+  </PropertyGroup>
+  
+  <!-- vcpkg 安装路径 -->
+  <PropertyGroup>
+    <VcpkgInstalledDir>$(VcpkgRoot)\installed\$(VcpkgTriplet)</VcpkgInstalledDir>
+  </PropertyGroup>
+  
+  <!-- GTK3 路径（从 MSYS2 获取）-->
+  <PropertyGroup>
+    <GTK3_BASE_PATH>C:\msys64</GTK3_BASE_PATH>
+    <GTK3_PATH>$(GTK3_BASE_PATH)\mingw64</GTK3_PATH>
   </PropertyGroup>
   
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
-  
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
-    <LanguageStandard>stdcpp17</LanguageStandard>
-    <CharacterSet>Unicode</CharacterSet>
-  </PropertyGroup>
-  
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
-    <LanguageStandard>stdcpp17</LanguageStandard>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
-  </PropertyGroup>
   
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -143,14 +127,6 @@
   <ImportGroup Label="ExtensionSettings" />
   <ImportGroup Label="Shared" />
   
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
@@ -161,19 +137,22 @@
   
   <PropertyGroup Label="UserMacros" />
   
-  <!-- vcpkg 安装路径 -->
-  <PropertyGroup>
-    <VcpkgInstalledDir>$(VcpkgRoot)\installed\$(VcpkgTriplet)</VcpkgInstalledDir>
-  </PropertyGroup>
-  
-  <!-- 预处理器定义 -->
+  <!-- ==================== 预处理器定义 ==================== -->
   <PropertyGroup>
     <BasePreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;USE_GTK;%(PreprocessorDefinitions)</BasePreprocessorDefinitions>
     <DebugPreprocessorDefinitions>_DEBUG;$(BasePreprocessorDefinitions)</DebugPreprocessorDefinitions>
     <ReleasePreprocessorDefinitions>NDEBUG;$(BasePreprocessorDefinitions)</ReleasePreprocessorDefinitions>
   </PropertyGroup>
   
-  <!-- 公共包含目录 -->
+  <!-- 根据 UseLibusb 添加定义 -->
+  <PropertyGroup Condition="'$(UseLibusb)'=='true'">
+    <LibusbPreprocessorDefinition>USE_LIBUSB;%(PreprocessorDefinitions)</LibusbPreprocessorDefinition>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(UseLibusb)'!='true'">
+    <LibusbPreprocessorDefinition>%(PreprocessorDefinitions)</LibusbPreprocessorDefinition>
+  </PropertyGroup>
+  
+  <!-- ==================== 公共编译设置 ==================== -->
   <ItemDefinitionGroup>
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -183,14 +162,14 @@
       <AdditionalIncludeDirectories>
         third_party\Lib;
         $(VcpkgInstalledDir)\include;
-        $(VcpkgInstalledDir)\include\gtk-3.0;
-        $(VcpkgInstalledDir)\include\glib-2.0;
-        $(VcpkgInstalledDir)\lib\glib-2.0\include;
-        $(VcpkgInstalledDir)\include\pango-1.0;
-        $(VcpkgInstalledDir)\include\cairo;
-        $(VcpkgInstalledDir)\include\gdk-pixbuf-2.0;
-        $(VcpkgInstalledDir)\include\atk-1.0;
-        $(VcpkgInstalledDir)\include\harfbuzz;
+        $(GTK3_PATH)\include\gtk-3.0;
+        $(GTK3_PATH)\include\glib-2.0;
+        $(GTK3_PATH)\lib\glib-2.0\include;
+        $(GTK3_PATH)\include\pango-1.0;
+        $(GTK3_PATH)\include\cairo;
+        $(GTK3_PATH)\include\gdk-pixbuf-2.0;
+        $(GTK3_PATH)\include\atk-1.0;
+        $(GTK3_PATH)\include\harfbuzz;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
@@ -198,59 +177,93 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>third_party\Lib;$(VcpkgInstalledDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>
+        third_party\Lib;
+        $(VcpkgInstalledDir)\lib;
+        $(GTK3_PATH)\lib;
+        %(AdditionalLibraryDirectories)
+      </AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   
-  <!-- Win32/Debug 配置 -->
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <ClCompile>
-      <PreprocessorDefinitions>$(DebugPreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <Optimization>Disabled</Optimization>
-    </ClCompile>
-    <Link>
-      <AdditionalDependencies>intl.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;%(AdditionalDependencies)</AdditionalDependencies>
-    </Link>
-  </ItemDefinitionGroup>
-  
-  <!-- Win32/Release 配置 -->
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <ClCompile>
-      <PreprocessorDefinitions>$(ReleasePreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-    </ClCompile>
-    <Link>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>intl.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;%(AdditionalDependencies)</AdditionalDependencies>
-    </Link>
-  </ItemDefinitionGroup>
-  
-  <!-- x64/Debug 配置 -->
+  <!-- ==================== Debug x64 配置 ==================== -->
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <PreprocessorDefinitions>$(DebugPreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>$(DebugPreprocessorDefinitions);$(LibusbPreprocessorDefinition);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <Optimization>Disabled</Optimization>
     </ClCompile>
     <Link>
-      <AdditionalDependencies Condition="'$(UseLibusb)'=='true'">libusb-1.0.lib;intl.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalDependencies Condition="'$(UseLibusb)'!='true'">intl.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(UseLibusb)'=='true'">
+        libusb-1.0.lib;
+        intl.lib;
+        dbghelp.lib;
+        libgtk-3.dll.a;
+        libgdk-3.dll.a;
+        libglib-2.0.dll.a;
+        libgobject-2.0.dll.a;
+        libgio-2.0.dll.a;
+        libharfbuzz.dll.a;
+        libpango-1.0.dll.a;
+        libpangocairo-1.0.dll.a;
+        setupapi.lib;
+        %(AdditionalDependencies)
+      </AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(UseLibusb)'!='true'">
+        intl.lib;
+        dbghelp.lib;
+        libgtk-3.dll.a;
+        libgdk-3.dll.a;
+        libglib-2.0.dll.a;
+        libgobject-2.0.dll.a;
+        libgio-2.0.dll.a;
+        libharfbuzz.dll.a;
+        libpango-1.0.dll.a;
+        libpangocairo-1.0.dll.a;
+        setupapi.lib;
+        %(AdditionalDependencies)
+      </AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   
-  <!-- x64/Release 配置 -->
+  <!-- ==================== Release x64 配置 ==================== -->
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <PreprocessorDefinitions>$(ReleasePreprocessorDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>$(ReleasePreprocessorDefinitions);$(LibusbPreprocessorDefinition);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies Condition="'$(UseLibusb)'=='true'">libusb-1.0.lib;intl.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalDependencies Condition="'$(UseLibusb)'!='true'">intl.lib;dbghelp.lib;libgtk-3.dll.a;libgdk-3.dll.a;libglib-2.0.dll.a;libgobject-2.0.dll.a;libgio-2.0.dll.a;libharfbuzz.dll.a;libpango-1.0.dll.a;libpangocairo-1.0.dll.a;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(UseLibusb)'=='true'">
+        libusb-1.0.lib;
+        intl.lib;
+        dbghelp.lib;
+        libgtk-3.dll.a;
+        libgdk-3.dll.a;
+        libglib-2.0.dll.a;
+        libgobject-2.0.dll.a;
+        libgio-2.0.dll.a;
+        libharfbuzz.dll.a;
+        libpango-1.0.dll.a;
+        libpangocairo-1.0.dll.a;
+        setupapi.lib;
+        %(AdditionalDependencies)
+      </AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(UseLibusb)'!='true'">
+        intl.lib;
+        dbghelp.lib;
+        libgtk-3.dll.a;
+        libgdk-3.dll.a;
+        libglib-2.0.dll.a;
+        libgobject-2.0.dll.a;
+        libgio-2.0.dll.a;
+        libharfbuzz.dll.a;
+        libpango-1.0.dll.a;
+        libpangocairo-1.0.dll.a;
+        setupapi.lib;
+        %(AdditionalDependencies)
+      </AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   
