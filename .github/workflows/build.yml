@@ -33,12 +33,12 @@ jobs:
             artifact_suffix: LibUSB
             vcpkg_packages: "gtk gettext libusb"
           
-          # x86 架构：MSYS2 UCRT64 + MinGW + -m32
+          # x86 架构：MSYS2 CLANG32
           - arch: x86
             config: Release
             platform: Win32
             use_libusb: OFF
-            build_system: msys2_ucrt
+            build_system: clang32
             artifact_suffix: SPRD
 
     steps:
@@ -61,7 +61,7 @@ jobs:
             C:\vcpkg\installed
             C:\vcpkg\packages
             C:\vcpkg\downloads
-          key: vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-v8
+          key: vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-v9
           restore-keys: |
             vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-
 
@@ -80,75 +80,104 @@ jobs:
             }
           }
 
-      # ==================== x86: MSYS2 UCRT64 环境 ====================
-      - name: Setup MSYS2 UCRT64 (x86 build)
-        if: matrix.build_system == 'msys2_ucrt'
+      # ==================== x86: MSYS2 CLANG32 环境 ====================
+      - name: Setup MSYS2 CLANG32
+        if: matrix.build_system == 'clang32'
         uses: msys2/setup-msys2@v2
         with:
-          msystem: UCRT64
+          msystem: CLANG32
           update: true
           install: >-
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-cmake
-            mingw-w64-ucrt-x86_64-ninja
-            mingw-w64-ucrt-x86_64-gtk3
-            mingw-w64-ucrt-x86_64-gettext
-            mingw-w64-ucrt-x86_64-pkg-config
-            mingw-w64-ucrt-x86_64-libusb
+            mingw-w64-clang-i686-gcc
+            mingw-w64-clang-i686-cmake
+            mingw-w64-clang-i686-ninja
+            mingw-w64-clang-i686-gtk3
+            mingw-w64-clang-i686-gettext
+            mingw-w64-clang-i686-pkg-config
             make
 
-      - name: Build with MSYS2 UCRT64 (x86 target)
-        if: matrix.build_system == 'msys2_ucrt'
+      - name: Build with MSYS2 CLANG32
+        if: matrix.build_system == 'clang32'
         shell: msys2 {0}
+        env:
+          MSYSTEM: CLANG32
         run: |
-          # 创建构建目录
-          mkdir -p build_ucrt
-          cd build_ucrt
+          echo "=== Building with CLANG32 (32-bit) ==="
           
-          # 配置 CMake（使用 MinGW 工具链，添加 -m32 标志）
+          # 创建构建目录
+          mkdir -p build_clang32
+          cd build_clang32
+          
+          # 配置 CMake
+          echo "Configuring CMake..."
           cmake .. \
             -G "Ninja" \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=/usr/local \
+            -DCMAKE_INSTALL_PREFIX=/clang32 \
             -DUSE_GTK=ON \
             -DUSE_LIBUSB=OFF \
-            -DSFD_ENABLE_TESTS=ON \
-            -DCMAKE_CXX_FLAGS="-m32" \
-            -DCMAKE_C_FLAGS="-m32" \
-            -DCMAKE_EXE_LINKER_FLAGS="-m32"
+            -DSFD_ENABLE_TESTS=ON
+          
+          if [ $? -ne 0 ]; then
+            echo "CMake configuration failed"
+            exit 1
+          fi
           
           # 编译
+          echo "Building..."
           ninja
           
-          # 运行测试（跳过可能崩溃的测试）
+          if [ $? -ne 0 ]; then
+            echo "Build failed"
+            exit 1
+          fi
+          
+          # 运行测试
+          echo "Running tests..."
           ctest --output-on-failure || true
           
           # 创建输出目录
           mkdir -p ../build/x86/Release
           
           # 复制可执行文件
+          echo "Copying executable..."
           cp sfd_tool.exe ../build/x86/Release/
           
           # 复制所有需要的 DLL
-          echo "Copying DLLs..."
-          cp /ucrt64/bin/*.dll ../build/x86/Release/ 2>/dev/null || true
+          echo "Copying DLLs from /clang32/bin..."
+          if [ -d "/clang32/bin" ]; then
+            cp /clang32/bin/*.dll ../build/x86/Release/ 2>/dev/null || true
+            echo "DLL count: $(ls /clang32/bin/*.dll 2>/dev/null | wc -l)"
+          fi
           
-          # 复制 GTK 运行时数据
-          cp -r /ucrt64/share ../build/x86/Release/ 2>/dev/null || true
+          # 复制 GTK 运行时数据（图标主题、schemas等）
+          echo "Copying GTK runtime data..."
+          if [ -d "/clang32/share" ]; then
+            cp -r /clang32/share ../build/x86/Release/ 2>/dev/null || true
+          fi
           
-          echo "Build completed"
+          echo "Build completed successfully"
+          
+          # 显示产物信息
+          echo "Output files:"
+          ls -la ../build/x86/Release/ | head -20
 
       - name: Copy SPRD Driver Files (x86)
-        if: matrix.build_system == 'msys2_ucrt'
+        if: matrix.build_system == 'clang32'
         run: |
           $destDir = "./build/x86/Release/"
+          Write-Host "Copying SPRD driver files..."
           if (Test-Path "third_party/Lib/Channel9.dll") {
             Copy-Item "third_party/Lib/Channel9.dll" -Destination $destDir -Force
             Write-Host "Copied Channel9.dll"
+          } else {
+            Write-Warning "Channel9.dll not found"
           }
           if (Test-Path "third_party/Lib/Channel.ini") {
             Copy-Item "third_party/Lib/Channel.ini" -Destination $destDir -Force
             Write-Host "Copied Channel.ini"
+          } else {
+            Write-Warning "Channel.ini not found"
           }
 
       # ==================== x64: 创建构建目录 ====================
@@ -161,6 +190,7 @@ jobs:
         if: matrix.build_system == 'vcpkg'
         shell: pwsh
         run: |
+          # 添加 MSYS2 的 msgfmt 用于生成 .mo 文件
           $env:Path = "C:\msys64\usr\bin;" + $env:Path
           
           cmake -S . -B build_cmake `
@@ -176,11 +206,13 @@ jobs:
         if: matrix.build_system == 'vcpkg'
         shell: pwsh
         run: |
+          # 添加 GTK3 DLL 到 PATH 用于测试
           $env:Path = "C:\msys64\mingw64\bin;C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin;" + $env:Path
           
           cmake --build build_cmake --config ${{ matrix.config }} -- /m
           ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
           
+          # 复制可执行文件
           Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.arch }}/${{ matrix.config }}/" -Force
 
       # ==================== x64: 复制 DLL ====================
@@ -220,6 +252,7 @@ jobs:
             New-Item -ItemType Directory -Force -Path $iconsDest | Out-Null
             Copy-Item -Path "$iconsSrc\hicolor" -Destination $iconsDest -Recurse -Force -ErrorAction SilentlyContinue
             Copy-Item -Path "$iconsSrc\Adwaita" -Destination $iconsDest -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Host "Copied icons"
           }
           
           # 复制 GSettings schemas
@@ -228,6 +261,7 @@ jobs:
             $schemasDest = "$destDir\share\glib-2.0\schemas"
             New-Item -ItemType Directory -Force -Path $schemasDest | Out-Null
             Copy-Item -Path "$schemasSrc\*" -Destination $schemasDest -Recurse -Force
+            Write-Host "Copied GSettings schemas"
           }
 
       # ==================== 清理 ====================
@@ -242,9 +276,10 @@ jobs:
             Get-ChildItem -Path $destDir -Filter "*$ext" -Exclude $keepFiles -ErrorAction SilentlyContinue | 
               Remove-Item -Force -ErrorAction SilentlyContinue
           }
+          Write-Host "Cleanup completed"
 
       - name: Cleanup Build Directory (x86)
-        if: matrix.build_system == 'msys2_ucrt'
+        if: matrix.build_system == 'clang32'
         run: |
           $destDir = "./build/x86/Release/"
           $unwantedExtensions = @(".a", ".la", ".def", ".sh", ".py", ".pl", ".lib", ".exp", ".o")
@@ -254,6 +289,7 @@ jobs:
             Get-ChildItem -Path $destDir -Filter "*$ext" -Exclude $keepFiles -ErrorAction SilentlyContinue | 
               Remove-Item -Force -ErrorAction SilentlyContinue
           }
+          Write-Host "Cleanup completed"
 
       # ==================== 上传产物 ====================
       - name: Upload Build Artifacts (x64)
@@ -264,7 +300,7 @@ jobs:
           path: ./build/${{ matrix.arch }}/${{ matrix.config }}/
 
       - name: Upload Build Artifacts (x86)
-        if: matrix.build_system == 'msys2_ucrt'
+        if: matrix.build_system == 'clang32'
         uses: actions/upload-artifact@v4
         with:
           name: sfd_tool_windows_SPRD_Release
@@ -317,7 +353,7 @@ jobs:
           name: sfd_tool_macos_dmg
           path: dist/*.dmg
 
-  # ==================== Linux 构建 ====================
+  # ==================== Linux DEB 构建 ====================
   build-linux-deb:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -347,6 +383,7 @@ jobs:
             /tmp/build-sfd-tool/*.deb
             /tmp/build-sfd-tool/*.rpm
 
+  # ==================== Linux RPM 构建 ====================
   build-linux-rpm:
     runs-on: ubuntu-latest
     container:
@@ -434,6 +471,7 @@ jobs:
             cp ../master/third_party/Lib/Channel.ini sfd_tool_windows_x86_sprd/ 2>/dev/null || true
           fi
           
+          # 复制文档
           cp ../master/*.md . 2>/dev/null || true
           
           # 复制 Linux 包
@@ -455,6 +493,7 @@ jobs:
             zip -r sfd_tool_windows_x64_libusb_${{ env.RELEASE_TAG }}.zip sfd_tool_windows_x64_libusb
           fi
           
+          # 创建完整包
           zip -r ../sfd_tool_all_${{ env.RELEASE_TAG }}.zip .
 
       - name: Create GitHub Release
