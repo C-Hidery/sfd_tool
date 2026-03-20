@@ -1,11 +1,13 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
-#include "flash_service.h"
+#include "core/flash_service.h"
 #include "ui_common.h"
 #include "app_state.h"
 #include "common.h"
 #include "usb_transport.h"
+
+using namespace sfd;
 
 extern int blk_size;
 extern AppState g_app_state;
@@ -27,8 +29,6 @@ TEST_CASE("ResetBlockSizeToDefault restores GUI and global block size") {
 }
 
 TEST_CASE("backupPartitions enumerates partitions and builds X/name.img paths") {
-    using namespace sfd;
-
     // 构造一个最小 io/app 环境
     static partition_t fake_table[3];
     std::memset(fake_table, 0, sizeof(fake_table));
@@ -39,7 +39,6 @@ TEST_CASE("backupPartitions enumerates partitions and builds X/name.img paths") 
     std::strncpy(fake_table[2].name, "missing", sizeof(fake_table[2].name) - 1);
     fake_table[2].size = 4096 * 1024;
 
-    // 使用测试桩中的全局 io 指针，并显式标记为未打开状态，避免真正访问设备
     io = nullptr;
     g_app_state.flash.isCMethod = 0;
 
