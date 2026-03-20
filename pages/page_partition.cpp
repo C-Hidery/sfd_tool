@@ -1549,6 +1549,66 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 	return result;
 }
 
+static void run_batch_partition_write(GtkWidgetHelper helper,
+                                      const std::vector<BatchPartitionWriteItem>& items,
+                                      bool force) {
+	if (items.empty()) {
+		return;
+	}
+
+	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+
+	LongTaskConfig cfg{
+		[parent, helper, items, force](std::atomic_bool& cancel_flag) {
+			auto* svc = ensure_flash_service();
+			const std::size_t total = items.size();
+
+			for (std::size_t idx = 0; idx < total; ++idx) {
+				if (cancel_flag.load()) {
+					break;
+				}
+
+				const auto& item = items[idx];
+
+				// 更新状态栏：当前进度
+				gui_idle_call([helper, idx, total, part_name = item.part.name]() mutable {
+					char buf[256];
+					std::snprintf(buf, sizeof(buf),
+					             "Flashing %s (%zu/%zu)...",
+					             part_name.c_str(), idx + 1, total);
+					helper.setLabelText(helper.getWidget("con"), buf);
+				});
+
+				sfd::PartitionIoOptions opts;
+				opts.partition_name = item.part.name;
+				opts.file_path = item.image_path;
+				opts.block_size = GetEffectiveManualBlockSize();
+				opts.force = force;
+
+				sfd::FlashStatus st = svc->writePartitionFromFile(opts);
+				if (!st.success) {
+					gui_idle_call_wait_drag([parent, st, part_name = item.part.name]() mutable {
+						std::string msg = "Failed to flash partition ";
+						msg += part_name;
+						msg += ": ";
+						msg += st.message;
+						showErrorDialog(parent, _("Error"), msg.c_str());
+					}, parent);
+					break;
+				}
+			}
+		},
+		[helper]() mutable {
+			helper.setLabelText(helper.getWidget("con"), "Starting restore from folder...");
+		},
+		[helper]() mutable {
+			helper.setLabelText(helper.getWidget("con"), "Ready");
+		}
+	};
+
+	run_long_task(cfg);
+}
+
 void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
 
@@ -1583,7 +1643,27 @@ void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
 		return;
 	}
 
-	// 后续任务中继续处理 dialog_items，执行批量刷入
+	// 仅保留选中的条目
+	std::vector<BatchPartitionWriteItem> final_items;
+	final_items.reserve(dialog_items.size());
+	for (const auto& it : dialog_items) {
+		if (it.selected) {
+			final_items.push_back(it);
+		}
+	}
+
+	if (final_items.empty()) {
+		showInfoDialog(parent, _("Info"), _("No partitions selected to flash."));
+		return;
+	}
+
+	// 总体确认
+	if (!showConfirmDialog(parent, _("Confirm"),
+	                       _("Start flashing selected partitions from the folder?"))) {
+		return;
+	}
+
+	run_batch_partition_write(helper, final_items, /*force=*/false);
 }
 
 void on_button_clicked_list_read(GtkWidgetHelper& helper) {
