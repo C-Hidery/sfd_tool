@@ -1409,6 +1409,146 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	return outerScroll;
 }
 
+static std::vector<BatchPartitionWriteItem>
+show_restore_from_folder_dialog(GtkWidgetHelper& helper,
+                                const std::vector<BatchPartitionWriteItem>& items) {
+	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+
+	GtkWidget* dialog = gtk_dialog_new_with_buttons(
+	    _("Restore From Folder"),
+	    parent,
+	    GTK_DIALOG_MODAL,
+	    _("Cancel"), GTK_RESPONSE_CANCEL,
+	    _("WRITE"), GTK_RESPONSE_OK,
+	    nullptr);
+
+	GtkWidget* content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+	GtkWidget* scrolled = gtk_scrolled_window_new(nullptr, nullptr);
+	gtk_widget_set_size_request(scrolled, 700, 320);
+	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+	gtk_container_add(GTK_CONTAINER(content), scrolled);
+
+	GtkListStore* store = gtk_list_store_new(6,
+	                                         G_TYPE_BOOLEAN,  // 0: selected
+	                                         G_TYPE_STRING,   // 1: part name
+	                                         G_TYPE_STRING,   // 2: image path
+	                                         G_TYPE_STRING,   // 3: part size
+	                                         G_TYPE_STRING,   // 4: file size
+	                                         G_TYPE_STRING);  // 5: critical mark
+
+	for (const auto& item : items) {
+		GtkTreeIter iter;
+		gtk_list_store_append(store, &iter);
+
+		std::string part_size_text;
+		if (item.part.size < 1024ULL) {
+			part_size_text = std::to_string(item.part.size) + " B";
+		} else if (item.part.size < 1024ULL * 1024) {
+			part_size_text = std::to_string(item.part.size / 1024ULL) + " KB";
+		} else if (item.part.size < 1024ULL * 1024 * 1024) {
+			part_size_text = std::to_string(item.part.size / (1024ULL * 1024)) + " MB";
+		} else {
+			part_size_text = std::to_string(item.part.size / (1024ULL * 1024 * 1024)) + " GB";
+		}
+
+		std::string file_size_text;
+		if (item.image_size < 1024ULL) {
+			file_size_text = std::to_string(item.image_size) + " B";
+		} else if (item.image_size < 1024ULL * 1024) {
+			file_size_text = std::to_string(item.image_size / 1024ULL) + " KB";
+		} else if (item.image_size < 1024ULL * 1024 * 1024) {
+			file_size_text = std::to_string(item.image_size / (1024ULL * 1024)) + " MB";
+		} else {
+			file_size_text = std::to_string(item.image_size / (1024ULL * 1024 * 1024)) + " GB";
+		}
+
+		const char* critical_mark = item.is_critical ? _("Critical") : "";
+
+		gtk_list_store_set(store, &iter,
+		                   0, item.selected,
+		                   1, item.part.name.c_str(),
+		                   2, item.image_path.c_str(),
+		                   3, part_size_text.c_str(),
+		                   4, file_size_text.c_str(),
+		                   5, critical_mark,
+		                   -1);
+	}
+
+	GtkWidget* tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+	gtk_container_add(GTK_CONTAINER(scrolled), tree);
+	g_object_unref(store);
+
+	// 列 0: checkbox
+	GtkCellRenderer* toggle_renderer = gtk_cell_renderer_toggle_new();
+	GtkTreeViewColumn* col_toggle = gtk_tree_view_column_new_with_attributes(
+	    "", toggle_renderer, "active", 0, nullptr);
+	gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_toggle);
+
+	g_signal_connect(toggle_renderer, "toggled", G_CALLBACK(+[] (GtkCellRendererToggle* cell, gchar* path_str, gpointer data) {
+		GtkTreeView* view = GTK_TREE_VIEW(data);
+		GtkTreeModel* model = gtk_tree_view_get_model(view);
+		GtkTreePath* path = gtk_tree_path_new_from_string(path_str);
+		GtkTreeIter iter;
+		if (gtk_tree_model_get_iter(model, &iter, path)) {
+			gboolean active = FALSE;
+			gtk_tree_model_get(model, &iter, 0, &active, -1);
+			gtk_list_store_set(GTK_LIST_STORE(model), &iter, 0, !active, -1);
+		}
+		gtk_tree_path_free(path);
+	}), tree);
+
+	// 其余列：分区名、镜像路径、分区大小、文件大小、关键标记
+	GtkCellRenderer* text_renderer = gtk_cell_renderer_text_new();
+	GtkTreeViewColumn* col_part = gtk_tree_view_column_new_with_attributes(_("Partition Name"), text_renderer, "text", 1, nullptr);
+	gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_part);
+
+	GtkTreeViewColumn* col_path = gtk_tree_view_column_new_with_attributes(_("Image file path:"), text_renderer, "text", 2, nullptr);
+	gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_path);
+
+	GtkTreeViewColumn* col_part_size = gtk_tree_view_column_new_with_attributes(_("Partition Size"), text_renderer, "text", 3, nullptr);
+	gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_part_size);
+
+	GtkTreeViewColumn* col_file_size = gtk_tree_view_column_new_with_attributes(_("File Size"), text_renderer, "text", 4, nullptr);
+	gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_file_size);
+
+	GtkTreeViewColumn* col_critical = gtk_tree_view_column_new_with_attributes(_("Critical"), text_renderer, "text", 5, nullptr);
+	gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_critical);
+
+	gtk_widget_show_all(dialog);
+
+	std::vector<BatchPartitionWriteItem> result;
+	if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+		GtkTreeModel* model = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
+		GtkTreeIter iter;
+		gboolean valid = gtk_tree_model_get_iter_first(model, &iter);
+		std::size_t index = 0;
+		while (valid && index < items.size()) {
+			gboolean active = FALSE;
+			gtk_tree_model_get(model, &iter, 0, &active, -1);
+
+			BatchPartitionWriteItem item = items[index];
+			item.selected = active;
+			result.push_back(std::move(item));
+
+			valid = gtk_tree_model_iter_next(model, &iter);
+			++index;
+		}
+
+		// 若全未选中则提示
+		bool any_selected = false;
+		for (const auto& it : result) {
+			if (it.selected) { any_selected = true; break; }
+		}
+		if (!any_selected) {
+			showInfoDialog(parent, _("Info"), _("No partitions selected to flash."));
+			result.clear();
+		}
+	}
+
+	gtk_widget_destroy(dialog);
+	return result;
+}
+
 void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
 
@@ -1437,7 +1577,13 @@ void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
 		return;
 	}
 
-	// 后续任务中继续处理 items，构建待刷入列表对话框并进行批量刷入
+	auto dialog_items = show_restore_from_folder_dialog(helper, items);
+	if (dialog_items.empty()) {
+		// 用户取消或未选择任何分区
+		return;
+	}
+
+	// 后续任务中继续处理 dialog_items，执行批量刷入
 }
 
 void on_button_clicked_list_read(GtkWidgetHelper& helper) {

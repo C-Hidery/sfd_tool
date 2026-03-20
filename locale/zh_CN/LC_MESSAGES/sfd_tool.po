@@ -885,6 +885,24 @@ msgstr "分区读取完成！保存到："
 msgid "No matching partition images found in the selected folder."
 msgstr "所选文件夹中没有找到与当前设备分区匹配的镜像文件。"
 
+msgid "Restore From Folder (TODO)"
+msgstr "从文件夹恢复分区（TODO）"
+
+msgid "Partition Size"
+msgstr "分区大小"
+
+msgid "File Size"
+msgstr "文件大小"
+
+msgid "Critical"
+msgstr "关键分区"
+
+msgid "No partitions selected to flash."
+msgstr "未选择任何需要刷入的分区。"
+
+msgid "You have selected critical partitions (e.g. boot, vbmeta). Flashing them may brick the device. Do you really want to continue?"
+msgstr "已选择关键分区（例如 boot、vbmeta 等），刷写这些分区可能会直接导致设备变砖，是否仍要继续？"
+
 msgid "partition backup cancelled"
 msgstr "分区备份已取消"
 
