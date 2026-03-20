@@ -85,33 +85,33 @@ jobs:
         if: matrix.build_system == 'mingw32'
         run: |
           $msysPath = "C:\msys64"
-          
-          # 配置清华源
+        
+          # 配置清华源 - 指向 mingw 仓库根目录
           $mirrorFile = "$msysPath\etc\pacman.d\mirrorlist.mingw32"
           $mirrorContent = @"
           ## 32-bit Mingw-w64 repository (Tsinghua University Mirror)
-          Server = https://mirrors.tuna.tsinghua.edu.cn/msys2/mingw/mingw32
+          Server = https://mirrors.tuna.tsinghua.edu.cn/msys2/mingw
           "@
-          
+        
           $mirrorContent | Out-File -FilePath $mirrorFile -Encoding utf8 -Force
-          
+        
           # 强制刷新包数据库
           Write-Host "Force refreshing package database..."
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -Syy --noconfirm"
-          
+        
           # 验证 GTK3 包是否存在
           Write-Host "Verifying GTK3 package availability..."
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -Ss mingw-w64-i686-gtk3 | head -3"
-          
+        
           # 安装 32-bit 工具链和 GTK3
           Write-Host "Installing MINGW32 toolchain and GTK3..."
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-i686-gcc mingw-w64-i686-cmake mingw-w64-i686-ninja mingw-w64-i686-gtk3 mingw-w64-i686-gettext mingw-w64-i686-pkg-config"
-          
+        
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Failed to install MINGW32 packages"
             exit $LASTEXITCODE
           }
-          
+        
           Write-Host "MINGW32 packages installed successfully"
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -Q | grep mingw-w64-i686-gtk3"
 
