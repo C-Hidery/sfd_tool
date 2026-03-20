@@ -221,7 +221,7 @@ if (USE_GTK)
         endforeach()
 
         # Link against GTK/glib import libraries from MSYS2
-        target_link_libraries(sfd_tool PRIVATE
+        set(_gtk_win_libs
             "${_gtk_root}/lib/libgtk-3.dll.a"
             "${_gtk_root}/lib/libgdk-3.dll.a"
             "${_gtk_root}/lib/libglib-2.0.dll.a"
@@ -231,6 +231,11 @@ if (USE_GTK)
             "${_gtk_root}/lib/libpango-1.0.dll.a"
             "${_gtk_root}/lib/libpangocairo-1.0.dll.a"
         )
+
+        target_link_libraries(sfd_tool PRIVATE ${_gtk_win_libs})
+        foreach(tgt IN LISTS SFD_TEST_TARGETS)
+            target_link_libraries(${tgt} PRIVATE ${_gtk_win_libs})
+        endforeach()
     else()
         if (NOT PKG_CONFIG_FOUND)
             message(FATAL_ERROR "PkgConfig is required when USE_GTK=ON")
@@ -285,9 +290,12 @@ if (USE_LIBUSB)
         endforeach()
 
         # 链接本地提供的 libusb-1.0.lib
-        target_link_libraries(sfd_tool PRIVATE
-            "${CMAKE_CURRENT_SOURCE_DIR}/third_party/Lib/libusb-1.0.lib"
-        )
+        set(_libusb_win_lib "${CMAKE_CURRENT_SOURCE_DIR}/third_party/Lib/libusb-1.0.lib")
+
+        target_link_libraries(sfd_tool PRIVATE ${_libusb_win_lib})
+        foreach(tgt IN LISTS SFD_TEST_TARGETS)
+            target_link_libraries(${tgt} PRIVATE ${_libusb_win_lib})
+        endforeach()
     else()
         if (NOT PKG_CONFIG_FOUND)
             message(FATAL_ERROR "PkgConfig is required when USE_LIBUSB=ON")
