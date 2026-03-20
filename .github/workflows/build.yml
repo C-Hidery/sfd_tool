@@ -81,34 +81,34 @@ jobs:
 
       # ==================== x86 专用步骤 ====================
       - name: Setup MSYS2 (x86)
-          if: matrix.build_system == 'msys2'
-          uses: msys2/setup-msys2@v2
-          with:
-            msystem: MINGW32
-            update: true
-            # 不在这里安装，而是在后续步骤中手动安装
-            install: 
+        if: matrix.build_system == 'msys2'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW32
+          update: true
+          # 不在这里安装，而是在后续步骤中手动安装
+          install: 
+    
+      - name: Install MSYS2 Packages (x86)
+        if: matrix.build_system == 'msys2'
+        shell: msys2 {0}
+        run: |
+          # 更新包数据库
+          pacman -Sy --noconfirm
         
-        - name: Install MSYS2 Packages (x86)
-          if: matrix.build_system == 'msys2'
-          shell: msys2 {0}
-          run: |
-            # 更新包数据库
-            pacman -Sy --noconfirm
-            
-            # 搜索 gtk3 包，看看正确的名字是什么
-            pacman -Ss gtk3 | grep mingw-w64-i686
-            
-            # 安装所有需要的包
-            pacman -S --noconfirm --needed \
-              mingw-w64-i686-gcc \
-              mingw-w64-i686-cmake \
-              mingw-w64-i686-ninja \
-              mingw-w64-i686-gtk3 \
-              mingw-w64-i686-gettext \
-              mingw-w64-i686-pkg-config \
-              make
+          # 搜索 gtk3 包，看看正确的名字是什么
+          pacman -Ss gtk3 | grep mingw-w64-i686
         
+          # 安装所有需要的包
+          pacman -S --noconfirm --needed \
+            mingw-w64-i686-gcc \
+            mingw-w64-i686-cmake \
+            mingw-w64-i686-ninja \
+            mingw-w64-i686-gtk3 \
+            mingw-w64-i686-gettext \
+            mingw-w64-i686-pkg-config \
+            make
+    
       - name: Build with MSYS2 MinGW (x86)
         if: matrix.build_system == 'msys2'
         shell: msys2 {0}
