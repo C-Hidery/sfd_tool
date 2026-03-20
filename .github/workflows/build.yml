@@ -87,7 +87,7 @@ jobs:
           msystem: MINGW32
           update: true
           # 不在这里安装，而是在后续步骤中手动安装
-          install: 
+          
     
       - name: Install MSYS2 Packages (x86)
         if: matrix.build_system == 'msys2'
