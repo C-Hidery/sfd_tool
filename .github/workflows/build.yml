@@ -17,7 +17,7 @@ env:
 jobs:
   build-windows:
     runs-on: windows-latest
-    timeout-minutes: 40
+    timeout-minutes: 50
     env:
       VCPKG_ROOT: C:\vcpkg
     strategy:
@@ -33,12 +33,12 @@ jobs:
             artifact_suffix: LibUSB
             vcpkg_packages: "gtk gettext libusb"
           
-          # x86 架构：MSYS2 CLANG32
+          # x86 架构：MSYS2 MINGW32 + 清华源
           - arch: x86
             config: Release
             platform: Win32
             use_libusb: OFF
-            build_system: clang32
+            build_system: mingw32
             artifact_suffix: SPRD
 
     steps:
@@ -61,7 +61,7 @@ jobs:
             C:\vcpkg\installed
             C:\vcpkg\packages
             C:\vcpkg\downloads
-          key: vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-v9
+          key: vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-v13
           restore-keys: |
             vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-
 
@@ -80,40 +80,57 @@ jobs:
             }
           }
 
-      # ==================== x86: MSYS2 CLANG32 环境 ====================
-      - name: Setup MSYS2 CLANG32
-        if: matrix.build_system == 'clang32'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: CLANG32
-          update: true
-          install: >-
-            mingw-w64-clang-i686-gcc
-            mingw-w64-clang-i686-cmake
-            mingw-w64-clang-i686-ninja
-            mingw-w64-clang-i686-gtk3
-            mingw-w64-clang-i686-gettext
-            mingw-w64-clang-i686-pkg-config
-            make
+      # ==================== x86: 配置 MINGW32 清华源 ====================
+      - name: Setup MINGW32 with Tsinghua Mirror
+        if: matrix.build_system == 'mingw32'
+        run: |
+          $msysPath = "C:\msys64"
+          
+          # 配置清华源
+          $mirrorFile = "$msysPath\etc\pacman.d\mirrorlist.mingw32"
+          $mirrorContent = @"
+          ## 32-bit Mingw-w64 repository (Tsinghua University Mirror)
+          Server = https://mirrors.tuna.tsinghua.edu.cn/msys2/mingw/mingw32
+          "@
+          
+          $mirrorContent | Out-File -FilePath $mirrorFile -Encoding utf8 -Force
+          
+          # 强制刷新包数据库
+          Write-Host "Force refreshing package database..."
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Syy --noconfirm"
+          
+          # 验证 GTK3 包是否存在
+          Write-Host "Verifying GTK3 package availability..."
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Ss mingw-w64-i686-gtk3 | head -3"
+          
+          # 安装 32-bit 工具链和 GTK3
+          Write-Host "Installing MINGW32 toolchain and GTK3..."
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-i686-gcc mingw-w64-i686-cmake mingw-w64-i686-ninja mingw-w64-i686-gtk3 mingw-w64-i686-gettext mingw-w64-i686-pkg-config"
+          
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to install MINGW32 packages"
+            exit $LASTEXITCODE
+          }
+          
+          Write-Host "MINGW32 packages installed successfully"
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Q | grep mingw-w64-i686-gtk3"
 
-      - name: Build with MSYS2 CLANG32
-        if: matrix.build_system == 'clang32'
+      - name: Build with MINGW32 (x86)
+        if: matrix.build_system == 'mingw32'
         shell: msys2 {0}
         env:
-          MSYSTEM: CLANG32
+          MSYSTEM: MINGW32
         run: |
-          echo "=== Building with CLANG32 (32-bit) ==="
+          echo "=== Building with MINGW32 (32-bit) ==="
           
-          # 创建构建目录
-          mkdir -p build_clang32
-          cd build_clang32
+          mkdir -p build_mingw32
+          cd build_mingw32
           
-          # 配置 CMake
           echo "Configuring CMake..."
           cmake .. \
             -G "Ninja" \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=/clang32 \
+            -DCMAKE_INSTALL_PREFIX=/mingw32 \
             -DUSE_GTK=ON \
             -DUSE_LIBUSB=OFF \
             -DSFD_ENABLE_TESTS=ON
@@ -123,7 +140,6 @@ jobs:
             exit 1
           fi
           
-          # 编译
           echo "Building..."
           ninja
           
@@ -132,65 +148,51 @@ jobs:
             exit 1
           fi
           
-          # 运行测试
           echo "Running tests..."
           ctest --output-on-failure || true
           
-          # 创建输出目录
           mkdir -p ../build/x86/Release
           
-          # 复制可执行文件
           echo "Copying executable..."
           cp sfd_tool.exe ../build/x86/Release/
           
-          # 复制所有需要的 DLL
-          echo "Copying DLLs from /clang32/bin..."
-          if [ -d "/clang32/bin" ]; then
-            cp /clang32/bin/*.dll ../build/x86/Release/ 2>/dev/null || true
-            echo "DLL count: $(ls /clang32/bin/*.dll 2>/dev/null | wc -l)"
+          echo "Copying DLLs from /mingw32/bin..."
+          if [ -d "/mingw32/bin" ]; then
+            cp /mingw32/bin/*.dll ../build/x86/Release/ 2>/dev/null || true
+            echo "DLL count: $(ls /mingw32/bin/*.dll 2>/dev/null | wc -l)"
           fi
           
-          # 复制 GTK 运行时数据（图标主题、schemas等）
           echo "Copying GTK runtime data..."
-          if [ -d "/clang32/share" ]; then
-            cp -r /clang32/share ../build/x86/Release/ 2>/dev/null || true
+          if [ -d "/mingw32/share" ]; then
+            cp -r /mingw32/share ../build/x86/Release/ 2>/dev/null || true
           fi
           
           echo "Build completed successfully"
-          
-          # 显示产物信息
-          echo "Output files:"
           ls -la ../build/x86/Release/ | head -20
 
       - name: Copy SPRD Driver Files (x86)
-        if: matrix.build_system == 'clang32'
+        if: matrix.build_system == 'mingw32'
         run: |
           $destDir = "./build/x86/Release/"
           Write-Host "Copying SPRD driver files..."
           if (Test-Path "third_party/Lib/Channel9.dll") {
             Copy-Item "third_party/Lib/Channel9.dll" -Destination $destDir -Force
             Write-Host "Copied Channel9.dll"
-          } else {
-            Write-Warning "Channel9.dll not found"
           }
           if (Test-Path "third_party/Lib/Channel.ini") {
             Copy-Item "third_party/Lib/Channel.ini" -Destination $destDir -Force
             Write-Host "Copied Channel.ini"
-          } else {
-            Write-Warning "Channel.ini not found"
           }
 
-      # ==================== x64: 创建构建目录 ====================
+      # ==================== x64: 构建步骤 ====================
       - name: Create Build Directory (x64)
         if: matrix.build_system == 'vcpkg'
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.arch }}/${{ matrix.config }}/ | Out-Null
 
-      # ==================== x64: CMake 配置 ====================
       - name: Configure CMake (x64)
         if: matrix.build_system == 'vcpkg'
         shell: pwsh
         run: |
-          # 添加 MSYS2 的 msgfmt 用于生成 .mo 文件
           $env:Path = "C:\msys64\usr\bin;" + $env:Path
           
           cmake -S . -B build_cmake `
@@ -201,41 +203,30 @@ jobs:
             -DUSE_LIBUSB=${{ matrix.use_libusb }} `
             -DSFD_ENABLE_TESTS=ON
 
-      # ==================== x64: 编译和测试 ====================
       - name: Build and Test (x64)
         if: matrix.build_system == 'vcpkg'
         shell: pwsh
         run: |
-          # 添加 GTK3 DLL 到 PATH 用于测试
           $env:Path = "C:\msys64\mingw64\bin;C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin;" + $env:Path
           
           cmake --build build_cmake --config ${{ matrix.config }} -- /m
           ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
           
-          # 复制可执行文件
           Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.arch }}/${{ matrix.config }}/" -Force
 
-      # ==================== x64: 复制 DLL ====================
       - name: Copy DLLs (x64)
         if: matrix.build_system == 'vcpkg'
         run: |
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
-          
-          # 从 vcpkg 复制 DLL
           $vcpkgBin = "C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin"
+          $gtkBin = "C:\msys64\mingw64\bin"
+          
           if (Test-Path $vcpkgBin) {
-            Get-ChildItem -Path $vcpkgBin -Filter "*.dll" | ForEach-Object {
-              Copy-Item $_.FullName -Destination $destDir -Force
-            }
+            Copy-Item "$vcpkgBin\*.dll" $destDir -Force
             Write-Host "Copied vcpkg DLLs"
           }
-          
-          # 从 MSYS2 复制 GTK3 DLL
-          $gtkBin = "C:\msys64\mingw64\bin"
           if (Test-Path $gtkBin) {
-            Get-ChildItem -Path $gtkBin -Filter "*.dll" | ForEach-Object {
-              Copy-Item $_.FullName -Destination $destDir -Force
-            }
+            Copy-Item "$gtkBin\*.dll" $destDir -Force
             Write-Host "Copied GTK3 DLLs"
           }
 
@@ -245,17 +236,14 @@ jobs:
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
           $msysPrefix = "C:\msys64\mingw64"
           
-          # 复制图标主题
           $iconsSrc = "$msysPrefix\share\icons"
           if (Test-Path $iconsSrc) {
             $iconsDest = "$destDir\share\icons"
             New-Item -ItemType Directory -Force -Path $iconsDest | Out-Null
             Copy-Item -Path "$iconsSrc\hicolor" -Destination $iconsDest -Recurse -Force -ErrorAction SilentlyContinue
-            Copy-Item -Path "$iconsSrc\Adwaita" -Destination $iconsDest -Recurse -Force -ErrorAction SilentlyContinue
             Write-Host "Copied icons"
           }
           
-          # 复制 GSettings schemas
           $schemasSrc = "$msysPrefix\share\glib-2.0\schemas"
           if (Test-Path $schemasSrc) {
             $schemasDest = "$destDir\share\glib-2.0\schemas"
@@ -264,34 +252,22 @@ jobs:
             Write-Host "Copied GSettings schemas"
           }
 
-      # ==================== 清理 ====================
       - name: Cleanup Build Directory (x64)
         if: matrix.build_system == 'vcpkg'
         run: |
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
-          $unwantedExtensions = @(".a", ".la", ".def", ".sh", ".py", ".pl", ".lib", ".exp")
-          $keepFiles = @("sfd_tool.exe", "sfd_tool.pdb")
-          
-          foreach ($ext in $unwantedExtensions) {
-            Get-ChildItem -Path $destDir -Filter "*$ext" -Exclude $keepFiles -ErrorAction SilentlyContinue | 
-              Remove-Item -Force -ErrorAction SilentlyContinue
-          }
-          Write-Host "Cleanup completed"
+          Get-ChildItem -Path $destDir -Filter "*.a" | Remove-Item -Force -ErrorAction SilentlyContinue
+          Get-ChildItem -Path $destDir -Filter "*.la" | Remove-Item -Force -ErrorAction SilentlyContinue
+          Get-ChildItem -Path $destDir -Filter "*.exp" | Remove-Item -Force -ErrorAction SilentlyContinue
 
       - name: Cleanup Build Directory (x86)
-        if: matrix.build_system == 'clang32'
+        if: matrix.build_system == 'mingw32'
         run: |
           $destDir = "./build/x86/Release/"
-          $unwantedExtensions = @(".a", ".la", ".def", ".sh", ".py", ".pl", ".lib", ".exp", ".o")
-          $keepFiles = @("sfd_tool.exe")
-          
-          foreach ($ext in $unwantedExtensions) {
-            Get-ChildItem -Path $destDir -Filter "*$ext" -Exclude $keepFiles -ErrorAction SilentlyContinue | 
-              Remove-Item -Force -ErrorAction SilentlyContinue
-          }
-          Write-Host "Cleanup completed"
+          Get-ChildItem -Path $destDir -Filter "*.a" | Remove-Item -Force -ErrorAction SilentlyContinue
+          Get-ChildItem -Path $destDir -Filter "*.la" | Remove-Item -Force -ErrorAction SilentlyContinue
+          Get-ChildItem -Path $destDir -Filter "*.exp" | Remove-Item -Force -ErrorAction SilentlyContinue
 
-      # ==================== 上传产物 ====================
       - name: Upload Build Artifacts (x64)
         if: matrix.build_system == 'vcpkg'
         uses: actions/upload-artifact@v4
@@ -300,7 +276,7 @@ jobs:
           path: ./build/${{ matrix.arch }}/${{ matrix.config }}/
 
       - name: Upload Build Artifacts (x86)
-        if: matrix.build_system == 'clang32'
+        if: matrix.build_system == 'mingw32'
         uses: actions/upload-artifact@v4
         with:
           name: sfd_tool_windows_SPRD_Release
@@ -520,13 +496,8 @@ jobs:
             ### 使用说明:
             1. **Windows x86 (SPRD 版)**: 直接运行，使用系统自带的 SPRD 驱动
             2. **Windows x64 (libusb 版)**: 需要安装 libusb 驱动（可使用 Zadig 工具）
-            
-            ### 文件列表:
-            - sfd_tool_windows_x86_sprd_${{ env.RELEASE_TAG }}.zip
-            - sfd_tool_windows_x64_libusb_${{ env.RELEASE_TAG }}.zip
-            - sfd_tool_macos_${{ env.RELEASE_TAG }}.dmg
-            - *.deb / *.rpm - Linux 安装包
-            - sfd_tool_all_${{ env.RELEASE_TAG }}.zip
+            3. **macOS**: 需要安装 GTK3 运行时（`brew install gtk+3`）
+            4. **Linux**: 安装对应的 .deb 或 .rpm 包即可
           files: |
             sfd_tool_all_${{ env.RELEASE_TAG }}.zip
             output/sfd_tool_windows_x86_sprd_${{ env.RELEASE_TAG }}.zip
