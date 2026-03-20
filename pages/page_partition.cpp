@@ -1089,11 +1089,12 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_container_add(GTK_CONTAINER(opFrame), opContainerBox);
 
 	// ── 按钮行 1：五个主操作按钮 ──
-	GtkWidget* writeBtn    = helper.createButton(_("WRITE"),       "list_write",       nullptr, 0, 0, -1, 32);
-	GtkWidget* writeFBtn   = helper.createButton(_("FORCE WRITE"), "list_force_write", nullptr, 0, 0, -1, 32);
-	GtkWidget* readBtn     = helper.createButton(_("EXTRACT"),     "list_read",        nullptr, 0, 0, -1, 32);
-	GtkWidget* eraseBtn    = helper.createButton(_("ERASE"),       "list_erase",       nullptr, 0, 0, -1, 32);
-	GtkWidget* backupAllBtn = helper.createButton(_("Backup All"), "backup_all",       nullptr, 0, 0, -1, 32);
+	GtkWidget* writeBtn    = helper.createButton(_("WRITE"),       "list_write",            nullptr, 0, 0, -1, 32);
+	GtkWidget* writeFBtn   = helper.createButton(_("FORCE WRITE"), "list_force_write",      nullptr, 0, 0, -1, 32);
+	GtkWidget* readBtn     = helper.createButton(_("EXTRACT"),     "list_read",             nullptr, 0, 0, -1, 32);
+	GtkWidget* eraseBtn    = helper.createButton(_("ERASE"),       "list_erase",            nullptr, 0, 0, -1, 32);
+	GtkWidget* backupAllBtn = helper.createButton(_("Backup All"), "backup_all",            nullptr, 0, 0, -1, 32);
+	GtkWidget* restoreFolderBtn = helper.createButton(_("Restore From Folder"), "restore_from_folder", nullptr, 0, 0, -1, 32);
 
 	GtkWidget* btnRow1 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
 	gtk_widget_set_halign(btnRow1, GTK_ALIGN_FILL);
@@ -1102,6 +1103,7 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_box_pack_start(GTK_BOX(btnRow1), readBtn,      TRUE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(btnRow1), eraseBtn,     TRUE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(btnRow1), backupAllBtn, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(btnRow1), restoreFolderBtn, TRUE, TRUE, 0);
 	gtk_widget_set_margin_bottom(btnRow1, 8);
 	gtk_box_pack_start(GTK_BOX(opContainerBox), btnRow1, FALSE, FALSE, 0);
 
@@ -1289,6 +1291,11 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	return outerScroll;
 }
 
+void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
+	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+	showInfoDialog(parent, _(_(("Tips"))), _("Restore from folder (TODO)"));
+}
+
 void on_button_clicked_list_read(GtkWidgetHelper& helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
 	std::string part_name = getSelectedPartitionName(helper);
@@ -1465,5 +1472,8 @@ void bind_partition_signals(GtkWidgetHelper& helper) {
 	});
 	helper.bindClick(helper.getWidget("export_part_xml"),[&](){
 		on_button_clicked_export_part_xml(helper);
+	});
+	helper.bindClick(helper.getWidget("restore_from_folder"),[&](){
+		on_button_clicked_restore_from_folder(helper);
 	});
 }
