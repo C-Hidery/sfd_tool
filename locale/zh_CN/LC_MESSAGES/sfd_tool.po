@@ -461,6 +461,9 @@ msgstr "擦除分区"
 msgid "Backup All"
 msgstr "备份全部分区"
 
+msgid "Restore From Folder"
+msgstr "从文件夹恢复分区"
+
 #: main.cpp:2742 main.cpp:2868
 msgid "Cancel"
 msgstr "取消"
