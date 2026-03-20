@@ -26,26 +26,26 @@ jobs:
           # x64 架构：libusb 驱动版
           - arch: x64
             config: Release
-            platform: x64
+            msys_gtk_arch: mingw64
+            cmake_platform: x64
             use_libusb: ON
             vcpkg_triplet: x64-windows
-            artifact_suffix: LibUSB
-            vcpkg_packages: "gtk gettext libusb"
+            artifact_name: LibUSB
           
-          # x64 架构：SPRD 原生驱动版（使用 setupapi）
+          # x64 架构：SPRD 原生驱动版
           - arch: x64
             config: Release
-            platform: x64
+            msys_gtk_arch: mingw64
+            cmake_platform: x64
             use_libusb: OFF
             vcpkg_triplet: x64-windows
-            artifact_suffix: SPRD
-            vcpkg_packages: "gtk gettext"
+            artifact_name: SPRD
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup MSVC
+      - name: Setup MSVS
         uses: TheMrMilchmann/setup-msvc-dev@v3
         with:
           arch: ${{ matrix.arch }}
@@ -61,99 +61,100 @@ jobs:
           restore-keys: |
             vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-
 
-      - name: Install dependencies via vcpkg
+      - name: Install gettext (libintl) via vcpkg
         shell: pwsh
         run: |
           $vcpkgExe = "C:\vcpkg\vcpkg.exe"
-          $packages = "${{ matrix.vcpkg_packages }}".Split(' ')
-          foreach ($pkg in $packages) {
-            Write-Host "Installing $pkg:${{ matrix.vcpkg_triplet }}..."
-            & $vcpkgExe install "$pkg`:${{ matrix.vcpkg_triplet }}" --recurse
-            if ($LASTEXITCODE -ne 0) {
-              Write-Error "Failed to install $pkg"
-              exit $LASTEXITCODE
-            }
+          if (-not (Test-Path $vcpkgExe)) {
+            Write-Error "vcpkg.exe not found at $vcpkgExe"
+            exit 1
+          }
+          Write-Host "Using vcpkg: $vcpkgExe"
+          & $vcpkgExe install "gettext:${{ matrix.vcpkg_triplet }}"
+          
+          # 如果是 libusb 版，额外安装 libusb
+          if ("${{ matrix.use_libusb }}" -eq "ON") {
+            Write-Host "Installing libusb for libusb version..."
+            & $vcpkgExe install "libusb:${{ matrix.vcpkg_triplet }}"
+          }
+
+      - name: Install MSYS2 and GTK3
+        run: |
+          $msysPath = "C:\msys64"
+
+          Write-Host "安装 GTK3 开发包..."
+
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "pacman -Sy 失败"
+            exit $LASTEXITCODE
+          }
+
+          Write-Host "安装 x64 GTK3 完整开发包..."
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "GTK3/MSYS2 依赖安装失败"
+            exit $LASTEXITCODE
+          }
+
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed gettext"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "安装 gettext 失败"
+            exit $LASTEXITCODE
           }
 
       - name: Create Build Directory
-        run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.artifact_suffix }}/${{ matrix.config }}/ | Out-Null
+        run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.artifact_name }}/${{ matrix.config }}/ | Out-Null
 
-      - name: Configure CMake
+      - name: Configure (CMake)
         shell: pwsh
         run: |
           $env:Path = "C:\msys64\usr\bin;" + $env:Path
-          
+
           cmake -S . -B build_cmake `
             -G "Visual Studio 17 2022" `
-            -A ${{ matrix.platform }} `
+            -A ${{ matrix.cmake_platform }} `
             -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON `
             -DUSE_GTK=ON `
             -DUSE_LIBUSB=${{ matrix.use_libusb }} `
             -DSFD_ENABLE_TESTS=ON
 
-      - name: Build and Test
+      - name: Build sfd_tool (${{ matrix.artifact_name }} - ${{ matrix.config }})
         shell: pwsh
         run: |
-          $env:Path = "C:\msys64\mingw64\bin;C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin;" + $env:Path
-          
+          $env:Path = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin;C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin;" + $env:Path
+
           cmake --build build_cmake --config ${{ matrix.config }} -- /m
           ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
-          
-          Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.artifact_suffix }}/${{ matrix.config }}/" -Force
 
-      - name: Copy DLLs
+          Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
+
+      - name: Copy DLLs from GTK3 bin directory
         run: |
-          $destDir = "./build/${{ matrix.artifact_suffix }}/${{ matrix.config }}/"
-          
-          # 从 vcpkg 复制 DLL
+          $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
+          $gtkBinPath = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin"
+
+          Write-Host "复制所有 DLL 从: $gtkBinPath"
+          if (Test-Path $gtkBinPath) {
+            Get-ChildItem -Path $gtkBinPath -Filter "*.dll" | ForEach-Object {
+              Copy-Item $_.FullName -Destination $destDir -Force
+            }
+            Write-Host "已复制 GTK3 DLLs"
+          }
+
+      - name: Copy gettext runtime DLLs from vcpkg
+        shell: pwsh
+        run: |
+          $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           $vcpkgBin = "C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin"
+          
           if (Test-Path $vcpkgBin) {
-            Copy-Item "$vcpkgBin\*.dll" $destDir -Force
-            Write-Host "Copied vcpkg DLLs"
-          }
-          
-          # 从 MSYS2 复制 GTK3 DLL
-          $gtkBin = "C:\msys64\mingw64\bin"
-          if (Test-Path $gtkBin) {
-            Copy-Item "$gtkBin\*.dll" $destDir -Force
-            Write-Host "Copied GTK3 DLLs"
-          }
-
-      - name: Copy GTK Runtime Data Files
-        run: |
-          $destDir = "./build/${{ matrix.artifact_suffix }}/${{ matrix.config }}/"
-          $msysPrefix = "C:\msys64\mingw64"
-          
-          # 复制图标主题
-          $iconsSrc = "$msysPrefix\share\icons"
-          if (Test-Path $iconsSrc) {
-            $iconsDest = "$destDir\share\icons"
-            New-Item -ItemType Directory -Force -Path $iconsDest | Out-Null
-            Copy-Item -Path "$iconsSrc\hicolor" -Destination $iconsDest -Recurse -Force -ErrorAction SilentlyContinue
-            Write-Host "Copied icons"
-          }
-          
-          # 复制 GSettings schemas
-          $schemasSrc = "$msysPrefix\share\glib-2.0\schemas"
-          if (Test-Path $schemasSrc) {
-            $schemasDest = "$destDir\share\glib-2.0\schemas"
-            New-Item -ItemType Directory -Force -Path $schemasDest | Out-Null
-            Copy-Item -Path "$schemasSrc\*" -Destination $schemasDest -Recurse -Force
-            Write-Host "Copied GSettings schemas"
-          }
-
-      - name: Copy SPRD Driver Files (SPRD version only)
-        if: matrix.use_libusb == 'OFF'
-        run: |
-          $destDir = "./build/SPRD/Release/"
-          Write-Host "Copying SPRD driver files..."
-          if (Test-Path "third_party/Lib/Channel9.dll") {
-            Copy-Item "third_party/Lib/Channel9.dll" -Destination $destDir -Force
-            Write-Host "Copied Channel9.dll"
-          }
-          if (Test-Path "third_party/Lib/Channel.ini") {
-            Copy-Item "third_party/Lib/Channel.ini" -Destination $destDir -Force
-            Write-Host "Copied Channel.ini"
+            Get-ChildItem $vcpkgBin -Filter "*.dll" | ForEach-Object {
+              Copy-Item $_.FullName -Destination $destDir -Force
+            }
+            Write-Host "已复制 vcpkg DLLs"
           }
 
       - name: Copy libusb DLL (libusb version only)
@@ -166,20 +167,68 @@ jobs:
             Write-Host "Copied libusb-1.0.dll"
           }
 
+      - name: Copy SPRD Driver Files (SPRD version only)
+        if: matrix.use_libusb == 'OFF'
+        run: |
+          $destDir = "./build/SPRD/Release/"
+          if (Test-Path "third_party/Lib/Channel9.dll") {
+            Copy-Item "third_party/Lib/Channel9.dll" -Destination $destDir -Force
+            Write-Host "Copied Channel9.dll"
+          }
+          if (Test-Path "third_party/Lib/Channel.ini") {
+            Copy-Item "third_party/Lib/Channel.ini" -Destination $destDir -Force
+            Write-Host "Copied Channel.ini"
+          }
+
+      - name: Copy GTK Runtime Data Files
+        run: |
+          $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
+          $msysPrefix = "C:\msys64\${{ matrix.msys_gtk_arch }}"
+
+          # 复制图标主题
+          $iconsSrc = "$msysPrefix\share\icons"
+          if (Test-Path $iconsSrc) {
+            $iconsDest = "$destDir\share\icons"
+            New-Item -ItemType Directory -Force -Path $iconsDest | Out-Null
+            Copy-Item -Path "$iconsSrc\hicolor" -Destination $iconsDest -Recurse -Force -ErrorAction SilentlyContinue
+            Copy-Item -Path "$iconsSrc\Adwaita" -Destination $iconsDest -Recurse -Force -ErrorAction SilentlyContinue
+          }
+          
+          # 复制 GSettings schemas
+          $schemasSrc = "$msysPrefix\share\glib-2.0\schemas"
+          if (Test-Path $schemasSrc) {
+            $schemasDest = "$destDir\share\glib-2.0\schemas"
+            New-Item -ItemType Directory -Force -Path $schemasDest | Out-Null
+            Copy-Item -Path "$schemasSrc\*" -Destination $schemasDest -Recurse -Force
+          }
+
+      - name: Copy locale (.mo) files
+        run: |
+          $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/locale/zh_CN/LC_MESSAGES"
+          New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+          $srcMo = "build_cmake/locale/zh_CN/LC_MESSAGES/sfd_tool.mo"
+          if (Test-Path $srcMo) {
+            Copy-Item $srcMo -Destination $destDir -Force
+          }
+
       - name: Cleanup Build Directory
         run: |
-          $destDir = "./build/${{ matrix.artifact_suffix }}/${{ matrix.config }}/"
-          Get-ChildItem -Path $destDir -Filter "*.a" | Remove-Item -Force -ErrorAction SilentlyContinue
-          Get-ChildItem -Path $destDir -Filter "*.la" | Remove-Item -Force -ErrorAction SilentlyContinue
-          Get-ChildItem -Path $destDir -Filter "*.exp" | Remove-Item -Force -ErrorAction SilentlyContinue
+          $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
+          $unwantedExtensions = @(".a", ".la", ".def", ".sh", ".py", ".pl", ".exp")
+          $keepFiles = @("sfd_tool.exe", "sfd_tool.pdb")
+          
+          foreach ($ext in $unwantedExtensions) {
+            Get-ChildItem -Path $destDir -Filter "*$ext" -Exclude $keepFiles -ErrorAction SilentlyContinue | 
+              Remove-Item -Force -ErrorAction SilentlyContinue
+          }
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: sfd_tool_windows_${{ matrix.artifact_suffix }}_${{ matrix.config }}
-          path: ./build/${{ matrix.artifact_suffix }}/${{ matrix.config }}/
+          name: sfd_tool_${{ matrix.artifact_name }}_${{ matrix.config }}
+          path: ./build/${{ matrix.artifact_name }}/${{ matrix.config }}/
 
-  # ==================== macOS 构建 ====================
+  # ==================== macOS 构建（保持不变）====================
   build-macos:
     runs-on: macos-latest
     timeout-minutes: 30
@@ -198,10 +247,10 @@ jobs:
             fi
           done
 
-      - name: Configure CMake
+      - name: Configure (CMake)
         run: |
-          mkdir -p build
-          cmake -S . -B build \
+          mkdir -p build_cmake
+          cmake -S . -B build_cmake \
             -G "Ninja" \
             -DCMAKE_BUILD_TYPE=Release \
             -DUSE_GTK=ON \
@@ -211,8 +260,8 @@ jobs:
 
       - name: Build and Test
         run: |
-          cmake --build build --config Release -- -j$(sysctl -n hw.logicalcpu)
-          ctest --test-dir build -C Release --output-on-failure
+          cmake --build build_cmake --config Release -- -j$(sysctl -n hw.logicalcpu)
+          ctest --test-dir build_cmake -C Release --output-on-failure
 
       - name: Build self-contained macOS app & DMG
         run: |
@@ -226,7 +275,7 @@ jobs:
           name: sfd_tool_macos_dmg
           path: dist/*.dmg
 
-  # ==================== Linux DEB 构建 ====================
+  # ==================== Linux DEB 构建（保持不变）====================
   build-linux-deb:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -256,7 +305,7 @@ jobs:
             /tmp/build-sfd-tool/*.deb
             /tmp/build-sfd-tool/*.rpm
 
-  # ==================== Linux RPM 构建 ====================
+  # ==================== Linux RPM 构建（保持不变）====================
   build-linux-rpm:
     runs-on: ubuntu-latest
     container:
@@ -287,19 +336,14 @@ jobs:
 
   # ==================== Release Job ====================
   release:
-    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     needs: [build-windows, build-macos, build-linux-deb, build-linux-rpm]
     steps:
       - name: Set Release Tag
-        run: |
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-          else
-            echo "RELEASE_TAG=sfd_tool_master_$(TZ='Asia/Shanghai' date +'%Y%m%d_%H%M')" >> $GITHUB_ENV
-          fi
+        run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -310,7 +354,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: output
-          pattern: sfd_tool_windows_*_Release
+          pattern: sfd_tool_*_Release
           merge-multiple: false
 
       - name: Download macOS DMG Artifact
@@ -332,13 +376,13 @@ jobs:
           cd output
           
           # 重命名 Windows 目录
-          if [ -d "sfd_tool_windows_LibUSB_Release" ]; then
-            mv sfd_tool_windows_LibUSB_Release sfd_tool_windows_x64_libusb
+          if [ -d "sfd_tool_LibUSB_Release" ]; then
+            mv sfd_tool_LibUSB_Release sfd_tool_windows_x64_libusb
             cp ../master/docs/VERSION_LOG.md sfd_tool_windows_x64_libusb/ 2>/dev/null || true
           fi
           
-          if [ -d "sfd_tool_windows_SPRD_Release" ]; then
-            mv sfd_tool_windows_SPRD_Release sfd_tool_windows_x64_sprd
+          if [ -d "sfd_tool_SPRD_Release" ]; then
+            mv sfd_tool_SPRD_Release sfd_tool_windows_x64_sprd
             cp ../master/docs/VERSION_LOG.md sfd_tool_windows_x64_sprd/ 2>/dev/null || true
             cp ../master/third_party/Lib/Channel9.dll sfd_tool_windows_x64_sprd/ 2>/dev/null || true
             cp ../master/third_party/Lib/Channel.ini sfd_tool_windows_x64_sprd/ 2>/dev/null || true
@@ -391,10 +435,8 @@ jobs:
             - **Linux RPM 包**: Fedora/RPM-Based 系统安装包
             
             ### 使用说明:
-            1. **Windows x64 (SPRD 版)**: 直接运行，使用系统自带的 SPRD 驱动，无需额外配置
-            2. **Windows x64 (libusb 版)**: 需要安装 libusb 驱动（可使用 Zadig 工具为设备安装 WinUSB 或 libusb 驱动）
-            3. **macOS**: 需要安装 GTK3 运行时（`brew install gtk+3`）
-            4. **Linux**: 安装对应的 .deb 或 .rpm 包即可
+            1. **Windows x64 (SPRD 版)**: 直接运行，使用系统自带的 SPRD 驱动
+            2. **Windows x64 (libusb 版)**: 需要安装 libusb 驱动（可使用 Zadig 工具）
           files: |
             sfd_tool_all_${{ env.RELEASE_TAG }}.zip
             output/sfd_tool_windows_x64_sprd_${{ env.RELEASE_TAG }}.zip
