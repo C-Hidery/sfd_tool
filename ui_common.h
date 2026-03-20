@@ -2,6 +2,22 @@
 #include "GtkWidgetHelper.hpp"
 #include <functional>
 #include <atomic>
+#include "core/flash_service.h"  // 引入 sfd::BlockSizeMode/BlockSizeConfig
+
+using BlockSizeMode = sfd::BlockSizeMode;
+using BlockSizeConfig = sfd::BlockSizeConfig;
+
+// GUI 侧块大小 / IO 模式设置
+struct GuiIoSettings {
+    BlockSizeMode mode;
+    uint32_t      manual_block_size;
+};
+
+GuiIoSettings& GetGuiIoSettings();
+uint32_t GetEffectiveManualBlockSize();
+void LogBlkState(const char* where);
+BlockSizeConfig MakeBlockSizeConfigFromGui();
+void ResetBlockSizeToDefault();
 
 // 初始化允许控件
 void Enable_Startup(GtkWidgetHelper helper);
@@ -31,8 +47,6 @@ void append_log_to_ui(int type, const char* message);
 
 // 长任务执行封装：统一线程创建、取消标志与开始/结束回调
 struct LongTaskConfig {
-    GtkWidgetHelper& helper;
-
     // 后台执行的任务体，在工作线程中运行
     std::function<void(std::atomic_bool& cancel_flag)> worker;
 

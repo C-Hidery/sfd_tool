@@ -1,4 +1,5 @@
 #include "common.h"
+#include <functional>
 int isCancel = 0;
 bool isHelperInit = false;
 GtkWidgetHelper helper;
@@ -20,8 +21,13 @@ extern AppState g_app_state;
 char fn_partlist[40] = { 0 };
 char savepath[ARGV_LEN] = { 0 };
 
+#if defined(__APPLE__)
+bool g_is_macos_bundle = false;
+#endif
+
 DA_INFO_T Da_Info;
 partition_t gPartInfo;
+bool isUseCptable = false;
 
 
 
@@ -333,20 +339,26 @@ unsigned long long GetTickCount64() {
 
 #define PROGRESS_BAR_WIDTH 40
 
+struct UiProgressData {
+    double   percent;
+    uint64_t done;
+    double   speed_mb_s;
+};
+
 void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned long long time0) {
     static int completed0 = 0;
     static uint64_t done0 = 0;
-    
+
     unsigned long long time = GetTickCount64();
-    if (completed0 == PROGRESS_BAR_WIDTH) { 
-        completed0 = 0; 
-        done0 = 0; 
+    if (completed0 == PROGRESS_BAR_WIDTH) {
+        completed0 = 0;
+        done0 = 0;
     }
-    
+
     int completed = (int)(PROGRESS_BAR_WIDTH * done / (double)total);
     if (completed != completed0 && isCancel == 0) {
         int remaining = PROGRESS_BAR_WIDTH - completed;
-        DBG_LOG("[");
+        DBG_LOG("[" );
         for (int i = 0; i < completed; i++) {
             DBG_LOG("=");
         }
@@ -357,18 +369,20 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
         if(io->nor_bar) DBG_LOG("\n");
         completed0 = completed;
         done0 = done;
-        
+
         // 更新UI进度条和百分比标签
         if (isHelperInit) {
             // 计算进度百分比
             double progress_percent = done / (double)total;
-            
+            double speed_mb_s = (time > time0) ? (double)1000 * done / (double)(time - time0) / 1024.0 / 1024.0 : 0.0;
+
             // 在主线程中更新UI
             g_idle_add([](gpointer data) -> gboolean {
-                auto* progress_data = static_cast<std::pair<double, uint64_t>*>(data);
-                double percent = progress_data->first;
-                uint64_t done_value = progress_data->second;
-                
+                auto* progress_data = static_cast<UiProgressData*>(data);
+                double   percent     = progress_data->percent;
+                uint64_t done_value  = progress_data->done;
+                double   speed_mb_s  = progress_data->speed_mb_s;
+
                 if (isHelperInit) {
                     // 更新进度条
                     GtkWidget* progressBar = helper.getWidget("progressBar_1");
@@ -382,7 +396,7 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
                         gtk_progress_bar_set_show_text(GTK_PROGRESS_BAR(progressBar), TRUE);
 						*/
                     }
-                    
+
                     // 更新百分比标签
                     GtkWidget* percentLabel = helper.getWidget("percent");
                     if (percentLabel && GTK_IS_LABEL(percentLabel)) {
@@ -390,11 +404,23 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
                         snprintf(percent_text, sizeof(percent_text), "%.1f%%", percent * 100);
                         gtk_label_set_text(GTK_LABEL(percentLabel), percent_text);
                     }
+
+                    // 更新底部连接状态文本，展示当前进度与速度
+                    GtkWidget* conStatus = helper.getWidget("con");
+                    if (conStatus && GTK_IS_LABEL(conStatus)) {
+                        char status_text[160];
+                        double mb_done = done_value / (1024.0 * 1024.0);
+                        snprintf(status_text, sizeof(status_text),
+                                 "Reading partition | read: %.1f MB | speed: %.2f MB/s",
+                                 mb_done,
+                                 speed_mb_s);
+                        gtk_label_set_text(GTK_LABEL(conStatus), status_text);
+                    }
                 }
-                
+
                 delete progress_data;
                 return G_SOURCE_REMOVE;
-            }, new std::pair<double, uint64_t>(progress_percent, done));
+            }, new UiProgressData{progress_percent, done, speed_mb_s});
         }
     }
 }
@@ -406,6 +432,12 @@ uint64_t dump_partition(spdio_t *io,
 	uint32_t n, nread, t32; uint64_t offset, n64, saved_size = 0;
 	int ret, mode64 = (start + len) >> 32;
 	char name_tmp[36];
+	DEG_LOG(OP, "dump_partition: name=%s start=0x%llx len=0x%llx step=%u fblk_size=%llu",
+	        name,
+	        (unsigned long long)start,
+	        (unsigned long long)len,
+	        step,
+	        (unsigned long long)fblk_size);
 	double rtime = get_time();
 	DEG_LOG(OP,"Start to read partition %s",name);
 	DEG_LOG(I,"Type CTRL + C to cancel...");
@@ -467,12 +499,19 @@ uint64_t dump_partition(spdio_t *io,
 	}
 	double etime = get_time();
 	double time_spent = etime - rtime;
-	
+
+	double mb = len / (1024.0 * 1024.0);
+	double speed = time_spent > 0 ? (mb / time_spent) : 0.0;
+	DEG_LOG(I, "dump_partition done: name=%s len=%.1fMB time=%.3fs speed=%.2fMB/s",
+	        name,
+	        mb,
+	        time_spent,
+	        speed);
 	DEG_LOG(I,"Read partition %s(+0x%llx) successfully, target: 0x%llx, read: 0x%llx",
 		name, (long long)start, (long long)len,
 		(long long)(offset - start));
 	DEG_LOG(I, "Cost time %.6f seconds", time_spent);
-	fclose(fo);	
+	fclose(fo);
 
 	encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
 	send_and_check(io);
@@ -1103,6 +1142,7 @@ partition_t* partition_list_d(spdio_t* io) {
 	DEG_LOG(I,"Total number of partitions: %d", n);
 	delete[] io->ptable;
 	io->ptable = nullptr;
+	io->part_count = 0;
 	io->part_count_c = n;
 	return ptable;
 }

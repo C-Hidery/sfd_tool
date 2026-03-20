@@ -55,13 +55,31 @@ if (SFD_ENABLE_TESTS)
     add_subdirectory(tests)
 endif()
 
+# ================= 公共 UI / CLI 静态库（主程序和测试共用） =================
+add_library(sfd_ui STATIC
+    common.cpp
+    GtkWidgetHelper.cpp
+    ui_common.cpp
+)
+
+target_link_libraries(sfd_ui
+    PUBLIC
+        pages_lib
+        core_lib
+)
+
+target_include_directories(sfd_ui
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/core
+        ${CMAKE_CURRENT_SOURCE_DIR}/pages
+        ${CMAKE_BINARY_DIR}/generated
+)
+
 # ================= 主可执行程序 =================
 add_executable(sfd_tool
     main.cpp
     main_console.cpp
-    common.cpp
-    GtkWidgetHelper.cpp
-    ui_common.cpp
 )
 
 # Windows: Channel9 封装（x86 使用，不依赖 libusb）
@@ -72,16 +90,14 @@ if (WIN32)
     )
 endif()
 
-# 链接子模块
-# pages_lib 依赖 core_lib（在静态链接下，依赖方需排在被依赖库之前）
+# 链接子模块和公共 UI 库
 target_link_libraries(sfd_tool
     PRIVATE
-        pages_lib
-        core_lib
+        sfd_ui
 )
 
 # 公共目标列表，方便批量设置编译选项
-set(SFD_COMMON_TARGETS sfd_tool core_lib pages_lib)
+set(SFD_COMMON_TARGETS sfd_tool core_lib pages_lib sfd_ui ${SFD_TEST_TARGETS})
 
 # 头文件路径
 target_include_directories(sfd_tool
@@ -168,6 +184,9 @@ if (WIN32)
     find_library(INTL_LIBRARY NAMES intl PATHS "${_vcpkg_lib_dir}")
     if (INTL_LIBRARY)
         target_link_libraries(sfd_tool PRIVATE "${INTL_LIBRARY}")
+        foreach(tgt IN LISTS SFD_TEST_TARGETS)
+            target_link_libraries(${tgt} PRIVATE "${INTL_LIBRARY}")
+        endforeach()
     else()
         message(WARNING "intl library not found in ${_vcpkg_lib_dir}; gettext may fail to link")
     endif()
@@ -205,7 +224,7 @@ if (USE_GTK)
         endforeach()
 
         # Link against GTK/glib import libraries from MSYS2
-        target_link_libraries(sfd_tool PRIVATE
+        set(_gtk_win_libs
             "${_gtk_root}/lib/libgtk-3.dll.a"
             "${_gtk_root}/lib/libgdk-3.dll.a"
             "${_gtk_root}/lib/libglib-2.0.dll.a"
@@ -215,6 +234,11 @@ if (USE_GTK)
             "${_gtk_root}/lib/libpango-1.0.dll.a"
             "${_gtk_root}/lib/libpangocairo-1.0.dll.a"
         )
+
+        target_link_libraries(sfd_tool PRIVATE ${_gtk_win_libs})
+        foreach(tgt IN LISTS SFD_TEST_TARGETS)
+            target_link_libraries(${tgt} PRIVATE ${_gtk_win_libs})
+        endforeach()
     else()
         if (NOT PKG_CONFIG_FOUND)
             message(FATAL_ERROR "PkgConfig is required when USE_GTK=ON")
@@ -222,14 +246,36 @@ if (USE_GTK)
 
         pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
 
+        # Fedora 等发行版在 RPM 构建环境中会默认启用 GNU ld 的 --as-needed/
+        # --no-copy-dt-needed-entries，这在 GTK 这类有复杂依赖链的库上容易触发
+        # “DSO missing from command line” 报错。这里为主可执行文件放宽该限制，
+        # 确保所有被依赖的 DSO 都会被保留。
+        if (UNIX AND NOT APPLE)
+            target_link_options(sfd_tool PRIVATE "-Wl,--copy-dt-needed-entries")
+        endif()
+
         foreach(tgt IN LISTS SFD_COMMON_TARGETS)
             target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
             target_include_directories(${tgt} PRIVATE ${GTK3_INCLUDE_DIRS})
             target_link_directories(${tgt} PRIVATE ${GTK3_LIBRARY_DIRS})
         endforeach()
 
-        # 只在最终可执行文件上链接 GTK 库
+        # 在最终可执行文件和测试可执行文件上链接 GTK 库
         target_link_libraries(sfd_tool PRIVATE ${GTK3_LIBRARIES})
+        foreach(tgt IN LISTS SFD_TEST_TARGETS)
+            target_link_libraries(${tgt} PRIVATE ${GTK3_LIBRARIES})
+        endforeach()
+
+        # Work around GNU ld "DSO missing from command line" on some distros
+        # by explicitly appending pango-1.0 at the end of the link line.
+        # This ensures -lpango-1.0 appears after all static archives.
+        find_library(PANGO_LIB NAMES pango-1.0)
+        if (PANGO_LIB)
+            target_link_libraries(sfd_tool PRIVATE ${PANGO_LIB})
+            foreach(tgt IN LISTS SFD_TEST_TARGETS)
+                target_link_libraries(${tgt} PRIVATE ${PANGO_LIB})
+            endforeach()
+        endif()
     endif()
 else()
     foreach(tgt IN LISTS SFD_COMMON_TARGETS)
@@ -247,9 +293,12 @@ if (USE_LIBUSB)
         endforeach()
 
         # 链接本地提供的 libusb-1.0.lib
-        target_link_libraries(sfd_tool PRIVATE
-            "${CMAKE_CURRENT_SOURCE_DIR}/third_party/Lib/libusb-1.0.lib"
-        )
+        set(_libusb_win_lib "${CMAKE_CURRENT_SOURCE_DIR}/third_party/Lib/libusb-1.0.lib")
+
+        target_link_libraries(sfd_tool PRIVATE ${_libusb_win_lib})
+        foreach(tgt IN LISTS SFD_TEST_TARGETS)
+            target_link_libraries(${tgt} PRIVATE ${_libusb_win_lib})
+        endforeach()
     else()
         if (NOT PKG_CONFIG_FOUND)
             message(FATAL_ERROR "PkgConfig is required when USE_LIBUSB=ON")
@@ -263,8 +312,11 @@ if (USE_LIBUSB)
             target_link_directories(${tgt} PRIVATE ${LIBUSB_LIBRARY_DIRS})
         endforeach()
 
-        # 同样只在最终可执行文件上链接 libusb 库
+        # 在最终可执行文件和测试可执行文件上链接 libusb 库
         target_link_libraries(sfd_tool PRIVATE ${LIBUSB_LIBRARIES})
+        foreach(tgt IN LISTS SFD_TEST_TARGETS)
+            target_link_libraries(${tgt} PRIVATE ${LIBUSB_LIBRARIES})
+        endforeach()
     endif()
 else()
     foreach(tgt IN LISTS SFD_COMMON_TARGETS)

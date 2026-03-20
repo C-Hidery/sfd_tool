@@ -32,6 +32,7 @@
 #include <mach-o/dyld.h>
 #include <limits.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #elif defined(_WIN32)
 #include <windows.h>
 #include <dbghelp.h>
@@ -122,6 +123,9 @@ static bool dir_exists(const std::string& path) {
 
 static std::string choose_locale_dir() {
     std::string exe_dir = get_executable_dir();
+#if defined(__APPLE__)
+    g_is_macos_bundle = (!exe_dir.empty() && exe_dir.find(".app/Contents/MacOS") != std::string::npos);
+#endif
 
 #if defined(__APPLE__)
     // macOS .app Bundle: 优先从 Contents/Resources/locale 查找
@@ -171,6 +175,9 @@ static std::string load_installed_about_text() {
 
     // 2) 其次使用可执行文件所在目录（macOS DMG、Windows 目录运行等）
     std::string exe_dir = get_executable_dir();
+#if defined(__APPLE__)
+    g_is_macos_bundle = (!exe_dir.empty() && exe_dir.find(".app/Contents/MacOS") != std::string::npos);
+#endif
     if (!exe_dir.empty()) {
         {
             std::string path = exe_dir + "/VERSION_LOG.md";
@@ -239,7 +246,7 @@ int& selected_ab = g_app_state.flash.selected_ab;
 int no_fdl_mode = 0;
 uint64_t fblk_size = 0;
 uint64_t g_spl_size;
-bool isUseCptable = false;
+extern bool isUseCptable;
 const char* o_exception;
 int init_stage = -1;
 int& device_stage = g_app_state.device.device_stage;
@@ -254,6 +261,7 @@ spdio_t*& io = g_app_state.transport.io;
 int ret;
 int conn_wait = 30 * REOPEN_FREQ;
 int keep_charge = 1, end_data = 0, blk_size = 0, skip_confirm = 1, highspeed = 0, cve_v2 = 0;
+int g_default_blk_size = 0;
 int nand_info[3];
 int argcount = 0, stage = -1, nand_id = DEFAULT_NAND_ID;
 unsigned exec_addr = 0, baudrate = 0;
@@ -380,6 +388,33 @@ int gtk_kmain(int argc, char** argv) {
 	call_Initialize(io->handle);
 #endif
 	snprintf(fn_partlist, sizeof(fn_partlist), "partition_%lld.xml", (long long)time(nullptr));
+
+#if defined(__APPLE__)
+	// macOS: 如果通过 .app Bundle 启动，默认将备份文件保存到 ~/Documents/sfd_tool
+	{
+		std::string exe_dir = get_executable_dir();
+#if defined(__APPLE__)
+    g_is_macos_bundle = (!exe_dir.empty() && exe_dir.find(".app/Contents/MacOS") != std::string::npos);
+#endif
+		if (!exe_dir.empty() && exe_dir.find(".app/Contents/MacOS") != std::string::npos) {
+			const char* home = std::getenv("HOME");
+			if (home && *home) {
+				std::string docs_dir = std::string(home) + "/Documents/sfd_tool";
+				struct stat st{};
+				if (stat(docs_dir.c_str(), &st) != 0) {
+					// 目录不存在则尝试创建，失败时静默忽略，退回到当前工作目录策略
+					mkdir(docs_dir.c_str(), 0755);
+				}
+				if (stat(docs_dir.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
+					if (docs_dir.size() < sizeof(savepath)) {
+						std::snprintf(savepath, sizeof(savepath), "%s", docs_dir.c_str());
+						DEG_LOG(I, "macOS bundle detected, savepath set to %s", savepath);
+					}
+				}
+			}
+		}
+	}
+#endif
 
 	// Window Setup
 	GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);

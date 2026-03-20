@@ -370,8 +370,12 @@ public:
             return make_error(DeviceErrorCode::InternalError, msg);
         }
 
+        // 仅在 FDL2 阶段才允许主动访问 FLASH 相关信息，避免在 BROM/FDL1 阶段乱发 READ_* 命令
+        const DeviceStage stage = map_stage_int(app_->device.device_stage);
+        const bool allow_flash_ops = (stage == DeviceStage::Fdl2);
+
         // 2) 试图读取 CHIP_TYPE，用于填充 DeviceInfo.chipset（失败仅记日志，不影响返回值）
-        if (io_) {
+        if (io_ && allow_flash_ops) {
             auto chip = read_chip_type(io_);
             if (!chip) {
                 DEG_LOG(W,
@@ -384,7 +388,7 @@ public:
         }
 
         // 3) READ_FLASH_TYPE / READ_FLASH_UID 试点：填充文本字段
-        if (io_) {
+        if (io_ && allow_flash_ops) {
             auto flash_type_text = read_flash_type(io_);
             if (!flash_type_text) {
                 DEG_LOG(W,
@@ -407,7 +411,7 @@ public:
         }
 
         // 4) READ_FLASH_INFO 试点：若成功，将结果映射到 DeviceInfo::flash_type
-        if (io_) {
+        if (io_ && allow_flash_ops) {
             auto flash = try_read_flash_info(io_);
             if (!flash) {
                 const int code_int = static_cast<int>(flash.code);
