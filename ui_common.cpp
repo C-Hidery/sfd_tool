@@ -176,6 +176,7 @@ void DisableWidgets(GtkWidgetHelper helper) {
 	helper.disableWidget("abpart_a");
 	helper.disableWidget("abpart_b");
 	helper.disableWidget("pac_flash_start");
+	helper.disableWidget("export_part_xml");
 }
 
 void ensure_device_attached_or_exit(GtkWidgetHelper helper) {

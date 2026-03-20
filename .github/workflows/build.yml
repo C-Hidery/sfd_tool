@@ -23,255 +23,229 @@ jobs:
     strategy:
       matrix:
         include:
-          # x64 架构：使用 vcpkg + MSVC
+          # x64 架构：使用 libusb 驱动
           - arch: x64
             config: Release
-            cmake_platform: x64
+            platform: x64
             use_libusb: ON
             vcpkg_triplet: x64-windows
-            build_system: vcpkg
             artifact_suffix: LibUSB
-            msys_arch: mingw64
-            
-          # x86 架构：使用 MSYS2 GTK3 + MSVC
+            # vcpkg 包列表
+            vcpkg_packages: "gtk gettext libusb"
+          
+          # x86 架构：使用 SPRD 原生驱动（无 libusb）
           - arch: x86
             config: Release
-            cmake_platform: Win32
+            platform: Win32
             use_libusb: OFF
-            build_system: msys2
+            vcpkg_triplet: x86-windows
             artifact_suffix: SPRD
-            msys_arch: mingw32
+            vcpkg_packages: "gtk gettext"
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # ==================== 通用步骤 ====================
       - name: Setup MSVC
         uses: TheMrMilchmann/setup-msvc-dev@v3
         with:
           arch: ${{ matrix.arch }}
 
-      # ==================== x64 vcpkg 构建 ====================
-      - name: Cache vcpkg (x64)
-        if: matrix.build_system == 'vcpkg'
+      - name: Cache vcpkg
         uses: actions/cache@v4
         with:
           path: |
             C:\vcpkg\installed
             C:\vcpkg\packages
             C:\vcpkg\downloads
-          key: vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-v2
+          key: vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-v4
           restore-keys: |
             vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-
 
-      - name: Install gettext via vcpkg (x64)
-        if: matrix.build_system == 'vcpkg'
+      - name: Install dependencies via vcpkg
         shell: pwsh
         run: |
           $vcpkgExe = "C:\vcpkg\vcpkg.exe"
           if (-not (Test-Path $vcpkgExe)) {
-            Write-Error "vcpkg.exe not found"
+            Write-Error "vcpkg.exe not found at C:\vcpkg\vcpkg.exe"
             exit 1
           }
-          Write-Host "Installing gettext for x64..."
-          & $vcpkgExe install "gettext:${{ matrix.vcpkg_triplet }}"
-
-      # ==================== x86 MSYS2 GTK3 安装 ====================
-      - name: Install MSYS2 and GTK3 (x86)
-        if: matrix.build_system == 'msys2'
-        run: |
-          $msysPath = "C:\msys64"
           
-          Write-Host "更新 MSYS2 包数据库..."
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
-          
-          Write-Host "安装 x86 GTK3 开发包..."
-          # 注意：需要先启用 32-bit 仓库
-          & "$msysPath\usr\bin\bash.exe" -lc "sed -i 's/#\\[mingw32\\]/[mingw32]/g' /etc/pacman.conf"
-          & "$msysPath\usr\bin\bash.exe" -lc "sed -i 's/Include = /Include = /g' /etc/pacman.conf"
-          
-          # 安装 32-bit GTK3 及相关依赖
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-i686-gtk3 mingw-w64-i686-gettext mingw-w64-i686-glib2 mingw-w64-i686-pkg-config"
-          
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "尝试搜索可用的 GTK3 包..."
-            & "$msysPath\usr\bin\bash.exe" -lc "pacman -Ss gtk3 | grep i686"
-            exit $LASTEXITCODE
+          $packages = "${{ matrix.vcpkg_packages }}".Split(' ')
+          foreach ($pkg in $packages) {
+            Write-Host "Installing $pkg:${{ matrix.vcpkg_triplet }}..."
+            & $vcpkgExe install "$pkg`:${{ matrix.vcpkg_triplet }}"
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "Failed to install $pkg"
+              exit $LASTEXITCODE
+            }
           }
           
-          Write-Host "GTK3 安装完成，验证 pkg-config..."
-          & "$msysPath\usr\bin\bash.exe" -lc "pkg-config --modversion gtk+-3.0"
+          Write-Host "vcpkg install completed successfully"
 
-      # ==================== 创建构建目录 ====================
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.arch }}/${{ matrix.config }}/ | Out-Null
 
-      # ==================== x64 CMake 配置 ====================
-      - name: Configure CMake (x64)
-        if: matrix.build_system == 'vcpkg'
+      - name: Build with MSBuild
         shell: pwsh
         run: |
-          # 添加 MSYS2 的 msgfmt 用于生成 .mo 文件
+          # 设置环境变量供 vcxproj 使用
+          $env:VCPKG_ROOT = "C:\vcpkg"
+          $env:GTK3_BASE_PATH = "C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}"
+          
+          # 添加 MSYS2 的 msgfmt 到 PATH（用于生成 .mo 文件）
           $env:Path = "C:\msys64\usr\bin;" + $env:Path
           
-          cmake -S . -B build_cmake `
-            -G "Visual Studio 17 2022" `
-            -A ${{ matrix.cmake_platform }} `
-            -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" `
-            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON `
-            -DUSE_GTK=ON `
-            -DUSE_LIBUSB=${{ matrix.use_libusb }} `
-            -DSFD_ENABLE_TESTS=ON
-
-      # ==================== x86 MSVC 配置（使用 MSYS2 的 GTK3）====================
-      - name: Configure MSVC for x86 with MSYS2 GTK3
-        if: matrix.build_system == 'msys2'
-        shell: pwsh
-        run: |
-          # 设置 MSYS2 的路径，让 MSVC 能找到 GTK3 的头文件和库
-          $msysPrefix = "C:\msys64\mingw32"
+          Write-Host "=== Build Configuration ==="
+          Write-Host "Architecture: ${{ matrix.arch }}"
+          Write-Host "Platform: ${{ matrix.platform }}"
+          Write-Host "Configuration: ${{ matrix.config }}"
+          Write-Host "USE_LIBUSB: ${{ matrix.use_libusb }}"
+          Write-Host "Vcpkg Triplet: ${{ matrix.vcpkg_triplet }}"
+          Write-Host "=========================="
           
-          # 生成 MSVC 兼容的 .lib 文件（从 .dll 导入库）
-          # 注意：MSYS2 提供的是 .dll.a 文件，MSVC 需要 .lib
-          # 这里使用 CMake 来生成 MSVC 项目，并手动指定 GTK3 路径
+          # 构建项目
+          msbuild sfd_tool.vcxproj `
+            /p:Configuration=${{ matrix.config }} `
+            /p:Platform=${{ matrix.platform }} `
+            /p:PlatformToolset=v143 `
+            /p:VcpkgTriplet=${{ matrix.vcpkg_triplet }} `
+            /p:UseLibusb=${{ matrix.use_libusb }} `
+            /p:OutDir=./build/${{ matrix.arch }}/${{ matrix.config }}/ `
+            /verbosity:minimal
           
-          # 设置环境变量，让 CMake 能找到 GTK3
-          $env:PKG_CONFIG_PATH = "$msysPrefix\lib\pkgconfig"
-          $env:Path = "C:\msys64\usr\bin;$msysPrefix\bin;" + $env:Path
-          
-          # 使用 CMake 生成 MSVC 项目
-          cmake -S . -B build_cmake `
-            -G "Visual Studio 17 2022" `
-            -A ${{ matrix.cmake_platform }} `
-            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON `
-            -DUSE_GTK=ON `
-            -DUSE_LIBUSB=${{ matrix.use_libusb }} `
-            -DSFD_ENABLE_TESTS=ON `
-            -DGTK_INCLUDE_DIRS="$msysPrefix\include\gtk-3.0;$msysPrefix\include\glib-2.0;$msysPrefix\lib\glib-2.0\include;$msysPrefix\include\cairo;$msysPrefix\include\pango-1.0;$msysPrefix\include\atk-1.0;$msysPrefix\include\gdk-pixbuf-2.0" `
-            -DGTK_LIBRARIES="$msysPrefix\lib\libgtk-3.dll.a;$msysPrefix\lib\libglib-2.0.dll.a;$msysPrefix\lib\libgobject-2.0.dll.a;$msysPrefix\lib\libgdk-3.dll.a" `
-            -DCMAKE_CXX_FLAGS="-I$msysPrefix\include -I$msysPrefix\include\gtk-3.0 -I$msysPrefix\include\glib-2.0 -I$msysPrefix\lib\glib-2.0\include"
-
-      # ==================== 编译和测试 ====================
-      - name: Build and Test (x64)
-        if: matrix.build_system == 'vcpkg'
-        shell: pwsh
-        run: |
-          # 添加 GTK3 DLL 到 PATH 用于测试
-          $env:Path = "C:\msys64\mingw64\bin;C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin;" + $env:Path
-          
-          cmake --build build_cmake --config ${{ matrix.config }} -- /m
-          ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
-          
-          # 复制可执行文件
-          Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.arch }}/${{ matrix.config }}/" -Force
-
-      - name: Build and Test (x86)
-        if: matrix.build_system == 'msys2'
-        shell: pwsh
-        run: |
-          # 添加 MSYS2 GTK3 DLL 到 PATH
-          $env:Path = "C:\msys64\mingw32\bin;" + $env:Path
-          
-          cmake --build build_cmake --config ${{ matrix.config }} -- /m
-          ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
-          
-          # 复制可执行文件
-          Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.arch }}/${{ matrix.config }}/" -Force
-
-      # ==================== 复制 DLL 文件 ====================
-      - name: Copy GTK3 DLLs (x64)
-        if: matrix.build_system == 'vcpkg'
-        run: |
-          $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
-          $gtkBinPath = "C:\msys64\mingw64\bin"
-          
-          Write-Host "复制 GTK3 DLLs 从: $gtkBinPath"
-          if (Test-Path $gtkBinPath) {
-            Get-ChildItem -Path $gtkBinPath -Filter "*.dll" | ForEach-Object {
-              Copy-Item $_.FullName -Destination $destDir -Force
-            }
-            Write-Host "已复制 GTK3 DLLs"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "MSBuild failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
           }
-
-      - name: Copy GTK3 DLLs (x86)
-        if: matrix.build_system == 'msys2'
-        run: |
-          $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
-          $gtkBinPath = "C:\msys64\mingw32\bin"
           
-          Write-Host "复制 GTK3 DLLs 从: $gtkBinPath"
-          if (Test-Path $gtkBinPath) {
-            Get-ChildItem -Path $gtkBinPath -Filter "*.dll" | ForEach-Object {
-              Copy-Item $_.FullName -Destination $destDir -Force
-            }
-            Write-Host "已复制 GTK3 DLLs"
-          }
-
-      - name: Copy gettext DLLs (x64)
-        if: matrix.build_system == 'vcpkg'
-        run: |
-          $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
-          $gettextBinPath = "C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin"
-          
-          if (Test-Path $gettextBinPath) {
-            Get-ChildItem -Path $gettextBinPath -Filter "*.dll" | ForEach-Object {
-              Copy-Item $_.FullName -Destination $destDir -Force
-            }
-            Write-Host "已复制 gettext DLLs"
-          }
+          Write-Host "Build completed successfully"
 
       - name: Copy GTK Runtime Data Files
         run: |
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
+          $vcpkgRoot = "C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}"
           
-          if ("${{ matrix.arch }}" -eq "x64") {
-            $msysPrefix = "C:\msys64\mingw64"
-          } else {
-            $msysPrefix = "C:\msys64\mingw32"
-          }
-          
-          Write-Host "复制 GTK 运行时数据文件..."
+          Write-Host "Copying GTK runtime data files from vcpkg..."
           
           # 复制图标主题
-          $iconsSrc = "$msysPrefix\share\icons"
+          $iconsSrc = "$vcpkgRoot\share\icons"
           if (Test-Path $iconsSrc) {
             $iconsDest = "$destDir\share\icons"
             New-Item -ItemType Directory -Force -Path $iconsDest | Out-Null
             Copy-Item -Path "$iconsSrc\hicolor" -Destination $iconsDest -Recurse -Force -ErrorAction SilentlyContinue
-            Copy-Item -Path "$iconsSrc\Adwaita" -Destination $iconsDest -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Host "Copied hicolor icons"
+          } else {
+            Write-Warning "Icons directory not found: $iconsSrc"
           }
           
           # 复制 GSettings schemas
-          $schemasSrc = "$msysPrefix\share\glib-2.0\schemas"
+          $schemasSrc = "$vcpkgRoot\share\glib-2.0\schemas"
           if (Test-Path $schemasSrc) {
             $schemasDest = "$destDir\share\glib-2.0\schemas"
             New-Item -ItemType Directory -Force -Path $schemasDest | Out-Null
             Copy-Item -Path "$schemasSrc\*" -Destination $schemasDest -Recurse -Force
+            Write-Host "Copied GSettings schemas"
+          } else {
+            Write-Warning "GSettings schemas not found: $schemasSrc"
           }
 
-      # ==================== 清理和上传 ====================
+      - name: Copy SPRD Driver Files (x86 only)
+        if: matrix.arch == 'x86'
+        run: |
+          $destDir = "./build/x86/Release/"
+          
+          if (Test-Path "third_party/Lib/Channel9.dll") {
+            Copy-Item "third_party/Lib/Channel9.dll" -Destination $destDir -Force
+            Write-Host "Copied Channel9.dll"
+          }
+          if (Test-Path "third_party/Lib/Channel.ini") {
+            Copy-Item "third_party/Lib/Channel.ini" -Destination $destDir -Force
+            Write-Host "Copied Channel.ini"
+          }
+
+      - name: Copy libusb DLL (x64 only)
+        if: matrix.arch == 'x64'
+        run: |
+          $destDir = "./build/x64/Release/"
+          $libusbPath = "C:\vcpkg\installed\x64-windows\bin\libusb-1.0.dll"
+          
+          if (Test-Path $libusbPath) {
+            Copy-Item $libusbPath -Destination $destDir -Force
+            Write-Host "Copied libusb-1.0.dll"
+          } else {
+            Write-Warning "libusb-1.0.dll not found at $libusbPath"
+          }
+
       - name: Cleanup Build Directory
         run: |
           $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
           
-          $unwantedExtensions = @(".a", ".la", ".def", ".sh", ".py", ".pl")
+          # 删除不需要的文件
+          $unwantedExtensions = @(".a", ".la", ".def", ".sh", ".py", ".pl", ".lib", ".exp")
           $keepFiles = @("sfd_tool.exe", "sfd_tool.pdb")
           
           foreach ($ext in $unwantedExtensions) {
-            Get-ChildItem -Path $destDir -Filter "*$ext" -Exclude $keepFiles | Remove-Item -Force -ErrorAction SilentlyContinue
+            Get-ChildItem -Path $destDir -Filter "*$ext" -Exclude $keepFiles -ErrorAction SilentlyContinue | 
+              Remove-Item -Force -ErrorAction SilentlyContinue
           }
           
-          Write-Host "清理完成"
+          Write-Host "Cleanup completed"
 
-      # ==================== 上传产物 ====================
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: sfd_tool_${{ matrix.artifact_suffix }}_${{ matrix.config }}
+          name: sfd_tool_windows_${{ matrix.artifact_suffix }}_${{ matrix.config }}
           path: ./build/${{ matrix.arch }}/${{ matrix.config }}/
 
-  # ==================== Linux 构建保持不变 ====================
+  # ==================== macOS 构建 ====================
+  build-macos:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '11.0'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install macOS Build Dependencies
+        run: |
+          brew update
+          for pkg in gtk+3 libusb gettext cmake ninja; do
+            if ! brew list "$pkg" >/dev/null 2>&1; then
+              brew install "$pkg"
+            fi
+          done
+
+      - name: Configure CMake
+        run: |
+          mkdir -p build
+          cmake -S . -B build \
+            -G "Ninja" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DUSE_GTK=ON \
+            -DUSE_LIBUSB=ON \
+            -DSFD_ENABLE_TESTS=ON \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+
+      - name: Build and Test
+        run: |
+          cmake --build build --config Release -- -j$(sysctl -n hw.logicalcpu)
+          ctest --test-dir build -C Release --output-on-failure
+
+      - name: Build self-contained macOS app & DMG
+        run: |
+          chmod +x scripts/release.sh scripts/build_macos_app.sh 2>/dev/null || true
+          ./scripts/release.sh 2>/dev/null || true
+          ./scripts/build_macos_app.sh 2>/dev/null || true
+
+      - name: Upload macOS DMG Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sfd_tool_macos_dmg
+          path: dist/*.dmg
+
+  # ==================== Linux DEB 构建 ====================
   build-linux-deb:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -306,6 +280,7 @@ jobs:
             /tmp/build-sfd-tool/*.buildinfo
             /tmp/build-sfd-tool/*.dsc
 
+  # ==================== Linux RPM 构建 ====================
   build-linux-rpm:
     runs-on: ubuntu-latest
     container:
@@ -336,11 +311,11 @@ jobs:
 
   # ==================== Release Job ====================
   release:
-    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    needs: [build-windows, build-linux-deb, build-linux-rpm]
+    needs: [build-windows, build-macos, build-linux-deb, build-linux-rpm]
     steps:
       - name: Set Release Tag
         run: |
@@ -359,7 +334,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: output
-          pattern: sfd_tool_*_Release
+          pattern: sfd_tool_windows_*_Release
+          merge-multiple: false
+
+      - name: Download macOS DMG Artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: output
+          pattern: sfd_tool_macos_dmg
           merge-multiple: false
 
       - name: Download Linux Artifacts
@@ -374,27 +356,28 @@ jobs:
           cd output
           
           # 重命名 Windows 目录
-          if [ -d "sfd_tool_SPRD_Release" ]; then
-            mv sfd_tool_SPRD_Release sfd_tool_windows_x86_sprd
-            # 复制 SPRD 驱动文件
-            cp ../master/Lib/Channel9.dll sfd_tool_windows_x86_sprd/ || true
-            cp ../master/Lib/Channel.ini sfd_tool_windows_x86_sprd/ || true
+          if [ -d "sfd_tool_windows_LibUSB_Release" ]; then
+            mv sfd_tool_windows_LibUSB_Release sfd_tool_windows_x64_libusb
+            cp ../master/docs/VERSION_LOG.md sfd_tool_windows_x64_libusb/ 2>/dev/null || true
           fi
           
-          if [ -d "sfd_tool_LibUSB_Release" ]; then
-            mv sfd_tool_LibUSB_Release sfd_tool_windows_x64_libusb
-            # 复制 libusb DLL
-            cp ../master/Lib/libusb-1.0.dll sfd_tool_windows_x64_libusb/ || true
+          if [ -d "sfd_tool_windows_SPRD_Release" ]; then
+            mv sfd_tool_windows_SPRD_Release sfd_tool_windows_x86_sprd
+            cp ../master/docs/VERSION_LOG.md sfd_tool_windows_x86_sprd/ 2>/dev/null || true
           fi
           
           # 复制文档
-          cp ../master/*.md . || true
-          cp ../master/docs/VERSION_LOG.md sfd_tool_windows_x86_sprd/ 2>/dev/null || true
-          cp ../master/docs/VERSION_LOG.md sfd_tool_windows_x64_libusb/ 2>/dev/null || true
+          cp ../master/*.md . 2>/dev/null || true
           
           # 复制 Linux 包
           cp -r sfd_tool_linux_deb/*.deb . 2>/dev/null || true
           cp -r sfd_tool_rpm_package/*/*.rpm . 2>/dev/null || true
+          
+          # 复制 macOS DMG
+          for dmg in sfd_tool_macos_dmg/*.dmg; do
+            [ -f "$dmg" ] || continue
+            cp "$dmg" "sfd_tool_macos_${{ env.RELEASE_TAG }}.dmg"
+          done
           
           # 创建 Windows 安装包
           if [ -d "sfd_tool_windows_x86_sprd" ]; then
@@ -425,22 +408,26 @@ jobs:
             - **sfd_tool_windows_x64_libusb**: Windows x64 版本，使用 libusb 驱动（支持热插拔）
             
             ### 其他平台:
+            - **sfd_tool_macos**: macOS 版本（DMG 包）
             - **Linux DEB 包**: Ubuntu/Debian 系统安装包
             - **Linux RPM 包**: Fedora/RPM-Based 系统安装包
             
             ### 使用说明:
             1. **Windows x86 (SPRD 版)**: 直接运行，使用系统自带的 SPRD 驱动
             2. **Windows x64 (libusb 版)**: 需要安装 libusb 驱动（可使用 Zadig 工具）
-            3. **Linux**: 安装对应的 .deb 或 .rpm 包即可
+            3. **macOS**: 需要安装 GTK3 运行时（`brew install gtk+3`）
+            4. **Linux**: 安装对应的 .deb 或 .rpm 包即可
             
             ### 文件列表:
             - sfd_tool_windows_x86_sprd_${{ env.RELEASE_TAG }}.zip
             - sfd_tool_windows_x64_libusb_${{ env.RELEASE_TAG }}.zip
+            - sfd_tool_macos_${{ env.RELEASE_TAG }}.dmg
             - *.deb / *.rpm - Linux 安装包
             - sfd_tool_all_${{ env.RELEASE_TAG }}.zip
           files: |
             sfd_tool_all_${{ env.RELEASE_TAG }}.zip
             output/sfd_tool_windows_x86_sprd_${{ env.RELEASE_TAG }}.zip
             output/sfd_tool_windows_x64_libusb_${{ env.RELEASE_TAG }}.zip
+            output/*.dmg
             output/*.deb
             output/*.rpm
