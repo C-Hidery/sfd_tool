@@ -155,7 +155,7 @@ static bool starts_with(const std::string& value, const char* prefix) {
     return std::memcmp(value.data(), prefix, prefix_len) == 0;
 }
 
-static bool is_critical_partition_name(const std::string& name) {
+bool is_critical_partition_name(const std::string& name) {
     if (name == "splloader") return true;
     if (starts_with(name, "boot")) return true;   // boot / boot_a / boot_b 等
     if (starts_with(name, "vbmeta")) return true; // vbmeta / vbmeta_a / vbmeta_system 等
@@ -238,6 +238,9 @@ scan_folder_and_match_partitions(const std::string& folder,
         item.image_size = static_cast<std::uint64_t>(st.st_size);
         item.is_critical = is_critical_partition_name(item.part.name);
         item.selected = !item.is_critical;
+        DEG_LOG(I, "[restore-folder] matched partition=%s path=%s size=%llu critical=%d",
+                item.part.name.c_str(), item.image_path.c_str(),
+                static_cast<unsigned long long>(item.image_size), item.is_critical ? 1 : 0);
         result.push_back(std::move(item));
     }
 
