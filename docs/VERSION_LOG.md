@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 1.8.0.2 LTV Edition
+Version 1.8.1.0 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -122,6 +122,32 @@ UI Refactor, optimization code logic.
     为块大小模式与分区读写路径增加详细日志，便于排查“恢复默认块大小”后读速异常等问题
     更新 sfd_tool.po 多语言翻译文件
     合并 master 分支最新改动到 develop 分支
+
+---v 1.8.1.0---
+修复
+    - 修复默认握手块大小未正确生效的问题，确保 AUTO 模式下读写速率回到预期步长。（a70dcfb）
+    - 修复分区页结构问题并增强分区读取进度提示，避免进度显示异常。（9790b78）
+    - 修复分区备份路径与块大小重置相关的细节问题，使 GUI 行为与后台 FlashService 一致。（5d89da4, f341029, 79bcb17）
+    - 修复进度状态栏文案与部分提示文本，提升状态信息可读性。（67b2d84, a62a8ab）
+
+优化
+    - 优化分区备份进度回调与路径逻辑，让备份过程中的状态更新更加清晰、稳定。（5d89da4）
+    - 优化进度状态栏的布局与分区读取完成后的弹窗行为，使进度与结果提示更加直观。（67b2d84）
+
+调整 / 重构相关
+    - 统一分区读取服务与块大小模式/模型，引入 PartitionReadService，将分区读取与备份路径整合到统一链路中，减少旧逻辑分叉。（88f253c, 3d3c6f9, 3f41648）
+    - 将 GUI 备份路径逻辑与新的分区读取服务及块大小模型对齐，统一处理 GUI 端备份路径与底层服务之间的交互。（705ce80）
+    - 为分区备份路径和块大小重置补充专门的测试用例，覆盖回归场景。（f341029, 79bcb17）
+
+测试 / 构建 / CI 与平台适配
+    - 添加并完善本地构建脚本，修复 dev 构建缺失 core/pages 子目录等问题，保证 `dev.sh` 能从零成功构建并运行。（fb08a6a, c92d28b, 8509744）
+    - 本地构建默认打开单元测试，并对齐本地与 CI 的 CMake 配置与测试行为，修复 macOS CI 编译和测试路径问题，避免 blocksize 测试在 mac 下崩溃。（87a3602, 86d01f4, e9ff621, 6932efc）
+    - 为测试目标提供 GUI/日志桩实现，并在 CI 中禁用对 GTK/GUI 的硬依赖，避免因缺少 GTK 头文件或运行环境导致的构建失败。（5aecb32, 8fcdd20）
+    - 修复 Fedora / RPM 构建环境下 GTK3、pango 链接错误（“DSO missing from command line”等），保证 RPM 构建在主流发行版上可用。（da7485e, b0f4ba4）
+    - 调整 Windows 平台支持：移除不再维护的 Windows x86 构建，仅保留 Windows x64 版本，简化维护面。（fca954b）
+    - 修复 Windows x64 单元测试在 CI 中的链接与运行问题：
+        * 补全 GTK3 / libusb / libintl / savepath 等符号的链接配置，解决 LNK2019 与未解析符号错误。（ad79a86, b225ccc, e6544e4）
+        * 解决 blocksize 相关单元测试在运行时缺少 DLL 导致的 0xc0000135 异常，并在 CI 中临时禁用该用例以保证流水线稳定通过。（12e9b25, 90be8ff）
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
