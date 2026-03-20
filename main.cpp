@@ -233,7 +233,7 @@ std::string load_about_text() {
 	}
 
 	// 3) 仍然找不到时，回退到原有提示
-	return "SFD Tool GUI\n\nAbout information file missing.\n";
+	return "SFD Tool GUI\n\nBy RyanCrepa\n\nAbout information file missing.\n";
 }
 
 const char* Version = SFD_TOOL_VERSION;
