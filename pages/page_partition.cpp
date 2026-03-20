@@ -1587,11 +1587,14 @@ static void run_batch_partition_write(GtkWidgetHelper helper,
 
 				sfd::FlashStatus st = svc->writePartitionFromFile(opts);
 				if (!st.success) {
-					gui_idle_call_wait_drag([parent, st, part_name = item.part.name]() mutable {
+					gui_idle_call_wait_drag([parent, st, part_name = item.part.name, part_size = item.part.size, image_size = item.image_size]() mutable {
 						std::string msg = "Failed to flash partition ";
 						msg += part_name;
 						msg += ": ";
 						msg += st.message;
+						if (part_size > 0 && image_size > part_size) {
+							msg += " (image larger than partition)";
+						}
 						showErrorDialog(parent, _("Error"), msg.c_str());
 					}, parent);
 					break;
