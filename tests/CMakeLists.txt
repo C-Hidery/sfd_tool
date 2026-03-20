@@ -3,8 +3,9 @@ set(SFD_TEST_COMMON_SOURCES
     test_stubs.cpp
 )
 
-# Windows x86/Channel9 模式下，测试也需要链接 BMPlatform / Wrapper
-if (WIN32 AND NOT USE_LIBUSB)
+# Windows 下，所有测试二进制都需要链接 Channel9 封装，
+# 以确保 BMPlatform/Wrapper 相关符号和运行时依赖可用。
+if (WIN32)
     list(APPEND SFD_TEST_COMMON_SOURCES
         ${CMAKE_SOURCE_DIR}/BMPlatform.cpp
         ${CMAKE_SOURCE_DIR}/Wrapper.cpp
