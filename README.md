@@ -2,6 +2,47 @@
 
 [**中文文档**](README_ZH.md) · [User Guide (ZH)](docs/USER_GUIDE_ZH.md) · [Architecture](ARCHITECTURE.md) · [Release Guide (ZH)](docs/RELEASE_GUIDE_ZH.md) · [CMake Guide (ZH)](docs/cmake.md) · [CMake Guide (EN)](docs/cmake_EN.md) · [Version Log](docs/VERSION_LOG.md)
 
+## Documentation index
+
+### For end users
+
+- **Quick start & GUI usage (ZH)**
+  See [docs/USER_GUIDE_ZH.md](docs/USER_GUIDE_ZH.md) for:
+  - GUI tab overview (Connect / Partition Operation / PAC Flash / Manual / Advanced / Debug / Log / About)
+  - Typical workflows (partition backup, PAC flashing)
+  - Command-line mode basics (`--no-gui`) and common commands
+
+- **Configuration & UI language**
+  Per-user config file location and the `ui_language` field semantics are documented in:
+  - [docs/cmake_EN.md](docs/cmake_EN.md) – “UI language and per‑user configuration” section (English)
+  - [docs/cmake.md](docs/cmake.md) – 对应的中文章节
+
+- **Platform-specific usage**
+  - Termux / Android (no GUI): see the Termux usage section below and CLI notes in [docs/USER_GUIDE_ZH.md](docs/USER_GUIDE_ZH.md).
+  - macOS / Windows / Linux prebuilt releases: see “Prebuilt binaries (GitHub Releases)” below.
+
+### For developers
+
+- **Architecture & internals**
+  High-level design and module responsibilities: [ARCHITECTURE.md](ARCHITECTURE.md)
+
+- **Build & development**
+  - CMake usage (EN): [docs/cmake_EN.md](docs/cmake_EN.md)
+  - CMake usage (ZH): [docs/cmake.md](docs/cmake.md)
+  - Helper scripts (`dev.sh`, `release.sh`, `bump_version.sh`, etc.): see the “Helper scripts” section below.
+
+- **Testing & CI**
+  - CTest usage: section 6 in [docs/cmake_EN.md](docs/cmake_EN.md) / [docs/cmake.md](docs/cmake.md)
+  - CI and release matrix overview: [docs/RELEASE_GUIDE_ZH.md](docs/RELEASE_GUIDE_ZH.md)
+
+### Versioning & release
+
+- **Version history (user-visible changes)**
+  [docs/VERSION_LOG.md](docs/VERSION_LOG.md) — also shown in the GUI “About” tab.
+
+- **Release process**
+  [docs/RELEASE_GUIDE_ZH.md](docs/RELEASE_GUIDE_ZH.md) — how to bump `VERSION.txt`, update `docs/VERSION_LOG.md`, and trigger CI-based releases.
+
 ![Logo](/assets/icon.png)
 
 ![License](https://img.shields.io/github/license/C-Hidery/sfd_tool)
@@ -61,6 +102,24 @@ cmake -S . -B build -G "Visual Studio 17 2022"
 Then open `build/sfd_tool.sln` in Visual Studio.
 The legacy solution file at the repository root, [sfd_tool.sln](sfd_tool.sln), is kept for compatibility only and may lag behind the CMake build. Please prefer the CMake-generated solution for development.
 
+### Helper scripts
+
+On Linux/macOS:
+
+```bash
+./scripts/dev.sh     # Configure + build Debug with CMake and run sfd_tool
+./scripts/release.sh # Configure + build Release with CMake
+./scripts/bump_version.sh # Interactive version bump & changelog update
+```
+
+On Windows (PowerShell):
+
+```powershell
+.\scripts\dev.ps1       # Configure + build Debug with CMake/VS and start sfd_tool
+.\scripts\release.ps1   # Configure + build Release with CMake/VS
+.\scripts\bump_version.ps1 # Interactive version bump & changelog update
+```
+
 ### Packaging & Release
 
 On Debian/Ubuntu, you can build a `.deb` package using the helper script:
@@ -83,8 +142,25 @@ Official GitHub Releases provide:
 - **sfd_tool_SPRD_Release**: Windows x86 build using the official SPRD serial driver (Channel9.dll). This variant has the best compatibility and is recommended for older machines or when stability matters most.
 - **sfd_tool_LibUSB_Release**: Windows x64 build using libusb, suitable for modern 64-bit Windows systems.
 - **Linux DEB / RPM packages** for mainstream Debian/Ubuntu and Fedora/RPM-based distributions.
-- **macOS DMG** installer.
+- **macOS DMG** installer containing a standard `SFD Tool.app` application.
 
+#### macOS notes
+
+- Usage:
+  1. Download `sfd_tool_macos.dmg` from GitHub Releases;
+  2. Double-click the DMG and drag `SFD Tool.app` into `/Applications`;
+  3. Launch `SFD Tool` from Launchpad or Finder.
+
+- Gatekeeper and quarantine:
+  - After downloading from a browser, macOS Gatekeeper may show a warning such as “cannot be opened because the developer cannot be verified”.
+    - Recommended: in Finder, **right-click `SFD Tool.app` → Open**, then confirm in the dialog; subsequent launches will be normal.
+    - If the app is still quarantined, advanced users can clear the download quarantine attribute explicitly:
+
+      ```bash
+      xattr -d com.apple.quarantine /Applications/SFD\ Tool.app
+      ```
+
+    This only removes the “downloaded from the Internet” flag and does not modify the program contents.
 
 ### Internationalization (i18n)
 This tool supports multi-language adaptation:
@@ -106,6 +182,8 @@ termux-usb -r /dev/bus/usb/xxx/xxx
 termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 ```
 
+> Note: `--usb-fd` is an internal flag intended to be used together with `termux-usb -e`, which passes a file descriptor to `sfd_tool`. You normally do not need to specify a raw fd manually.
+
 **WARN : You may must run tool as root to connect to device correctly!**
 
 ---
@@ -117,7 +195,7 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 **This command is equivalent to the `partition_list` command.**
 
     exec_addr [BINARY FILE] [ADDR]
-    
+
 **Modified, you need to provide file path and address**
 
     exec <ADDR>
@@ -133,9 +211,11 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 **New option, execute it if you want to connect to device without FDL1/2(Only Sprd4 Mode).**
 
     cptable
-    
+
 **New command, use it to get partition table through compatibility method(FDL2 only)**
 
     --no-gui
 
 **New parameter, open sfd_tool without GUI**
+
+For a full list of console commands and options, please run `./sfd_tool --help` (or, on Linux, see the `sfd-tool(1)` manpage if installed).

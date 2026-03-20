@@ -2,6 +2,7 @@
 #include "../common.h"
 #include "../main.h"
 #include "../i18n.h"
+#include "../ui_common.h"
 #include "../core/flash_service.h"
 #include "../ui_common.h"
 #include <thread>
@@ -59,7 +60,6 @@ static void on_button_clicked_m_write(GtkWidgetHelper helper) {
 	opts.force = false;
 
 	LongTaskConfig cfg{
-		helper,
 		// worker：在后台线程中执行分区写入
 		[parent, helper, opts](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag; // 当前实现暂不支持取消
@@ -74,11 +74,11 @@ static void on_button_clicked_m_write(GtkWidgetHelper helper) {
 			},GTK_WINDOW(helper.getWidget("main_window")));
 		},
 		// on_started：GUI 线程中执行，设置状态
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Writing partition");
 		},
 		// on_finished：GUI 线程中执行，恢复状态
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
@@ -100,32 +100,87 @@ static void on_button_clicked_m_read(GtkWidgetHelper helper) {
 		return;
 	}
 
+	auto& settings = GetGuiIoSettings();
+	LogBlkState("manual m_read enter");
+
+	if (settings.mode == BlockSizeMode::AUTO_DEFAULT) {
+		LongTaskConfig cfg{
+			// worker：在后台线程中执行分区读取（旧链路）
+			[parent, helper, part_name, savePath](std::atomic_bool& cancel_flag) {
+				(void)cancel_flag; // 当前实现暂不支持取消
+				unsigned step = DEFAULT_BLK_SIZE;
+				DEG_LOG(I, "[blk] m_read(AUTO) part=%s step=%u", part_name.c_str(), step);
+				uint64_t len = check_partition(io, part_name.c_str(), 1);
+				uint64_t saved = dump_partition(io, part_name.c_str(), 0, len, savePath.c_str(), step);
+				gui_idle_call_wait_drag([parent, helper, saved, len]() mutable {
+					if (saved != len) {
+						showErrorDialog(GTK_WINDOW(parent), _(_(_(("Error")))), _("Partition read failed!"));
+					} else {
+						showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("Partition read completed!"));
+					}
+				}, GTK_WINDOW(helper.getWidget("main_window")));
+			},
+			// on_started：GUI 线程中执行，设置状态
+			[helper]() mutable {
+				helper.setLabelText(helper.getWidget("con"), "Reading partition");
+			},
+			// on_finished：GUI 线程中执行，恢复状态
+			[helper]() mutable {
+				helper.setLabelText(helper.getWidget("con"), "Ready");
+			}
+		};
+
+		run_long_task(cfg);
+		return;
+	}
+
 	sfd::PartitionIoOptions opts;
 	opts.partition_name = part_name;
 	opts.file_path = savePath;
-	opts.block_size = blk_size;
+	DEG_LOG(I, "[blk] m_read GUI part=%s", opts.partition_name.c_str());
+
+	sfd::PartitionReadCallbacks cb;
+	cb.on_progress = [helper](const sfd::PartitionReadInfo& p, std::uint64_t bytes_read, double speed_mb_s) {
+		gui_idle_call([helper, p, bytes_read, speed_mb_s]() mutable {
+			GtkWidget* conStatus = helper.getWidget("con");
+			if (conStatus && GTK_IS_LABEL(conStatus)) {
+				char status_text[256];
+				snprintf(status_text, sizeof(status_text),
+				         "Backing up %s | size: %llu | read: %llu | speed: %.1f MB/s",
+				         p.name.c_str(),
+				         static_cast<unsigned long long>(p.size),
+				         static_cast<unsigned long long>(bytes_read),
+				         speed_mb_s);
+				gtk_label_set_text(GTK_LABEL(conStatus), status_text);
+			}
+		});
+	};
 
 	LongTaskConfig cfg{
-		helper,
 		// worker：在后台线程中执行分区读取
-		[parent, helper, opts](std::atomic_bool& cancel_flag) {
+		[parent, helper, opts, cb](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag; // 当前实现暂不支持取消
+			sfd::PartitionReadInfo info{};
+			info.name = opts.partition_name;
+			sfd::PartitionReadOptions read_opts{};
+			read_opts.output_path = opts.file_path;
+			read_opts.block_cfg = MakeBlockSizeConfigFromGui();
 			auto* svc = ensure_flash_service();
-			sfd::FlashStatus st = svc->readPartitionToFile(opts);
+			sfd::FlashStatus st = svc->partitionReader().readOne(info, read_opts, &cb);
 			gui_idle_call_wait_drag([parent, helper, st]() mutable {
 				if (!st.success) {
-					showErrorDialog(GTK_WINDOW(parent), _(_(_(("Error")))), st.message.c_str());
+					showErrorDialog(GTK_WINDOW(parent), _(_(_((("Error"))))), st.message.c_str());
 				} else {
-					showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("Partition read completed!"));
+					showInfoDialog(GTK_WINDOW(parent), _(_(_((("Completed"))))), _("Partition read completed!"));
 				}
 			},GTK_WINDOW(helper.getWidget("main_window")));
 		},
 		// on_started：GUI 线程中执行，设置状态
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Reading partition");
 		},
 		// on_finished：GUI 线程中执行，恢复状态
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
@@ -143,7 +198,6 @@ static void on_button_clicked_m_erase(GtkWidgetHelper helper) {
 	}
 
 	LongTaskConfig cfg{
-		helper,
 		// worker：在后台线程中执行分区擦除
 		[parent, helper, part_name](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag; // 当前实现暂不支持取消
@@ -158,11 +212,11 @@ static void on_button_clicked_m_erase(GtkWidgetHelper helper) {
 			},GTK_WINDOW(helper.getWidget("main_window")));
 		},
 		// on_started：GUI 线程中执行，设置状态
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Erase partition");
 		},
 		// on_finished：GUI 线程中执行，恢复状态
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};

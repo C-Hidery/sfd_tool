@@ -8,8 +8,74 @@
 extern spdio_t*& io;
 extern AppState g_app_state;
 extern int& m_bOpened;
+extern int blk_size;
+extern uint64_t fblk_size;
+#if defined(__APPLE__)
+extern bool g_is_macos_bundle;
+#endif
 // 兼容旧逻辑：isCMethod 映射到 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
+
+void LogBlkState(const char* where) {
+    auto& s = GetGuiIoSettings();
+    DEG_LOG(I,
+            "[blk] %s: mode=%s manual=%u blk_size=%d fblk_size=%llu mac_bundle=%d",
+            where,
+            s.mode == sfd::BlockSizeMode::AUTO_DEFAULT ? "AUTO" : "MANUAL",
+            (unsigned)s.manual_block_size,
+            blk_size,
+            (unsigned long long)fblk_size,
+#if defined(__APPLE__)
+            g_is_macos_bundle ? 1 : 0
+#else
+            0
+#endif
+    );
+}
+
+GuiIoSettings& GetGuiIoSettings() {
+    static GuiIoSettings s_settings{
+        sfd::BlockSizeMode::AUTO_DEFAULT,
+        DEFAULT_BLK_SIZE
+    };
+    return s_settings;
+}
+
+uint32_t GetEffectiveManualBlockSize() {
+    auto& s = GetGuiIoSettings();
+    return s.manual_block_size ? s.manual_block_size : DEFAULT_BLK_SIZE;
+}
+
+sfd::BlockSizeConfig MakeBlockSizeConfigFromGui() {
+    auto& s = GetGuiIoSettings();
+    sfd::BlockSizeConfig cfg;
+    cfg.mode = s.mode;
+    if (s.mode == sfd::BlockSizeMode::MANUAL_BLOCK_SIZE) {
+        // 手动模式：直接使用用户设定的块大小（已经经过对齐和裁剪）
+        cfg.manual_block_size = s.manual_block_size;
+    } else {
+        // AUTO_DEFAULT 模式：优先使用握手阶段探测出来的默认块大小
+        // （例如 FDL2 之后 UFS 设备的 0xF800），只有在没有握手默认值时
+        // 才退回协议层 DEFAULT_BLK_SIZE（0x1000）。
+        uint32_t step = g_default_blk_size > 0 ? (uint32_t)g_default_blk_size : DEFAULT_BLK_SIZE;
+        cfg.manual_block_size = step;
+    }
+    cfg.use_compat_chain = true;
+    return cfg;
+}
+
+void ResetBlockSizeToDefault() {
+    auto& s = GetGuiIoSettings();
+    // 回到 AUTO_DEFAULT 模式，并将 GUI 侧记录的“默认步长”
+    // 重置为当前握手得到的默认块大小（例如 0xF800）。
+    s.mode = sfd::BlockSizeMode::AUTO_DEFAULT;
+    s.manual_block_size = g_default_blk_size > 0 ? (uint32_t)g_default_blk_size : DEFAULT_BLK_SIZE;
+
+    // legacy 全局 blk_size 置 0，触发所有旧代码路径中的
+    // `blk_size ? blk_size : DEFAULT_BLK_SIZE` 使用握手默认值。
+    blk_size = 0;
+    LogBlkState("reset_blk_size");
+}
 
 // 前向声明回调函数（来自其他页面模块）
 void on_button_clicked_poweroff(GtkWidgetHelper helper);
@@ -188,8 +254,10 @@ void append_log_to_ui(int type, const char* message) {
 void run_long_task(const LongTaskConfig& cfg) {
     // 在 GUI 线程执行 on_started（如果提供）
     if (cfg.on_started) {
-        gui_idle_call([&cfg]() {
-            cfg.on_started();
+        gui_idle_call([cfg]() mutable {
+            if (cfg.on_started) {
+                cfg.on_started();
+            }
         });
     }
 

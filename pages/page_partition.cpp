@@ -156,11 +156,11 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 	sfd::PartitionIoOptions opts;
 	opts.partition_name = part_name;
 	opts.file_path = filename;
-	opts.block_size = blk_size;
+	opts.block_size = GetEffectiveManualBlockSize();
 	opts.force = false;
 
 	LongTaskConfig cfg{
-		helper,
+		// worker：在后台线程中执行分区写入
 		[parent, helper, opts](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag;
 			auto* svc = ensure_flash_service();
@@ -173,10 +173,10 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 				}
 			}, GTK_WINDOW(helper.getWidget("main_window")));
 		},
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Writing partition");
 		},
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
@@ -212,11 +212,11 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 	sfd::PartitionIoOptions opts;
 	opts.partition_name = part_name;
 	opts.file_path = filename;
-	opts.block_size = blk_size;
+	opts.block_size = GetEffectiveManualBlockSize();
 	opts.force = true;
 
 	LongTaskConfig cfg{
-		helper,
+		// worker：在后台线程中执行分区写入（强制）
 		[parent, helper, opts](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag;
 			auto* svc = ensure_flash_service();
@@ -229,10 +229,10 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 				}
 			}, GTK_WINDOW(helper.getWidget("main_window")));
 		},
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Force Writing partition");
 		},
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
@@ -241,50 +241,6 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 
 }
 
-void on_button_clicked_list_read(GtkWidgetHelper helper) {
-	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
-	std::string part_name = getSelectedPartitionName(helper);
-	std::string savePath = showSaveFileDialog(parent, part_name + ".img");
-	ensure_device_attached_or_exit(helper);
-	if (savePath.empty()) {
-		showErrorDialog(parent, _(_(("Error"))), _("No save path selected!"));
-		return;
-	}
-	if (io->part_count == 0 && io->part_count_c == 0) {
-		showErrorDialog(parent, _(_(("Error"))), _("No partition table loaded, cannot write partition list!"));
-		return;
-	}
-
-	sfd::PartitionIoOptions opts;
-	opts.partition_name = part_name;
-	opts.file_path = savePath;
-	opts.block_size = blk_size;
-
-	LongTaskConfig cfg{
-		helper,
-		[parent, helper, opts](std::atomic_bool& cancel_flag) {
-			(void)cancel_flag;
-			auto* svc = ensure_flash_service();
-			sfd::FlashStatus st = svc->readPartitionToFile(opts);
-			gui_idle_call_wait_drag([parent, helper, st]() mutable {
-				if (!st.success) {
-					showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
-				} else {
-					showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), _("Partition read completed!"));
-				}
-			}, GTK_WINDOW(helper.getWidget("main_window")));
-		},
-		[&helper]() {
-			helper.setLabelText(helper.getWidget("con"), "Reading partition");
-		},
-		[&helper]() {
-			helper.setLabelText(helper.getWidget("con"), "Ready");
-		}
-	};
-
-	run_long_task(cfg);
-
-}
 
 void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
@@ -292,7 +248,6 @@ void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
 
 	LongTaskConfig cfg{
-		helper,
 		[parent, helper, part_name](std::atomic_bool& cancel_flag) {
 			(void)cancel_flag;
 			auto* svc = ensure_flash_service();
@@ -305,10 +260,10 @@ void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 				}
 			}, GTK_WINDOW(helper.getWidget("main_window")));
 		},
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Erase partition");
 		},
-		[&helper]() {
+		[helper]() mutable {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}
 	};
@@ -965,30 +920,58 @@ void on_button_clicked_export_part_xml(GtkWidgetHelper helper) {
 	showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("Partition table export completed!"));
 }
 
+#if defined(__APPLE__)
+std::string BuildBackupRootDirForGuiBackup() {
+    if (savepath[0]) {
+        char time_buf[32];
+        std::time_t now = std::time(nullptr);
+        std::tm tm_now{};
+        localtime_r(&now, &tm_now);
+        std::strftime(time_buf, sizeof(time_buf), "%Y%m%d_%H%M%S", &tm_now);
+        return std::string(savepath) + "/" + time_buf;
+    }
+    return std::string("partitions_backup");
+}
+#else
+std::string BuildBackupRootDirForGuiBackup() {
+    return std::string("partitions_backup");
+}
+#endif
+
 void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
 
 	helper.setLabelText(helper.getWidget("con"), "Backup partitions");
 	std::thread([helper]() mutable {
+		auto& settings = GetGuiIoSettings();
+
 		std::unique_ptr<sfd::FlashService> svc = sfd::createFlashService();
 		svc->setContext(io, &g_app_state);
 
-		// 使用当前工作目录下的 partitions_backup 目录
-		std::string output_dir = "partitions_backup";
+		std::string output_dir = BuildBackupRootDirForGuiBackup();
 		std::vector<std::string> names; // 为空表示备份全部
 
-		sfd::FlashStatus st = svc->backupPartitions(names, output_dir);
-		gui_idle_call_wait_drag([helper, st]() mutable {
+		std::uint32_t step = GetEffectiveManualBlockSize();
+		DEG_LOG(I, "[blk] backup_all GUI step=%u", step);
+
+		sfd::FlashStatus st = svc->backupPartitions(names, output_dir, sfd::SlotSelection::Auto, step);
+		gui_idle_call_wait_drag([helper, st, output_dir]() mutable {
 			if (!st.success) {
-				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), st.message.c_str());
+				// 备份取消：使用可本地化字符串
+				if (st.code == sfd::FlashErrorCode::Cancelled) {
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("partition backup cancelled"));
+				} else {
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), st.message.c_str());
+				}
 			} else {
-				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Completed"))), _("Partition backup completed!"));
+				// 成功时提示输出目录
+				std::string msg = std::string(_("Partition backup completed! Saved to: ")) + output_dir;
+				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Completed"))), msg.c_str());
 			}
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}, GTK_WINDOW(helper.getWidget("main_window")));
 	}).detach();
 }
-
 
 void confirm_partition_c(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
@@ -1305,6 +1288,146 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_widget_show_all(outerScroll);
 	return outerScroll;
 }
+
+void on_button_clicked_list_read(GtkWidgetHelper& helper) {
+	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+	std::string part_name = getSelectedPartitionName(helper);
+
+	auto& settings_enter = GetGuiIoSettings();
+	LogBlkState("partition list_read enter");
+
+#if defined(__APPLE__)
+	if (g_is_macos_bundle) {
+		// macOS Finder 双击 .app 时，savepath 在 gtk_kmain 中已设置，
+		// 直接保存到固定目录，不再弹出路径选择对话框。
+		ensure_device_attached_or_exit(helper);
+		if (io->part_count == 0 && io->part_count_c == 0) {
+			showErrorDialog(parent, _(_(("Error"))), _("No partition table loaded, cannot write partition list!"));
+			return;
+		}
+
+		auto& settings = GetGuiIoSettings();
+
+		// 默认路径：savepath/partition.img，如果 savepath 为空则退回当前目录
+		std::string finalPath;
+		if (savepath[0]) {
+			std::string root = BuildBackupRootDirForGuiBackup();
+			finalPath = root + "/" + part_name + ".img";
+		} else {
+			finalPath = part_name + ".img";
+		}
+
+		LongTaskConfig cfg{
+			[parent, helper, part_name, finalPath](std::atomic_bool& cancel_flag) {
+				(void)cancel_flag;
+				sfd::PartitionReadInfo info{};
+				info.name = part_name;
+				sfd::PartitionReadOptions opts{};
+				opts.output_path = finalPath;
+				opts.block_cfg = MakeBlockSizeConfigFromGui();
+				DEG_LOG(I, "[blk] list_read(macos) part=%s", part_name.c_str());
+				sfd::PartitionReadCallbacks cb;
+				cb.on_progress = [helper](const sfd::PartitionReadInfo& p, std::uint64_t bytes_read, double speed_mb_s) {
+					gui_idle_call([helper, p, bytes_read, speed_mb_s]() mutable {
+						GtkWidget* conStatus = helper.getWidget("con");
+						if (conStatus && GTK_IS_LABEL(conStatus)) {
+							char status_text[256];
+							snprintf(status_text, sizeof(status_text),
+							         "Backing up %s | size: %llu | read: %llu | speed: %.1f MB/s",
+							         p.name.c_str(),
+							         static_cast<unsigned long long>(p.size),
+							         static_cast<unsigned long long>(bytes_read),
+							         speed_mb_s);
+							gtk_label_set_text(GTK_LABEL(conStatus), status_text);
+						}
+					});
+				};
+				auto* svc = ensure_flash_service();
+				sfd::FlashStatus st = svc->partitionReader().readOne(info, opts, &cb);
+				gui_idle_call_wait_drag([parent, helper, st, finalPath]() mutable {
+					if (!st.success) {
+						showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
+					} else {
+						std::string msg = std::string(_("Partition read completed! Saved to: ")) + finalPath;
+						showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), msg.c_str());
+					}
+				}, GTK_WINDOW(helper.getWidget("main_window")));
+			},
+			[helper]() mutable {
+				helper.setLabelText(helper.getWidget("con"), "Reading partition");
+			},
+			[helper]() mutable {
+				helper.setLabelText(helper.getWidget("con"), "Ready");
+			}
+		};
+
+		run_long_task(cfg);
+		return;
+	}
+#endif
+
+	// 非 macOS 或 macOS 下 CLI 运行：始终弹出保存路径对话框
+	std::string savePath = showSaveFileDialog(parent, part_name + ".img");
+	ensure_device_attached_or_exit(helper);
+	if (savePath.empty()) {
+		showErrorDialog(parent, _(_(("Error"))), _("No save path selected!"));
+		return;
+	}
+	if (io->part_count == 0 && io->part_count_c == 0) {
+		showErrorDialog(parent, _(_(("Error"))), _("No partition table loaded, cannot write partition list!"));
+		return;
+	}
+
+	LongTaskConfig cfg2{
+		[parent, helper, part_name, savePath](std::atomic_bool& cancel_flag) mutable {
+			(void)cancel_flag;
+			sfd::PartitionReadInfo info{};
+			info.name = part_name;
+
+			sfd::PartitionReadOptions opts{};
+			opts.output_path = savePath;
+			opts.block_cfg = MakeBlockSizeConfigFromGui();
+
+			DEG_LOG(I, "[blk] list_read GUI part=%s", part_name.c_str());
+			sfd::PartitionReadCallbacks cb;
+			cb.on_progress = [helper](const sfd::PartitionReadInfo& p, std::uint64_t bytes_read, double speed_mb_s) {
+				gui_idle_call([helper, p, bytes_read, speed_mb_s]() mutable {
+					GtkWidget* conStatus = helper.getWidget("con");
+					if (conStatus && GTK_IS_LABEL(conStatus)) {
+						char status_text[256];
+						snprintf(status_text, sizeof(status_text),
+						         "Backing up %s | size: %llu | read: %llu | speed: %.1f MB/s",
+						         p.name.c_str(),
+						         static_cast<unsigned long long>(p.size),
+						         static_cast<unsigned long long>(bytes_read),
+						         speed_mb_s);
+						gtk_label_set_text(GTK_LABEL(conStatus), status_text);
+					}
+				});
+			};
+
+			auto* svc = ensure_flash_service();
+			sfd::FlashStatus st = svc->partitionReader().readOne(info, opts, &cb);
+			gui_idle_call_wait_drag([parent, helper, st, savePath]() mutable {
+				if (!st.success) {
+					showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
+				} else {
+					std::string msg = std::string(_("Partition read completed! Saved to: ")) + savePath;
+					showInfoDialog(GTK_WINDOW(parent), _(_(("Completed"))), msg.c_str());
+				}
+			}, GTK_WINDOW(helper.getWidget("main_window")));
+		},
+		[helper]() mutable {
+			helper.setLabelText(helper.getWidget("con"), "Reading partition");
+		},
+		[helper]() mutable {
+			helper.setLabelText(helper.getWidget("con"), "Ready");
+		}
+	};
+
+	run_long_task(cfg2);
+}
+
 
 void bind_partition_signals(GtkWidgetHelper& helper) {
 	helper.bindClick(helper.getWidget("list_write"), [&]() {

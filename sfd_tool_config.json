@@ -7,12 +7,12 @@
     "default_sprd4_mode": false,
     "default_sprd4_one_step": false,
     "default_use_cve": false,
-    "default_wait_seconds": 30.0
+    "default_wait_seconds": 300.0
   },
   "default_backup_before_flash": false,
   "default_verify_after_flash": true,
-  "last_fdl1_path": "/Users/rockerhx/Desktop/t310/0x5500.bin",
-  "last_fdl2_path": "/Users/rockerhx/Desktop/t310/0x9efffe00.bin",
+  "last_fdl1_path": "",
+  "last_fdl2_path": "",
   "last_pac_path": "",
   "last_partition_export_dir": "",
   "log_level": 0,

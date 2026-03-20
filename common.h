@@ -104,6 +104,10 @@ void usleep(unsigned int us);
 extern char fn_partlist[40];
 extern char savepath[ARGV_LEN];
 
+#if defined(__APPLE__)
+extern bool g_is_macos_bundle;
+#endif
+
 
 #define DBG_LOG(...) fprintf(stderr, __VA_ARGS__)
 
@@ -245,6 +249,7 @@ extern partition_t gPartInfo;
 
 extern GtkWidgetHelper helper;
 extern bool isHelperInit;
+extern bool isUseCptable;
 
 enum msg_type{
 	I = 1,

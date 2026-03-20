@@ -63,9 +63,13 @@ fi
 
 echo "[release] 使用生成器: ${GENERATOR}"
 
+# 为避免 Xcode/环境变量强行提升最低版本，这里显式设置
+export MACOSX_DEPLOYMENT_TARGET="11.0"
+
 echo "[release] 配置 Release 构建..."
 cmake -S . -B "${BUILD_DIR}" -G "${GENERATOR}" \
-  -DCMAKE_BUILD_TYPE=Release
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
 
 echo "[release] 编译 Release 构建..."
 cmake --build "${BUILD_DIR}" -j

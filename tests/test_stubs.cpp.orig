@@ -28,3 +28,27 @@ int& m_bOpened = g_test_m_bOpened;
 
 // 在测试环境中不弹出对话框，只打印到 stderr，避免依赖 GTK/窗口
 
+bool Err_Showed = false;
+bool isHelperInit = false;
+GtkWidgetHelper helper{};
+
+void append_log_to_ui(int /*type*/, const char* message) {
+    if (!message) return;
+    fprintf(stderr, "[TEST-LOG] %s
+", message);
+}
+
+std::string showFileChooser(GtkWindow* /*parent*/, bool /*open*/) { return std::string(); }
+std::string showFolderChooser(GtkWindow* /*parent*/) { return std::string(); }
+void showInfoDialog(GtkWindow* /*parent*/, const char* /*title*/, const char* /*message*/) {}
+void showWarningDialog(GtkWindow* /*parent*/, const char* /*title*/, const char* /*message*/) {}
+void showErrorDialog(GtkWindow* /*parent*/, const char* /*title*/, const char* /*message*/) {}
+bool showConfirmDialog(GtkWindow* /*parent*/, const char* /*title*/, const char* /*message*/) { return false; }
+std::string showSaveFileDialog(GtkWindow* /*parent*/,
+                               const std::string& /*default_filename*/,
+                               const std::vector<std::pair<std::string, std::string>>& /*filters*/) {
+    return std::string();
+}
+
+bool isWindowDragging(GtkWindow* /*window*/) { return false; }
+void initDragDetection(GtkWindow* /*window*/) {}
