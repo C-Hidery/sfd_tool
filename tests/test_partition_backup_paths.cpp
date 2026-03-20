@@ -6,10 +6,7 @@
 #include <string>
 
 #include "flash_service.h"
-
-extern "C" {
-    extern char savepath[256];
-}
+#include "common.h"
 
 // BuildBackupRootDirForGuiBackup 由 GUI 分区页提供，在测试中通过链接 pages_lib 使用
 std::string BuildBackupRootDirForGuiBackup();
