@@ -238,6 +238,14 @@ if (USE_GTK)
 
         pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
 
+        # Fedora 等发行版在 RPM 构建环境中会默认启用 GNU ld 的 --as-needed/
+        # --no-copy-dt-needed-entries，这在 GTK 这类有复杂依赖链的库上容易触发
+        # “DSO missing from command line” 报错。这里为主可执行文件放宽该限制，
+        # 确保所有被依赖的 DSO 都会被保留。
+        if (UNIX AND NOT APPLE)
+            target_link_options(sfd_tool PRIVATE "-Wl,--copy-dt-needed-entries")
+        endif()
+
         foreach(tgt IN LISTS SFD_COMMON_TARGETS)
             target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
             target_include_directories(${tgt} PRIVATE ${GTK3_INCLUDE_DIRS})
