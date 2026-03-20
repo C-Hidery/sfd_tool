@@ -6,6 +6,13 @@
 #include "../ui_common.h"
 #include <thread>
 #include <iostream>
+#ifndef _WIN32
+#include <dirent.h>
+#include <sys/stat.h>
+#endif
+#include <cstdint>
+#include <string>
+#include <vector>
 
 extern spdio_t*& io;
 extern int ret;
@@ -131,6 +138,117 @@ void update_partition_size(spdio_t* io) {
         }
     }
 
+}
+
+struct BatchPartitionWriteItem {
+    sfd::DevicePartitionInfo part;
+    std::string image_path;
+    std::uint64_t image_size;
+    bool is_critical;
+    bool selected;
+};
+
+static bool starts_with(const std::string& value, const char* prefix) {
+    if (!prefix) return false;
+    const std::size_t prefix_len = std::strlen(prefix);
+    if (value.size() < prefix_len) return false;
+    return std::memcmp(value.data(), prefix, prefix_len) == 0;
+}
+
+static bool is_critical_partition_name(const std::string& name) {
+    if (name == "splloader") return true;
+    if (starts_with(name, "boot")) return true;   // boot / boot_a / boot_b 等
+    if (starts_with(name, "vbmeta")) return true; // vbmeta / vbmeta_a / vbmeta_system 等
+    if (starts_with(name, "dtbo")) return true;
+    return false;
+}
+
+static std::vector<BatchPartitionWriteItem>
+scan_folder_and_match_partitions(const std::string& folder,
+                                 const std::vector<sfd::DevicePartitionInfo>& partitions) {
+    std::vector<BatchPartitionWriteItem> result;
+
+#if !defined(_WIN32)
+    DIR* dir = opendir(folder.c_str());
+    if (!dir) {
+        DEG_LOG(E, "Failed to open directory: %s\n", folder.c_str());
+        return result;
+    }
+
+    struct dirent* entry = nullptr;
+    while ((entry = readdir(dir)) != nullptr) {
+        // 跳过 . 和 ..
+        if (entry->d_name[0] == '.') {
+            if (entry->d_name[1] == '\0') continue;
+            if (entry->d_name[1] == '.' && entry->d_name[2] == '\0') continue;
+        }
+
+        // 部分平台 d_type 可能为 DT_UNKNOWN，这里只简单跳过目录类型
+#ifdef DT_DIR
+        if (entry->d_type == DT_DIR) {
+            continue;
+        }
+#endif
+
+        std::string filename = entry->d_name;
+        auto dot_pos = filename.find_last_of('.');
+        if (dot_pos == std::string::npos) {
+            continue; // 无扩展名
+        }
+
+        std::string ext = filename.substr(dot_pos);
+        if (ext != ".img") {
+            continue; // 首版仅支持 .img
+        }
+
+        std::string base_name = filename.substr(0, dot_pos);
+        if (base_name.empty()) {
+            continue;
+        }
+
+        const sfd::DevicePartitionInfo* matched_part = nullptr;
+        for (const auto& p : partitions) {
+            if (p.name == base_name) {
+                matched_part = &p;
+                break;
+            }
+        }
+        if (!matched_part) {
+            continue; // 当前设备无同名分区，忽略
+        }
+
+        std::string full_path = folder;
+        if (!full_path.empty() && full_path.back() != '/' && full_path.back() != '\\') {
+            full_path += '/';
+        }
+        full_path += filename;
+
+        struct stat st{};
+        if (stat(full_path.c_str(), &st) != 0) {
+            continue;
+        }
+
+        if (!S_ISREG(st.st_mode)) {
+            continue;
+        }
+
+        BatchPartitionWriteItem item;
+        item.part = *matched_part;
+        item.image_path = full_path;
+        item.image_size = static_cast<std::uint64_t>(st.st_size);
+        item.is_critical = is_critical_partition_name(item.part.name);
+        item.selected = !item.is_critical;
+        result.push_back(std::move(item));
+    }
+
+    closedir(dir);
+#else
+    // Windows 平台暂不实现目录扫描逻辑，仅保证可编译
+    (void)folder;
+    (void)partitions;
+#endif
+
+    return result;
 }
 
 void on_button_clicked_list_write(GtkWidgetHelper helper) {
@@ -1313,7 +1431,13 @@ void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
 		return;
 	}
 
-	// Task 2 结束：已拿到目录和分区表，后续任务中再进行扫描和批量刷入逻辑
+	auto items = scan_folder_and_match_partitions(folder, partitions);
+	if (items.empty()) {
+		showInfoDialog(parent, _("Info"), _("No matching partition images found in the selected folder."));
+		return;
+	}
+
+	// 后续任务中继续处理 items，构建待刷入列表对话框并进行批量刷入
 }
 
 void on_button_clicked_list_read(GtkWidgetHelper& helper) {

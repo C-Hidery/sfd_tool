@@ -882,8 +882,8 @@ msgstr "分区备份完成！"
 msgid "Partition read completed! Saved to: "
 msgstr "分区读取完成！保存到："
 
-msgid "Partition backup completed! Saved to: "
-msgstr "分区备份完成！保存到："
+msgid "No matching partition images found in the selected folder."
+msgstr "所选文件夹中没有找到与当前设备分区匹配的镜像文件。"
 
 msgid "partition backup cancelled"
 msgstr "分区备份已取消"
