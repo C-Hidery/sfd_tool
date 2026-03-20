@@ -32,12 +32,6 @@ jobs:
             cmake_platform: x64
             use_libusb: ON
             vcpkg_triplet: x64-windows
-          - arch: x86
-            config: Release
-            msys_gtk_arch: mingw32
-            cmake_platform: Win32
-            use_libusb: OFF
-            vcpkg_triplet: x86-windows
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -87,14 +81,9 @@ jobs:
             exit $LASTEXITCODE
           }
 
-          # 根据架构安装对应的 GTK3 完整开发包（仅安装缺失的包）
-          if ("${{ matrix.msys_gtk_arch }}" -eq "mingw64") {
-            Write-Host "安装 x64 GTK3 完整开发包..."
-            & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
-          } else {
-            Write-Host "安装 x86 GTK3 完整开发包..."
-            & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-i686-gtk3 mingw-w64-i686-harfbuzz mingw-w64-i686-pango mingw-w64-i686-cairo mingw-w64-i686-glib2"
-          }
+          # 安装 x64 GTK3 完整开发包（仅安装缺失的包）
+          Write-Host "安装 x64 GTK3 完整开发包..."
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
 
           if ($LASTEXITCODE -ne 0) {
             Write-Error "GTK3/MSYS2 依赖安装失败，可能是 32 位环境不再提供 gtk3 包。"
@@ -146,14 +135,10 @@ jobs:
 
       - name: Verify GTK3 DLLs Exist
         run: |
-          if ("${{ matrix.arch }}" -eq "x64") {
-            $gtkBinPath = "C:\msys64\mingw64\bin"
-          } else {
-            $gtkBinPath = "C:\msys64\mingw32\bin"
-          }
-          
+          $gtkBinPath = "C:\msys64\mingw64\bin"
+
           Write-Host "检查 GTK3 DLL 路径: $gtkBinPath"
-          
+
           if (Test-Path $gtkBinPath) {
             $dlls = Get-ChildItem -Path $gtkBinPath -Filter "*.dll" | Select-Object -First 10
             Write-Host "找到 $(@($dlls).Count) 个 DLL 文件"
@@ -488,23 +473,12 @@ jobs:
           # 处理 Windows 文件
           cp master/*.md output/
           cp master/third_party/Lib/libusb-1.0.dll output/sfd_tool_x64_Release/
-          cp master/third_party/Lib/Channel9.dll output/sfd_tool_x86_Release/
-          cp master/third_party/Lib/Channel.ini output/sfd_tool_x86_Release/
           # 为 Windows 版本附带 VERSION_LOG.md，方便 About 页面读取
-          if [ -d "output/sfd_tool_x86_Release" ]; then
-            cp master/docs/VERSION_LOG.md output/sfd_tool_x86_Release/ || true
-          fi
           if [ -d "output/sfd_tool_x64_Release" ]; then
             cp master/docs/VERSION_LOG.md output/sfd_tool_x64_Release/ || true
           fi
 
           cd output
-
-          # 处理 Windows x86 SPRD 驱动版本
-          if [ -d "sfd_tool_x86_Release" ]; then
-            echo "准备 Windows x86 SPRD 驱动版本..."
-            mv sfd_tool_x86_Release sfd_tool_x86_SPRD_Release
-          fi
 
           # 重命名 Windows x64 LibUSB 版本目录
           if [ -d "sfd_tool_x64_Release" ]; then
@@ -523,7 +497,6 @@ jobs:
 
           # 创建 Windows 独立 ZIP（只包含 Windows 目录）
           zip -r -v sfd_tool_windows_${{ env.RELEASE_TAG }}.zip \
-            sfd_tool_x86_SPRD_Release \
             sfd_tool_x64_LibUSB_Release
 
           # 创建包含所有平台构建产物的总包
@@ -542,19 +515,16 @@ jobs:
             ## sfd_tool Release
 
             ### 版本说明:
-            - **sfd_tool_x86_SPRD_Release**: Windows x86 版本，使用官方 SPRD 串口驱动（Channel9.dll），兼容性最佳
             - **sfd_tool_x64_LibUSB_Release**: Windows x64 版本，使用 libusb 驱动
             - **sfd_tool_macos**: macOS 版本（DMG 包）
             - **Linux DEB 包**: Ubuntu/Debian 系统安装包
             - **Linux RPM 包**: Fedora/RPM-Based 系统安装包
 
             ### 使用说明:
-            1. Windows x86 版本推荐在老机器或需要最佳兼容性的环境使用，需要预先安装官方 SPRD 驱动（设备管理器中能看到对应的串口设备）
-            2. Windows x64 版本需要 libusb 驱动（可使用 Zadig 等工具为设备安装 libusb-win32 / libusbK 驱动）
-            3. macOS 版本需要已安装 GTK3 与 libusb 运行时（见项目 README）
+            1. Windows x64 版本需要 libusb 驱动（可使用 Zadig 等工具为设备安装 libusb-win32 / libusbK 驱动）
+            2. macOS 版本需要已安装 GTK3 与 libusb 运行时（见项目 README）
 
             ### 文件列表:
-            - sfd_tool_x86_SPRD_Release/** - Windows x86 SPRD 驱动版
             - sfd_tool_x64_LibUSB_Release/** - Windows x64 LibUSB 驱动版
             - *.deb/*.rpm - Linux 安装包
             - *.dmg - macOS 安装包
