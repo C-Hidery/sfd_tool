@@ -1,3 +1,9 @@
+sfd-tool (1.8.2.0-1-ltv) unstable; urgency=medium
+
+  * 新增：从文件夹恢复分区功能
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sat, 21 Mar 2026 01:03:52 +0800
+
 sfd-tool (1.8.1.0-1-ltv) unstable; urgency=medium
 
   * 修复
