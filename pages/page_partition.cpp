@@ -1293,7 +1293,27 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
 void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
-	showInfoDialog(parent, _(_(("Tips"))), _("Restore from folder (TODO)"));
+
+	// 仅检查连接状态，不直接退出程序
+	if (ensure_device_attached_or_warn(helper)) {
+		return;
+	}
+
+	auto* svc = ensure_flash_service();
+	std::vector<sfd::DevicePartitionInfo> partitions;
+	sfd::FlashStatus st = svc->getCachedDevicePartitions(partitions);
+	if (!st.success || partitions.empty()) {
+		showErrorDialog(parent, _("Error"), _("No partition table loaded, cannot restore from folder!"));
+		return;
+	}
+
+	std::string folder = showFolderChooser(parent);
+	if (folder.empty()) {
+		// 用户取消
+		return;
+	}
+
+	// Task 2 结束：已拿到目录和分区表，后续任务中再进行扫描和批量刷入逻辑
 }
 
 void on_button_clicked_list_read(GtkWidgetHelper& helper) {
