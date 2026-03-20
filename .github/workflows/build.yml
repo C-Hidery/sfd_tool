@@ -73,8 +73,9 @@ jobs:
           
           $packages = "${{ matrix.vcpkg_packages }}".Split(' ')
           foreach ($pkg in $packages) {
+            # 使用 --recurse 强制重建依赖
             Write-Host "Installing $pkg:${{ matrix.vcpkg_triplet }}..."
-            & $vcpkgExe install "$pkg`:${{ matrix.vcpkg_triplet }}"
+            & $vcpkgExe install "$pkg`:${{ matrix.vcpkg_triplet }}" --recurse
             if ($LASTEXITCODE -ne 0) {
               Write-Error "Failed to install $pkg"
               exit $LASTEXITCODE
