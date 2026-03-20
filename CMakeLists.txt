@@ -249,6 +249,17 @@ if (USE_GTK)
         foreach(tgt IN LISTS SFD_TEST_TARGETS)
             target_link_libraries(${tgt} PRIVATE ${GTK3_LIBRARIES})
         endforeach()
+
+        # Work around GNU ld "DSO missing from command line" on some distros
+        # by explicitly appending pango-1.0 at the end of the link line.
+        # This ensures -lpango-1.0 appears after all static archives.
+        find_library(PANGO_LIB NAMES pango-1.0)
+        if (PANGO_LIB)
+            target_link_libraries(sfd_tool PRIVATE ${PANGO_LIB})
+            foreach(tgt IN LISTS SFD_TEST_TARGETS)
+                target_link_libraries(${tgt} PRIVATE ${PANGO_LIB})
+            endforeach()
+        endif()
     endif()
 else()
     foreach(tgt IN LISTS SFD_COMMON_TARGETS)

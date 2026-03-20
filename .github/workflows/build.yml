@@ -75,12 +75,17 @@ jobs:
       - name: Install MSYS2 and GTK3
         run: |
           # GitHub Actions Windows 镜像已预装 MSYS2
+          $ErrorActionPreference = "Stop"
           $msysPath = "C:\msys64"
 
           Write-Host "安装 GTK3 开发包..."
 
           # 更新软件包数据库（不做完整滚动升级）
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "pacman -Sy 失败，无法更新 MSYS2 包数据库"
+            exit $LASTEXITCODE
+          }
 
           # 根据架构安装对应的 GTK3 完整开发包（仅安装缺失的包）
           if ("${{ matrix.msys_gtk_arch }}" -eq "mingw64") {
@@ -91,8 +96,19 @@ jobs:
             & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-i686-gtk3 mingw-w64-i686-harfbuzz mingw-w64-i686-pango mingw-w64-i686-cairo mingw-w64-i686-glib2"
           }
 
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "GTK3/MSYS2 依赖安装失败，可能是 32 位环境不再提供 gtk3 包。"
+            # 打印可用包信息，便于调试
+            & "$msysPath\usr\bin\bash.exe" -lc "echo '=== pacman -Ss gtk3 ==='; pacman -Ss gtk3 || true; echo '=== pacman -Qi mingw-w64-i686-gtk3 ==='; pacman -Qi mingw-w64-i686-gtk3 || true"
+            exit $LASTEXITCODE
+          }
+
           # 安装 gettext，提供 msgfmt 用于生成 .mo 语言文件
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed gettext"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "安装 gettext 失败"
+            exit $LASTEXITCODE
+          }
 
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.arch }}/${{ matrix.config }}/
