@@ -16,27 +16,27 @@ add_executable(test_pac_extract
     test_pac_extract.cpp
     ${SFD_TEST_COMMON_SOURCES}
 )
-target_link_libraries(test_pac_extract PRIVATE core_lib sfd_ui)
+target_link_libraries(test_pac_extract PRIVATE sfd_ui)
 
 add_executable(test_spd_protocol
     test_spd_protocol.cpp
     ${SFD_TEST_COMMON_SOURCES}
 )
-target_link_libraries(test_spd_protocol PRIVATE core_lib sfd_ui)
+target_link_libraries(test_spd_protocol PRIVATE sfd_ui)
 
 add_executable(test_partition_backup_paths
     test_partition_backup_paths.cpp
     ${SFD_TEST_COMMON_SOURCES}
 )
 
-target_link_libraries(test_partition_backup_paths PRIVATE core_lib sfd_ui)
+target_link_libraries(test_partition_backup_paths PRIVATE sfd_ui)
 
 add_executable(test_blocksize_and_backup_service
     test_blocksize_and_backup_service.cpp
     ${SFD_TEST_COMMON_SOURCES}
 )
 
-target_link_libraries(test_blocksize_and_backup_service PRIVATE core_lib sfd_ui)
+target_link_libraries(test_blocksize_and_backup_service PRIVATE sfd_ui)
 
 add_test(NAME pac_extract_tests COMMAND test_pac_extract)
 add_test(NAME spd_protocol_tests COMMAND test_spd_protocol)

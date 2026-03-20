@@ -114,6 +114,8 @@ void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("dmv_enable");
 	helper.enableWidget("dmv_disable");
 	helper.enableWidget("backup_all");
+	helper.enableWidget("restore_from_folder");
+	helper.enableWidget("export_part_xml");
 	helper.enableWidget("list_cancel");
 	helper.enableWidget("m_cancel");
 	helper.enableWidget("list_force_write");
@@ -152,6 +154,8 @@ void DisableWidgets(GtkWidgetHelper helper) {
 	helper.disableWidget("dmv_enable");
 	helper.disableWidget("dmv_disable");
 	helper.disableWidget("backup_all");
+	helper.disableWidget("restore_from_folder");
+	helper.disableWidget("export_part_xml");
 	helper.disableWidget("list_cancel");
 	helper.disableWidget("m_cancel");
 	helper.disableWidget("list_force_write");

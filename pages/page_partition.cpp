@@ -1246,8 +1246,10 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_widget_set_sensitive(writeBtn,    FALSE);
 	gtk_widget_set_sensitive(readBtn,     FALSE);
 	gtk_widget_set_sensitive(eraseBtn,    FALSE);
-	gtk_widget_set_sensitive(backupAllBtn, TRUE);
+	gtk_widget_set_sensitive(backupAllBtn, FALSE);
 	gtk_widget_set_sensitive(cancelBtn,   TRUE);
+	gtk_widget_set_sensitive(restoreFolderBtn, FALSE);
+	gtk_widget_set_sensitive(xmlExportBtn, FALSE);
 
 	// ══════════════════════════════════════════════
 	//  第二部分：包含修改分区的最大外框
@@ -1487,7 +1489,7 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 	    "", toggle_renderer, "active", 0, nullptr);
 	gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_toggle);
 
-	g_signal_connect(toggle_renderer, "toggled", G_CALLBACK(+[] (GtkCellRendererToggle* cell, gchar* path_str, gpointer data) {
+	g_signal_connect(toggle_renderer, "toggled", G_CALLBACK(+[] (GtkCellRendererToggle* /*cell*/, gchar* path_str, gpointer data) {
 		GtkTreeView* view = GTK_TREE_VIEW(data);
 		GtkTreeModel* model = gtk_tree_view_get_model(view);
 		GtkTreePath* path = gtk_tree_path_new_from_string(path_str);
