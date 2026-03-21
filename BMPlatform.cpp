@@ -2,8 +2,8 @@
 #include <iostream>
 
 // 全局变量定义
-static int s_bOpened = 0;
-int& m_bOpened = s_bOpened;
+
+int m_bOpened = 0;
 
 CBMPlatformApp::CBMPlatformApp() {
 	m_pfCreateChannel = NULL;

@@ -159,7 +159,12 @@ private:
 };
 
 // 全局变量声明
-extern int& m_bOpened;
+// 在文件末尾修改全局变量声明
+// 删除原来的：
+// extern int& m_bOpened;
+
+// 改为：
+extern int m_bOpened;
 
 // 内联析构函数实现
 inline ICommChannel::~ICommChannel() {}
