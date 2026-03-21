@@ -87,6 +87,7 @@ if (WIN32)
     target_sources(sfd_tool PRIVATE
         BMPlatform.cpp
         Wrapper.cpp
+        set(CMAKE_GENERATOR_PLATFORM Win32)  # VS生成器
     )
 endif()
 
