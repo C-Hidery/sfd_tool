@@ -281,6 +281,23 @@ if (WIN32)
     foreach(tgt IN LISTS SFD_TEST_TARGETS)
         target_link_libraries(${tgt} PRIVATE dbghelp setupapi)
     endforeach()
+    if (SFD_ENABLE_TESTS AND WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+    # 为测试目标添加必要的定义，避免链接错误
+    foreach(test_target IN LISTS SFD_TEST_TARGETS)
+        if(TARGET ${test_target})
+            # 添加 ICommChannel 析构函数的符号
+            target_compile_definitions(${test_target} PRIVATE 
+                _CRT_SECURE_NO_WARNINGS
+            )
+            # 如果是 SPRD 版本且测试需要，链接必要的库
+            if(NOT USE_LIBUSB)
+                target_link_libraries(${test_target} PRIVATE 
+                    BMPlatform
+                )
+            endif()
+        endif()
+    endforeach()
+    endif()
 endif()
 
 # ================= 依赖：GTK3 / libusb =================

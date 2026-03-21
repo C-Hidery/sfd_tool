@@ -4,8 +4,11 @@
 #include <string>
 #include <vector>
 
-int g_bOpened = 0;
-int& m_bOpened = g_bOpened;
+ICommChannel::~ICommChannel() {}
+
+// 修改全局变量定义 - 使用 static 避免重复定义
+static int g_bOpened = 0;
+int& m_bOpened = g_bOpened;  // 改为非静态，但只在 BMPlatform.cpp 中定义
 
 // 管道命令定义
 enum ProxyCommand {
@@ -256,7 +259,8 @@ DWORD CProxyChannel::Write(LPVOID lpData, DWORD dwDataSize, DWORD dwReserved) {
 }
 
 void CProxyChannel::FreeMem(LPVOID pMemBlock) {
-	SendCommand(CMD_FREE_MEM, &pMemBlock, sizeof(pMemBlock), NULL, 0);
+	DWORD ptrValue = (DWORD)(ULONG_PTR)pMemBlock;  // 安全转换
+    SendCommand(CMD_FREE_MEM, &ptrValue, sizeof(ptrValue), NULL, 0);
 }
 
 BOOL CProxyChannel::GetProperty(LONG lFlags, DWORD dwPropertyID, LPVOID pValue) {
