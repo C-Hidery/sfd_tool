@@ -165,6 +165,13 @@ add_executable(sfd_tool
     main_console.cpp
 )
 
+# Windows: 只有在32位或非SPRD版本时才直接包含 BMPlatform
+
+# 链接子模块和公共 UI 库
+target_link_libraries(sfd_tool
+    PRIVATE
+        sfd_ui
+)
 # Windows: 直接包含 BMPlatform 相关源文件
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT USE_LIBUSB)
     target_sources(sfd_tool PRIVATE
