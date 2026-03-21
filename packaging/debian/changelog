@@ -1,3 +1,9 @@
+sfd-tool (1.8.2.2-1-ltv) unstable; urgency=medium
+
+  * 优化：打包脚本；更新：全面更新用户指南、架构与发布流程说明
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sat, 21 Mar 2026 12:10:58 +0800
+
 sfd-tool (1.8.2.1-1-ltv) unstable; urgency=medium
 
   * 新增：从文件夹恢复功能（批量刷入分区），完善：x64打包（移除x86，支持LibUSB和SPRD驱动）
