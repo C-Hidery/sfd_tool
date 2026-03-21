@@ -1,8 +1,18 @@
 # CMake Usage Guide
 
-> Related documents: [README](../README.md) · [Chinese README](../README_ZH.md) · [User Guide (ZH)](USER_GUIDE_ZH.md) · [Release Guide (ZH)](RELEASE_GUIDE_ZH.md) · [Version Log](VERSION_LOG.md)
+> Related documents: [README](../README.md) · [Chinese README](../README_ZH.md)
+> · [User Guide (ZH)](USER_GUIDE_ZH.md) · [Release Guide (ZH)](RELEASE_GUIDE_ZH.md)
+> · [Version Log](VERSION_LOG.md)
 
-This document is a CMake usage guide for **sfd_tool**, covering macOS / Linux / Windows from installation, configuration, debugging, testing to packaging. All commands are assumed to be executed in the project root directory (the directory containing `CMakeLists.txt`), and use `build/` (or dedicated sub‑directories) as the build directory.
+This document is a CMake usage guide for **sfd_tool**, covering macOS / Linux /
+Windows from installation, configuration, debugging, testing to packaging.
+All commands are assumed to be executed in the project root directory (the
+directory containing `CMakeLists.txt`), and use `build/`‑style directories as
+build outputs.
+
+> CMake is the **primary** build system for this project. The legacy Makefile
+> is kept only as a thin wrapper for compatibility and should not be treated
+> as the source of truth.
 
 ---
 
@@ -45,14 +55,15 @@ Common distributions:
   sudo pacman -S cmake
   ```
 
-If the system repository version is too old, you can install a binary or build from source from the official website.
+If the system repository version is too old, you can install a binary or build
+from source from the official website.
 
 ### 1.3 Windows
 
 1. Use the official installer (recommended)
    - Download: https://cmake.org/download/
-   - Choose the Windows x64 Installer, and during installation, check "Add CMake to system PATH".
-
+   - Choose the Windows x64 Installer, and during installation, check
+     "Add CMake to system PATH".
 2. Or use a package manager:
    - PowerShell (Windows 11/10):
      ```powershell
@@ -63,7 +74,8 @@ If the system repository version is too old, you can install a binary or build f
      choco install cmake
      ```
 
-After installation, check in "x64 Native Tools Command Prompt for VS" or PowerShell:
+After installation, check in an "x64 Native Tools Command Prompt for VS" or
+PowerShell:
 
 ```powershell
 cmake --version
@@ -75,9 +87,12 @@ cmake --version
 
 The basic CMake workflow consists of three steps:
 
-1. **Configure**: Generate the build system (Makefiles, Ninja, Visual Studio solutions, etc.) from the source code.
+1. **Configure**: Generate the build system (Makefiles, Ninja, Visual Studio
+   solutions, etc.) from the source code.
 2. **Build**: Invoke the underlying build tool to compile.
-3. **Test / Install / Package**: Run tests with CTest, install with `cmake --install`, and create packages via CPack.
+3. **Test / Install / Package**: Run tests with CTest, install with
+   `cmake --install`, and create packages via CPack or project‑specific
+   scripts.
 
 Always use out‑of‑source builds:
 
@@ -86,37 +101,43 @@ cmake -S . -B build [additional options]
 cmake --build build [additional options]
 ```
 
+Different build directories (e.g. `build_debug`, `build_release`) can be used to
+keep configurations separate.
+
 ---
 
 ## 3. Generating the Build Directory (Configure)
 
-### 3.1 Single‑config Generators (common on macOS/Linux)
+### 3.1 Single‑config Generators (macOS/Linux)
 
-For example, using Ninja (recommended) or Unix Makefiles:
+Example using Ninja (recommended) or Unix Makefiles:
 
 ```bash
 # Debug build
-cmake -S . -B build \
+cmake -S . -B build_debug \
   -G "Ninja" \
   -DCMAKE_BUILD_TYPE=Debug \
   -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
 # Release build
-cmake -S . -B build-release \
+cmake -S . -B build_release \
   -G "Ninja" \
   -DCMAKE_BUILD_TYPE=Release
 ```
 
-If you do not specify `-G`, the default generator will be used (usually Unix Makefiles).
+If you do not specify `-G`, the default generator will be used (usually Unix
+Makefiles).
 
-Explanation:
+Key options:
 
 - `CMAKE_BUILD_TYPE`: `Debug` / `Release` / `RelWithDebInfo` / `MinSizeRel`
-- `CMAKE_EXPORT_COMPILE_COMMANDS=ON`: generates `compile_commands.json`, useful for code completion and navigation in VSCode/clangd, etc.
+- `CMAKE_EXPORT_COMPILE_COMMANDS=ON`: generates `compile_commands.json`, useful
+  for code completion and navigation in VSCode/clangd, etc.
 
 ### 3.2 Multi‑config Generators (Windows / Visual Studio / Xcode)
 
-Multi‑config generators do not specify `CMAKE_BUILD_TYPE` at configure time; the configuration is chosen at build time using `--config`.
+Multi‑config generators do not specify `CMAKE_BUILD_TYPE` at configure time;
+configuration is chosen at build time using `--config`.
 
 Example for Windows + Visual Studio:
 
@@ -141,15 +162,13 @@ cmake -S . -B build -G "Xcode"
 
 ```bash
 # Debug
-cmake --build build -j
+cmake --build build_debug -j
 
 # Release
-cmake --build build-release -j
+cmake --build build_release -j
 ```
 
-Explanation:
-
-- `-j`: passed to the underlying build tool to enable parallel compilation (supported by both Ninja and Make).
+`-j` is passed to the underlying build tool to enable parallel compilation.
 
 ### 4.2 Multi‑config generators (Visual Studio / Xcode)
 
@@ -161,9 +180,10 @@ cmake --build build --config Debug -- /m
 cmake --build build --config Release -- /m
 ```
 
-- `/m`: MSBuild's parallel compilation option.
+`/m` is MSBuild's parallel compilation option.
 
-You can also directly open the generated `build/xxx.sln` file in Visual Studio and select configuration and start debugging from the IDE.
+You can also directly open the generated `build/xxx.sln` file in Visual Studio
+and select configuration/start debugging from the IDE.
 
 ---
 
@@ -175,8 +195,8 @@ Ensure the configure stage uses `Debug` or a build with symbols:
 
 - Single‑config:
   ```bash
-  cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
-  cmake --build build -j
+  cmake -S . -B build_debug -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
+  cmake --build build_debug -j
   ```
 - Multi‑config:
   ```bash
@@ -186,11 +206,12 @@ Ensure the configure stage uses `Debug` or a build with symbols:
 
 ### 5.2 Command‑line debugging (macOS/Linux)
 
-Assuming the executable is output to `build/bin/your_app` (actual location depends on your `CMakeLists.txt`):
+Assuming the executable is output to `build_debug/sfd_tool` (actual location
+depends on your `CMakeLists.txt`):
 
 - Using **lldb** (default on macOS):
   ```bash
-  lldb build/bin/your_app
+  lldb build_debug/sfd_tool
   # inside lldb:
   (lldb) breakpoint set --name main
   (lldb) run
@@ -198,7 +219,7 @@ Assuming the executable is output to `build/bin/your_app` (actual location depen
   ```
 - Using **gdb** (common on Linux):
   ```bash
-  gdb build/bin/your_app
+  gdb build_debug/sfd_tool
   # inside gdb:
   (gdb) break main
   (gdb) run
@@ -217,30 +238,24 @@ Two common methods:
 2. **VSCode + CMake**:
    - Install the "CMake Tools" and "C/C++" extensions.
    - Let CMake Tools discover `CMakeLists.txt`.
-   - Choose the kit / configuration, then run `cmake --build`, and configure `launch.json` to use `build/.../your_app.exe` for debugging.
+   - Choose the kit/configuration, then run `cmake --build`, and configure
+     `launch.json` to use `build_debug/sfd_tool` for debugging.
 
 ---
 
 ## 6. Testing (CTest)
 
-Prerequisite: the project has testing configuration similar to:
-
-```cmake
-enable_testing()
-
-add_executable(my_test tests/my_test.cpp)
-add_test(NAME MyTest COMMAND my_test)
-```
+Prerequisite: the project has testing configuration, and
+`ENABLE_TESTING`/`enable_testing()` is set in CMake.
 
 ### 6.1 Running all tests
 
 - macOS/Linux:
   ```bash
-  cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
-  cmake --build build -j
+  cmake -S . -B build_debug -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
+  cmake --build build_debug -j
 
-  # Run tests in the build directory
-  cd build
+  cd build_debug
   ctest --output-on-failure
   ```
 
@@ -253,10 +268,10 @@ add_test(NAME MyTest COMMAND my_test)
   ctest -C Debug --output-on-failure
   ```
 
-Explanation:
+Useful options:
 
-- `--output-on-failure`: print test program output when a test fails, making it easier to diagnose issues.
-- `-C Debug`: required for multi‑config generators to specify the configuration for testing.
+- `--output-on-failure`: print test output for failed tests.
+- `-C Debug`: for multi‑config generators to specify the configuration.
 
 ### 6.2 Filtering by name / increasing verbosity
 
@@ -283,10 +298,10 @@ install(FILES config/default.conf DESTINATION share/sfd_tool)
 
 - Single‑config (macOS/Linux):
   ```bash
-  cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
-  cmake --build build -j
+  cmake -S . -B build_release -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+  cmake --build build_release -j
 
-  cmake --install build --prefix /opt/sfd_tool
+  cmake --install build_release --prefix /opt/sfd_tool
   ```
 
 - Multi‑config (Windows):
@@ -300,199 +315,123 @@ install(FILES config/default.conf DESTINATION share/sfd_tool)
 After installation, the executable will typically be located at:
 
 - macOS/Linux: `/opt/sfd_tool/bin/sfd_tool`
-- Windows: `C:\\Program Files\\sfd_tool\\bin\\sfd_tool.exe` (depending on your install rules)
+- Windows: `C:\\Program Files\\sfd_tool\\bin\\sfd_tool.exe` (depending on
+  your install rules)
 
 ---
 
-## 8. Packaging (CPack)
+## 8. Packaging
 
-If CPack is enabled in your `CMakeLists.txt`, you will usually see configuration similar to:
+This project uses a combination of **CMake/CPack** and
+**distribution‑specific scripts** in the `packaging/` directory for
+production‑ready packages.
 
-```cmake
-set(CPACK_PACKAGE_NAME "sfd_tool")
-set(CPACK_PACKAGE_VERSION "1.0.0")
-# Other CPACK_* settings...
-include(CPack)
-```
-
-### 8.1 Basic workflow
-
-1. First, complete the build and ensure installation rules are configured (see previous section).
-2. Invoke CPack from the build directory.
-
-- macOS/Linux:
-  ```bash
-  cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
-  cmake --build build -j
-
-  cd build
-  # Package using default configuration
-  cpack
-  ```
-
-- Windows:
-  ```powershell
-  cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-  cmake --build build --config Release -- /m
-
-  cd build
-  cpack -C Release
-  ```
-
-### 8.2 Choosing package formats
-
-Common generators:
-
-- General: `TGZ`, `ZIP`
-- macOS: `DragNDrop` (DMG), `Bundle`
-- Linux: `DEB`, `RPM`
-- Windows: `NSIS`, `WIX` (MSI)
-
-Examples:
+For local experiments you can use CPack directly:
 
 ```bash
-# Generate a .tar.gz package
-cpack -G TGZ
-
-# Generate a .zip package
-cpack -G ZIP
-
-# Generate an NSIS installer on Windows (requires NSIS installed)
-cpack -G NSIS -C Release
+cd build_release
+cpack
 ```
 
-Generated packages will be placed in the `build/` directory (for example `sfd_tool-1.0.0-Linux.tar.gz`, `sfd_tool-1.0.0-win64.exe`).
+For official Debian/RPM packages and other artifacts, refer to:
+
+- `packaging/build-deb.sh`
+- `packaging/build-rpm.sh`
+- `packaging/rpm-build/sfd-tool.spec`
+
+These scripts are orchestrated by the CI workflow
+[.github/workflows/build.yml](../.github/workflows/build.yml) and described in
+more detail in [docs/RELEASE_GUIDE_ZH.md](RELEASE_GUIDE_ZH.md).
 
 ---
 
-## 9. Recommended day‑to‑day commands for this project (dev / release)
+## 9. Recommended day‑to‑day commands (dev / release)
 
-To avoid remembering different CMake command lines, this project provides helper scripts in the [scripts/](../scripts/) directory, similar to `pnpm dev` / `pnpm build` in JS projects.
+To avoid remembering long CMake command lines, this project provides helper
+scripts in the [scripts/](../scripts/) directory.
 
-### 9.1 Development (Debug)
+### 9.1 Development (Debug) — `scripts/dev.sh`
 
 ```bash
-# Run in the project root
 ./scripts/dev.sh
 ```
 
-This is equivalent to:
+Roughly equivalent to:
 
 ```bash
-# 1. Generate/update the Debug build directory (prefer Ninja)
 cmake -S . -B build_cmake_debug -G "Ninja" \
   -DCMAKE_BUILD_TYPE=Debug \
   -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-
-# 2. Build the Debug configuration
 cmake --build build_cmake_debug -j
-
-# 3. Run the Debug GUI (UI language is determined by the per‑user config file field `ui_language`)
 ./build_cmake_debug/sfd_tool
 ```
 
-`dev.sh` will automatically:
+`dev.sh` will:
 
-- Detect whether `ninja` is installed; use `Ninja` if available, otherwise fall back to `Unix Makefiles`.
-- Use `build_cmake_debug/` as the Debug build directory.
-- Always build in Debug mode.
-- Run `./build_cmake_debug/sfd_tool` directly. The program reads `ui_language` from the per‑user config file and by default uses Chinese (on first run it writes a default config).
+- Prefer Ninja if available, otherwise fall back to Unix Makefiles;
+- Use `build_cmake_debug/` as the Debug build directory;
+- Run the Debug GUI at the end. The GUI reads the per‑user config file to
+  determine `ui_language` and other settings (see below).
 
-### 9.2 Release build
+### 9.2 Release builds — `scripts/release.sh` (or platform‑specific variants)
+
+For producing release‑like builds (without full packaging):
 
 ```bash
-# Run in the project root
 ./scripts/release.sh
 ```
 
-Equivalent to:
-
-```bash
-# 1. Generate/update the Release build directory (prefer Ninja)
-cmake -S . -B build_cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release
-
-# 2. Build the Release configuration
-cmake --build build_cmake -j
-
-# 3. To run (UI language determined by config file):
-./build_cmake/sfd_tool
-```
-
-### 9.3 Windows scripts (PowerShell)
-
-On Windows, the recommended workflow is **Visual Studio 2022 + CMake**, wrapped by PowerShell scripts:
-
-- Development (Debug):
-  ```powershell
-  # Run in the project root
-  .\scripts\dev.ps1
-  ```
-
-- Release build:
-  ```powershell
-  # Run in the project root
-  .\scripts\release.ps1
-  ```
-
-These scripts do the following:
-
-- Use generator `Visual Studio 17 2022` and platform `x64` by default.
-- Use `build_vs/` as the VS build directory.
-- `dev.ps1`:
-  - Runs:
-    ```powershell
-    cmake -S . -B build_vs -G "Visual Studio 17 2022" -A x64 `
-      -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-    cmake --build build_vs --config Debug -- /m
-    ```
-  - If `build_vs/Debug/sfd_tool.exe` is generated, it will automatically start the GUI.
-- `release.ps1`:
-  - Runs:
-    ```powershell
-    cmake -S . -B build_vs -G "Visual Studio 17 2022" -A x64
-    cmake --build build_vs --config Release -- /m
-    ```
-  - Does not automatically run the program, only prints the path to `build_vs/Release/sfd_tool.exe`.
-
-Dependency checks and hints:
-
-- If `cmake` is not found in PowerShell:
-  - Suggest installing Visual Studio 2022 and enabling the "Desktop development with C++" workload; or
-  - Install CMake via `winget install Kitware.CMake`.
-- Recommended environments to run the scripts so that the VS toolchain is available:
-  - PowerShell launched from `x64 Native Tools Command Prompt for VS 2022`.
-  - Visual Studio's built‑in "Developer PowerShell".
-
-> In short:
-> - macOS / Linux: use `./scripts/dev.sh`, `./scripts/release.sh`.
-> - Windows (VS 2022 + PowerShell): use `./scripts/dev.ps1`, `./scripts/release.ps1`.
+The script typically configures a Release build directory (e.g.
+`build_cmake_release/`), builds it and may run a minimal smoke test. For
+full packaging, prefer the `packaging/` scripts and CI pipelines.
 
 ---
 
-## 10. UI language and per‑user configuration
+## 10. Per‑user configuration and UI language
 
-`sfd_tool` uses **gettext** for multi‑language support. At startup, the program reads the `ui_language` field from a per‑user configuration file to decide the UI language:
+SFD Tool stores per‑user configuration (including UI language and recent paths)
+under a platform‑specific directory, typically:
 
-- `"zh_CN"`: force Simplified Chinese UI (default).
-- `"en_US"`: force English UI.
-- `"auto"` or empty: follow the system / terminal locale.
+- Linux: `$XDG_CONFIG_HOME/sfd_tool/` or `~/.config/sfd_tool/`
+- macOS: `$HOME/Library/Application Support/sfd_tool/`
+- Windows: `%APPDATA%\\sfd_tool\\`
 
-On first run, if the config file does not exist, the program writes a default config where `ui_language` is `"zh_CN"`. This means that simply running:
+The exact path is determined by `ConfigService` in `core/config_service`.
 
-```bash
-./build_cmake/sfd_tool
-```
+Key points:
 
-will normally show the Chinese UI.
+- On first run, if only an old `sfd_tool_config.json` exists in the project
+  root / executable directory, the program may migrate it to the per‑user
+  location (keeping the old file as a backup);
+- The config file is JSON; the `ui_language` field controls the GUI language:
+  - `"ui_language": "auto"` — follow system locale;
+  - `"ui_language": "zh_CN"` — Simplified Chinese;
+  - `"ui_language": "en_US"` — English.
 
-There are two ways to switch UI language:
+You can also change UI language from the GUI’s **Advanced Settings** page;
+changes are persisted back to the per‑user config file.
 
-1. In the GUI, open the **"Advanced Settings"** page, find the **"UI language"** dropdown, select the desired language and click the **"Apply"** button next to it. Restart the program to take effect.
-2. Or manually edit the per‑user config file (paths may differ:
-   - Linux: `$XDG_CONFIG_HOME/sfd_tool/sfd_tool_config.json` or `~/.config/sfd_tool/sfd_tool_config.json`
-   - macOS: `$HOME/Library/Application Support/sfd_tool/sfd_tool_config.json`
-   - Windows: `%APPDATA%\sfd_tool\sfd_tool_config.json`
+---
 
-   Set `ui_language` to one of the values above and restart `sfd_tool`.
+## 11. Legacy Makefile (for compatibility only)
 
-Previous versions of the documentation suggested using environment variables such as `LC_ALL=zh_CN.UTF-8` to force a Chinese interface. This is **no longer recommended**. In normal cases you can just run the binary directly and control the UI language via the per‑user configuration file.
+The repository root still contains a `Makefile`, primarily for historical
+reasons. It now acts as a thin wrapper around CMake:
+
+- `make` / `make all`:
+  - Equivalent to configuring and building a Release‑like build directory
+    via CMake.
+- `make debug`:
+  - Equivalent to a Debug‑like CMake build.
+
+Important notes:
+
+- In older versions the Makefile directly called the compiler and did not
+  generate some CMake‑managed intermediate files (such as `version.h`);
+  this workflow is **deprecated**;
+- For any non‑trivial configuration (turning tests on/off, experimenting
+  with options, etc.), **always prefer explicit `cmake -S . -B ...` commands
+  or the helper scripts**, not editing the Makefile.
+
+In short, treat the Makefile as a convenience shim, not as the canonical
+build description.

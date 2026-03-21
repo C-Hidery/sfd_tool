@@ -4,223 +4,278 @@
 
 ## 项目简介
 
-SFD Tool 是一个用于操作展讯（Spreadtrum/UNISOC）芯片的 GUI 工具，支持分区读写、分区表修改、AVB 操作等。底层通过 USB（libusb）与设备的 BROM/FDL 引导程序通信。
+SFD Tool 是一个用于操作展讯（Spreadtrum/UNISOC）芯片的 GUI/CLI 工具，
+支持分区读写、分区表导出、PAC 刷写以及 AVB 相关操作。底层通过 USB
+（libusb / Windows Channel9）与设备的 BROM/FDL 引导程序通信。
 
-## 技术栈
-
-| 层次 | 技术 |
-|------|------|
-| UI 框架 | GTK+ 3.0 |
-| 语言 | C++17 |
-| USB 通信 | libusb-1.0 |
-| 构建系统 | CMake（主） + Makefile（兼容） |
-| 国际化 | gettext（libintl） |
+本文从架构角度描述主要模块、分层设计和重构方向，帮助开发者在
+阅读代码前快速建立整体认知。
 
 ---
 
-## 目录结构
+## 目录结构（按职责分组）
 
-```
+```text
 sfd_tool/
-├── main.cpp                    # 入口 + 连接逻辑（on_button_clicked_connect/fdl_exec）
-├── main.h                      # 全局变量声明
-├── main_console.cpp            # 命令行模式入口
-├── common.cpp / common.h       # 上层逻辑、结构体定义、跨模块公共接口
-├── core/                       # 拆分后的底层核心模块
-│   ├── logging.h/.cpp          # 日志与错误处理（DEG_LOG/ERR_EXIT、打印内存等）
-│   ├── file_io.h/.cpp          # 文件读写封装（xfopen/my_fopen，Windows UTF-8 路径处理）
-│   ├── pac_extract.h/.cpp      # PAC 固件解析与解包（sprd_head_t/sprd_file_t、Unpac 类）
-│   ├── usb_transport.h/.cpp    # USB 通信与端点发现（libusb / Windows Wrapper、spdio_t 缓冲区管理）
-│   └── spd_protocol.h/.cpp     # SPD/BSL 协议封装（HDLC 转码、CRC/Checksum、encode_msg/send_msg/recv_msg）
-├── GtkWidgetHelper.cpp/.hpp    # GTK Widget 抽象封装层
-├── ui_common.cpp / ui_common.h # 公共 UI 函数（EnableWidgets、底部控制栏）
-├── i18n.h                      # 国际化宏定义（gettext）
-├── GenTosNoAvb.h               # TrustOS AVB 补丁工具
+├── main.cpp                  # GUI 入口，应用初始化与页面注册
+├── main.h                    # 与入口相关的少量全局声明
+├── main_console.cpp          # 命令行模式入口（--no-gui），实现 CLI 命令解析与帮助文本
+├── common.cpp / common.h     # 历史上集中逻辑的“公共模块”，部分职责已向 core/ 迁移
+├── ui_common.cpp / .h        # 与 UI 相关的通用逻辑（启用/禁用控件、状态栏等）
+├── GtkWidgetHelper.cpp/.hpp  # GTK 控件封装与辅助函数
+├── ui_page.h                 # 页面初始化/信号绑定接口约定
+├── i18n.h                    # gettext 国际化宏定义
+├── GenTosNoAvb.h             # 与 AVB/TrustOS 相关的高级操作辅助
 │
-├── pages/                      # 各标签页独立模块
-│   ├── page_connect.cpp/h          # Connect 标签页
-│   ├── page_partition.cpp/h        # Partition Operation 标签页
-│   ├── page_manual.cpp/h           # Manually Operate 标签页
-│   ├── page_advanced_op.cpp/h      # Advanced Operation 标签页
-│   ├── page_advanced_set.cpp/h     # Advanced Settings 标签页
-│   ├── page_debug.cpp/h            # Debug Options 标签页
-│   ├── page_about.cpp/h            # About 标签页
-│   └── page_log.cpp/h              # Log 标签页
+├── core/                     # 核心业务与底层能力模块（与 UI 解耦）
+│   ├── app_state.h           # 应用状态（AppState）定义
+│   ├── config_service.h/.cpp # 配置加载/保存、per-user 配置路径、ui_language 等
+│   ├── device_service.h/.cpp # 设备连接、FDL 下载、基础设备操作
+│   ├── flash_service.h/.cpp  # 统一的刷机与分区读写服务（含 PartitionReadService）
+│   ├── file_io.h/.cpp        # 文件读写封装（跨平台路径处理等）
+│   ├── logging.h/.cpp        # 日志接口与实现（DEG_LOG 等）
+│   ├── pac_extract.h/.cpp    # PAC 固件解析与解包
+│   ├── result.h              # Result<T> / ErrorCode 等错误返回模型
+│   ├── spd_protocol.h/.cpp   # SPD/BSL 协议封装（编解码、消息收发）
+│   └── usb_transport.h/.cpp  # USB 传输抽象（libusb / Windows Wrapper）
 │
-├── assets/                     # 图标、rc 资源等
-├── packaging/                  # 打包脚本（deb/rpm、desktop 文件、man 手册）
-├── locale/                     # 国际化翻译文件（.po / .mo）
-├── third_party/                # 第三方依赖
-│   ├── Lib/                    # 预编译库（libusb 等，供 Windows 使用）
-│   └── nlohmann/               # nlohmann/json 单头文件库
-└── scripts/                    # 其他辅助脚本
+├── pages/                    # 各标签页（UI 层）的实现
+│   ├── page_connect.cpp/.h       # 连接页（Connect）
+│   ├── page_partition.cpp/.h     # 分区操作页（Partition Operation）
+│   ├── page_pac_flash.cpp/.h     # PAC 刷写页（PAC Flash）
+│   ├── page_manual.cpp/.h        # 手动操作页（Manual）
+│   ├── page_advanced_op.cpp/.h   # 高级操作页（Advanced Operation）
+│   ├── page_advanced_set.cpp/.h  # 高级设置页（Advanced Settings）
+│   ├── page_debug.cpp/.h         # 调试设置页（Debug Options）
+│   ├── page_log.cpp/.h           # 日志页（Log）
+│   └── page_about.cpp/.h         # 关于页（About）
+│
+├── assets/                   # 图标、rc 资源等
+├── packaging/                # 打包脚本与元数据（deb/rpm/spec/desktop/man 等）
+├── locale/                   # 国际化翻译文件（.po / .mo）
+├── third_party/              # 第三方依赖
+│   ├── Lib/                  # 预编译库（libusb、Channel9 等，供 Windows 使用）
+│   └── nlohmann/             # nlohmann/json 单头文件库
+├── tests/                    # 单元测试与集成测试（通过 CTest 运行）
+├── scripts/                  # 构建/开发/发布辅助脚本（dev.sh、release.sh 等）
+├── docs/                     # 用户/开发/发布文档
+└── .github/workflows/        # GitHub Actions CI 配置（build.yml）
 ```
 
 ---
 
 ## 当前架构问题概览
 
-> 本小节从高层结构视角概括当前架构在“模块边界、职责分配、可测试性、可维护性”等方面存在的主要问题。更细致的函数级分析建议参考团队内部的工程规划文档（如有），或结合本仓库 `task/` 目录下的计划类文档（若存在）。
+> 本小节从高层结构视角概括当前架构在“模块边界、职责分配、可测试性、
+> 可维护性”等方面存在的主要问题，方便在阅读代码或规划重构时有一个
+> 问题清单。更细致的函数级分析建议结合仓库中的 `task/` 目录下计划类
+> 文档（若存在）。
 
-1. **核心逻辑与 UI 层耦合度高**
-   - `main.cpp` 中包含大量业务流程（设备连接、FDL 执行、分区读写等），这些流程直接操作 GTK 控件或依赖 UI 细节。
-   - 部分页面（如 `page_connect`, `page_partition`）的回调函数仍然实现在 `main.cpp`，导致页面模块与主入口强耦合。
+1. **核心逻辑与 UI 层耦合度仍然偏高**
+   - `main.cpp` 和部分页面代码中仍存在较多业务流程逻辑（设备连接、
+     分区操作入口等），直接操作 GTK 控件或依赖 UI 细节；
+   - 部分历史回调实现仍集中在 `main.cpp`，需要逐步挪到对应 page 模块。
 
 2. **协议/传输与平台细节混杂**
-   - 历史上大量逻辑集中在 `common.cpp` 中，包括：SPD 协议编解码、USB 传输、文件 I/O、PAC 解包、日志输出等。
-   - 协议层直接依赖 libusb / Windows Channel9 等平台细节，缺乏清晰的抽象层，使得后续想引入测试或替换底层实现的成本很高。
+   - 虽然已经引入 `usb_transport` 和 `spd_protocol` 等模块，但部分逻辑
+     仍然耦合具体平台行为（例如 Windows Wrapper / Channel9 与 Linux
+     libusb 的差异）；
+   - 对未来新增平台或替换底层实现的灵活性仍有限。
 
-3. **全局状态分散且以 `extern` 形式暴露**
-   - 设备连接状态、块大小、A/B 分区选择等关键状态通过多个 `extern` 变量散落在不同源文件中。
-   - 这增加了理解成本，也使得重构过程中很难保证所有状态在一个一致的生命周期内被正确管理。
+3. **状态管理集中化进展中**
+   - 已有 `AppState` 用于集中存放设备信息、分区列表、配置等共享状态；
+   - 一些遗留 `extern` 全局变量仍然存在，需要逐步收敛到 AppState 或更
+     合理的所有者中，以降低全局可变状态带来的复杂度。
 
-4. **配置与 JSON 操作直接暴露在 UI 中**
-   - 当前 UI 代码直接操作 `nlohmann::json`，不同页面自行解析/拼装配置结构，缺乏统一的配置域模型。
-   - 随着功能增加，配置项的演化难以集中治理，容易产生隐性依赖和行为差异。
+4. **配置访问逐步统一，但历史代码仍存在**
+   - 当前推荐通过 `ConfigService` 以及明确的配置结构访问 per-user 配置，
+     JSON 仅作为持久化格式；
+   - 历史上直接操作 JSON 的 UI 代码尚未完全收敛，需要在后续重构中统一
+     到服务层接口之上。
 
-5. **日志与长任务处理模式不统一**
-   - 各处自行使用日志输出宏/函数，缺乏统一接口和等级管理；
-   - 刷机、备份等长时间运行任务在不同页面中以不同方式禁用按钮、更新进度条、处理取消操作，不利于用户体验一致性与后续维护。
+5. **日志与长任务处理模式正在统一**
+   - `core/logging` 提供统一日志接口，但部分旧代码仍使用自定义输出；
+   - 长时间任务（PAC 刷写、分区备份/还原）在不同页面的按钮禁用、取消
+     流程、进度更新方式仍不完全一致，需要在 UI 层进一步抽象统一模式。
 
-6. **测试与构建体系对重构不友好**
-   - 协议/解析等核心逻辑缺少单元测试，任何非局部性改动都需要依赖人工回归；
-   - 构建系统以 Makefile 为主，VS 工程与 CMake 的角色界限尚不清晰，不利于在多平台、多 IDE 环境下协同开发。
-
-上述问题在后续的工程重构计划中会被进一步拆解为可操作的任务（例如 T1-01～T1-05、T2-01～T2-03 等），这里以“问题清单”的方式帮助读者从整体上把握架构痛点。
-
----
-
-## 目标架构轮廓
-
-> 本小节描述期望达到的目标架构形态，用于指导具体重构任务的取舍与优先级。更细致的执行步骤通常会以团队内部的工程计划文档记录（如存在）。
-
-### 1. 分层结构与边界
-
-目标是形成一个**UI ← Service ← Core ← 平台** 的分层结构，每一层的职责大致如下：
-
-- **UI 层（pages/*, GtkWidgetHelper, ui_common）**
-  - 负责界面展示、用户交互、输入校验和简单的状态管理；
-  - 通过 Service 接口调用业务能力，不直接操作 USB、协议、文件或 JSON；
-  - 页面之间通过清晰的接口（例如初始化、应用配置、执行操作）进行协作。
-  - 各标签页与用户视角的对应关系可参考 [docs/USER_GUIDE_ZH.md](docs/USER_GUIDE_ZH.md) 中的 GUI 概览小节。
-
-- **Service 层（core/flash_service, device_service, config_service 等）**
-  - 对上提供面向用例的高层接口（例如“刷一个 PAC 包”、“探测设备信息”、“加载/保存配置”）；
-  - 对下组合使用 core 模块（协议/传输、PAC 解析、文件 I/O 等），并负责将底层错误转换为统一的 Result/ErrorCode；
-  - 是未来测试与监控的重点入口层。
-
-- **Core 层（core/spd_protocol, usb_transport, pac_extract, file_io, logging 等）**
-  - 提供与业务场景无关的“通用能力”：协议编解码、字节流读写、文件访问、日志输出等；
-  - 不依赖 UI，不直接持有 GtkWidget 等 UI 对象；
-  - 尽量通过抽象接口（如 IUsbTransport）隔离具体平台实现，方便替换与单元测试。
-
-- **平台层（BMPlatform, Wrapper, 平台相关宏/适配）**
-  - 封装与操作系统或特定驱动相关的细节（如 Windows Channel9、libusb 设备枚举方式差异等）；
-  - 提供统一的接口给 core/usb_transport 等模块使用。
-
-### 2. 状态与配置管理
-
-- 引入集中管理的应用状态（AppState 或等价机制），替代当前散落的 `extern` 全局变量；
-- app_state 仅承载“业务状态”（设备信息、当前 PAC 信息、分区表等），不再持有 UI 控件指针；
-- 配置相关逻辑通过 ConfigService 和明确定义的配置结构体（AppConfig、ConnectionConfig、FlashConfig 等）统一管理，JSON 仅作为持久化格式存在。有关 per-user 配置路径与 `ui_language` 字段的具体行为，可参考 [docs/cmake.md](docs/cmake.md) / [docs/cmake_EN.md](docs/cmake_EN.md) 中的相关章节。
-
-### 3. 错误处理与日志
-
-- 在 core 层引入统一的 Result<T> + ErrorCode 体系，避免“0/非 0”“true/false”等隐式约定；
-- 在全局统一日志接口与等级划分（LOG_DEBUG/INFO/WARN/ERROR），并记录模块名，方便定位问题；
-- UI 层通过统一的日志/提示接口与 core 层交互，不直接依赖底层日志实现细节。
-
-### 4. 可测试性与可维护性
-
-- 协议编解码、PAC 解析、关键 Service 接口具备基础单元测试，重构后可通过 CI 快速验证回归；
-- 文件和模块边界清晰，一个模块的改动尽量局限在有限的几个文件范围内；
-- 对外暴露的接口（尤其是 Service 层）保持简洁稳定，为后续功能扩展留有余地。
-
-### 5. 构建与发布流程
-
-- 明确 CMake、VS 工程与 Makefile 的角色：
-  - CMake 作为跨平台构建配置的“单一事实来源”；
-  - VS 工程可以由 CMake 生成或标记为 legacy；
-  - Makefile 可在过渡期保留或简化，最终以 CMake 为主。
-- CI 能够覆盖核心平台（至少 Linux + Windows）的基础构建与测试，打包脚本（Debian `.deb`、Fedora/RPM `.rpm` 等）与当前目录结构保持同步。更详细的构建矩阵和发布流程说明见 [docs/RELEASE_GUIDE_ZH.md](docs/RELEASE_GUIDE_ZH.md)。
-- GitHub Actions 工作流（见 `.github/workflows/build.yml`）：
-  - Windows job 使用 CMake + Visual Studio 构建 x64 变体并运行 `ctest`；
-  - macOS job 使用 CMake + Ninja 构建可执行文件并打包为 DMG；
-  - Linux DEB job 使用 `packaging/build-deb.sh` 构建 `.deb` 包；
-  - Linux RPM job 在 Fedora 容器中构建 `.rpm` 包；
-  - 基于 tag 的 Release job 聚合上述产物并上传到 GitHub Releases，包括两个 Windows ZIP（SPRD/libusb）、macOS DMG、Linux DEB/RPM 以及一个汇总用的 `sfd_tool_all_<tag>.zip`。
-
-通过上述目标架构的约束，可以将工程重构计划中的每一条任务（例如 T1-01, T2-01, T3-01 等）映射到具体的“架构收益”，从而在实施过程中持续校验：
-
-- 这次改动是否让某个边界更清晰了？
-- 是否降低了 UI 与 core、协议与平台之间的耦合？
-- 是否提升了未来新增功能或排查问题的可行性？
+6. **测试覆盖仍有提升空间**
+   - `tests/` 中已经加入了 `spd_protocol`、`pac_extract`、块大小模式与
+     备份路径等核心逻辑的测试用例；
+   - 但部分业务流程仍依赖人工回归测试，未来可在 Service 层增加更多测试
+     针对典型用例链路（例如“PAC 刷机”与“分区批量还原”）。
 
 ---
 
-## 新增标签页指南
+## 目标分层架构
 
-1. 在 `pages/` 新建 `page_myfeat.cpp` 和 `page_myfeat.h`
-2. 在 `.h` 中声明 `create_myfeat_page` 和 `bind_myfeat_signals`
-3. 在 `.cpp` 中实现 UI 构建和回调函数
-4. 在 `main.cpp` 的 `gtk_kmain` 中添加两行调用
-5. 在 `Makefile` 的 `SOURCES` 中添加 `pages/page_myfeat.cpp`
+目标是形成一个清晰的 **UI ← Service ← Core ← 平台** 分层结构：
+
+### 1. UI 层（pages/*, GtkWidgetHelper, ui_common）
+
+- 负责界面展示、用户交互、基本输入校验和简单状态管理；
+- 通过 Service 接口调用业务能力，不直接操作 USB、协议、文件或 JSON；
+- 每个标签页（Connect / Partition / PAC Flash / Manual / Advanced / Settings /
+  Debug / Log / About）与用户视角的功能一一对应，其说明可参见
+  [docs/USER_GUIDE_ZH.md](docs/USER_GUIDE_ZH.md)；
+- 公共 UI 行为（如长任务期间统一禁用按钮、刷新状态栏）通过
+  `GtkWidgetHelper` 与 `ui_common` 中的辅助函数实现。
+
+### 2. Service 层（core/flash_service, device_service, config_service 等）
+
+- 向上暴露 **用例级接口**，例如：
+  - `FlashService::flashPac(...)`：刷写一个 PAC 包；
+  - `FlashService::backupPartitions(...)`：备份若干分区；
+  - `FlashService::partitionReader()`：获取统一的分区读取服务
+    `PartitionReadService`；
+  - `DeviceService`：处理设备探测、握手与 FDL 下载；
+  - `ConfigService`：加载/保存 per-user 配置、迁移旧配置等；
+- 向下组合使用 Core 层模块（协议、传输、PAC 解析、文件 IO 等），并统一
+  把错误包装成 `Result<T>` / `FlashStatus` 等形式；
+- 是未来单元测试与集成测试的主要入口层。
+
+### 3. Core 层（协议/IO/日志等通用能力）
+
+- 提供与业务场景无关的基础能力：
+  - `spd_protocol`：SPD/BSL 协议编解码与消息收发；
+  - `usb_transport`：USB 端点发现与收发；
+  - `pac_extract`：PAC 文件解析与解包；
+  - `file_io`：文件读写抽象；
+  - `logging`：统一日志接口；
+  - `result`：错误返回模型；
+- 不依赖 UI，不直接持有 GTK 控件；
+- 通过接口或轻量适配层与平台层解耦，便于在测试中替换底层实现。
+
+### 4. 平台层（BMPlatform, Wrapper, 平台适配）
+
+- 抽象与操作系统/驱动相关的行为：
+  - Windows: Channel9 DLL、句柄管理等；
+  - Linux/macOS: libusb 设备枚举与权限处理；
+- 对上提供统一接口，让 `usb_transport` 等模块在不关心平台细节的前提下
+  完成收发操作。
 
 ---
 
-## 编译
+## 分区读取与备份新架构（PartitionReadService）
+
+> 该部分对应在 [docs/VERSION_LOG.md](docs/VERSION_LOG.md) 中提到的
+> “统一分区读取服务与块大小模式/模型，引入 PartitionReadService，将
+> 分区读取与备份路径整合到统一链路中”。
+
+相关代码主要位于 [core/flash_service.h](core/flash_service.h) / `.cpp`：
+
+- `struct PartitionReadInfo`：描述要读取的分区（名称、起始位置、大小等）；
+- `struct PartitionReadOptions`：输出路径、块大小配置 `BlockSizeConfig`；
+- `struct PartitionReadCallbacks`：开始、进度、完成三个回调；
+- `class PartitionReadService`：
+  - 核心方法：
+    - `FlashStatus readOne(const PartitionReadInfo&, const PartitionReadOptions&, ...)`；
+  - 统一处理：
+    - 根据分区表查找分区；
+    - 根据块大小模式选择实际步长；
+    - 负责在读取消除旧链路中的分支和重复代码。
+- `class FlashService`：对外暴露：
+  - `partitionReader()`：返回 `PartitionReadService&`；
+  - `backupPartitions(...)`：按名称列表/全部备份到目录；
+
+UI 层（如 `page_partition`）在执行备份/还原操作时，统一走这条服务链路，
+并在“从文件夹批量还原”等新功能中利用同一套块大小配置和备份路径策略，
+避免历史逻辑中的分叉与不一致行为。
+
+更具体的行为可参考测试用例：
+
+- `tests/test_blocksize_and_backup_service.cpp`
+- `tests/test_partition_backup_paths.cpp`
+
+---
+
+## 新增标签页指南（基于 CMake）
+
+新增标签页的推荐步骤如下：
+
+1. 在 `pages/` 新建文件：
+   - `page_myfeat.cpp`
+   - `page_myfeat.h`
+2. 在 `page_myfeat.h` 中声明：
+   - `GtkWidget* create_myfeat_page(GtkWidgetHelper& helper);`
+   - `void bind_myfeat_signals(GtkWidgetHelper& helper);`
+3. 在 `page_myfeat.cpp` 中：
+   - 在 `create_myfeat_page` 中构建本页 UI 布局；
+   - 在 `bind_myfeat_signals` 中连接按钮/控件与对应回调（回调内部调用
+     Service 层接口，而非直接访问底层协议）。
+4. 在 `main.cpp` 中：
+   - 在初始化阶段调用新页面的 `create_myfeat_page` 与
+     `bind_myfeat_signals`，将其插入主窗口的 Notebook。
+5. 在 CMake 中注册新源文件：
+   - 打开 `pages/CMakeLists.txt`（或顶层 `CMakeLists.txt` 中包含 pages 段落）；
+   - 在对应的 `target_sources` / `add_library` / `add_executable` 段中
+     增加 `pages/page_myfeat.cpp`；
+   - 重新运行 CMake 配置并构建。
+
+> 历史上 `Makefile` 有一个 `SOURCES` 列表需要手动维护，但在 CMake
+> 成为主构建系统后，该列表仅保留作兼容参考。**新增标签页时请以 CMake
+> 为准，若确实需要 Makefile 支持，可在完成 CMake 配置后再按需补充。**
+
+---
+
+## 构建与运行（简要总结）
+
+构建与运行的详细说明请参考：
+
+- [docs/cmake.md](docs/cmake.md)
+- [docs/cmake_EN.md](docs/cmake_EN.md)
+
+这里仅给出简要示例：
 
 ```bash
-# 完整编译
-make
+# Debug 构建（Ninja）
+cmake -S . -B build_cmake_debug -G "Ninja" \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+cmake --build build_cmake_debug -j
 
-# Debug 版本
-make debug
-
-# 清理
-make clean
+# 运行 Debug GUI（界面语言由 per-user 配置文件中的 ui_language 决定）
+./build_cmake_debug/sfd_tool
 ```
 
-**依赖：** GTK+ 3.0、libusb-1.0、gettext（libintl）
+关于 per-user 配置和 `ui_language` 字段，详见：
+
+- [docs/cmake.md](docs/cmake.md) 中相关章节；
+- `core/config_service` 的实现。
 
 ---
 
-## 运行
+## 与 CI / 发布流程的关系
 
-### 国际化说明
+GitHub Actions 的主要工作流定义在
+[.github/workflows/build.yml](.github/workflows/build.yml) 中，当前大致包含：
 
-程序已集成 gettext 国际化。直接运行（或 `sudo ./sfd_tool`）时，语言跟随系统默认 locale，部分环境下 `sudo` 会重置环境变量导致显示英文界面。
+- Windows x64 构建与测试 Job；
+- macOS 构建与打包（DMG） Job；
+- Linux DEB/RPM 打包 Job；
+- 基于 tag 的 Release Job（聚合各平台产物并上传到 Releases）。
 
-**推荐运行方式：**
+发布流程、版本号更新、版本记录维护的详情，请参考：
 
-```bash
-# 不需要 root 权限的情况（macOS 或已配置 udev 规则的 Linux）
-./sfd_tool
+- [docs/RELEASE_GUIDE_ZH.md](docs/RELEASE_GUIDE_ZH.md)
+- [docs/VERSION_LOG.md](docs/VERSION_LOG.md)
 
-# Linux — 需要 USB 访问权限时（推荐）
-sudo -E ./sfd_tool
-```
+架构文档的目标是与上述流程保持同步，使得：
 
-> 首次运行会在 per-user 配置目录生成 `sfd_tool_config.json`（Linux: `$XDG_CONFIG_HOME/sfd_tool/` 或 `~/.config/sfd_tool/`；macOS: `$HOME/Library/Application Support/sfd_tool/`；Windows: `%APPDATA%\sfd_tool\`），默认 `ui_language` 为 `zh_CN`，因此界面为中文。之后可以通过修改该文件或在 GUI 高级设置中切换界面语言。
+- 任何一个模块（core/page/service）发生结构性调整时，都能在此处找到
+  对应位置更新说明；
+- 新贡献者可以通过本文件快速找到自己关心的层次和文件入口；
+- 与 CI/发布有关的目录结构（packaging/、tests/ 等）在此有清晰标注。
 
-### Linux USB 权限
+---
 
-Linux 默认对 USB 设备的访问需要 root 权限，因此推荐使用 `sudo -E`。
-或者，可以配置 udev 规则避免每次都需要 sudo：
+## 总结
 
-```bash
-# 示例：允许所有用户访问展讯 USB 设备
-echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="1782", MODE="0666"' \
-  | sudo tee /etc/udev/rules.d/99-sprd.rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-```
+- **UI 层** 面向用户视角，负责交互与展示，避免直接操作底层协议；
+- **Service 层** 以用例为中心，统一对接 UI 与 Core；
+- **Core 层** 提供稳定可靠的底层能力模块；
+- **平台层** 隔离操作系统和驱动细节。
 
-你也可以通过修改 per-user 配置文件中的 `ui_language` 字段切换界面语言，例如：
-
-- `"ui_language": "zh_CN"`：中文界面；
-- `"ui_language": "en_US"`：英文界面；
-- `"ui_language": "auto"` 或空字符串：跟随系统/终端环境。
-
-配置保存后，下次启动即按照该配置加载 i18n。
-
-> 兼容说明：旧版本曾使用当前目录下的 `sfd_tool_config.json` 存放配置。升级到 per-user 配置后，如果 per-user 目录还没有配置文件而当前目录存在旧文件，程序会优先从旧文件读取并自动迁移一份到 per-user 目录，旧文件会保留作为备份。
+随着 `PartitionReadService`、统一块大小模式、per-user 配置等新结构的
+引入，项目正在逐步向“高内聚、低耦合、易测试”的方向演进。未来在引入
+新特性或进行大型重构时，建议始终参考本文件所描述的分层思路，确保新
+代码落在合适的层次上，并尽量复用现有的服务与基础设施。
