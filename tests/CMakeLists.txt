@@ -8,10 +8,10 @@ set(SFD_TEST_COMMON_SOURCES
 if (WIN32)
     list(APPEND SFD_TEST_COMMON_SOURCES
         ${CMAKE_SOURCE_DIR}/BMPlatform.cpp
+        ${CMAKE_SOURCE_DIR}/BMPlatform_Proxy.cpp   # 添加代理实现
         ${CMAKE_SOURCE_DIR}/Wrapper.cpp
     )
 endif()
-
 
 add_executable(test_spd_protocol
     test_spd_protocol.cpp
@@ -23,16 +23,13 @@ add_executable(test_partition_backup_paths
     test_partition_backup_paths.cpp
     ${SFD_TEST_COMMON_SOURCES}
 )
-
 target_link_libraries(test_partition_backup_paths PRIVATE sfd_ui)
 
 add_executable(test_blocksize_and_backup_service
     test_blocksize_and_backup_service.cpp
     ${SFD_TEST_COMMON_SOURCES}
 )
-
 target_link_libraries(test_blocksize_and_backup_service PRIVATE sfd_ui)
-
 
 add_test(NAME spd_protocol_tests COMMAND test_spd_protocol)
 add_test(NAME partition_backup_paths_tests COMMAND test_partition_backup_paths)
@@ -63,4 +60,28 @@ foreach(tgt IN LISTS SFD_TEST_TARGETS)
             ${CMAKE_SOURCE_DIR}/pages
             ${CMAKE_BINARY_DIR}/generated
     )
+    
+    # 对于 64 位 SPRD 版本，添加必要的宏定义
+    if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT USE_LIBUSB)
+        target_compile_definitions(${tgt} PRIVATE
+            _WIN64
+            BUILDING_TESTS
+            BUILDING_BMPLATFORM
+        )
+    endif()
+    
+    # 链接必要的库（注意：不要链接 BMPlatform.lib）
+    if(WIN32)
+        target_link_libraries(${tgt} PRIVATE
+            dbghelp
+            setupapi
+        )
+    endif()
+    
+    # 确保不使用 BMPlatform 库
+    # 移除任何可能链接 BMPlatform 的语句
+    if(TARGET BMPlatform)
+        # 不链接 BMPlatform
+        # target_link_libraries(${tgt} PRIVATE BMPlatform)  # 注释掉
+    endif()
 endforeach()

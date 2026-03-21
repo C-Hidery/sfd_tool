@@ -21,9 +21,10 @@ int g_default_blk_size = 0;    // 默认块大小，占位
 static spdio_t* g_test_io = nullptr;
 spdio_t*& io = g_test_io;
 
-static int g_test_m_bOpened = -1;
-int& m_bOpened = g_test_m_bOpened;
-
+// test_stubs.cpp
+// 改为定义引用变量
+static int s_bOpened = 0;
+int& m_bOpened = s_bOpened;
 // ===== 针对 core/logging.cpp & pac_extract.cpp 的 GUI 相关桩实现 =====
 
 // 在测试环境中不弹出对话框，只打印到 stderr，避免依赖 GTK/窗口

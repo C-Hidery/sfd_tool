@@ -76,25 +76,120 @@ target_include_directories(sfd_ui
         ${CMAKE_BINARY_DIR}/generated
 )
 
+# ================= Windows 特定：BMPlatform 和 Proxy32 =================
+if (WIN32)
+    # 64位构建时创建 BMPlatform.dll 和 Proxy32.exe
+    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+        # BMPlatform.dll (64位)
+        if(NOT TARGET BMPlatform)
+            add_library(BMPlatform SHARED
+                BMPlatform.cpp
+                BMPlatform_Proxy.cpp
+            )
+            
+            target_compile_definitions(BMPlatform PRIVATE 
+                _CRT_SECURE_NO_WARNINGS
+                _WINDLL
+                _WIN64
+                BUILDING_BMPLATFORM
+            )
+            
+            target_include_directories(BMPlatform PRIVATE 
+                ${CMAKE_CURRENT_SOURCE_DIR}
+                ${CMAKE_BINARY_DIR}/generated
+            )
+            
+            set_target_properties(BMPlatform PROPERTIES
+                OUTPUT_NAME "BMPlatform"
+                PREFIX ""
+                SUFFIX ".dll"
+                RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/x64"
+            )
+            
+            target_link_libraries(BMPlatform PRIVATE 
+                dbghelp
+                setupapi
+            )
+            
+            if(USE_LIBUSB)
+                target_link_libraries(BMPlatform PRIVATE 
+                    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Lib/libusb-1.0.lib
+                )
+            endif()
+            
+            list(APPEND SFD_COMMON_TARGETS BMPlatform)
+        endif()
+        
+        # Proxy32.exe (32位控制台程序)
+        if(NOT TARGET Proxy32)
+            add_executable(Proxy32 Proxy32.cpp)
+            
+            if(MSVC)
+                target_compile_options(Proxy32 PRIVATE /arch:IA32)
+                set_target_properties(Proxy32 PROPERTIES
+                    LINK_FLAGS "/MACHINE:X86 /SUBSYSTEM:CONSOLE"
+                )
+            endif()
+            
+            target_compile_definitions(Proxy32 PRIVATE
+                _CRT_SECURE_NO_WARNINGS
+                _WIN32
+                _CONSOLE
+                PROXY32_EXE
+            )
+            
+            target_include_directories(Proxy32 PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}
+            )
+            
+            set_target_properties(Proxy32 PROPERTIES
+                OUTPUT_NAME "Proxy32"
+                RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/x86"
+            )
+            
+            target_link_libraries(Proxy32 PRIVATE
+                dbghelp
+            )
+        endif()
+    else()
+        # 32位构建时直接包含源文件
+        target_sources(sfd_tool PRIVATE
+            BMPlatform.cpp
+            Wrapper.cpp
+        )
+    endif()
+endif()
 # ================= 主可执行程序 =================
 add_executable(sfd_tool
     main.cpp
     main_console.cpp
 )
 
-# Windows: Channel9 封装（x86 使用，不依赖 libusb）
-if (WIN32)
-    target_sources(sfd_tool PRIVATE
-        BMPlatform.cpp
-        Wrapper.cpp
-    )
-endif()
+# Windows: 只有在32位或非SPRD版本时才直接包含 BMPlatform
 
 # 链接子模块和公共 UI 库
 target_link_libraries(sfd_tool
     PRIVATE
         sfd_ui
 )
+# Windows: 直接包含 BMPlatform 相关源文件
+if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT USE_LIBUSB)
+    target_sources(sfd_tool PRIVATE
+        BMPlatform.cpp
+        BMPlatform_Proxy.cpp
+        Wrapper.cpp
+    )
+elseif (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
+    target_sources(sfd_tool PRIVATE
+        BMPlatform.cpp
+        Wrapper.cpp
+    )
+endif()
+
+# 删除下面这段代码
+# if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT USE_LIBUSB)
+#     target_link_libraries(sfd_tool PRIVATE BMPlatform)
+# endif()
 
 # 公共目标列表，方便批量设置编译选项
 set(SFD_COMMON_TARGETS sfd_tool core_lib pages_lib sfd_ui ${SFD_TEST_TARGETS})
@@ -198,8 +293,9 @@ if (WIN32)
     foreach(tgt IN LISTS SFD_TEST_TARGETS)
         target_link_libraries(${tgt} PRIVATE dbghelp setupapi)
     endforeach()
-    endif()
-
+    
+    
+endif()
 # ================= 依赖：GTK3 / libusb =================
 find_package(PkgConfig QUIET)
 
@@ -244,6 +340,11 @@ if (USE_GTK)
         foreach(tgt IN LISTS SFD_TEST_TARGETS)
             target_link_libraries(${tgt} PRIVATE ${_gtk_win_libs})
         endforeach()
+        
+        # BMPlatform 也需要链接 GTK（如果存在）
+        if (TARGET BMPlatform)
+            target_link_libraries(BMPlatform PRIVATE ${_gtk_win_libs})
+        endif()
     else()
         if (NOT PKG_CONFIG_FOUND)
             message(FATAL_ERROR "PkgConfig is required when USE_GTK=ON")
@@ -304,6 +405,11 @@ if (USE_LIBUSB)
         foreach(tgt IN LISTS SFD_TEST_TARGETS)
             target_link_libraries(${tgt} PRIVATE ${_libusb_win_lib})
         endforeach()
+        
+        # BMPlatform 也需要链接 libusb
+        if (TARGET BMPlatform)
+            target_link_libraries(BMPlatform PRIVATE ${_libusb_win_lib})
+        endif()
     else()
         if (NOT PKG_CONFIG_FOUND)
             message(FATAL_ERROR "PkgConfig is required when USE_LIBUSB=ON")
@@ -372,6 +478,20 @@ add_compile_definitions(SFD_TOOL_DOC_DIR="${CMAKE_INSTALL_FULL_DATADIR}/doc/sfd-
 install(TARGETS sfd_tool
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+
+# 安装 BMPlatform.dll（如果存在）
+if (TARGET BMPlatform)
+    install(TARGETS BMPlatform
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+endif()
+
+# 安装 Proxy32.exe（如果存在）
+if (TARGET Proxy32)
+    install(TARGETS Proxy32
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+endif()
 
 # 安装文档
 install(FILES
