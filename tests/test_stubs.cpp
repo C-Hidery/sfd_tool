@@ -21,8 +21,7 @@ int g_default_blk_size = 0;    // 默认块大小，占位
 static spdio_t* g_test_io = nullptr;
 spdio_t*& io = g_test_io;
 
-static int g_test_m_bOpened = -1;
-int& m_bOpened = g_test_m_bOpened;
+extern int m_bOpened;
 
 // ===== 针对 core/logging.cpp & pac_extract.cpp 的 GUI 相关桩实现 =====
 
