@@ -193,7 +193,12 @@ if (WIN32)
 
     # Windows 平台：崩溃堆栈 (dbghelp) + 串口枚举 (setupapi)
     target_link_libraries(sfd_tool PRIVATE dbghelp setupapi)
-endif()
+    
+    # 同样为测试目标添加
+    foreach(tgt IN LISTS SFD_TEST_TARGETS)
+        target_link_libraries(${tgt} PRIVATE dbghelp setupapi)
+    endforeach()
+    endif()
 
 # ================= 依赖：GTK3 / libusb =================
 find_package(PkgConfig QUIET)
