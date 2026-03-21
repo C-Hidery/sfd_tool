@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <filesystem>  // C++17 filesystem
 #ifdef _WIN32
     #include <io.h>
     #include <fcntl.h>
@@ -144,9 +145,10 @@ private:
     uint8_t* buf;
     int argc;
     char** argv;
+    std::filesystem::path orig_dir;
 
 public:
-    Unpac() : fi(NULL), chunk(0x1000), dir(NULL), buf(NULL), argc(0), argv(NULL) {
+    Unpac() : fi(NULL), chunk(0x1000), dir(NULL), buf(NULL), argc(0), argv(NULL), orig_dir(std::filesystem::current_path()) {
         memset(&head, 0, sizeof(head));
         memset(str_buf, 0, sizeof(str_buf));
     }
@@ -158,6 +160,7 @@ public:
 
     void setDirectory(const char* directory) {
         dir = directory;
+        orig_dir = std::filesystem::current_path();
     }
 
     // 新增：检查和准备输出目录的函数
@@ -382,6 +385,20 @@ bool Unpac::extractFiles() {
             return false;
         }
     }
+    const char* path = orig_dir.c_str();
+#ifndef _WIN32
+    if (path && chdir(path)) {
+        printf("chdir failed\n");
+        return false;
+    }
+#else
+    if (path) {
+        if (_chdir(path)) {
+            printf("chdir failed\n");
+            return false;
+        }
+    }
+#endif
     return true;
 }
 
@@ -854,11 +871,9 @@ bool pac_extract(const char* fn, const char* floder)
 	long long spl_size = g_spl_size > 0 ? g_spl_size : 0;
 	std::string display_name = std::to_string(index) + ". splloader";
 	std::string size_str;
-	if (spl_size < 1024) {
-		size_str = std::to_string(spl_size) + " B";
-	} else {
-		size_str = std::to_string(spl_size / 1024) + " KB";
-	}
+	
+	size_str = "DEFAULT";
+	
 	gtk_list_store_set(store, &iter_spl,
 	                   0, display_name.c_str(),   // 显示名称（带序号）
 	                   1, size_str.c_str(),       // 格式化的大小
@@ -868,22 +883,29 @@ bool pac_extract(const char* fn, const char* floder)
 	index++;  // 递增序号
 	for (const auto& partition : partitions) {
 		GtkTreeIter iter;
+        std::string size_str;
 		gtk_list_store_append(store, &iter);
-
 		// 格式化显示文本
 		std::string display_name = std::to_string(index) + ". " + partition.name;
 
-		// 格式化大小显示
-		std::string size_str;
-		if (partition.size < 1024) {
-			size_str = std::to_string(partition.size) + " B";
-		} else if (partition.size < 1024 * 1024) {
-			size_str = std::to_string(partition.size / 1024) + " KB";
-		} else if (partition.size < 1024 * 1024 * 1024) {
-			size_str = std::to_string(partition.size / (1024 * 1024)) + " MB";
-		} else {
-			size_str = std::to_string(partition.size / (1024 * 1024 * 1024.0)) + " GB";
-		}
+        if (strcmp(partition.name, "userdata") != 0) 
+        {
+            // 格式化大小显示
+            if (partition.size < 1024) {
+                size_str = std::to_string(partition.size) + " B";
+            } else if (partition.size < 1024 * 1024) {
+                size_str = std::to_string(partition.size / 1024) + " KB";
+            } else if (partition.size < 1024 * 1024 * 1024) {
+                size_str = std::to_string(partition.size / (1024 * 1024)) + " MB";
+            } else {
+                size_str = std::to_string(partition.size / (1024 * 1024 * 1024.0)) + " GB";
+            }
+        }
+        else
+        {
+            size_str = "DEFAULT";
+        }
+		
 
 		// 设置行数据
 		gtk_list_store_set(store, &iter,
@@ -1027,7 +1049,7 @@ bool pac_flash(spdio_t* io, const char* floder)
     uint32_t fdl2_base_addr = std::stoul(fdl2_base, nullptr, 0);
     FILE* fi;
     int highspeed = 0;
-    uint8_t baudrate = 0;
+    uint32_t baudrate = 0;
     uint16_t blk_size = DEFAULT_BLK_SIZE;
    
 				fi = oxfopen(fdl1_path.c_str(), "r");
@@ -1181,6 +1203,6 @@ bool pac_flash(spdio_t* io, const char* floder)
 				g_app_state.device.device_stage = FDL2;
     DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
     load_partitions(io, "pac_unpack_output", blk_size, g_app_state.flash.selected_ab, 0);
-	
+	return true;
 }
 
