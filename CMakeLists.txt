@@ -81,7 +81,7 @@ if (WIN32)
     # 定义 BMPlatform 源文件
     set(BM_PLATFORM_SOURCES
         BMPlatform.cpp
-        BMPlatform_Proxy.cpp  # 新增的代理实现
+        Proxy.cpp  # 新增的代理实现
     )
     
     # 1. 编译 BMPlatform 为 64位 DLL（SPRD 版本使用）
