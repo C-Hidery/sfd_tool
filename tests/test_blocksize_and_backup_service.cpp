@@ -6,6 +6,7 @@
 #include "app_state.h"
 #include "common.h"
 #include "usb_transport.h"
+#include "pages/page_partition.h"
 
 using namespace sfd;
 
@@ -52,4 +53,20 @@ TEST_CASE("backupPartitions enumerates partitions and builds X/name.img paths") 
 
     // 目前只验证调用流程能安全返回，不要求成功备份真实分区
     CHECK(!st.success);
+}
+
+TEST_CASE("is_critical_partition_name identifies boot/vbmeta/dtbo and splloader") {
+    CHECK(is_critical_partition_name("splloader") == true);
+    CHECK(is_critical_partition_name("boot") == true);
+    CHECK(is_critical_partition_name("boot_a") == true);
+    CHECK(is_critical_partition_name("boot_b") == true);
+    CHECK(is_critical_partition_name("vbmeta") == true);
+    CHECK(is_critical_partition_name("vbmeta_a") == true);
+    CHECK(is_critical_partition_name("vbmeta_system") == true);
+    CHECK(is_critical_partition_name("dtbo") == true);
+    CHECK(is_critical_partition_name("dtbo_a") == true);
+
+    CHECK(is_critical_partition_name("system") == false);
+    CHECK(is_critical_partition_name("userdata") == false);
+    CHECK(is_critical_partition_name("vendor") == false);
 }

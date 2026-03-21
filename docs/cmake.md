@@ -1,8 +1,14 @@
 # CMake 使用指南
 
-> 相关文档： [README_ZH](../README_ZH.md) · [操作手册](USER_GUIDE_ZH.md) · [版本发布流程](RELEASE_GUIDE_ZH.md) · [版本记录](VERSION_LOG.md)
+> 相关文档： [README_ZH](../README_ZH.md) · [操作手册](USER_GUIDE_ZH.md) ·
+> [版本发布流程](RELEASE_GUIDE_ZH.md) · [版本记录](VERSION_LOG.md)
 
-下面是一份面向当前项目的 CMake 使用指南，覆盖 macOS / Linux / Windows，从安装、配置、调试、测试到打包。所有命令假定在项目根目录（有 CMakeLists.txt 的目录）执行，并使用 `build/` 作为构建目录。
+本文件是 **sfd_tool** 的 CMake 使用说明，覆盖 macOS / Linux /
+Windows，从安装、配置、调试、测试到打包。所有命令假定在项目根目录
+（包含 `CMakeLists.txt` 的目录）执行，并使用 `build_*/` 作为构建目录。
+
+> 本项目以 **CMake 为主构建系统**。根目录的 Makefile 仅为兼容和简化
+> 使用而保留，不再是构建规则的“权威来源”。
 
 ---
 
@@ -14,32 +20,31 @@
    ```bash
    brew install cmake
    ```
-2. 或官网下载 `.dmg` 图形安装包：
+2. 或从官网下载安装 `.dmg` 图形安装包：
    https://cmake.org/download/
 
 安装后检查：
+
 ```bash
 cmake --version
 ```
 
 ### 1.2 Linux（Debian/Ubuntu 为例）
 
-常见发行版：
-
 - Debian/Ubuntu：
   ```bash
   sudo apt-get update
   sudo apt-get install cmake
   ```
-- Fedora:
+- Fedora：
   ```bash
   sudo dnf install cmake
   ```
-- CentOS/RHEL:
+- CentOS/RHEL：
   ```bash
   sudo yum install cmake
   ```
-- Arch:
+- Arch：
   ```bash
   sudo pacman -S cmake
   ```
@@ -50,8 +55,7 @@ cmake --version
 
 1. 使用官方安装程序（推荐）
    - 下载：https://cmake.org/download/
-   - 选择 Windows x64 Installer，双击安装时勾选 “Add CMake to system PATH”。
-
+   - 选择 Windows x64 Installer，安装时勾选 “Add CMake to system PATH”。
 2. 或使用包管理器：
    - PowerShell（Windows 11/10）：
      ```powershell
@@ -63,26 +67,31 @@ cmake --version
      ```
 
 安装后在 “x64 Native Tools Command Prompt for VS” 或 PowerShell 中检查：
+
 ```powershell
 cmake --version
 ```
 
 ---
 
-## 2. 基本使用模型（通用）
+## 2. 基本使用模型
 
 CMake 的基本流程是三步：
 
-1. **配置（Configure）**：从源码生成构建系统（Makefile、Ninja、Visual Studio 解决方案等）
-2. **构建（Build）**：调用底层构建工具编译
-3. **测试 / 安装 / 打包（CTest / install / CPack）
+1. **配置（Configure）**：从源码生成构建系统（Makefile、Ninja、Visual
+   Studio 解决方案等）；
+2. **构建（Build）**：调用底层构建工具编译；
+3. **测试 / 安装 / 打包**：使用 CTest 运行测试，使用
+   `cmake --install` 安装，或配合脚本/CPack 打包。
 
-统一使用 out-of-source 构建：
+统一采用 out-of-source 构建：
 
 ```bash
-cmake -S . -B build [额外选项]
-cmake --build build [额外选项]
+cmake -S . -B build_debug [额外选项]
+cmake --build build_debug [额外选项]
 ```
+
+可以根据需要使用多个构建目录（如 `build_debug`、`build_release`）。
 
 ---
 
@@ -90,33 +99,36 @@ cmake --build build [额外选项]
 
 ### 3.1 单配置生成器（macOS/Linux 常用）
 
-例如使用 Ninja（推荐）或 Unix Makefiles：
+以 Ninja（推荐）或 Unix Makefiles 为例：
 
 ```bash
 # Debug 构建
-cmake -S . -B build \
+cmake -S . -B build_debug \
   -G "Ninja" \
   -DCMAKE_BUILD_TYPE=Debug \
   -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
 # Release 构建
-cmake -S . -B build-release \
+cmake -S . -B build_release \
   -G "Ninja" \
   -DCMAKE_BUILD_TYPE=Release
 ```
 
-不指定 `-G` 时会用默认生成器（通常是 Unix Makefiles）。
+不指定 `-G` 时会使用默认生成器（通常是 Unix Makefiles）。
 
-说明：
+常用配置项：
 
-- `CMAKE_BUILD_TYPE`：`Debug` / `Release` / `RelWithDebInfo` / `MinSizeRel`
-- `CMAKE_EXPORT_COMPILE_COMMANDS=ON`：生成 `compile_commands.json`，方便 VSCode/clangd 等做补全和跳转。
+- `CMAKE_BUILD_TYPE`：`Debug` / `Release` / `RelWithDebInfo` /
+  `MinSizeRel`；
+- `CMAKE_EXPORT_COMPILE_COMMANDS=ON`：生成 `compile_commands.json`，方便
+  VSCode/clangd 补全和跳转。
 
 ### 3.2 多配置生成器（Windows / Visual Studio / Xcode）
 
-多配置生成器的配置阶段不指定 `CMAKE_BUILD_TYPE`，而是在构建时通过 `--config` 选择。
+多配置生成器在配置阶段不指定 `CMAKE_BUILD_TYPE`，而是在构建时通过
+`--config` 选择。
 
-Windows + Visual Studio 例如：
+Windows + Visual Studio 示例：
 
 ```powershell
 cmake -S . -B build `
@@ -125,7 +137,7 @@ cmake -S . -B build `
   -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 ```
 
-macOS + Xcode 例如：
+macOS + Xcode 示例：
 
 ```bash
 cmake -S . -B build -G "Xcode"
@@ -139,15 +151,13 @@ cmake -S . -B build -G "Xcode"
 
 ```bash
 # Debug
-cmake --build build -j
+cmake --build build_debug -j
 
 # Release
-cmake --build build-release -j
+cmake --build build_release -j
 ```
 
-说明：
-
-- `-j`：传给底层构建工具的参数，表示并行编译（Ninja/Make 都支持）。
+`-j` 传给底层构建工具，表示并行编译。
 
 ### 4.2 多配置生成器（Visual Studio / Xcode）
 
@@ -159,9 +169,9 @@ cmake --build build --config Debug -- /m
 cmake --build build --config Release -- /m
 ```
 
-- `/m`：VS/MSBuild 的并行编译选项。
+`/m` 为 MSBuild 的并行编译选项。
 
-你也可以直接在 Visual Studio 打开 `build/xxx.sln`，在 IDE 中选择配置和启动调试。
+也可以在 Visual Studio 中直接打开 `build/xxx.sln`，选择配置后 F5 调试。
 
 ---
 
@@ -169,12 +179,12 @@ cmake --build build --config Release -- /m
 
 ### 5.1 生成 Debug 版本
 
-配置阶段保证使用 Debug 或带符号信息的构建：
+配置阶段确保使用 Debug 或带符号信息的构建：
 
 - 单配置：
   ```bash
-  cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
-  cmake --build build -j
+  cmake -S . -B build_debug -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
+  cmake --build build_debug -j
   ```
 - 多配置：
   ```bash
@@ -184,20 +194,19 @@ cmake --build build --config Release -- /m
 
 ### 5.2 命令行调试（macOS/Linux）
 
-假设可执行文件输出到 `build/bin/your_app`（以实际 CMakeLists.txt 为准）：
+假设可执行文件输出到 `build_debug/sfd_tool`（以实际 CMakeLists.txt
+为准）：
 
-- 使用 `lldb`（macOS 默认）：
+- 使用 lldb（macOS 默认）：
   ```bash
-  lldb build/bin/your_app
-  # 在 lldb 中：
+  lldb build_debug/sfd_tool
   (lldb) breakpoint set --name main
   (lldb) run
   (lldb) bt
   ```
-- 使用 `gdb`（Linux 常用）：
+- 使用 gdb（Linux 常用）：
   ```bash
-  gdb build/bin/your_app
-  # gdb 内：
+  gdb build_debug/sfd_tool
   (gdb) break main
   (gdb) run
   (gdb) bt
@@ -205,40 +214,30 @@ cmake --build build --config Release -- /m
 
 ### 5.3 Windows 调试
 
-两种常见方式：
-
 1. Visual Studio：
-   - 双击打开 `build/your_project.sln`
-   - 右键设置启动项目
-   - 选择 `Debug` 配置，按 F5 调试。
-
+   - 双击 `build/your_project.sln` 打开；
+   - 设置启动项目，选择 `Debug` 配置；
+   - 按 F5 开始调试。
 2. VSCode + CMake：
-   - 安装 CMake Tools + C/C++ 插件
-   - 让 CMake Tools 识别 CMakeLists.txt
-   - 选择 kit / 配置，然后 `cmake --build`，配置 `launch.json` 使用 `build/.../your_app.exe` 调试。
+   - 安装 CMake Tools + C/C++ 插件；
+   - 让 CMake Tools 识别 CMakeLists.txt；
+   - 选择 kit / 配置，执行 `cmake --build` 后，在 `launch.json`
+     中使用 `build_debug/sfd_tool` 作为调试目标。
 
 ---
 
 ## 6. 测试（CTest）
 
-前提：项目中已有类似配置（仅示例）：
-
-```cmake
-enable_testing()
-
-add_executable(my_test tests/my_test.cpp)
-add_test(NAME MyTest COMMAND my_test)
-```
+前提：项目已在 CMake 中启用测试（`enable_testing()`）并添加测试用例。
 
 ### 6.1 运行全部测试
 
 - macOS/Linux：
   ```bash
-  cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
-  cmake --build build -j
+  cmake -S . -B build_debug -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
+  cmake --build build_debug -j
 
-  # 在 build 目录中运行测试
-  cd build
+  cd build_debug
   ctest --output-on-failure
   ```
 
@@ -251,15 +250,15 @@ add_test(NAME MyTest COMMAND my_test)
   ctest -C Debug --output-on-failure
   ```
 
-说明：
+常用选项：
 
-- `--output-on-failure`：失败时打印测试程序输出，便于定位问题。
-- `-C Debug`：多配置生成器需要指定测试使用的配置。
+- `--output-on-failure`：测试失败时打印输出；
+- `-C Debug`：多配置生成器指定测试使用的配置。
 
 ### 6.2 按名称筛选 / 提高日志
 
 ```bash
-# 只跑名称匹配 "MyTest" 的测试
+# 只跑名称包含 "MyTest" 的测试
 ctest -R MyTest --output-on-failure
 
 # 输出更详细日志
@@ -268,9 +267,9 @@ ctest -VV
 
 ---
 
-## 7. 安装（install）
+## 7. 安装（`cmake --install`）
 
-前提：CMake 中定义了安装规则（示例）：
+前提：在 `CMakeLists.txt` 中定义了安装规则，例如：
 
 ```cmake
 install(TARGETS sfd_tool RUNTIME DESTINATION bin)
@@ -281,10 +280,10 @@ install(FILES config/default.conf DESTINATION share/sfd_tool)
 
 - 单配置（macOS/Linux）：
   ```bash
-  cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
-  cmake --build build -j
+  cmake -S . -B build_release -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+  cmake --build build_release -j
 
-  cmake --install build --prefix /opt/sfd_tool
+  cmake --install build_release --prefix /opt/sfd_tool
   ```
 
 - 多配置（Windows）：
@@ -295,173 +294,107 @@ install(FILES config/default.conf DESTINATION share/sfd_tool)
   cmake --install build --config Release --prefix "C:/Program Files/sfd_tool"
   ```
 
-安装之后，可执行文件通常会出现在：
+安装后，可执行文件通常位于：
 
-- macOS/Linux：`/opt/sfd_tool/bin/sfd_tool`
-- Windows：`C:\\Program Files\\sfd_tool\\bin\\sfd_tool.exe`（取决于你的安装规则）
+- macOS/Linux：`/opt/sfd_tool/bin/sfd_tool`；
+- Windows：`C:\\Program Files\\sfd_tool\\bin\\sfd_tool.exe`（视安装规则而定）。
 
 ---
 
-## 8. 打包（CPack）
+## 8. 打包
 
-如果在 CMakeLists.txt 中启用了 CPack，通常会有类似配置：
+项目的正式打包流程主要依赖 `packaging/` 目录下的脚本（如
+`build-deb.sh` / `build-rpm.sh`）以及 GitHub Actions CI，详见：
 
-```cmake
-set(CPACK_PACKAGE_NAME "sfd_tool")
-set(CPACK_PACKAGE_VERSION "1.0.0")
-# 其他 CPACK_* 设置...
-include(CPack)
-```
+- [packaging/build-deb.sh](../packaging/build-deb.sh)
+- [packaging/build-rpm.sh](../packaging/build-rpm.sh)
+- [packaging/rpm-build/sfd-tool.spec](../packaging/rpm-build/sfd-tool.spec)
+- CI 工作流：[.github/workflows/build.yml](../.github/workflows/build.yml)
+- 文档：[docs/RELEASE_GUIDE_ZH.md](RELEASE_GUIDE_ZH.md)
 
-### 8.1 基本使用流程
+本文件只给出本地实验性打包的示例，实际发行版包以脚本和 CI 的输出为准。
 
-1. 先完成构建与安装规则配置（见上一节）。
-2. 在构建目录中调用 CPack。
+---
 
-- macOS/Linux：
-  ```bash
-  cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
-  cmake --build build -j
+## 9. 推荐日常命令（开发 / 发布）
 
-  cd build
-  # 按默认配置打包
-  cpack
-  ```
+为避免记忆复杂的 CMake 命令，项目提供了若干脚本（位于
+[scripts/](../scripts/) 目录），类似 JS 项目中的 `npm run dev`、
+`npm run build`：
 
-- Windows：
-  ```powershell
-  cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-  cmake --build build --config Release -- /m
-
-  cd build
-  cpack -C Release
-  ```
-
-### 8.2 指定打包格式
-
-常见生成器：
-
-- 通用：`TGZ`、`ZIP`
-- macOS：`DragNDrop`（DMG）、`Bundle`
-- Linux：`DEB`、`RPM`
-- Windows：`NSIS`、`WIX`（MSI）
-
-示例：
+### 9.1 开发调试（Debug）—— `scripts/dev.sh`
 
 ```bash
-# 生成 .tar.gz 包
-cpack -G TGZ
-
-# 生成 .zip 包
-cpack -G ZIP
-
-# Windows 下生成 NSIS 安装器（前提是安装了 NSIS）
-cpack -G NSIS -C Release
+./scripts/dev.sh
 ```
 
-生成的安装包会放在 `build/` 下（例如 `sfd_tool-1.0.0-Linux.tar.gz`、`sfd_tool-1.0.0-win64.exe`）。
-## 9.3 兼容 Make 用法（内部仍由 CMake 驱动）
+大致等价于：
 
-为兼容历史使用习惯，项目根目录仍保留了一个 `Makefile`，但它现在只是 CMake 的薄封装：
+```bash
+cmake -S . -B build_cmake_debug -G "Ninja" \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+cmake --build build_cmake_debug -j
+./build_cmake_debug/sfd_tool
+```
+
+`dev.sh` 会：
+
+- 优先使用 Ninja，无则退回 Unix Makefiles；
+- 使用 `build_cmake_debug/` 作为 Debug 构建目录；
+- 构建完成后直接运行 Debug 版 GUI，GUI 会从 per-user 配置中读取
+  `ui_language` 等字段。
+
+### 9.2 本地 Release 构建—— `scripts/release.sh`（或平台专用脚本）
+
+```bash
+./scripts/release.sh
+```
+
+脚本通常会配置一个 Release 构建目录（如 `build_cmake_release/`），完成
+编译并运行简单的检查。正式打包仍应依赖 `packaging/` 脚本和 CI 流程。
+
+---
+
+## 10. per-user 配置与界面语言（ui_language）
+
+SFD Tool 在每个用户下维护独立的 JSON 配置文件，保存界面语言、最近
+路径以及部分高级设置。典型路径为：
+
+- Linux：`$XDG_CONFIG_HOME/sfd_tool/` 或 `~/.config/sfd_tool/`；
+- macOS：`$HOME/Library/Application Support/sfd_tool/`；
+- Windows：`%APPDATA%\\sfd_tool\\`。
+
+路径由 `core/config_service` 中的逻辑统一决定。
+
+重要字段：
+
+- `"ui_language": "auto"`：跟随系统语言；
+- `"ui_language": "zh_CN"`：中文界面；
+- `"ui_language": "en_US"`：英文界面。
+
+旧版本曾在程序所在目录写入 `sfd_tool_config.json`；新版首次启动时，如
+检测到 per-user 目录无配置而当前目录存在旧配置，会尝试迁移，并保留
+旧文件作为备份。
+
+你也可以在 GUI 的「高级设置」页中修改语言，修改会写回配置文件。
+
+---
+
+## 11. Makefile 兼容说明
+
+根目录的 `Makefile` 目前仅作为 CMake 的简易封装：
 
 - `make` / `make all`：
-  - 等价于：
-    ```bash
-    cmake -S . -B build_cmake_make -G "Ninja" \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-    cmake --build build_cmake_make -j
-    ```
-  - 若系统未安装 `ninja`，则自动退回 `Unix Makefiles` 生成器。
+  - 触发一个 Release 风格的 CMake 构建；
 - `make debug`：
-  - 使用 `CMAKE_BUILD_TYPE=Debug`，其余流程同上。
-- 构建产物：
-  - 可执行文件位于 `build_cmake_make/sfd_tool`（或对应生成器的默认输出路径）。
+  - 触发一个 Debug 风格的 CMake 构建。
 
-注意：
+需要注意：
 
-- 历史上 `Makefile` 直接调用编译器编译源文件，此方式不会生成 `version.h` 等 CMake 中间文件，已经被废弃；
-- 如需手工控制 CMake 选项（例如关闭 GTK、Libusb 或启用测试），请直接使用前文的 `cmake -S . -B ...` 命令，而不是修改 `Makefile`。
-```
+- 早期版本中 Makefile 直接调用编译器，不会生成某些 CMake 中间文件
+  （如 `version.h`），这条路径已废弃；
+- 如需启用/禁用测试、调节编译选项等，请优先使用显式的
+  `cmake -S . -B ...` 命令或上述脚本，而不是修改 Makefile。
 
-等价流程：
-
-```bash
-# 1. 生成/更新 Release 构建目录（优先使用 Ninja）
-cmake -S . -B build_cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release
-
-# 2. 编译 Release 版本
-cmake --build build_cmake -j
-
-# 3. 如需运行，手动执行（界面语言由配置文件决定）：
-./build_cmake/sfd_tool
-```### 9.3 Windows 平台脚本（PowerShell）
-
-在 Windows 上，推荐使用 Visual Studio 2022 + CMake 的方式，通过 PowerShell 脚本封装：
-
-- 开发调试（Debug）：
-  ```powershell
-  # 在项目根目录执行
-  .\scripts\dev.ps1
-  ```
-
-- 发布构建（Release）：
-  ```powershell
-  # 在项目根目录执行
-  .\scripts\release.ps1
-  ```
-
-这两个脚本的核心行为：
-
-- 默认使用生成器：`Visual Studio 17 2022`，平台：`x64`
-- 统一使用 `build_vs/` 作为 VS 构建目录
-- `dev.ps1`：
-  - 调用：
-    ```powershell
-    cmake -S . -B build_vs -G "Visual Studio 17 2022" -A x64 `
-      -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-    cmake --build build_vs --config Debug -- /m
-    ```
-  - 如果生成了 `build_vs/Debug/sfd_tool.exe`，则自动启动 GUI
-- `release.ps1`：
-  - 调用：
-    ```powershell
-    cmake -S . -B build_vs -G "Visual Studio 17 2022" -A x64
-    cmake --build build_vs --config Release -- /m
-    ```
-  - 不自动运行程序，只提示生成的 `build_vs/Release/sfd_tool.exe` 路径
-
-依赖检测与提示：
-
-- 如果 PowerShell 中找不到 `cmake`：
-  - 提示安装 Visual Studio 2022，并勾选“使用 C++ 的桌面开发”工作负载
-  - 或通过 `winget install Kitware.CMake` 安装 CMake
-- 建议在以下环境中运行脚本以确保 VS 工具链可用：
-  - `x64 Native Tools Command Prompt for VS 2022` 启动的 PowerShell
-  - Visual Studio 自带的“开发者 PowerShell”
-
-> 简单总结：
-> - macOS / Linux：`./scripts/dev.sh`、`./scripts/release.sh`
-> - Windows（VS 2022 + PowerShell）：`./scripts/dev.ps1`、`./scripts/release.ps1`
-
-
-本项目使用 gettext 做多语言支持。程序启动时会读取 per-user 配置文件中的 `ui_language` 字段来决定界面语言：
-
-- `"zh_CN"`：界面固定为简体中文（默认值）；
-- `"en_US"`：界面固定为英文；
-- `"auto"` 或空字符串：跟随系统/终端 locale。
-
-首次运行时如果不存在配置文件，程序会自动写出默认配置，其中 `ui_language` 为 `"zh_CN"`，因此直接运行：
-
-```bash
-./build_cmake/sfd_tool
-```
-
-即可看到中文界面。
-
-你可以通过两种方式切换语言：
-
-- 在 GUI 中打开 “Advanced Settings” 页面，找到 “UI language” 下拉框，选择期望语言后点击旁边的 “Apply” 按钮保存，重启程序后生效；
-- 或者手动编辑 per-user 配置文件（Linux: `$XDG_CONFIG_HOME/sfd_tool/sfd_tool_config.json` 或 `~/.config/sfd_tool/sfd_tool_config.json`；macOS: `$HOME/Library/Application Support/sfd_tool/sfd_tool_config.json`；Windows: `%APPDATA%\sfd_tool\sfd_tool_config.json`），修改 `ui_language` 字段为上述值之一，然后重启程序。
-
-旧版本文档中曾推荐通过设置环境变量 `LC_ALL=zh_CN.UTF-8` 来获得中文界面，目前已不再建议使用这种方式；一般情况下直接运行二进制并通过配置文件控制界面语言即可。
+因此，应将 Makefile 视为“兼容层/便捷入口”，而非构建配置的权威来源。

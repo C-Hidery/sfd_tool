@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 1.8.1.0 LTV Edition
+Version 1.8.2.2 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -148,6 +148,15 @@ UI Refactor, optimization code logic.
     - 修复 Windows x64 单元测试在 CI 中的链接与运行问题：
         * 补全 GTK3 / libusb / libintl / savepath 等符号的链接配置，解决 LNK2019 与未解析符号错误。（ad79a86, b225ccc, e6544e4）
         * 解决 blocksize 相关单元测试在运行时缺少 DLL 导致的 0xc0000135 异常，并在 CI 中临时禁用该用例以保证流水线稳定通过。（12e9b25, 90be8ff）
+
+---v 1.8.2.0---
+新增：从文件夹恢复分区功能
+
+---v 1.8.2.1---
+新增：从文件夹恢复功能（批量刷入分区），完善：x64打包（移除x86，支持LibUSB和SPRD驱动）
+
+---v 1.8.2.2---
+优化：打包脚本；更新：全面更新用户指南、架构与发布流程说明
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool

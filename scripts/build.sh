@@ -20,6 +20,8 @@ mkdir -p "${BUILD_DIR}"
 cmake -S . -B "${BUILD_DIR}" -G "${GENERATOR}" \
   -DCMAKE_BUILD_TYPE=Debug \
   -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-  -DSFD_ENABLE_TESTS=OFF
+  -DSFD_ENABLE_TESTS=ON
 
 cmake --build "${BUILD_DIR}" -j
+
+ctest --test-dir "${BUILD_DIR}" --output-on-failure

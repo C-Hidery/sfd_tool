@@ -411,7 +411,7 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
                         char status_text[160];
                         double mb_done = done_value / (1024.0 * 1024.0);
                         snprintf(status_text, sizeof(status_text),
-                                 "Reading partition | read: %.1f MB | speed: %.2f MB/s",
+                                 "read: %.1f MB | %.2f MB/s",
                                  mb_done,
                                  speed_mb_s);
                         gtk_label_set_text(GTK_LABEL(conStatus), status_text);

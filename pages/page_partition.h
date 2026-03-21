@@ -29,3 +29,9 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook);
 
 // 绑定 Partition Operation 页面信号
 void bind_partition_signals(GtkWidgetHelper& helper);
+
+// 从文件夹批量刷入分区入口
+void on_button_clicked_restore_from_folder(GtkWidgetHelper helper);
+
+// 判断分区名是否为关键分区（如 splloader、boot*/vbmeta*/dtbo* 等）
+bool is_critical_partition_name(const std::string& name);

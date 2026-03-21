@@ -6,6 +6,13 @@
 #include "../ui_common.h"
 #include <thread>
 #include <iostream>
+#ifndef _WIN32
+#include <dirent.h>
+#include <sys/stat.h>
+#endif
+#include <cstdint>
+#include <string>
+#include <vector>
 
 extern spdio_t*& io;
 extern int ret;
@@ -131,6 +138,120 @@ void update_partition_size(spdio_t* io) {
         }
     }
 
+}
+
+struct BatchPartitionWriteItem {
+    sfd::DevicePartitionInfo part;
+    std::string image_path;
+    std::uint64_t image_size;
+    bool is_critical;
+    bool selected;
+};
+
+static bool starts_with(const std::string& value, const char* prefix) {
+    if (!prefix) return false;
+    const std::size_t prefix_len = std::strlen(prefix);
+    if (value.size() < prefix_len) return false;
+    return std::memcmp(value.data(), prefix, prefix_len) == 0;
+}
+
+bool is_critical_partition_name(const std::string& name) {
+    if (name == "splloader") return true;
+    if (starts_with(name, "boot")) return true;   // boot / boot_a / boot_b 等
+    if (starts_with(name, "vbmeta")) return true; // vbmeta / vbmeta_a / vbmeta_system 等
+    if (starts_with(name, "dtbo")) return true;
+    return false;
+}
+
+static std::vector<BatchPartitionWriteItem>
+scan_folder_and_match_partitions(const std::string& folder,
+                                 const std::vector<sfd::DevicePartitionInfo>& partitions) {
+    std::vector<BatchPartitionWriteItem> result;
+
+#if !defined(_WIN32)
+    DIR* dir = opendir(folder.c_str());
+    if (!dir) {
+        DEG_LOG(E, "Failed to open directory: %s\n", folder.c_str());
+        return result;
+    }
+
+    struct dirent* entry = nullptr;
+    while ((entry = readdir(dir)) != nullptr) {
+        // 跳过 . 和 ..
+        if (entry->d_name[0] == '.') {
+            if (entry->d_name[1] == '\0') continue;
+            if (entry->d_name[1] == '.' && entry->d_name[2] == '\0') continue;
+        }
+
+        // 部分平台 d_type 可能为 DT_UNKNOWN，这里只简单跳过目录类型
+#ifdef DT_DIR
+        if (entry->d_type == DT_DIR) {
+            continue;
+        }
+#endif
+
+        std::string filename = entry->d_name;
+        auto dot_pos = filename.find_last_of('.');
+        if (dot_pos == std::string::npos) {
+            continue; // 无扩展名
+        }
+
+        std::string ext = filename.substr(dot_pos);
+        if (ext != ".img") {
+            continue; // 首版仅支持 .img
+        }
+
+        std::string base_name = filename.substr(0, dot_pos);
+        if (base_name.empty()) {
+            continue;
+        }
+
+        const sfd::DevicePartitionInfo* matched_part = nullptr;
+        for (const auto& p : partitions) {
+            if (p.name == base_name) {
+                matched_part = &p;
+                break;
+            }
+        }
+        if (!matched_part) {
+            continue; // 当前设备无同名分区，忽略
+        }
+
+        std::string full_path = folder;
+        if (!full_path.empty() && full_path.back() != '/' && full_path.back() != '\\') {
+            full_path += '/';
+        }
+        full_path += filename;
+
+        struct stat st{};
+        if (stat(full_path.c_str(), &st) != 0) {
+            continue;
+        }
+
+        if (!S_ISREG(st.st_mode)) {
+            continue;
+        }
+
+        BatchPartitionWriteItem item;
+        item.part = *matched_part;
+        item.image_path = full_path;
+        item.image_size = static_cast<std::uint64_t>(st.st_size);
+        item.is_critical = is_critical_partition_name(item.part.name);
+        item.selected = !item.is_critical;
+        DEG_LOG(I, "[restore-folder] matched partition=%s path=%s size=%llu critical=%d",
+                item.part.name.c_str(), item.image_path.c_str(),
+                static_cast<unsigned long long>(item.image_size), item.is_critical ? 1 : 0);
+        result.push_back(std::move(item));
+    }
+
+    closedir(dir);
+#else
+    // Windows 平台暂不实现目录扫描逻辑，仅保证可编译
+    (void)folder;
+    (void)partitions;
+#endif
+
+    return result;
 }
 
 void on_button_clicked_list_write(GtkWidgetHelper helper) {
@@ -1089,11 +1210,12 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_container_add(GTK_CONTAINER(opFrame), opContainerBox);
 
 	// ── 按钮行 1：五个主操作按钮 ──
-	GtkWidget* writeBtn    = helper.createButton(_("WRITE"),       "list_write",       nullptr, 0, 0, -1, 32);
-	GtkWidget* writeFBtn   = helper.createButton(_("FORCE WRITE"), "list_force_write", nullptr, 0, 0, -1, 32);
-	GtkWidget* readBtn     = helper.createButton(_("EXTRACT"),     "list_read",        nullptr, 0, 0, -1, 32);
-	GtkWidget* eraseBtn    = helper.createButton(_("ERASE"),       "list_erase",       nullptr, 0, 0, -1, 32);
-	GtkWidget* backupAllBtn = helper.createButton(_("Backup All"), "backup_all",       nullptr, 0, 0, -1, 32);
+	GtkWidget* writeBtn    = helper.createButton(_("WRITE"),       "list_write",            nullptr, 0, 0, -1, 32);
+	GtkWidget* writeFBtn   = helper.createButton(_("FORCE WRITE"), "list_force_write",      nullptr, 0, 0, -1, 32);
+	GtkWidget* readBtn     = helper.createButton(_("EXTRACT"),     "list_read",             nullptr, 0, 0, -1, 32);
+	GtkWidget* eraseBtn    = helper.createButton(_("ERASE"),       "list_erase",            nullptr, 0, 0, -1, 32);
+	GtkWidget* backupAllBtn = helper.createButton(_("Backup All"), "backup_all",            nullptr, 0, 0, -1, 32);
+	GtkWidget* restoreFolderBtn = helper.createButton(_("Restore From Folder"), "restore_from_folder", nullptr, 0, 0, -1, 32);
 
 	GtkWidget* btnRow1 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
 	gtk_widget_set_halign(btnRow1, GTK_ALIGN_FILL);
@@ -1102,6 +1224,7 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_box_pack_start(GTK_BOX(btnRow1), readBtn,      TRUE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(btnRow1), eraseBtn,     TRUE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(btnRow1), backupAllBtn, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(btnRow1), restoreFolderBtn, TRUE, TRUE, 0);
 	gtk_widget_set_margin_bottom(btnRow1, 8);
 	gtk_box_pack_start(GTK_BOX(opContainerBox), btnRow1, FALSE, FALSE, 0);
 
@@ -1123,8 +1246,10 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_widget_set_sensitive(writeBtn,    FALSE);
 	gtk_widget_set_sensitive(readBtn,     FALSE);
 	gtk_widget_set_sensitive(eraseBtn,    FALSE);
-	gtk_widget_set_sensitive(backupAllBtn, TRUE);
+	gtk_widget_set_sensitive(backupAllBtn, FALSE);
 	gtk_widget_set_sensitive(cancelBtn,   TRUE);
+	gtk_widget_set_sensitive(restoreFolderBtn, FALSE);
+	gtk_widget_set_sensitive(xmlExportBtn, FALSE);
 
 	// ══════════════════════════════════════════════
 	//  第二部分：包含修改分区的最大外框
@@ -1287,6 +1412,266 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
 	gtk_widget_show_all(outerScroll);
 	return outerScroll;
+}
+
+static std::vector<BatchPartitionWriteItem>
+show_restore_from_folder_dialog(GtkWidgetHelper& helper,
+                                const std::vector<BatchPartitionWriteItem>& items) {
+	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+
+	GtkWidget* dialog = gtk_dialog_new_with_buttons(
+	    _("Restore From Folder"),
+	    parent,
+	    GTK_DIALOG_MODAL,
+	    _("Cancel"), GTK_RESPONSE_CANCEL,
+	    _("WRITE"), GTK_RESPONSE_OK,
+	    nullptr);
+
+	GtkWidget* content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+	GtkWidget* scrolled = gtk_scrolled_window_new(nullptr, nullptr);
+	gtk_widget_set_size_request(scrolled, 700, 320);
+	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+	gtk_container_add(GTK_CONTAINER(content), scrolled);
+
+	GtkListStore* store = gtk_list_store_new(6,
+	                                         G_TYPE_BOOLEAN,  // 0: selected
+	                                         G_TYPE_STRING,   // 1: part name
+	                                         G_TYPE_STRING,   // 2: image path
+	                                         G_TYPE_STRING,   // 3: part size
+	                                         G_TYPE_STRING,   // 4: file size
+	                                         G_TYPE_STRING);  // 5: critical mark
+
+	for (const auto& item : items) {
+		GtkTreeIter iter;
+		gtk_list_store_append(store, &iter);
+
+		std::string part_size_text;
+		if (item.part.size < 1024ULL) {
+			part_size_text = std::to_string(item.part.size) + " B";
+		} else if (item.part.size < 1024ULL * 1024) {
+			part_size_text = std::to_string(item.part.size / 1024ULL) + " KB";
+		} else if (item.part.size < 1024ULL * 1024 * 1024) {
+			part_size_text = std::to_string(item.part.size / (1024ULL * 1024)) + " MB";
+		} else {
+			part_size_text = std::to_string(item.part.size / (1024ULL * 1024 * 1024)) + " GB";
+		}
+
+		std::string file_size_text;
+		if (item.image_size < 1024ULL) {
+			file_size_text = std::to_string(item.image_size) + " B";
+		} else if (item.image_size < 1024ULL * 1024) {
+			file_size_text = std::to_string(item.image_size / 1024ULL) + " KB";
+		} else if (item.image_size < 1024ULL * 1024 * 1024) {
+			file_size_text = std::to_string(item.image_size / (1024ULL * 1024)) + " MB";
+		} else {
+			file_size_text = std::to_string(item.image_size / (1024ULL * 1024 * 1024)) + " GB";
+		}
+
+		const char* critical_mark = item.is_critical ? _("Critical") : "";
+
+		gtk_list_store_set(store, &iter,
+		                   0, item.selected,
+		                   1, item.part.name.c_str(),
+		                   2, item.image_path.c_str(),
+		                   3, part_size_text.c_str(),
+		                   4, file_size_text.c_str(),
+		                   5, critical_mark,
+		                   -1);
+	}
+
+	GtkWidget* tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+	gtk_container_add(GTK_CONTAINER(scrolled), tree);
+	g_object_unref(store);
+
+	// 列 0: checkbox
+	GtkCellRenderer* toggle_renderer = gtk_cell_renderer_toggle_new();
+	GtkTreeViewColumn* col_toggle = gtk_tree_view_column_new_with_attributes(
+	    "", toggle_renderer, "active", 0, nullptr);
+	gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_toggle);
+
+	g_signal_connect(toggle_renderer, "toggled", G_CALLBACK(+[] (GtkCellRendererToggle* /*cell*/, gchar* path_str, gpointer data) {
+		GtkTreeView* view = GTK_TREE_VIEW(data);
+		GtkTreeModel* model = gtk_tree_view_get_model(view);
+		GtkTreePath* path = gtk_tree_path_new_from_string(path_str);
+		GtkTreeIter iter;
+		if (gtk_tree_model_get_iter(model, &iter, path)) {
+			gboolean active = FALSE;
+			gtk_tree_model_get(model, &iter, 0, &active, -1);
+			gtk_list_store_set(GTK_LIST_STORE(model), &iter, 0, !active, -1);
+		}
+		gtk_tree_path_free(path);
+	}), tree);
+
+	// 其余列：分区名、镜像路径、分区大小、文件大小、关键标记
+	GtkCellRenderer* text_renderer = gtk_cell_renderer_text_new();
+	GtkTreeViewColumn* col_part = gtk_tree_view_column_new_with_attributes(_("Partition Name"), text_renderer, "text", 1, nullptr);
+	gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_part);
+
+	GtkTreeViewColumn* col_path = gtk_tree_view_column_new_with_attributes(_("Image file path:"), text_renderer, "text", 2, nullptr);
+	gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_path);
+
+	GtkTreeViewColumn* col_part_size = gtk_tree_view_column_new_with_attributes(_("Partition Size"), text_renderer, "text", 3, nullptr);
+	gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_part_size);
+
+	GtkTreeViewColumn* col_file_size = gtk_tree_view_column_new_with_attributes(_("File Size"), text_renderer, "text", 4, nullptr);
+	gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_file_size);
+
+	GtkTreeViewColumn* col_critical = gtk_tree_view_column_new_with_attributes(_("Critical"), text_renderer, "text", 5, nullptr);
+	gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_critical);
+
+	gtk_widget_show_all(dialog);
+
+	std::vector<BatchPartitionWriteItem> result;
+	if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+		GtkTreeModel* model = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
+		GtkTreeIter iter;
+		gboolean valid = gtk_tree_model_get_iter_first(model, &iter);
+		std::size_t index = 0;
+		while (valid && index < items.size()) {
+			gboolean active = FALSE;
+			gtk_tree_model_get(model, &iter, 0, &active, -1);
+
+			BatchPartitionWriteItem item = items[index];
+			item.selected = active;
+			result.push_back(std::move(item));
+
+			valid = gtk_tree_model_iter_next(model, &iter);
+			++index;
+		}
+
+		// 若全未选中则提示
+		bool any_selected = false;
+		for (const auto& it : result) {
+			if (it.selected) { any_selected = true; break; }
+		}
+		if (!any_selected) {
+			showInfoDialog(parent, _("Info"), _("No partitions selected to flash."));
+			result.clear();
+		}
+	}
+
+	gtk_widget_destroy(dialog);
+	return result;
+}
+
+static void run_batch_partition_write(GtkWidgetHelper helper,
+                                      const std::vector<BatchPartitionWriteItem>& items,
+                                      bool force) {
+	if (items.empty()) {
+		return;
+	}
+
+	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+
+	LongTaskConfig cfg{
+		[parent, helper, items, force](std::atomic_bool& cancel_flag) {
+			auto* svc = ensure_flash_service();
+			const std::size_t total = items.size();
+
+			for (std::size_t idx = 0; idx < total; ++idx) {
+				if (cancel_flag.load()) {
+					break;
+				}
+
+				const auto& item = items[idx];
+
+				// 更新状态栏：当前进度
+				gui_idle_call([helper, idx, total, part_name = item.part.name]() mutable {
+					char buf[256];
+					std::snprintf(buf, sizeof(buf),
+					             "Flashing %s (%zu/%zu)...",
+					             part_name.c_str(), idx + 1, total);
+					helper.setLabelText(helper.getWidget("con"), buf);
+				});
+
+				sfd::PartitionIoOptions opts;
+				opts.partition_name = item.part.name;
+				opts.file_path = item.image_path;
+				opts.block_size = GetEffectiveManualBlockSize();
+				opts.force = force;
+
+				sfd::FlashStatus st = svc->writePartitionFromFile(opts);
+				if (!st.success) {
+					gui_idle_call_wait_drag([parent, st, part_name = item.part.name, part_size = item.part.size, image_size = item.image_size]() mutable {
+						std::string msg = "Failed to flash partition ";
+						msg += part_name;
+						msg += ": ";
+						msg += st.message;
+						if (part_size > 0 && image_size > part_size) {
+							msg += " (image larger than partition)";
+						}
+						showErrorDialog(parent, _("Error"), msg.c_str());
+					}, parent);
+					break;
+				}
+			}
+		},
+		[helper]() mutable {
+			helper.setLabelText(helper.getWidget("con"), "Starting restore from folder...");
+		},
+		[helper]() mutable {
+			helper.setLabelText(helper.getWidget("con"), "Ready");
+		}
+	};
+
+	run_long_task(cfg);
+}
+
+void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
+	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+
+	// 仅检查连接状态，不直接退出程序
+	if (ensure_device_attached_or_warn(helper)) {
+		return;
+	}
+
+	auto* svc = ensure_flash_service();
+	std::vector<sfd::DevicePartitionInfo> partitions;
+	sfd::FlashStatus st = svc->getCachedDevicePartitions(partitions);
+	if (!st.success || partitions.empty()) {
+		showErrorDialog(parent, _("Error"), _("No partition table loaded, cannot restore from folder!"));
+		return;
+	}
+
+	std::string folder = showFolderChooser(parent);
+	if (folder.empty()) {
+		// 用户取消
+		return;
+	}
+
+	auto items = scan_folder_and_match_partitions(folder, partitions);
+	if (items.empty()) {
+		showInfoDialog(parent, _("Info"), _("No matching partition images found in the selected folder."));
+		return;
+	}
+
+	auto dialog_items = show_restore_from_folder_dialog(helper, items);
+	if (dialog_items.empty()) {
+		// 用户取消或未选择任何分区
+		return;
+	}
+
+	// 仅保留选中的条目
+	std::vector<BatchPartitionWriteItem> final_items;
+	final_items.reserve(dialog_items.size());
+	for (const auto& it : dialog_items) {
+		if (it.selected) {
+			final_items.push_back(it);
+		}
+	}
+
+	if (final_items.empty()) {
+		showInfoDialog(parent, _("Info"), _("No partitions selected to flash."));
+		return;
+	}
+
+	// 总体确认
+	if (!showConfirmDialog(parent, _("Confirm"),
+	                       _("Start flashing selected partitions from the folder?"))) {
+		return;
+	}
+
+	run_batch_partition_write(helper, final_items, /*force=*/false);
 }
 
 void on_button_clicked_list_read(GtkWidgetHelper& helper) {
@@ -1465,5 +1850,8 @@ void bind_partition_signals(GtkWidgetHelper& helper) {
 	});
 	helper.bindClick(helper.getWidget("export_part_xml"),[&](){
 		on_button_clicked_export_part_xml(helper);
+	});
+	helper.bindClick(helper.getWidget("restore_from_folder"),[&](){
+		on_button_clicked_restore_from_folder(helper);
 	});
 }
