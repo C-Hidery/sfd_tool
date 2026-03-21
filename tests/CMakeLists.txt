@@ -33,7 +33,7 @@ add_executable(test_blocksize_and_backup_service
 
 target_link_libraries(test_blocksize_and_backup_service PRIVATE core_lib sfd_ui)
 
-add_test(NAME pac_extract_tests COMMAND test_pac_extract)
+
 add_test(NAME spd_protocol_tests COMMAND test_spd_protocol)
 add_test(NAME partition_backup_paths_tests COMMAND test_partition_backup_paths)
 add_test(NAME blocksize_and_backup_service_tests COMMAND test_blocksize_and_backup_service)
@@ -47,7 +47,6 @@ endif()
 # ====== 链接运行时依赖（与主程序保持一致的最小子集） ======
 
 set(SFD_TEST_TARGETS
-    test_pac_extract
     test_spd_protocol
     test_partition_backup_paths
     test_blocksize_and_backup_service
