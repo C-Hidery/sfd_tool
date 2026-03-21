@@ -3,8 +3,6 @@
 #include <string>
 #include <memory>
 #include "device_service.h"  // 提供 ConnectionConfig 定义
-#include "flash_service.h"   // 提供 FlashPacOptions 定义
-
 namespace sfd {
 
 // 这里直接使用完整类型定义，避免前向声明不完整导致的问题
@@ -82,9 +80,7 @@ public:
     virtual void applyDefaultsToConnectionConfig(AppConfig& config,
                                                  ConnectionConfig& inout_connection) = 0;
 
-    // 根据当前配置填充刷机默认值
-    virtual void applyDefaultsToFlashOptions(AppConfig& config,
-                                             FlashPacOptions& inout_flash_options) = 0;
+   
 };
 
 // 默认配置初始化与加载辅助函数
