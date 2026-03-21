@@ -65,15 +65,23 @@ foreach(tgt IN LISTS SFD_TEST_TARGETS)
     if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT USE_LIBUSB)
         target_compile_definitions(${tgt} PRIVATE
             _WIN64
+            BUILDING_TESTS
             BUILDING_BMPLATFORM
         )
     endif()
     
-    # 链接必要的库
+    # 链接必要的库（注意：不要链接 BMPlatform.lib）
     if(WIN32)
         target_link_libraries(${tgt} PRIVATE
             dbghelp
             setupapi
         )
+    endif()
+    
+    # 确保不使用 BMPlatform 库
+    # 移除任何可能链接 BMPlatform 的语句
+    if(TARGET BMPlatform)
+        # 不链接 BMPlatform
+        # target_link_libraries(${tgt} PRIVATE BMPlatform)  # 注释掉
     endif()
 endforeach()
