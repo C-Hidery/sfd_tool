@@ -11,44 +11,35 @@
     </ProjectConfiguration>
   </ItemGroup>
   
+  <!-- ==================== 源文件列表（与 CMake 结构对齐） ==================== -->
   <ItemGroup>
-    <ClInclude Include="BMPlatform.h" />
-    <ClInclude Include="common.h" />
-    <ClInclude Include="resource.h" />
-    <ClInclude Include="spd_cmd.h" />
-    <ClInclude Include="Wrapper.h" />
-    <ClInclude Include="GtkWidgetHelper.hpp" />
-    <ClInclude Include="GenTosNoAvb.h" />
-    <ClInclude Include="ui_common.h" />
-    <ClInclude Include="core\file_io.h" />
-    <ClInclude Include="core\logging.h" />
-    <ClInclude Include="core\pac_extract.h" />
-    <ClInclude Include="core\spd_protocol.h" />
-    <ClInclude Include="core\usb_transport.h" />
-    <ClInclude Include="pages\page_about.h" />
-    <ClInclude Include="pages\page_advanced_op.h" />
-    <ClInclude Include="pages\page_advanced_set.h" />
-    <ClInclude Include="pages\page_connect.h" />
-    <ClInclude Include="pages\page_debug.h" />
-    <ClInclude Include="pages\page_log.h" />
-    <ClInclude Include="pages\page_manual.h" />
-    <ClInclude Include="pages\page_pac_flash.h" />
-    <ClInclude Include="pages\page_partition.h" />
-  </ItemGroup>
-  
-  <ItemGroup>
-    <ClCompile Include="BMPlatform.cpp" />
-    <ClCompile Include="common.cpp" />
+    <!-- 主入口文件 -->
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Wrapper.cpp" />
-    <ClCompile Include="GtkWidgetHelper.cpp" />
     <ClCompile Include="main_console.cpp" />
+    
+    <!-- UI 公共层 -->
+    <ClCompile Include="GtkWidgetHelper.cpp" />
     <ClCompile Include="ui_common.cpp" />
-    <ClCompile Include="core\logging.cpp" />
+    
+    <!-- 历史公共模块（逐步向 core 迁移） -->
+    <ClCompile Include="common.cpp" />
+    
+    <!-- Core 核心模块 -->
+    <ClCompile Include="core\app_state.cpp" />
+    <ClCompile Include="core\config_service.cpp" />
+    <ClCompile Include="core\device_service.cpp" />
+    <ClCompile Include="core\flash_service.cpp" />
     <ClCompile Include="core\file_io.cpp" />
+    <ClCompile Include="core\logging.cpp" />
     <ClCompile Include="core\pac_extract.cpp" />
-    <ClCompile Include="core\usb_transport.cpp" />
     <ClCompile Include="core\spd_protocol.cpp" />
+    <ClCompile Include="core\usb_transport.cpp" />
+    
+    <!-- 平台适配层（Windows 专用） -->
+    <ClCompile Include="BMPlatform.cpp" />
+    <ClCompile Include="Wrapper.cpp" />
+    
+    <!-- 页面模块（UI 层） -->
     <ClCompile Include="pages\page_about.cpp" />
     <ClCompile Include="pages\page_advanced_op.cpp" />
     <ClCompile Include="pages\page_advanced_set.cpp" />
@@ -58,6 +49,43 @@
     <ClCompile Include="pages\page_manual.cpp" />
     <ClCompile Include="pages\page_pac_flash.cpp" />
     <ClCompile Include="pages\page_partition.cpp" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <!-- 头文件 -->
+    <ClInclude Include="BMPlatform.h" />
+    <ClInclude Include="common.h" />
+    <ClInclude Include="Wrapper.h" />
+    <ClInclude Include="GtkWidgetHelper.hpp" />
+    <ClInclude Include="GenTosNoAvb.h" />
+    <ClInclude Include="ui_common.h" />
+    <ClInclude Include="ui_page.h" />
+    <ClInclude Include="i18n.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="spd_cmd.h" />
+    
+    <!-- Core 头文件 -->
+    <ClInclude Include="core\app_state.h" />
+    <ClInclude Include="core\config_service.h" />
+    <ClInclude Include="core\device_service.h" />
+    <ClInclude Include="core\flash_service.h" />
+    <ClInclude Include="core\file_io.h" />
+    <ClInclude Include="core\logging.h" />
+    <ClInclude Include="core\pac_extract.h" />
+    <ClInclude Include="core\result.h" />
+    <ClInclude Include="core\spd_protocol.h" />
+    <ClInclude Include="core\usb_transport.h" />
+    
+    <!-- 页面头文件 -->
+    <ClInclude Include="pages\page_about.h" />
+    <ClInclude Include="pages\page_advanced_op.h" />
+    <ClInclude Include="pages\page_advanced_set.h" />
+    <ClInclude Include="pages\page_connect.h" />
+    <ClInclude Include="pages\page_debug.h" />
+    <ClInclude Include="pages\page_log.h" />
+    <ClInclude Include="pages\page_manual.h" />
+    <ClInclude Include="pages\page_pac_flash.h" />
+    <ClInclude Include="pages\page_partition.h" />
   </ItemGroup>
   
   <ItemGroup>
@@ -160,7 +188,6 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>
-        third_party\Lib;
         $(VcpkgInstalledDir)\include;
         $(GTK3_PATH)\include\gtk-3.0;
         $(GTK3_PATH)\include\glib-2.0;
@@ -170,6 +197,9 @@
         $(GTK3_PATH)\include\gdk-pixbuf-2.0;
         $(GTK3_PATH)\include\atk-1.0;
         $(GTK3_PATH)\include\harfbuzz;
+        third_party\Lib;
+        third_party\Lib\libusb-1.0;
+        third_party\nlohmann;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
@@ -178,9 +208,9 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>
-        third_party\Lib;
         $(VcpkgInstalledDir)\lib;
         $(GTK3_PATH)\lib;
+        third_party\Lib;
         %(AdditionalLibraryDirectories)
       </AdditionalLibraryDirectories>
     </Link>
@@ -197,6 +227,7 @@
         libusb-1.0.lib;
         intl.lib;
         dbghelp.lib;
+        setupapi.lib;
         libgtk-3.dll.a;
         libgdk-3.dll.a;
         libglib-2.0.dll.a;
@@ -205,12 +236,12 @@
         libharfbuzz.dll.a;
         libpango-1.0.dll.a;
         libpangocairo-1.0.dll.a;
-        setupapi.lib;
         %(AdditionalDependencies)
       </AdditionalDependencies>
       <AdditionalDependencies Condition="'$(UseLibusb)'!='true'">
         intl.lib;
         dbghelp.lib;
+        setupapi.lib;
         libgtk-3.dll.a;
         libgdk-3.dll.a;
         libglib-2.0.dll.a;
@@ -219,7 +250,6 @@
         libharfbuzz.dll.a;
         libpango-1.0.dll.a;
         libpangocairo-1.0.dll.a;
-        setupapi.lib;
         %(AdditionalDependencies)
       </AdditionalDependencies>
     </Link>
@@ -239,6 +269,7 @@
         libusb-1.0.lib;
         intl.lib;
         dbghelp.lib;
+        setupapi.lib;
         libgtk-3.dll.a;
         libgdk-3.dll.a;
         libglib-2.0.dll.a;
@@ -247,12 +278,12 @@
         libharfbuzz.dll.a;
         libpango-1.0.dll.a;
         libpangocairo-1.0.dll.a;
-        setupapi.lib;
         %(AdditionalDependencies)
       </AdditionalDependencies>
       <AdditionalDependencies Condition="'$(UseLibusb)'!='true'">
         intl.lib;
         dbghelp.lib;
+        setupapi.lib;
         libgtk-3.dll.a;
         libgdk-3.dll.a;
         libglib-2.0.dll.a;
@@ -261,7 +292,6 @@
         libharfbuzz.dll.a;
         libpango-1.0.dll.a;
         libpangocairo-1.0.dll.a;
-        setupapi.lib;
         %(AdditionalDependencies)
       </AdditionalDependencies>
     </Link>
