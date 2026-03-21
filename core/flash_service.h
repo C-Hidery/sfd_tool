@@ -163,7 +163,55 @@ public:
                                 const PartitionReadCallbacks* callbacks = nullptr) = 0;
 };
 
+// 用例级 Flash 服务接口：PAC 刷机、分区读写、备份等
+class FlashService {
+public:
+    virtual ~FlashService() = default;
 
+    // 绑定底层上下文（当前设备 I/O + 运行时状态）
+    virtual void setContext(spdio_t* io, AppState* app_state) = 0;
 
+   
+    // ===== 设备分区视图 =====
+
+    // 从设备刷新当前分区表视图
+    virtual FlashStatus refreshDevicePartitions(std::vector<DevicePartitionInfo>& out_partitions) = 0;
+
+    // 获取最近一次刷新结果（若无缓存可返回错误）
+    virtual FlashStatus getCachedDevicePartitions(std::vector<DevicePartitionInfo>& out_partitions) const = 0;
+
+    // ===== 单分区读写与备份 =====
+
+    // 暴露统一的分区读取服务
+    virtual PartitionReadService& partitionReader() = 0;
+
+    // 从设备读取单个分区到文件
+    virtual FlashStatus readPartitionToFile(const PartitionIoOptions& options) = 0;
+
+    // 将文件写入单个分区
+    virtual FlashStatus writePartitionFromFile(const PartitionIoOptions& options) = 0;
+
+    // 备份若干分区（names 为空表示全部）到目录
+    virtual FlashStatus backupPartitions(const std::vector<std::string>& partition_names,
+                                         const std::string& output_directory,
+                                         SlotSelection slot_selection = SlotSelection::Auto,
+                                         std::uint32_t block_size = 0) = 0;
+
+    // 对指定分区做简单校验
+    virtual FlashStatus verifyPartition(const std::string& partition_name,
+                                        SlotSelection slot_selection = SlotSelection::Auto) = 0;
+
+    // 擦除指定分区
+    virtual FlashStatus erasePartition(const std::string& partition_name) = 0;
+
+    // 导出当前分区表到 XML 文件（用于 Advanced/Partition 页）
+    virtual FlashStatus exportPartitionTableToXml(const std::string& output_path) = 0;
+
+    // 查询 PAC 刷机时间（映射现有 read_pactime(io) 行为）
+    virtual FlashStatus queryPacFlashTime(std::uint64_t& out_seconds) = 0;
+};
+
+// 默认 FlashService 工厂方法，供 UI 层通过接口获取实现
+std::unique_ptr<FlashService> createFlashService();
 
 } // namespace sfd
