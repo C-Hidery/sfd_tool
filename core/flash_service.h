@@ -171,17 +171,7 @@ public:
     // 绑定底层上下文（当前设备 I/O + 运行时状态）
     virtual void setContext(spdio_t* io, AppState* app_state) = 0;
 
-    // ===== PAC 相关 =====
-
-    // 只解析 PAC 元信息与分区列表，不做实际刷写
-    virtual FlashStatus loadPacMetadata(const std::string& pac_path,
-                                        PacMetadata& out_metadata,
-                                        std::vector<PacPartitionEntry>& out_entries) = 0;
-
-    // 按选项执行一次 PAC 刷机流程（高层一站式封装）
-    virtual FlashStatus flashPac(const FlashPacOptions& options,
-                                 FlashPacStageCallback on_stage = {}) = 0;
-
+   
     // ===== 设备分区视图 =====
 
     // 从设备刷新当前分区表视图

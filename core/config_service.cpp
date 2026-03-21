@@ -318,14 +318,7 @@ public:
         inout_connection = config.connection;
     }
 
-    void applyDefaultsToFlashOptions(AppConfig& config,
-                                     FlashPacOptions& inout_flash_options) override {
-        if (inout_flash_options.pac_path.empty()) {
-            inout_flash_options.pac_path = config.last_pac_path;
-        }
-        inout_flash_options.verify_after_flash = config.default_verify_after_flash;
-        inout_flash_options.backup_before_flash = config.default_backup_before_flash;
-    }
+    
 };
 
 std::unique_ptr<ConfigService> createConfigService() {
