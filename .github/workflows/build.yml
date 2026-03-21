@@ -371,47 +371,65 @@ jobs:
           pattern: sfd_tool_linux_*
           merge-multiple: false
 
+      - name: Download Linux RPM Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: output
+          pattern: sfd_tool_rpm_package
+          merge-multiple: false
+
       - name: Prepare Release Files
         run: |
           cd output
-          
+
           # 重命名 Windows 目录
           if [ -d "sfd_tool_LibUSB_Release" ]; then
             mv sfd_tool_LibUSB_Release sfd_tool_windows_x64_libusb
             cp ../master/docs/VERSION_LOG.md sfd_tool_windows_x64_libusb/ 2>/dev/null || true
           fi
-          
+
           if [ -d "sfd_tool_SPRD_Release" ]; then
             mv sfd_tool_SPRD_Release sfd_tool_windows_x64_sprd
             cp ../master/docs/VERSION_LOG.md sfd_tool_windows_x64_sprd/ 2>/dev/null || true
             cp ../master/third_party/Lib/Channel9.dll sfd_tool_windows_x64_sprd/ 2>/dev/null || true
             cp ../master/third_party/Lib/Channel.ini sfd_tool_windows_x64_sprd/ 2>/dev/null || true
           fi
-          
+
           # 复制文档
           cp ../master/*.md . 2>/dev/null || true
-          
+
           # 复制 Linux 包
           cp -r sfd_tool_linux_deb/*.deb . 2>/dev/null || true
           cp -r sfd_tool_rpm_package/*/*.rpm . 2>/dev/null || true
-          
+
           # 复制 macOS DMG
           for dmg in sfd_tool_macos_dmg/*.dmg; do
             [ -f "$dmg" ] || continue
             cp "$dmg" "sfd_tool_macos_${{ env.RELEASE_TAG }}.dmg"
           done
-          
+
           # 创建 Windows ZIP 包
           if [ -d "sfd_tool_windows_x64_sprd" ]; then
             zip -r sfd_tool_windows_x64_sprd_${{ env.RELEASE_TAG }}.zip sfd_tool_windows_x64_sprd
           fi
-          
+
           if [ -d "sfd_tool_windows_x64_libusb" ]; then
             zip -r sfd_tool_windows_x64_libusb_${{ env.RELEASE_TAG }}.zip sfd_tool_windows_x64_libusb
           fi
-          
-          # 创建完整包
-          zip -r ../sfd_tool_all_${{ env.RELEASE_TAG }}.zip .
+
+          # 创建完整包（只打包最终发布文件，避免重复）
+          mkdir -p all_in_one
+          cp ARCHITECTURE.md all_in_one/ 2>/dev/null || true
+          cp README*.md all_in_one/ 2>/dev/null || true
+          cp *.deb all_in_one/ 2>/dev/null || true
+          cp *.rpm all_in_one/ 2>/dev/null || true
+          cp sfd_tool_macos_${{ env.RELEASE_TAG }}.dmg all_in_one/ 2>/dev/null || true
+          cp sfd_tool_windows_x64_sprd_${{ env.RELEASE_TAG }}.zip all_in_one/ 2>/dev/null || true
+          cp sfd_tool_windows_x64_libusb_${{ env.RELEASE_TAG }}.zip all_in_one/ 2>/dev/null || true
+
+          cd all_in_one
+          zip -r ../../sfd_tool_all_${{ env.RELEASE_TAG }}.zip .
+          cd ..
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
