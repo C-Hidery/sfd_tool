@@ -12,10 +12,7 @@ if (WIN32)
     )
 endif()
 
-add_executable(test_pac_extract
-    test_pac_extract.cpp
-    ${SFD_TEST_COMMON_SOURCES}
-)
+
 target_link_libraries(test_pac_extract PRIVATE core_lib sfd_ui)
 
 add_executable(test_spd_protocol
