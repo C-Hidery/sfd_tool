@@ -40,12 +40,3 @@ std::string ExtractPartitionsWithTags(const std::string& xmlContent);
 std::string FindFirstXMLFile(const std::string& folderPath);
 std::string FindFDLInExtFloder(const char* folder, Stages mode);
 
-namespace sfd {
-
-Result<void> pac_extract_result(const char* fn, const char* folder);
-
-// 纯逻辑 PAC 解包 + 分析接口：不做 GUI 操作，由调用方决定如何展示错误
-Result<PacUnpackInfo> pac_unpack_and_analyze(const char* pac_path,
-                                             const char* out_folder);
-
-} // namespace sfd

@@ -1,5 +1,4 @@
 #include "page_pac_flash.h"
-#include "../core/flash_service.h"
 #include "../core/app_state.h"
 #include "../core/usb_transport.h"
 #include "../core/config_service.h"
