@@ -99,7 +99,7 @@ sfd_tool/
      流程、进度更新方式仍不完全一致，需要在 UI 层进一步抽象统一模式。
 
 6. **测试覆盖仍有提升空间**
-   - `tests/` 中已经加入了 `spd_protocol`、`pac_extract`、块大小模式与
+   - `tests/` 中已经加入了 `spd_protocol`、块大小模式与
      备份路径等核心逻辑的测试用例；
    - 但部分业务流程仍依赖人工回归测试，未来可在 Service 层增加更多测试
      针对典型用例链路（例如“PAC 刷机”与“分区批量还原”）。
@@ -123,7 +123,6 @@ sfd_tool/
 ### 2. Service 层（core/flash_service, device_service, config_service 等）
 
 - 向上暴露 **用例级接口**，例如：
-  - `FlashService::flashPac(...)`：刷写一个 PAC 包；
   - `FlashService::backupPartitions(...)`：备份若干分区；
   - `FlashService::partitionReader()`：获取统一的分区读取服务
     `PartitionReadService`；
