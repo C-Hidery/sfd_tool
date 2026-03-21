@@ -249,133 +249,64 @@ typedef const PCHANNEL_ATTRIBUTE PCCHANNEL_ATTRIBUTE;
 
 class ICommChannel {
 public:
-	virtual~ICommChannel() = 0;
-	/**
-	* InitLog
-	* @param [in] pszLogName: log file name, if it is NULL or _T(""), program will set default
-	* @param [in] uiLogType : log format type
-	* @param [in] uiLogLevel: see LOG_LEVEL enum
-	* @param [in] pLogUtil : set the sub-class pointer of CLogUtil, to do special log content
-	* @param [in] pszBinLogFileExt: binary log file extension, if you set uiLogType both text
-	* and binary,and want to change the binary log file extension,you must
-	* set this param, otherwise ".bin" extension is set default.
-	*
-	* @return: TRUE if init success, FALSE otherwise
-	*
-	* @remarks: this method need not be called before Open always, because program will auto to
-	* log information by configure file settings. "ChannelConfig.ini"
-	*/
+	virtual ~ICommChannel() = 0;
 	virtual BOOL InitLog(LPCWSTR pszLogName, UINT uiLogType,
 		UINT uiLogLevel = INVALID_VALUE, ISpLog *pLogUtil = NULL,
 		LPCWSTR pszBinLogFileExt = NULL) = 0;
-	/**
-	* Set receiver for reading data with async way
-	* @param [in] ulMsgId : message ID
-	* @param [in] bRcvThread : TRUE, received by thread, FALSE, by window
-	* @param [in] pReceiver : receiver based on bRcvThread
-	*
-	* @return TRUE if set success, FALSE otherwise
-	*
-	* @remarks: if you call this method after Open, and you set pReceiver to NULL,it will stop
-	* auto-read thread. if set pReceiver to not NULL, and not call this method before
-	* Open, this will start auto-read thread.
-	*/
-	virtual BOOL SetReceiver(ULONG ulMsgId,
-		BOOL bRcvThread,
-		LPCVOID pReceiver) = 0;
-	/**
-	* Get receiver
-	* @param [out] ulMsgId : message ID
-	* @param [out] bRcvThread : TRUE, received by thread, FALSE, by window
-	* @param [out] pReceiver : receiver based on bRcvThread
-	*
-	* @return void
-	*/
-	virtual void GetReceiver(ULONG &ulMsgId,
-		BOOL &bRcvThread,
-		LPVOID &pReceiver) = 0;
-	/**
-	* Open channel
-	* @param [in] pOpenArgument : channel parameters
-	*
-	* @return TRUE if open success, FALSE otherwise
-	*/
+	virtual BOOL SetReceiver(ULONG ulMsgId, BOOL bRcvThread, LPCVOID pReceiver) = 0;
+	virtual void GetReceiver(ULONG &ulMsgId, BOOL &bRcvThread, LPVOID &pReceiver) = 0;
 	virtual BOOL Open(PCCHANNEL_ATTRIBUTE pOpenArgument) = 0;
-	/**
-	* Close channel
-	*
-	* @return void
-	*/
 	virtual void Close() = 0;
-	/**
-	* clear channel in&out data buffer
-	*
-	* @return TRUE if clear success, FALSE otherwise
-	*/
 	virtual BOOL Clear() = 0;
-	/**
-	* Read data from channel with sync way
-	* @param [out] lpData : store read data
-	* @param [in] dwDataSize : lpData allocated size by outside
-	* @param [in] dwTimeOut : time out
-	* @param [in] dwReserved : reserved, for UART;
-	* low word is client ID, high word is reserved for server socket
-	*
-	* @return real read data size
-	*/
-	virtual DWORD Read(LPVOID lpData, DWORD dwDataSize,
-		DWORD dwTimeOut, DWORD dwReserved = 0) = 0;
-	/**
-	* Write data to channel
-	* @param [in] lpData : store writing data
-	* @param [in] dwDataSize : lpData allocated size by outside
-	* @param [in] dwReserved : reserved, for UART;
-	* low word is client ID, high word is reserved for server socket
-	*
-	* @return real written data size
-	*/
+	virtual DWORD Read(LPVOID lpData, DWORD dwDataSize, DWORD dwTimeOut, DWORD dwReserved = 0) = 0;
 	virtual DWORD Write(LPVOID lpData, DWORD dwDataSize, DWORD dwReserved = 0) = 0;
-	/**
-	* Free memory allocated by program, only used after async read data
-	* @param [in] pMemBlock : memory pointer
-	*
-	* @return void
-	*/
 	virtual void FreeMem(LPVOID pMemBlock) = 0;
-	/**
-	* Get property of this program
-	* @param [in] lFlags : reserved
-	* @param [in] dwPropertyID: property name
-	* @param [out] pValue : property value pointer
-	*
-	* @return TRUE if get success, FALSE otherwise
-	*/
-	virtual BOOL GetProperty(LONG lFlags, DWORD dwPropertyID,
-		LPVOID pValue) = 0;
-	/**
-	* Get property of this program
-	* @param [in] lFlags : reserved
-	* @param [in] dwPropertyID: property name
-	* @param [in] pValue : property value pointer
-	*
-	* @return TRUE if set success, FALSE otherwise
-	*/
-	virtual BOOL SetProperty(LONG lFlags, DWORD dwPropertyID,
-		LPCVOID pValue) = 0;
+	virtual BOOL GetProperty(LONG lFlags, DWORD dwPropertyID, LPVOID pValue) = 0;
+	virtual BOOL SetProperty(LONG lFlags, DWORD dwPropertyID, LPCVOID pValue) = 0;
 };
 
+// 代理通道类 - 通过管道与32位代理通信
+class CProxyChannel : public ICommChannel {
+private:
+	HANDLE m_hPipe;
+	DWORD m_objectId;  // 代理进程中的对象ID
+	
+	BOOL ConnectToProxy();
+	BOOL SendCommand(DWORD cmd, void* params, DWORD paramSize, void* resp, DWORD respSize);
+	
+public:
+	CProxyChannel();
+	virtual ~CProxyChannel();
+	
+	virtual BOOL InitLog(LPCWSTR pszLogName, UINT uiLogType,
+		UINT uiLogLevel = INVALID_VALUE, ISpLog *pLogUtil = NULL,
+		LPCWSTR pszBinLogFileExt = NULL) override;
+	virtual BOOL SetReceiver(ULONG ulMsgId, BOOL bRcvThread, LPCVOID pReceiver) override;
+	virtual void GetReceiver(ULONG &ulMsgId, BOOL &bRcvThread, LPVOID &pReceiver) override;
+	virtual BOOL Open(PCCHANNEL_ATTRIBUTE pOpenArgument) override;
+	virtual void Close() override;
+	virtual BOOL Clear() override;
+	virtual DWORD Read(LPVOID lpData, DWORD dwDataSize, DWORD dwTimeOut, DWORD dwReserved = 0) override;
+	virtual DWORD Write(LPVOID lpData, DWORD dwDataSize, DWORD dwReserved = 0) override;
+	virtual void FreeMem(LPVOID pMemBlock) override;
+	virtual BOOL GetProperty(LONG lFlags, DWORD dwPropertyID, LPVOID pValue) override;
+	virtual BOOL SetProperty(LONG lFlags, DWORD dwPropertyID, LPCVOID pValue) override;
+};
+
+// 修改原有的函数指针类型定义
 typedef BOOL(*pfCreateChannel)(ICommChannel **, CHANNEL_TYPE);
-typedef void (*pfReleaseChannel)(ICommChannel *);
+typedef void(*pfReleaseChannel)(ICommChannel *);
 
 class CBMPlatformApp {
 public:
 	CBMPlatformApp();
-
+	
 	pfCreateChannel m_pfCreateChannel;
 	pfReleaseChannel m_pfReleaseChannel;
-
+	
 	HMODULE m_hChannelLib;
-
+	BOOL m_bUseProxy;  // 是否使用代理模式
+	
 	BOOL InitInstance();
 	int ExitInstance();
 };
@@ -394,6 +325,10 @@ public:
 	BOOL SetProperty(LONG lFlags, DWORD dwPropertyID, LPCVOID pValue);
 	void Clear();
 	void FreeMem(LPVOID pMemBlock);
+	
 private:
 	ICommChannel *m_pChannel;
 };
+
+// 全局变量声明
+extern int& m_bOpened;

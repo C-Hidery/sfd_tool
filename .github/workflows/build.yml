@@ -32,7 +32,7 @@ jobs:
             vcpkg_triplet: x64-windows
             artifact_name: LibUSB
           
-          # x64 架构：SPRD 原生驱动版
+          # x64 架构：SPRD 原生驱动版（现在使用 Proxy32 方案）
           - arch: x64
             config: Release
             msys_gtk_arch: mingw64
@@ -129,7 +129,20 @@ jobs:
           cmake --build build_cmake --config ${{ matrix.config }} -- /m
           ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
 
+          # 复制主程序
           Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
+          
+          # 如果是 SPRD 版本（非 libusb），复制 BMPlatform.dll 和 Proxy32.exe
+          if ("${{ matrix.use_libusb }}" -eq "OFF") {
+            if (Test-Path "build_cmake/bin/x64/BMPlatform.dll") {
+              Copy-Item "build_cmake/bin/x64/BMPlatform.dll" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
+              Write-Host "Copied BMPlatform.dll"
+            }
+            if (Test-Path "build_cmake/bin/x86/Proxy32.exe") {
+              Copy-Item "build_cmake/bin/x86/Proxy32.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
+              Write-Host "Copied Proxy32.exe"
+            }
+          }
 
       - name: Copy DLLs from GTK3 bin directory
         run: |
@@ -171,6 +184,7 @@ jobs:
         if: matrix.use_libusb == 'OFF'
         run: |
           $destDir = "./build/SPRD/Release/"
+          # Channel9.dll 和 Channel.ini 需要放在 Proxy32.exe 同一目录
           if (Test-Path "third_party/Lib/Channel9.dll") {
             Copy-Item "third_party/Lib/Channel9.dll" -Destination $destDir -Force
             Write-Host "Copied Channel9.dll"
@@ -178,6 +192,10 @@ jobs:
           if (Test-Path "third_party/Lib/Channel.ini") {
             Copy-Item "third_party/Lib/Channel.ini" -Destination $destDir -Force
             Write-Host "Copied Channel.ini"
+          }
+          # 也复制到 x86 目录（Proxy32 需要）
+          if (Test-Path "third_party/Lib/Channel9.dll") {
+            Copy-Item "third_party/Lib/Channel9.dll" -Destination "$destDir" -Force
           }
 
       - name: Copy GTK Runtime Data Files
@@ -215,7 +233,7 @@ jobs:
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           $unwantedExtensions = @(".a", ".la", ".def", ".sh", ".py", ".pl", ".exp")
-          $keepFiles = @("sfd_tool.exe", "sfd_tool.pdb")
+          $keepFiles = @("sfd_tool.exe", "sfd_tool.pdb", "BMPlatform.dll", "Proxy32.exe", "Channel9.dll", "Channel.ini")
           
           foreach ($ext in $unwantedExtensions) {
             Get-ChildItem -Path $destDir -Filter "*$ext" -Exclude $keepFiles -ErrorAction SilentlyContinue | 
