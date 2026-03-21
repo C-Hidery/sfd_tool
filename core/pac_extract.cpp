@@ -491,7 +491,8 @@ static sfd::Result<void> parse_partitions_xml_result(const char* temp_xml_path,
 	p = src;
 
 	uint32_t buf_size = 0xffff;
-	uint8_t* buf = NEWN uint8_t[0x4c * 128];
+	uint8_t* buf_orig = NEWN uint8_t[0x4c * 128];
+    uint8_t* buf = buf_orig;  // 使用 buf 进行移动操作
 
 	for (;;) {
 		int i, a = *p++, n; char c; long long size;
@@ -616,18 +617,50 @@ static sfd::Result<void> parse_partitions_xml_result(const char* temp_xml_path,
 	}
 
 	delete[] src;
-	delete[] buf;
+	delete[] buf_orig;
 	return sfd::Result<void>::ok();
 }
 
 std::string ExtractPartitionsWithTags(const std::string& xmlContent) {
-    std::regex pattern("<Partitions>.*?</Partitions>", std::regex::icase);
-    std::smatch match;
-
-    if (std::regex_search(xmlContent, match, pattern)) {
-        return match.str();
+    // 手动查找 <Partitions> 和 </Partitions>
+    size_t start = xmlContent.find("<Partitions>");
+    if (start == std::string::npos) {
+        // 尝试查找带属性的 <Partitions
+        start = xmlContent.find("<Partitions");
+        if (start != std::string::npos) {
+            // 找到第一个 '>' 结束
+            size_t tagEnd = xmlContent.find('>', start);
+            if (tagEnd != std::string::npos) {
+                start = tagEnd + 1;
+            } else {
+                return "";
+            }
+        } else {
+            return "";
+        }
+    } else {
+        start += 12; // 跳过 "<Partitions>" 的长度
     }
-    return "";
+    
+    size_t end = xmlContent.find("</Partitions>", start);
+    if (end == std::string::npos) {
+        return "";
+    }
+    
+    // 返回包含完整标签的内容
+    size_t realStart = xmlContent.rfind("<Partitions", start);
+    if (realStart == std::string::npos) {
+        realStart = start;
+    }
+    
+    size_t realEnd = xmlContent.find("</Partitions>", end);
+    if (realEnd == std::string::npos) {
+        realEnd = end + 13;
+    } else {
+        realEnd += 13;
+    }
+    
+    return xmlContent.substr(realStart, realEnd - realStart);
 }
 std::string FindFirstXMLFile(const std::string& folderPath) {
 	namespace fs = std::filesystem;
@@ -994,30 +1027,73 @@ std::string findBaseForID(const std::string& filename, const std::string& target
     std::string line;
     bool inTargetFile = false;
     bool foundID = false;
+    bool inBlock = false;
+    std::string currentID;
 
     while (std::getline(file, line)) {
         std::string trimmed = trim(line);
-
-        // 查找 <ID> 标签
-        if (!foundID) {
+        
+        // 检测是否进入 <File> 标签
+        if (trimmed.find("<File>") != std::string::npos) {
+            inTargetFile = true;
+            foundID = false;
+            currentID.clear();
+            continue;
+        }
+        
+        // 检测是否离开 </File> 标签
+        if (trimmed.find("</File>") != std::string::npos) {
+            inTargetFile = false;
+            continue;
+        }
+        
+        // 如果在 <File> 内，查找 ID 或 IDAlias
+        if (inTargetFile && !foundID) {
+            // 查找 <ID> 标签
             size_t idStart = trimmed.find("<ID>");
             size_t idEnd = trimmed.find("</ID>");
             if (idStart != std::string::npos && idEnd != std::string::npos) {
-                std::string idContent = trimmed.substr(idStart + 4, idEnd - idStart - 4);
-                if (idContent == targetID) {
+                currentID = trimmed.substr(idStart + 4, idEnd - idStart - 4);
+                if (currentID == targetID) {
+                    foundID = true;
+                }
+                continue;
+            }
+            
+            // 查找 <IDAlias> 标签（FDL1 可能在这里）
+            size_t aliasStart = trimmed.find("<IDAlias>");
+            size_t aliasEnd = trimmed.find("</IDAlias>");
+            if (aliasStart != std::string::npos && aliasEnd != std::string::npos) {
+                std::string alias = trimmed.substr(aliasStart + 9, aliasEnd - aliasStart - 9);
+                if (alias == targetID) {
                     foundID = true;
                 }
                 continue;
             }
         }
-
-        // 如果已经找到目标 ID，则查找下一个 <Base>
+        
+        // 如果找到了目标 ID，查找 <Block> 内的 <Base>
         if (foundID) {
-            size_t baseStart = trimmed.find("<Base>");
-            size_t baseEnd = trimmed.find("</Base>");
-            if (baseStart != std::string::npos && baseEnd != std::string::npos) {
-                std::string baseContent = trimmed.substr(baseStart + 6, baseEnd - baseStart - 6);
-                return trim(baseContent);
+            // 检测进入 <Block> 标签
+            if (trimmed.find("<Block>") != std::string::npos) {
+                inBlock = true;
+                continue;
+            }
+            
+            // 检测离开 </Block> 标签
+            if (trimmed.find("</Block>") != std::string::npos) {
+                inBlock = false;
+                continue;
+            }
+            
+            // 如果在 <Block> 内，查找 <Base>
+            if (inBlock) {
+                size_t baseStart = trimmed.find("<Base>");
+                size_t baseEnd = trimmed.find("</Base>");
+                if (baseStart != std::string::npos && baseEnd != std::string::npos) {
+                    std::string baseContent = trimmed.substr(baseStart + 6, baseEnd - baseStart - 6);
+                    return trim(baseContent);
+                }
             }
         }
     }
@@ -1058,10 +1134,13 @@ sfd::Result<PacUnpackInfo> pac_unpack_and_analyze_impl(const char* pac_path,
                                                  "PAC file not found");
     }
 
+    // 修复：获取绝对路径
+    fs::path abs_out_path = fs::absolute(out_folder);
+    std::string abs_out_folder = abs_out_path.string();
+    
     Unpac unpac;
-    unpac.setDirectory(out_folder);
+    unpac.setDirectory(abs_out_folder.c_str());  // 使用绝对路径
     if (!unpac.openPacFile(pac_path)) {
-        // openPacFile 已经打印了具体原因
         return sfd::Result<PacUnpackInfo>::error(sfd::ErrorCode::ParseError,
                                                  "openPacFile failed");
     }
@@ -1073,11 +1152,11 @@ sfd::Result<PacUnpackInfo> pac_unpack_and_analyze_impl(const char* pac_path,
 
     PacUnpackInfo info;
     info.pac_path   = pac_path;
-    info.unpack_dir = out_folder;
+    info.unpack_dir = abs_out_folder;  // 使用绝对路径
 
-    // 查找 FDL1/FDL2 路径
-    info.fdl_files.fdl1 = FindFDLInExtFloder(out_folder, FDL1);
-    info.fdl_files.fdl2 = FindFDLInExtFloder(out_folder, FDL2);
+    // 修复：使用绝对路径查找 FDL
+    info.fdl_files.fdl1 = FindFDLInExtFloder(abs_out_folder.c_str(), FDL1);
+    info.fdl_files.fdl2 = FindFDLInExtFloder(abs_out_folder.c_str(), FDL2);
     if (info.fdl_files.fdl1.empty() || info.fdl_files.fdl2.empty()) {
         return sfd::Result<PacUnpackInfo>::error(
             sfd::ErrorCode::ParseError,
@@ -1085,7 +1164,7 @@ sfd::Result<PacUnpackInfo> pac_unpack_and_analyze_impl(const char* pac_path,
     }
 
     // 查找 XML 并解析 FDL base 地址
-    std::string xmlPath = FindFirstXMLFile(out_folder);
+    std::string xmlPath = FindFirstXMLFile(abs_out_folder.c_str());
     if (xmlPath.empty()) {
         return sfd::Result<PacUnpackInfo>::error(
             sfd::ErrorCode::ParseError,

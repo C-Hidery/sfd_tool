@@ -140,7 +140,8 @@ sfd-tool (1.7.6.0-1-ltv) unstable; urgency=medium
 
   * Initial Debian package release
   * SFD Tool GUI - Spreadtrum Firmware Dumper
-  * Version 1.7.6.0 features:
+  * Version 1.7.7.4 features:
+    - UI Refactor, optimization code logic.
     - Add PAC flash func, auto FDL send
     - Add slot flash/read manually set, add storage/slot showing
     - Fix some bugs, add partition table modify function
