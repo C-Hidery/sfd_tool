@@ -148,7 +148,7 @@ void print_help() {
 		"\t36.scan_partition [PARTITION TABLE XML]\n"
 		"\tGet partition table through scanning a partition xml file\n"
 		"\t37.pac [PAC FILE]\n"
-		"\t\tFlash PAC firmware to the device\n"
+		"\t\tFlash PAC firmware to the device (BROM stage only)\n"
 	    "Debug commands:\n"
 	    "\t38.skip_confirm {0,1}\n"
 	    "\t\tSkips all confirmation prompts(use with caution!)\n"
@@ -1585,28 +1585,26 @@ rloop:
 				argv += 2;
 				continue;
 			} else fclose(fi);
+			if(g_app_state.device.device_stage != BROM && GetStage() != BROM)
+			{
+				DEG_LOG(E, "Pac flashing is only supported in BROM stage.");
+				argc -= 2;
+				argv += 2;
+				continue;
+			}
 			if(check_confirm("flash pac"))
 			{
-				auto service = sfd::createFlashService();
-				service->setContext(io, &g_app_state);
-
-				sfd::FlashPacOptions opts;
-				opts.pac_path        = fn;
-				opts.slot_selection  = static_cast<sfd::SlotSelection>(g_app_state.flash.selected_ab <= 0 ? 0 : g_app_state.flash.selected_ab);
-				opts.compatibility_mode = g_app_state.flash.isCMethod != 0;
-
-				sfd::FlashStatus st = service->flashPac(opts, nullptr);
-				if (!st.success) {
-					DEG_LOG(E, "flashPac failed: %s", st.message.c_str());
-				} else {
-					DEG_LOG(I, "PAC flash completed successfully.");
+				bool i_is = pac_extract(fn, "pac_unpack_output");
+				if (i_is)
+				{
+					pac_flash(io, "pac_unpack_output");
 				}
 
 #ifdef _WIN32
-				DEG_LOG(I, "PAC 操作结束，程序将在 5 秒后退出...");
+				DEG_LOG(I, "Pac flashing completed, the program will exit in 5 seconds...");
 				Sleep(5000);
 #else
-				DEG_LOG(I, "PAC 操作结束，程序将在 5 秒后退出...");
+				DEG_LOG(I, "Pac flashing completed, the program will exit in 5 seconds...");
 				sleep(5);
 #endif
 				spdio_free(io);

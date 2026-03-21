@@ -995,5 +995,192 @@ std::string findBaseForID(const std::string& filename, const std::string& target
 
     return ""; // 未找到
 }
+bool pac_flash(spdio_t* io, const char* floder)
+{
+    std::string xmlPath = FindFirstXMLFile(floder);
+    if (xmlPath.empty()) {
+        if(isHelperInit) gui_idle_call_wait_drag([](){
+            showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "No XML file found in the extracted folder.\n在解压后的文件夹中未找到XML文件\n");
+        },GTK_WINDOW(helper.getWidget("main_window")));
+        DEG_LOG(E, "No XML file found in the extracted folder.");
+        return false;
+    }
+    std::string fdl1_path = FindFDLInExtFloder(floder, FDL1);
+    std::string fdl2_path = FindFDLInExtFloder(floder, FDL2);
+    std::string fdl1_base = findBaseForID(xmlPath, "fdl1");
+    std::string fdl2_base = findBaseForID(xmlPath, "fdl2");
+    if (fdl1_path.empty() || fdl1_base.empty()) {
+        if(isHelperInit) gui_idle_call_wait_drag([](){
+            showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "FDL1 file or base address not found.\n未找到FDL1文件或基地址\n");
+        },GTK_WINDOW(helper.getWidget("main_window")));
+        DEG_LOG(E, "FDL1 file or base address not found.");
+        return false;
+    }
+    if (fdl2_path.empty() || fdl2_base.empty()) {
+        if(isHelperInit) gui_idle_call_wait_drag([](){
+            showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "FDL2 file or base address not found.\n未找到FDL2文件或基地址\n");
+        },GTK_WINDOW(helper.getWidget("main_window")));
+        DEG_LOG(E, "FDL2 file or base address not found.");
+        return false;
+    }
+    uint32_t fdl1_base_addr = std::stoul(fdl1_base, nullptr, 0);
+    uint32_t fdl2_base_addr = std::stoul(fdl2_base, nullptr, 0);
+    FILE* fi;
+    int highspeed = 0;
+    uint8_t baudrate = 0;
+    uint16_t blk_size = DEFAULT_BLK_SIZE;
+   
+				fi = oxfopen(fdl1_path.c_str(), "r");
+				if (fi == nullptr) {
+					DEG_LOG(W, "File does not exist.\n");
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "File does not exist.\n文件不存在\n");
+                      return false;
+                } else fclose(fi);
+					
+				send_file(io, fdl1_path.c_str(), fdl1_base_addr, 0, 528, 0, 0);
+				encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+				if (send_and_check(io)) ERR_EXIT("FDL exec failed");;
+				
+				DEG_LOG(OP, "Execute FDL1");
+				// Tiger 310(0x5500) and Tiger 616(0x65000800) need to change baudrate after FDL1
 
+				if (fdl1_base_addr == 0x5500 || fdl1_base_addr == 0x65000800) {
+					highspeed = 1;
+					if (!baudrate) baudrate = 921600;
+				}
+
+				/* FDL1 (chk = sum) */
+				io->flags &= ~FLAGS_CRC16;
+
+				encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
+				for (int i = 0; ; i++) {
+					send_msg(io);
+					recv_msg(io);
+					if (recv_type(io) == BSL_REP_VER) break;
+					DEG_LOG(W, "Failed to check baud, retry...");
+					if (i == 4) {
+						ERR_EXIT("Can not execute FDL, please reboot your phone by pressing POWER and VOL_UP for 7-10 seconds.\n");
+					}
+					usleep(500000);
+				}
+				DEG_LOG(I, "Check baud FDL1 done.");
+
+				DEG_LOG(I, "Device REP_Version: ");
+				print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+
+
+				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+				if (send_and_check(io)) ERR_EXIT("FDL connect failed");;
+				DEG_LOG(I, "FDL1 connected.");
+#if !USE_LIBUSB
+				if (baudrate) {
+					uint8_t* data = io->temp_buf;
+					WRITE32_BE(data, baudrate);
+					encode_msg_nocpy(io, BSL_CMD_CHANGE_BAUD, 4);
+					if (!send_and_check(io)) {
+						DEG_LOG(OP, "Change baud FDL1 to %d", baudrate);
+						call_SetProperty(io->handle, 0, 100, (LPCVOID)&baudrate);
+					}
+				}
+#endif
+				
+				encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
+				if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
+				
+				fdl1_loaded = 1;
+                g_app_state.device.device_stage = FDL1;
+    // FDL2
+                memset(&Da_Info, 0, sizeof(Da_Info));
+				encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+				send_msg(io);
+				// Feature phones respond immediately,
+				// but it may take a second for a smartphone to respond.
+				int ret = recv_msg_timeout(io, 15000);
+				if (!ret) {
+					
+					ERR_EXIT("timeout reached\n");
+				}
+				ret = recv_type(io);
+				// Is it always bullshit?
+				if (ret == BSL_REP_INCOMPATIBLE_PARTITION)
+					get_Da_Info(io);
+				else if (ret != BSL_REP_ACK) {
+					
+					const char* name = get_bsl_enum_name(ret);
+					ERR_EXIT("excepted response (%s : 0x%04x)\n", name, ret);
+				}
+				DEG_LOG(OP, "Execute FDL2");
+				//remove 0d detection for nand device
+				//This is not supported on certain devices.
+				/*
+				encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
+				send_msg(io);
+				ret = recv_msg(io);
+				if (ret) {
+					ret = recv_type(io);
+					if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"excepted response (0x%04x)\n", ret);
+					else Da_Info.dwStorageType = 0x101;
+					// need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
+					// for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
+				}
+				*/
+				if (Da_Info.bDisableHDLC) {
+					encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
+					if (!send_and_check(io)) {
+						io->flags &= ~FLAGS_TRANSCODE;
+						DEG_LOG(OP, "Try to disable transcode 0x7D.");
+					}
+				}
+				int o = io->verbose;
+				io->verbose = -1;
+				g_spl_size = check_partition(io, "splloader", 1);
+				io->verbose = o;
+				if (Da_Info.bSupportRawData) {
+					blk_size = 0xf800;
+					io->ptable = partition_list(io, fn_partlist, &io->part_count);
+					if (fdl2_executed) {
+						Da_Info.bSupportRawData = 0;
+						DEG_LOG(OP, "Raw data mode disabled for SPRD4.");
+					} else {
+						encode_msg_nocpy(io, BSL_CMD_ENABLE_RAW_DATA, 0);
+						if (!send_and_check(io)) DEG_LOG(OP, "Raw data mode enabled.");
+					}
+				}
+
+
+				else if (highspeed || Da_Info.dwStorageType == 0x103) {
+					blk_size = 0xf800;
+					io->ptable = partition_list(io, fn_partlist, &io->part_count);
+				} else if (Da_Info.dwStorageType == 0x102) {
+					io->ptable = partition_list(io, fn_partlist, &io->part_count);
+				} else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
+				if (g_app_state.flash.gpt_failed != 1) {
+					if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
+					else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
+					else {
+						DEG_LOG(I, "Device is not using VAB\n");
+						if (Da_Info.bSupportRawData) {
+							DEG_LOG(I, "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.", (unsigned)Da_Info.bSupportRawData);
+							Da_Info.bSupportRawData = 0;
+						}
+					}
+				}
+				if (!isUseCptable && !io->part_count) {
+					DEG_LOG(W, "No partition table found on current device");
+					DEG_LOG(I, "You may get partition table through compatibility method.");
+					DEG_LOG(I, "(Use command `cptable` to do it.)");
+				}
+                int nand_id = DEFAULT_NAND_ID;
+                uint8_t nand_info[3] = {0}; // page size, spare area size, block size
+				if (nand_id == DEFAULT_NAND_ID) {
+					nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+					nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+					nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+				}
+				fdl2_executed = 1;
+				g_app_state.device.device_stage = FDL2;
+    DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
+    load_partitions(io, "pac_unpack_output", blk_size, g_app_state.flash.selected_ab, 0);
+	
+}
 

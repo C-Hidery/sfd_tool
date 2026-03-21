@@ -12,16 +12,7 @@
 extern AppState g_app_state;
 extern spdio_t*& io;
 
-// 全局持有一个 FlashService 实例，复用底层 io/app_state
-static std::unique_ptr<sfd::FlashService> g_flash_service;
 
-static sfd::FlashService* ensure_flash_service() {
-	if (!g_flash_service) {
-		g_flash_service = sfd::createFlashService();
-	}
-	g_flash_service->setContext(io, &g_app_state);
-	return g_flash_service.get();
-}
 
 static std::string format_size(std::uint64_t bytes) {
 	// 非常简单的格式化：优先用 MB，否则用 KB
@@ -79,23 +70,6 @@ static void populate_pac_partition_list(GtkWidgetHelper& helper, const std::vect
 
 // ===== 按钮回调函数 =====
 
-void on_button_clicked_pac_time(GtkWidgetHelper helper) {
-	ensure_device_attached_or_exit(helper);
-	auto* service = ensure_flash_service();
-	std::uint64_t pt = 0;
-	sfd::FlashStatus st = service->queryPacFlashTime(pt);
-	if (!st.success) {
-		DEG_LOG(E, "queryPacFlashTime failed: %s", st.message.c_str());
-		gui_idle_call_wait_drag([helper, msg = st.message]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), msg.c_str());
-		}, GTK_WINDOW(helper.getWidget("main_window")));
-		return;
-	}
-	std::string msg = std::string(_("PAC flash time")) + ": " + std::to_string(pt) + " s";
-	gui_idle_call_wait_drag([msg, helper]() {
-		showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("PAC Time"), msg.c_str());
-	}, GTK_WINDOW(helper.getWidget("main_window")));
-}
 
 void on_button_clicked_abpart_auto(GtkWidgetHelper helper) {
 	(void)helper;
@@ -117,23 +91,11 @@ void on_button_clicked_pac_select(GtkWidgetHelper helper) {
 	std::string filename = showFileChooser(parent, true);
 	if (!filename.empty()) {
 		helper.setEntryText(helper.getWidget("pac_file_path"), filename);
-
-		// 选择成功后更新配置中的 last_pac_path
-		auto cfgSvc = sfd::createConfigService();
-		if (cfgSvc) {
-			sfd::AppConfig cfg{};
-			sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
-			if (status.success) {
-				cfg.last_pac_path = filename;
-				cfgSvc->saveAppConfig(cfg);
-			}
-		}
 	}
 }
 
 void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
-	auto* service = ensure_flash_service();
 	const char* pac_path = helper.getEntryText(helper.getWidget("pac_file_path"));
 	if (!pac_path || !*pac_path) {
 		gui_idle_call_wait_drag([helper]() {
@@ -142,119 +104,39 @@ void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 		return;
 	}
 
-	sfd::PacMetadata meta;
-	std::vector<sfd::PacPartitionEntry> entries;
-	sfd::FlashStatus st = service->loadPacMetadata(pac_path, meta, entries);
-	if (!st.success) {
-		DEG_LOG(E, "loadPacMetadata failed: %s", st.message.c_str());
-		gui_idle_call_wait_drag([helper, msg = st.message]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), msg.c_str());
+	bool i_is = pac_extract(pac_path, "pac_unpack_output");
+	if (i_is)
+	{
+		gui_idle_call_wait_drag([helper]() {
+			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC unpacked successfully.\nPAC文件解包成功。"));
+		}, GTK_WINDOW(helper.getWidget("main_window")));
+	}
+	else
+	{
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Failed to unpack PAC.\nPAC文件解包失败。"));
 		}, GTK_WINDOW(helper.getWidget("main_window")));
 		return;
 	}
 
-	// 使用 Service 返回的分区信息刷新列表
-	gui_idle_call_wait_drag([helper, entries]() mutable {
-		populate_pac_partition_list(helper, entries);
-	}, GTK_WINDOW(helper.getWidget("main_window")));
-
-	// 从解包目录自动探测 FDL1/FDL2 文件路径，并写入配置，方便 Connect 页面复用
-	{
-		const char* unpack_dir = ".";
-		std::string fdl1 = FindFDLInExtFloder(unpack_dir, FDL1);
-		std::string fdl2 = FindFDLInExtFloder(unpack_dir, FDL2);
-
-		if (!fdl1.empty() || !fdl2.empty()) {
-			auto cfgSvc = sfd::createConfigService();
-			if (cfgSvc) {
-				sfd::AppConfig cfg{};
-				sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
-				if (status.success) {
-					if (!fdl1.empty()) cfg.last_fdl1_path = fdl1;
-					if (!fdl2.empty()) cfg.last_fdl2_path = fdl2;
-					cfgSvc->saveAppConfig(cfg);
-				}
-			}
-		}
-	}
-
-	// 后续若 core 层填充了更多 PAC 元数据，可在此更新标题/标签
-	// 例如：显示产品名、版本号或文件大小等
 }
 
 void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
-	auto* service = ensure_flash_service();
-
-	const char* pac_path_c = helper.getEntryText(helper.getWidget("pac_file_path"));
-	if (!pac_path_c || !*pac_path_c) {
+	bool i_is = pac_flash(io, "pac_unpack_output");
+	if (i_is)
+	{
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist.\n文件不存在！"));
+			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC flashed successfully.\nPAC文件刷写成功。"));
+		}, GTK_WINDOW(helper.getWidget("main_window")));
+	}
+	else
+	{
+		gui_idle_call_wait_drag([helper]() {
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Failed to flash PAC.\nPAC文件刷写失败。"));
 		}, GTK_WINDOW(helper.getWidget("main_window")));
 		return;
 	}
-
-	sfd::FlashPacOptions opts;
-	opts.pac_path = pac_path_c;
-	opts.slot_selection = static_cast<sfd::SlotSelection>(g_app_state.flash.selected_ab <= 0 ? 0 : g_app_state.flash.selected_ab);
-	opts.compatibility_mode = g_app_state.flash.isCMethod != 0;
-
-	LongTaskConfig cfg{
-		// worker：在后台线程中执行 PAC 刷机
-		[helper, opts](std::atomic_bool& cancel_flag) {
-			(void)cancel_flag; // 当前实现暂不支持取消，仅保留扩展点
-			auto* svc = ensure_flash_service();
-			sfd::FlashStatus st = svc->flashPac(opts, [](sfd::FlashPacStage stage) {
-				const char* name = "unknown";
-				switch (stage) {
-				case sfd::FlashPacStage::ValidateContext: name = "validate_context"; break;
-				case sfd::FlashPacStage::ValidatePac:     name = "validate_pac";     break;
-				case sfd::FlashPacStage::ExtractPac:      name = "extract_pac";      break;
-				case sfd::FlashPacStage::ConfigureState:  name = "configure_state";  break;
-				case sfd::FlashPacStage::ExecuteFlash:    name = "execute_flash";    break;
-				case sfd::FlashPacStage::Done:            name = "done";             break;
-				}
-				DEG_LOG(OP, "PAC flash stage: %s", name);
-			});
-
-			if (!st.success) {
-				DEG_LOG(E, "flashPac failed: %s", st.message.c_str());
-				gui_idle_call_wait_drag([helper, msg = st.message]() {
-					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), msg.c_str());
-				}, GTK_WINDOW(helper.getWidget("main_window")));
-
-				// 失败后提示即将退出
-				GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
-				showExitAfterDelayDialog(parent,
-				                        _("PAC Flash Failed"),
-				                        _("PAC flash failed. The program will exit in 5 seconds."),
-				                        5);
-			} else {
-				gui_idle_call_wait_drag([helper]() {
-					showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC flash completed successfully."));
-				}, GTK_WINDOW(helper.getWidget("main_window")));
-
-				// 成功后提示即将退出
-				GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
-				showExitAfterDelayDialog(parent,
-				                        _("PAC Flash Completed"),
-				                        _("PAC flash completed successfully. The program will exit in 5 seconds."),
-				                        5);
-			}
-		},
-		// on_started：GUI 线程中执行，设置状态与禁用按钮
-		[helper]() mutable {
-			helper.setLabelText(helper.getWidget("con"), "Flashing PAC...");
-			helper.disableWidget("pac_flash_start");
-		},
-		// on_finished：GUI 线程中执行，恢复按钮与状态
-		[helper]() mutable {
-			helper.setLabelText(helper.getWidget("con"), "Ready");
-			helper.enableWidget("pac_flash_start");
-		}
-	};
-
-	run_long_task(cfg);
 }
 
 // ===== UI 构建 =====
