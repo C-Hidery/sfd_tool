@@ -332,3 +332,6 @@ private:
 
 // 全局变量声明
 extern int& m_bOpened;
+#ifdef __cplusplus
+inline ICommChannel::~ICommChannel() {}  // 内联实现，避免重复定义
+#endif

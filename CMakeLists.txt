@@ -113,17 +113,31 @@ if (WIN32)
     endif()
     
     # 2. 编译 Proxy32 为 32位 EXE（独立进程，用于加载 Channel9.dll）
-    # 创建单独的32位构建目标
+    # Windows 特定：BMPlatform 和 Proxy32
+if (WIN32)
+    # 64位构建时创建 BMPlatform.dll 和 Proxy32.exe
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        # 在64位构建中，我们仍然需要编译32位的Proxy32
-        # 通过设置目标属性强制32位编译
-        add_executable(Proxy32 WIN32 Proxy32.cpp)
+        # BMPlatform.dll (64位)
+        add_library(BMPlatform SHARED
+            BMPlatform.cpp
+            BMPlatform_Proxy.cpp
+        )
         
-        # 强制编译为32位
+        target_compile_definitions(BMPlatform PRIVATE 
+            _CRT_SECURE_NO_WARNINGS
+            _WINDLL
+            _WIN64
+            BUILDING_BMPLATFORM  # 避免重复定义
+        )
+        
+        # Proxy32.exe (32位控制台程序)
+        add_executable(Proxy32 Proxy32.cpp)
+        
+        # 强制32位编译
         if(MSVC)
             target_compile_options(Proxy32 PRIVATE /arch:IA32)
             set_target_properties(Proxy32 PROPERTIES
-                LINK_FLAGS "/MACHINE:X86"
+                LINK_FLAGS "/MACHINE:X86 /SUBSYSTEM:CONSOLE"
             )
         endif()
         
@@ -131,6 +145,7 @@ if (WIN32)
             _CRT_SECURE_NO_WARNINGS
             _WIN32
             _CONSOLE
+            PROXY32_EXE  # 避免重复定义 ICommChannel 析构函数
         )
         
         target_include_directories(Proxy32 PRIVATE
@@ -142,16 +157,29 @@ if (WIN32)
             RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/x86"
         )
         
-        # Proxy32 不需要链接主程序的其他库
         target_link_libraries(Proxy32 PRIVATE
             dbghelp
         )
+        
+        # BMPlatform 链接库
+        target_link_libraries(BMPlatform PRIVATE 
+            dbghelp
+            setupapi
+        )
+        
+        if(USE_LIBUSB)
+            target_link_libraries(BMPlatform PRIVATE 
+                ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Lib/libusb-1.0.lib
+            )
+        endif()
     else()
-        # 32位构建时，直接使用原有的 BMPlatform.cpp
+        # 32位构建时直接包含
         target_sources(sfd_tool PRIVATE
             BMPlatform.cpp
+            Wrapper.cpp
         )
     endif()
+endif()
 endif()
 
 # ================= 主可执行程序 =================

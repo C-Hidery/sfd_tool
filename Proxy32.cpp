@@ -1,4 +1,5 @@
 // Proxy32.cpp - 32位代理进程，真正加载和执行 Channel9.dll
+#define _CONSOLE
 #include <windows.h>
 #include <iostream>
 #include <map>
@@ -52,8 +53,6 @@ public:
     virtual BOOL GetProperty(LONG lFlags, DWORD dwPropertyID, LPVOID pValue) = 0;
     virtual BOOL SetProperty(LONG lFlags, DWORD dwPropertyID, LPCVOID pValue) = 0;
 };
-
-ICommChannel::~ICommChannel() {}
 
 // 函数指针类型
 typedef BOOL(*pfCreateChannel)(ICommChannel **, CHANNEL_TYPE);
