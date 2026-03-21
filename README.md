@@ -139,15 +139,17 @@ The script runs `dpkg-buildpackage` in a temporary directory under `/tmp/build-s
 
 Official GitHub Releases provide:
 
-- **sfd_tool_SPRD_Release**: Windows x86 build using the official SPRD serial driver (Channel9.dll). This variant has the best compatibility and is recommended for older machines or when stability matters most.
-- **sfd_tool_LibUSB_Release**: Windows x64 build using libusb, suitable for modern 64-bit Windows systems.
-- **Linux DEB / RPM packages** for mainstream Debian/Ubuntu and Fedora/RPM-based distributions.
-- **macOS DMG** installer containing a standard `SFD Tool.app` application.
+- **`sfd_tool_windows_x64_sprd_vX.Y.Z.zip`**: Windows x64 build using the official SPRD serial driver (Channel9.dll). This variant has the best compatibility and is recommended for older machines or when stability matters most.
+- **`sfd_tool_windows_x64_libusb_vX.Y.Z.zip`**: Windows x64 build using libusb, suitable for modern 64-bit Windows systems (requires installing a libusb-based driver, e.g. via Zadig).
+- **Linux `.deb` packages** such as `sfd-tool_X.Y.Z-1_amd64.deb` for Debian/Ubuntu and derivatives.
+- **Linux `.rpm` packages** such as `sfd-tool-X.Y.Z-1.x86_64.rpm` for Fedora/RPM-based distributions.
+- **macOS DMG** named like `sfd_tool_macos_vX.Y.Z.dmg`, containing a standard `SFD Tool.app` application.
+- **`sfd_tool_all_vX.Y.Z.zip`**: a convenience bundle that contains all of the above platform packages plus top-level documentation (`README*`, `ARCHITECTURE.md`, etc.).
 
 #### macOS notes
 
 - Usage:
-  1. Download `sfd_tool_macos.dmg` from GitHub Releases;
+  1. Download `sfd_tool_macos_vX.Y.Z.dmg` from GitHub Releases;
   2. Double-click the DMG and drag `SFD Tool.app` into `/Applications`;
   3. Launch `SFD Tool` from Launchpad or Finder.
 
