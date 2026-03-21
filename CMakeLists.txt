@@ -181,7 +181,24 @@ target_link_libraries(sfd_tool
 
 # 64位 SPRD 版本需要链接 BMPlatform.dll
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT USE_LIBUSB)
+    # 只为主程序链接 BMPlatform，不为测试链接
     target_link_libraries(sfd_tool PRIVATE BMPlatform)
+    
+    # 确保测试不链接 BMPlatform
+    if(SFD_ENABLE_TESTS)
+        foreach(test_target IN LISTS SFD_TEST_TARGETS)
+            if(TARGET ${test_target})
+                # 如果测试已经链接了 BMPlatform，移除它
+                target_link_libraries(${test_target} PRIVATE 
+                    $<TARGET_PROPERTY:BMPlatform,INTERFACE_LINK_LIBRARIES>
+                )
+                # 或者明确设置不链接
+                set_target_properties(${test_target} PROPERTIES
+                    LINK_LIBRARIES ""
+                )
+            endif()
+        endforeach()
+    endif()
 endif()
 
 # 公共目标列表，方便批量设置编译选项
