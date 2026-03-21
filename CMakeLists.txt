@@ -78,110 +78,87 @@ target_include_directories(sfd_ui
 
 # ================= Windows 特定：BMPlatform 和 Proxy32 =================
 if (WIN32)
-    # 定义 BMPlatform 源文件
-    set(BM_PLATFORM_SOURCES
-        BMPlatform.cpp
-        Proxy32.cpp  # 新增的代理实现
-    )
-    
-    # 1. 编译 BMPlatform 为 64位 DLL（SPRD 版本使用）
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        add_library(BMPlatform SHARED ${BM_PLATFORM_SOURCES})
-        target_compile_definitions(BMPlatform PRIVATE 
-            _CRT_SECURE_NO_WARNINGS
-            _WINDLL
-            _WIN64
-        )
-        target_include_directories(BMPlatform PRIVATE 
-            ${CMAKE_CURRENT_SOURCE_DIR}
-            ${CMAKE_BINARY_DIR}/generated
-        )
-        set_target_properties(BMPlatform PROPERTIES
-            OUTPUT_NAME "BMPlatform"
-            PREFIX ""
-            SUFFIX ".dll"
-            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/x64"
-        )
-        target_link_libraries(BMPlatform PRIVATE 
-            dbghelp
-            setupapi
-            ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Lib/libusb-1.0.lib
-        )
-        
-        # 添加 BMPlatform 到公共目标列表，以便设置编译选项
-        list(APPEND SFD_COMMON_TARGETS BMPlatform)
-    endif()
-    
-    # 2. 编译 Proxy32 为 32位 EXE（独立进程，用于加载 Channel9.dll）
-    # Windows 特定：BMPlatform 和 Proxy32
-if (WIN32)
     # 64位构建时创建 BMPlatform.dll 和 Proxy32.exe
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         # BMPlatform.dll (64位)
-        add_library(BMPlatform SHARED
-            BMPlatform.cpp
-            BMPlatform_Proxy.cpp
-        )
-        
-        target_compile_definitions(BMPlatform PRIVATE 
-            _CRT_SECURE_NO_WARNINGS
-            _WINDLL
-            _WIN64
-            BUILDING_BMPLATFORM  # 避免重复定义
-        )
-        
-        # Proxy32.exe (32位控制台程序)
-        add_executable(Proxy32 Proxy32.cpp)
-        
-        # 强制32位编译
-        if(MSVC)
-            target_compile_options(Proxy32 PRIVATE /arch:IA32)
-            set_target_properties(Proxy32 PROPERTIES
-                LINK_FLAGS "/MACHINE:X86 /SUBSYSTEM:CONSOLE"
+        if(NOT TARGET BMPlatform)
+            add_library(BMPlatform SHARED
+                BMPlatform.cpp
+                BMPlatform_Proxy.cpp
             )
+            
+            target_compile_definitions(BMPlatform PRIVATE 
+                _CRT_SECURE_NO_WARNINGS
+                _WINDLL
+                _WIN64
+                BUILDING_BMPLATFORM
+            )
+            
+            target_include_directories(BMPlatform PRIVATE 
+                ${CMAKE_CURRENT_SOURCE_DIR}
+                ${CMAKE_BINARY_DIR}/generated
+            )
+            
+            set_target_properties(BMPlatform PROPERTIES
+                OUTPUT_NAME "BMPlatform"
+                PREFIX ""
+                SUFFIX ".dll"
+                RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/x64"
+            )
+            
+            target_link_libraries(BMPlatform PRIVATE 
+                dbghelp
+                setupapi
+            )
+            
+            if(USE_LIBUSB)
+                target_link_libraries(BMPlatform PRIVATE 
+                    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Lib/libusb-1.0.lib
+                )
+            endif()
+            
+            list(APPEND SFD_COMMON_TARGETS BMPlatform)
         endif()
         
-        target_compile_definitions(Proxy32 PRIVATE
-            _CRT_SECURE_NO_WARNINGS
-            _WIN32
-            _CONSOLE
-            PROXY32_EXE  # 避免重复定义 ICommChannel 析构函数
-        )
-        
-        target_include_directories(Proxy32 PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}
-        )
-        
-        set_target_properties(Proxy32 PROPERTIES
-            OUTPUT_NAME "Proxy32"
-            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/x86"
-        )
-        
-        target_link_libraries(Proxy32 PRIVATE
-            dbghelp
-        )
-        
-        # BMPlatform 链接库
-        target_link_libraries(BMPlatform PRIVATE 
-            dbghelp
-            setupapi
-        )
-        
-        if(USE_LIBUSB)
-            target_link_libraries(BMPlatform PRIVATE 
-                ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Lib/libusb-1.0.lib
+        # Proxy32.exe (32位控制台程序)
+        if(NOT TARGET Proxy32)
+            add_executable(Proxy32 Proxy32.cpp)
+            
+            if(MSVC)
+                target_compile_options(Proxy32 PRIVATE /arch:IA32)
+                set_target_properties(Proxy32 PROPERTIES
+                    LINK_FLAGS "/MACHINE:X86 /SUBSYSTEM:CONSOLE"
+                )
+            endif()
+            
+            target_compile_definitions(Proxy32 PRIVATE
+                _CRT_SECURE_NO_WARNINGS
+                _WIN32
+                _CONSOLE
+                PROXY32_EXE
+            )
+            
+            target_include_directories(Proxy32 PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}
+            )
+            
+            set_target_properties(Proxy32 PROPERTIES
+                OUTPUT_NAME "Proxy32"
+                RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/x86"
+            )
+            
+            target_link_libraries(Proxy32 PRIVATE
+                dbghelp
             )
         endif()
     else()
-        # 32位构建时直接包含
+        # 32位构建时直接包含源文件
         target_sources(sfd_tool PRIVATE
             BMPlatform.cpp
             Wrapper.cpp
         )
     endif()
 endif()
-endif()
-
 # ================= 主可执行程序 =================
 add_executable(sfd_tool
     main.cpp
