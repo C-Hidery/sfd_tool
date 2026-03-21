@@ -287,27 +287,7 @@ if (WIN32)
         target_link_libraries(${tgt} PRIVATE dbghelp setupapi)
     endforeach()
     
-    # ========== 测试目标额外配置 ==========
-    if (SFD_ENABLE_TESTS AND CMAKE_SIZEOF_VOID_P EQUAL 8)
-        # 为测试目标添加 BMPlatform 链接
-        foreach(test_target IN LISTS SFD_TEST_TARGETS)
-            if(TARGET ${test_target})
-                # 如果是 SPRD 版本（非 libusb），链接 BMPlatform
-                if(NOT USE_LIBUSB)
-                    if(TARGET BMPlatform)
-                        target_link_libraries(${test_target} PRIVATE BMPlatform)
-                        target_include_directories(${test_target} PRIVATE
-                            ${CMAKE_CURRENT_SOURCE_DIR}
-                            ${CMAKE_BINARY_DIR}/generated
-                        )
-                        message(STATUS "Linking test ${test_target} with BMPlatform")
-                    else()
-                        message(WARNING "BMPlatform target not found for test ${test_target}")
-                    endif()
-                endif()
-            endif()
-        endforeach()
-    endif()
+    
 endif()
 # ================= 依赖：GTK3 / libusb =================
 find_package(PkgConfig QUIET)
