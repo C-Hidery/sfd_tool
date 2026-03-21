@@ -142,13 +142,13 @@ sfd_tool/
   - CMake 作为跨平台构建配置的“单一事实来源”；
   - VS 工程可以由 CMake 生成或标记为 legacy；
   - Makefile 可在过渡期保留或简化，最终以 CMake 为主。
-- CI 能够覆盖核心平台（至少 Linux + Windows）的基础构建与测试，打包脚本（Debian、可能的 RPM 等）与当前目录结构保持同步。更详细的构建矩阵和发布流程说明见 [docs/RELEASE_GUIDE_ZH.md](docs/RELEASE_GUIDE_ZH.md)。
+- CI 能够覆盖核心平台（至少 Linux + Windows）的基础构建与测试，打包脚本（Debian `.deb`、Fedora/RPM `.rpm` 等）与当前目录结构保持同步。更详细的构建矩阵和发布流程说明见 [docs/RELEASE_GUIDE_ZH.md](docs/RELEASE_GUIDE_ZH.md)。
 - GitHub Actions 工作流（见 `.github/workflows/build.yml`）：
   - Windows job 使用 CMake + Visual Studio 构建 x64 变体并运行 `ctest`；
   - macOS job 使用 CMake + Ninja 构建可执行文件并打包为 DMG；
-  - Linux job 使用 `packaging/build-deb.sh` 构建 `.deb` 包；
-  - 另有基于 Fedora 容器的 RPM 打包 job；
-  - 在 `master` 分支上，CI 会聚合上述产物并创建 GitHub Release。
+  - Linux DEB job 使用 `packaging/build-deb.sh` 构建 `.deb` 包；
+  - Linux RPM job 在 Fedora 容器中构建 `.rpm` 包；
+  - 基于 tag 的 Release job 聚合上述产物并上传到 GitHub Releases，包括两个 Windows ZIP（SPRD/libusb）、macOS DMG、Linux DEB/RPM 以及一个汇总用的 `sfd_tool_all_<tag>.zip`。
 
 通过上述目标架构的约束，可以将工程重构计划中的每一条任务（例如 T1-01, T2-01, T3-01 等）映射到具体的“架构收益”，从而在实施过程中持续校验：
 
