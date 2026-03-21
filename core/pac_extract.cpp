@@ -385,7 +385,7 @@ bool Unpac::extractFiles() {
             return false;
         }
     }
-    const char* path = orig_dir.c_str();
+    const char* path = orig_dir.string().c_str();
 #ifndef _WIN32
     if (path && chdir(path)) {
         printf("chdir failed\n");
