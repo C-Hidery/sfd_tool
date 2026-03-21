@@ -13,8 +13,6 @@ if (WIN32)
 endif()
 
 
-target_link_libraries(test_pac_extract PRIVATE core_lib sfd_ui)
-
 add_executable(test_spd_protocol
     test_spd_protocol.cpp
     ${SFD_TEST_COMMON_SOURCES}
