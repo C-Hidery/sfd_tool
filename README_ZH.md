@@ -140,15 +140,17 @@ sudo apt-get install -y build-essential debhelper devscripts \
 
 GitHub Releases 页面会提供以下预编译包：
 
-- **sfd_tool_SPRD_Release**：Windows x86 版本，使用官方 SPRD 串口驱动（兼容性最佳，推荐在老机器或对兼容性要求高的环境使用）
-- **sfd_tool_LibUSB_Release**：Windows x64 版本，使用 libusb 驱动（适合现代 64 位 Windows 系统）
-- **Linux DEB / RPM 包**：适用于主流 Debian/Ubuntu 和 Fedora/RPM 系发行版
-- **macOS DMG**：macOS 安装包，内含标准的 `SFD Tool.app` 应用
+- **`sfd_tool_windows_x64_sprd_vX.Y.Z.zip`**：Windows x64 版本，使用官方 SPRD 串口驱动（Channel9.dll），兼容性最佳，推荐在老机器或对稳定性要求较高的环境中使用；
+- **`sfd_tool_windows_x64_libusb_vX.Y.Z.zip`**：Windows x64 版本，使用 libusb 驱动（需通过 Zadig 等工具安装），适合现代的 64 位 Windows 系统；
+- **Linux `.deb` 包**（例如 `sfd-tool_X.Y.Z-1_amd64.deb`），适用于 Debian/Ubuntu 及其衍生发行版；
+- **Linux `.rpm` 包**（例如 `sfd-tool-X.Y.Z-1.x86_64.rpm`），适用于 Fedora/RPM 系发行版；
+- **macOS DMG**，文件名形如 `sfd_tool_macos_vX.Y.Z.dmg`，内含标准的 `SFD Tool.app` 应用；
+- **`sfd_tool_all_vX.Y.Z.zip`**：整合包，包含上述各平台安装包以及顶层说明文档（`README*`、`ARCHITECTURE.md` 等）。
 
 #### macOS 使用注意事项
 
 - 使用方式：
-  1. 从 GitHub Releases 下载 `sfd_tool_macos.dmg`；
+  1. 从 GitHub Releases 下载形如 `sfd_tool_macos_vX.Y.Z.dmg` 的 DMG 文件；
   2. 双击打开 DMG，将 `SFD Tool.app` 拖动到 `/Applications`；
   3. 在 Launchpad 或 Finder 中打开 `SFD Tool` 即可。
 
