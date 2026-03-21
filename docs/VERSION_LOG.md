@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 1.8.2.0 LTV Edition
+Version 1.8.2.1 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -151,6 +151,9 @@ UI Refactor, optimization code logic.
 
 ---v 1.8.2.0---
 新增：从文件夹恢复分区功能
+
+---v 1.8.2.1---
+新增：从文件夹恢复功能（批量刷入分区），完善：x64打包（移除x86，支持LibUSB和SPRD驱动）
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
