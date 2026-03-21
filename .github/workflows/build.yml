@@ -138,8 +138,8 @@ jobs:
               Copy-Item "build_cmake/bin/x64/BMPlatform.dll" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
               Write-Host "Copied BMPlatform.dll"
             }
-            if (Test-Path "build_cmake/bin/x86/Proxy32.exe") {
-              Copy-Item "build_cmake/bin/x86/Proxy32.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
+            if (Test-Path "build_cmake/bin/x86/Release/Proxy32.exe") {
+              Copy-Item "build_cmake/bin/x86/Release/Proxy32.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
               Write-Host "Copied Proxy32.exe"
             }
           }
