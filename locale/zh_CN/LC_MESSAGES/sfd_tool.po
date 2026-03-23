@@ -918,3 +918,98 @@ msgstr "确定开始从该文件夹批量刷入已选中的分区吗？"
 msgid "partition read incomplete"
 msgstr "分区读取不完整"
 
+
+
+# ===== Auto-appended entries from sfd_tool.pot =====
+
+msgid "UI language"
+msgstr "UI language"
+
+msgid "System default"
+msgstr "System default"
+
+msgid "Simplified Chinese"
+msgstr "Simplified Chinese"
+
+msgid "English"
+msgstr "English"
+
+msgid "Failed to create config service."
+msgstr "Failed to create config service."
+
+msgid "CVE Bypass Options"
+msgstr "CVE 绕过选项"
+
+msgid "SPRD4 Options"
+msgstr "SPRD4 选项"
+
+msgid "Pactime"
+msgstr "PAC 时间"
+
+msgid "Chip UID"
+msgstr "获取芯片 UID"
+
+msgid "Storage Check"
+msgstr "存储检查"
+
+msgid "Partition read failed!"
+msgstr "分区读取失败！"
+
+msgid "Success"
+msgstr "成功"
+
+
+
+
+
+msgid "partition backup cancelled"
+msgstr "分区备份已取消"
+
+msgid "Partition backup completed! Saved to: "
+msgstr "分区备份完成！已保存到："
+
+msgid "当前设备尚未加载分区表，请先读取分区列表后再尝试从文件夹恢复。"
+msgstr "当前设备尚未加载分区表，请先读取分区列表后再尝试从文件夹恢复。"
+
+msgid "在所选的文件夹中未找到可与当前分区表匹配的分区镜像。"
+msgstr "在所选的文件夹中未找到可与当前分区表匹配的分区镜像。"
+
+msgid "未选择任何要刷入的分区。"
+msgstr "未选择任何要刷入的分区。"
+
+msgid "确认从所选文件夹开始刷入勾选的分区吗？"
+msgstr "确认从所选文件夹开始刷入勾选的分区吗？"
+
+
+
+# ===== Auto-appended entries from sfd_tool.pot =====
+
+msgid "No partition table loaded on the current device. Please read the partition list first, then try restoring from the folder again."
+msgstr "当前设备尚未加载分区表，请先读取分区列表后再尝试从文件夹恢复。"
+
+msgid "No partition images matching the current partition table were found in the selected folder."
+msgstr "在所选的文件夹中未找到可与当前分区表匹配的分区镜像。"
+
+msgid "No partitions were selected to flash from the folder."
+msgstr "未选择任何要刷入的分区。"
+
+msgid "Start flashing the selected partitions from the folder?"
+msgstr "确认从所选文件夹开始刷入勾选的分区吗？"
+
+
+# ===== Auto-appended entries from sfd_tool.pot =====
+
+msgid "File does not exist."
+msgstr "文件不存在！"
+
+msgid "PAC unpacked successfully."
+msgstr "PAC文件解包成功。"
+
+msgid "Failed to unpack PAC."
+msgstr "PAC文件解包失败。"
+
+msgid "PAC flashed successfully."
+msgstr "PAC文件刷写成功。"
+
+msgid "Failed to flash PAC."
+msgstr "PAC文件刷写失败。"
