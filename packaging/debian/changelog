@@ -1,3 +1,9 @@
+sfd-tool (1.8.2.3-1-ltv) unstable; urgency=medium
+
+  * 修复：分区备份校验兼容 NV 分区 512 字节偏移行为，完善：国际化自动化脚本
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Mon, 23 Mar 2026 16:01:48 +0800
+
 sfd-tool (1.8.2.2-1-ltv) unstable; urgency=medium
 
   * 优化：打包脚本；更新：全面更新用户指南、架构与发布流程说明
