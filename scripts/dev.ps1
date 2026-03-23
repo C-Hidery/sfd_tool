@@ -13,6 +13,42 @@ $buildDir  = "build_vs"
 $generator = "Visual Studio 17 2022"
 $arch      = "x64"
 
+function Update-I18N {
+    param(
+        [string]$Sources = "main.cpp GtkWidgetHelper.cpp pages/page_*.cpp ui_common.cpp"
+    )
+
+    if (-not (Get-Command xgettext -ErrorAction SilentlyContinue)) {
+        Write-Host "[dev][i18n] 未找到 xgettext，跳过 POT/PO 更新" -ForegroundColor Yellow
+        return
+    }
+
+    Write-Host "[dev][i18n] 更新 locale/sfd_tool.pot ..."
+    & xgettext --language=C++ --keyword=_ --from-code=UTF-8 `
+        --output=locale/sfd_tool.pot `
+        $Sources.Split(" ")
+
+    $python = $env:PYTHON
+    if (-not $python) {
+        if (Get-Command python3 -ErrorAction SilentlyContinue) {
+            $python = "python3"
+        } elseif (Get-Command python -ErrorAction SilentlyContinue) {
+            $python = "python"
+        }
+    }
+
+    if ($python) {
+        Write-Host "[dev][i18n] 同步 zh_CN sfd_tool.po ..."
+        try {
+            & $python "scripts/gen_po.py"
+        } catch {
+            Write-Host "[dev][i18n] gen_po.py 执行失败，跳过本次翻译同步" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "[dev][i18n] 未找到 python3/python，跳过 gen_po.py" -ForegroundColor Yellow
+    }
+}
+
 Write-Host "[dev] 检查 cmake ..."
 if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
     Write-Host "[dev] 错误：未找到 cmake 命令" -ForegroundColor Red
@@ -22,6 +58,9 @@ if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
     Write-Host "    2) 或使用 winget 安装 CMake：winget install Kitware.CMake" -ForegroundColor Yellow
     exit 1
 }
+
+# 在配置/构建前更新 POT/PO，避免漏翻
+Update-I18N
 
 Write-Host "[dev] 使用生成器: $generator ($arch)"
 
