@@ -241,14 +241,18 @@ po_path = "locale/zh_CN/LC_MESSAGES/sfd_tool.po"
 
 
 def _extract_msgids(path):
-    """Return list of msgid strings (including header msgid "")."""
+    """Return list of msgid strings (including header msgid "").
+
+    注意：只收集 msgid 及其续行，一旦遇到 msgstr 即停止，
+    避免把 header 的 msgstr 行误拼进 msgid。
+    """
     msgids = []
     current = None
     collecting = False
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
             if line.startswith("msgid "):
-                # finish previous
+                # 结束上一个 msgid
                 if current is not None:
                     msgids.append(current)
                 raw = line[6:].strip()
@@ -258,10 +262,14 @@ def _extract_msgids(path):
                 else:
                     current = ""
                     collecting = False
-            elif collecting and line.startswith('"'):
-                # msgid continuation line
-                current += line.strip().strip('"')
-        # after loop
+            elif collecting:
+                if line.startswith("msgstr"):
+                    # 到达 msgstr 段，停止拼接 msgid
+                    collecting = False
+                elif line.startswith('"'):
+                    # msgid 续行
+                    current += line.strip().strip('"')
+        # 文件末尾收尾
         if current is not None:
             msgids.append(current)
     return msgids
