@@ -79,7 +79,7 @@ msgstr ""
 
 #: main.cpp:308 main.cpp:349 main.cpp:418
 msgid "No partition table loaded, cannot write partition list!"
-msgstr ""
+msgstr "尚未加载分区表，无法导出分区列表！"
 
 #: main.cpp:326 main.cpp:382 main.cpp:394 main.cpp:431 main.cpp:457
 #: main.cpp:599 main.cpp:810 main.cpp:957 main.cpp:1083 main.cpp:1287
@@ -119,8 +119,8 @@ msgid "No save path selected!"
 msgstr ""
 
 #: main.cpp:431 main.cpp:1321
-msgid "Partition read completed!"
-msgstr ""
+msgid "No partition table loaded, cannot restore from folder!"
+msgstr "当前设备尚未加载分区表，请先读取分区列表后再尝试从文件夹恢复。"
 
 #: main.cpp:457 main.cpp:1350
 msgid "Partition erase completed!"
