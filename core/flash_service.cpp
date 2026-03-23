@@ -102,25 +102,41 @@ public:
                                         options.output_path.c_str(), step);
         double end_ts = get_time();
 
+        // 计算逻辑期望读取大小
+        uint64_t expected = (uint64_t)gPartInfo.size;
+        if (gPartInfo.name && std::strstr(gPartInfo.name, "nv1")) {
+            if (expected > 512) {
+                expected -= 512; // 与 dump_partition 中 nv1 特例保持一致
+            } else {
+                DEG_LOG(E, "PartitionReadService::readOne: nv1 partition too small, size=%llu",\
+                        (unsigned long long)expected);
+                FlashStatus err = make_error(FlashErrorCode::InvalidPacFile, "nv1 partition too small");
+                if (callbacks && callbacks->on_finished) {
+                    callbacks->on_finished(actual_info, err);
+                }
+                return err;
+            }
+        }
+
         // 粗粒度进度回调：整个分区读完后上报一次
         if (callbacks && callbacks->on_progress) {
             double elapsed_s = (end_ts > start_ts) ? (end_ts - start_ts) : 0.0;
             double speed_mb_s = 0.0;
-            if (elapsed_s > 0.0 && gPartInfo.size > 0) {
-                speed_mb_s = (static_cast<double>(gPartInfo.size) / (1024.0 * 1024.0)) / elapsed_s;
+            if (elapsed_s > 0.0 && expected > 0) {
+                speed_mb_s = (static_cast<double>(expected) / (1024.0 * 1024.0)) / elapsed_s;
             }
             callbacks->on_progress(actual_info, saved, speed_mb_s);
         }
 
         FlashStatus result;
-        if (saved != (uint64_t)gPartInfo.size) {
+        if (saved != expected) {
             if (isCancel) {
-                DEG_LOG(W, "PartitionReadService::readOne: cancelled, saved=%llu / %lld",\
-                        (unsigned long long)saved, (long long)gPartInfo.size);
+                DEG_LOG(W, "PartitionReadService::readOne: cancelled, saved=%llu / %llu",\
+                        (unsigned long long)saved, (unsigned long long)expected);
                 result = make_error(FlashErrorCode::Cancelled, "partition read cancelled");
             } else {
-                DEG_LOG(E, "PartitionReadService::readOne: short read, saved=%llu / %lld",\
-                        (unsigned long long)saved, (long long)gPartInfo.size);
+                DEG_LOG(E, "PartitionReadService::readOne: short read, saved=%llu / %llu (raw_size=%lld)",\
+                        (unsigned long long)saved, (unsigned long long)expected, (long long)gPartInfo.size);
                 result = make_error(FlashErrorCode::IoError, "partition read incomplete");
             }
         } else {
