@@ -1625,12 +1625,38 @@ void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
 		return;
 	}
 
-	auto* svc = ensure_flash_service();
+	// 直接使用当前 io 分区表构建视图，确保与界面一致
 	std::vector<sfd::DevicePartitionInfo> partitions;
-	sfd::FlashStatus st = svc->getCachedDevicePartitions(partitions);
-	if (!st.success || partitions.empty()) {
-		showErrorDialog(parent, _("Error"), _("No partition table loaded, cannot restore from folder!"));
-		return;
+	if (!isCMethod) {
+		if (io->part_count == 0) {
+			showErrorDialog(parent, _("Error"),
+			                _("当前设备尚未加载分区表，请先读取分区列表后再尝试从文件夹恢复。"));
+			return;
+		}
+		partitions.reserve(io->part_count);
+		for (int i = 0; i < io->part_count; ++i) {
+			sfd::DevicePartitionInfo info{};
+			info.name = io->ptable[i].name;
+			info.size = static_cast<std::uint64_t>(io->ptable[i].size);
+			info.readable = true;
+			info.writable = true;
+			partitions.push_back(info);
+		}
+	} else {
+		if (io->part_count_c == 0) {
+			showErrorDialog(parent, _("Error"),
+			                _("当前设备尚未加载分区表，请先读取分区列表后再尝试从文件夹恢复。"));
+			return;
+		}
+		partitions.reserve(io->part_count_c);
+		for (int i = 0; i < io->part_count_c; ++i) {
+			sfd::DevicePartitionInfo info{};
+			info.name = io->Cptable[i].name;
+			info.size = static_cast<std::uint64_t>(io->Cptable[i].size);
+			info.readable = true;
+			info.writable = true;
+			partitions.push_back(info);
+		}
 	}
 
 	std::string folder = showFolderChooser(parent);
@@ -1641,7 +1667,8 @@ void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
 
 	auto items = scan_folder_and_match_partitions(folder, partitions);
 	if (items.empty()) {
-		showInfoDialog(parent, _("Info"), _("No matching partition images found in the selected folder."));
+		showInfoDialog(parent, _("Info"),
+		              _("在所选的文件夹中未找到可与当前分区表匹配的分区镜像。"));
 		return;
 	}
 
@@ -1661,13 +1688,14 @@ void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
 	}
 
 	if (final_items.empty()) {
-		showInfoDialog(parent, _("Info"), _("No partitions selected to flash."));
+		showInfoDialog(parent, _("Info"),
+		              _("未选择任何要刷入的分区。"));
 		return;
 	}
 
 	// 总体确认
 	if (!showConfirmDialog(parent, _("Confirm"),
-	                       _("Start flashing selected partitions from the folder?"))) {
+	                       _("确认从所选文件夹开始刷入勾选的分区吗？"))) {
 		return;
 	}
 
