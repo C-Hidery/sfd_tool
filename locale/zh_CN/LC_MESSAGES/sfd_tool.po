@@ -418,7 +418,7 @@ msgstr "连接等待时间 (s):"
 
 #: main.cpp:2643
 msgid "Status : "
-msgstr "Status : "
+msgstr "状态："
 
 #: main.cpp:2644
 msgid "Not connected"
@@ -426,7 +426,7 @@ msgstr "未连接"
 
 #: main.cpp:2645
 msgid "   Mode : "
-msgstr "   Mode : "
+msgstr "   模式："
 
 #: main.cpp:2646
 msgid "BROM Not connected!!!"
