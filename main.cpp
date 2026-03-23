@@ -421,8 +421,26 @@ int gtk_kmain(int argc, char** argv) {
 	gtk_window_set_title(GTK_WINDOW(window), "SFD Tool GUI By Ryan Crepa");
 	// 根据屏幕分辨率自适应默认窗口大小，给小屏幕留出边距
 	GdkScreen* screen = gdk_screen_get_default();
-	int screen_w = gdk_screen_get_width(screen);
-	int screen_h = gdk_screen_get_height(screen);
+	int screen_w = 0;
+	int screen_h = 0;
+
+#if GTK_CHECK_VERSION(3, 22, 0)
+	GdkDisplay* display = gdk_display_get_default();
+	if (display) {
+		GdkMonitor* primary = gdk_display_get_primary_monitor(display);
+		if (primary) {
+			GdkRectangle geometry{};
+			gdk_monitor_get_geometry(primary, &geometry);
+			screen_w = geometry.width;
+			screen_h = geometry.height;
+		}
+	}
+#else
+	if (screen) {
+		screen_w = gdk_screen_get_width(screen);
+		screen_h = gdk_screen_get_height(screen);
+	}
+#endif
 
 	const int target_w = 1174;
 	const int target_h = 765;
