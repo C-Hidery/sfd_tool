@@ -352,14 +352,22 @@ public:
 
         std::vector<std::string> names = partition_names;
         if (names.empty()) {
-            // 备份全部分区
+            // 备份全部分区（默认排除 userdata，避免体积过大影响体验）
             if (!app_->flash.isCMethod && io_->part_count) {
                 for (int i = 0; i < io_->part_count; ++i) {
-                    names.push_back(io_->ptable[i].name);
+                    const char* pname = io_->ptable[i].name;
+                    if (pname && std::strncmp(pname, "userdata", 8) == 0) {
+                        continue;
+                    }
+                    names.push_back(pname);
                 }
             } else if (app_->flash.isCMethod && io_->part_count_c) {
                 for (int i = 0; i < io_->part_count_c; ++i) {
-                    names.push_back(io_->Cptable[i].name);
+                    const char* pname = io_->Cptable[i].name;
+                    if (pname && std::strncmp(pname, "userdata", 8) == 0) {
+                        continue;
+                    }
+                    names.push_back(pname);
                 }
             }
         }
