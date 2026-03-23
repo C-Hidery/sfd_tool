@@ -1045,14 +1045,18 @@ bool pac_flash(spdio_t* io, const char* floder)
         DEG_LOG(E, "FDL2 file or base address not found.");
         return false;
     }
+    gui_idle_call_wait_drag([](){
+        showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info", "Start executing FDL1 and FDL2.\n开始执行FDL1和FDL2\n");
+    },GTK_WINDOW(helper.getWidget("main_window")));
     uint32_t fdl1_base_addr = std::stoul(fdl1_base, nullptr, 0);
     uint32_t fdl2_base_addr = std::stoul(fdl2_base, nullptr, 0);
     FILE* fi;
     int highspeed = 0;
     uint32_t baudrate = 0;
     uint16_t blk_size = DEFAULT_BLK_SIZE;
-   
-				fi = oxfopen(fdl1_path.c_str(), "r");
+    std::thread([&]()
+    {
+                fi = oxfopen(fdl1_path.c_str(), "r");
 				if (fi == nullptr) {
 					DEG_LOG(W, "File does not exist.\n");
 					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "File does not exist.\n文件不存在\n");
@@ -1187,10 +1191,8 @@ bool pac_flash(spdio_t* io, const char* floder)
 						}
 					}
 				}
-				if (!isUseCptable && !io->part_count) {
+				if (!io->part_count) {
 					DEG_LOG(W, "No partition table found on current device");
-					DEG_LOG(I, "You may get partition table through compatibility method.");
-					DEG_LOG(I, "(Use command `cptable` to do it.)");
 				}
                 int nand_id = DEFAULT_NAND_ID;
                 uint8_t nand_info[3] = {0}; // page size, spare area size, block size
@@ -1203,6 +1205,11 @@ bool pac_flash(spdio_t* io, const char* floder)
 				g_app_state.device.device_stage = FDL2;
     DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
     load_partitions(io, "pac_unpack_output", blk_size, g_app_state.flash.selected_ab, 0);
-	return true;
+    encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
+	if (!send_and_check(io)) {
+        return true;
+    }
+	
+    }).detach();
 }
 
