@@ -2,7 +2,7 @@
 set -euo pipefail
 
 BUILD_DIR="build_cmake_debug"
-I18N_SOURCES="main.cpp GtkWidgetHelper.cpp pages/page_*.cpp ui_common.cpp"
+I18N_SOURCES="main.cpp GtkWidgetHelper.cpp ui_common.cpp pages/*.cpp"
 
 # 简单开发构建脚本：每次重新配置并编译 Debug 版本
 
