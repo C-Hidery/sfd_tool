@@ -163,7 +163,7 @@ public:
                                 const PartitionReadCallbacks* callbacks = nullptr) = 0;
 };
 
-// 用例级 Flash 服务接口：PAC 刷机、分区读写、备份等
+// 用例级 Flash 服务接口：分区读写、备份等
 class FlashService {
 public:
     virtual ~FlashService() = default;
