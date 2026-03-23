@@ -1213,7 +1213,8 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_box_pack_start(GTK_BOX(mainBox), selectTitle, FALSE, FALSE, 0);
 
 	GtkWidget* listScroll = gtk_scrolled_window_new(NULL, NULL);
-	gtk_widget_set_size_request(listScroll, -1, 220);
+	// 为小屏幕保留更多垂直空间，适当降低默认高度
+	gtk_widget_set_size_request(listScroll, -1, 180);
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(listScroll),
 	                               GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 	// 添加边框(阴影)使其看起来像表格区块
@@ -1468,7 +1469,8 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 
 	GtkWidget* content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
 	GtkWidget* scrolled = gtk_scrolled_window_new(nullptr, nullptr);
-	gtk_widget_set_size_request(scrolled, 700, 320);
+	// 在对话框中适当减小默认高度，避免在低分辨率屏幕上遮挡底部状态栏
+	gtk_widget_set_size_request(scrolled, 700, 260);
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 	gtk_container_add(GTK_CONTAINER(content), scrolled);
 
