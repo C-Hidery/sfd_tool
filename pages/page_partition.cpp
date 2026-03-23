@@ -1630,7 +1630,7 @@ void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
 	if (!isCMethod) {
 		if (io->part_count == 0) {
 			showErrorDialog(parent, _("Error"),
-			                _("当前设备尚未加载分区表，请先读取分区列表后再尝试从文件夹恢复。"));
+			                _("No partition table loaded on the current device. Please read the partition list first, then try restoring from the folder again."));
 			return;
 		}
 		partitions.reserve(io->part_count);
@@ -1645,7 +1645,7 @@ void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
 	} else {
 		if (io->part_count_c == 0) {
 			showErrorDialog(parent, _("Error"),
-			                _("当前设备尚未加载分区表，请先读取分区列表后再尝试从文件夹恢复。"));
+			                _("No partition table loaded on the current device. Please read the partition list first, then try restoring from the folder again."));
 			return;
 		}
 		partitions.reserve(io->part_count_c);
@@ -1668,7 +1668,7 @@ void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
 	auto items = scan_folder_and_match_partitions(folder, partitions);
 	if (items.empty()) {
 		showInfoDialog(parent, _("Info"),
-		              _("在所选的文件夹中未找到可与当前分区表匹配的分区镜像。"));
+		              _("No partition images matching the current partition table were found in the selected folder."));
 		return;
 	}
 
@@ -1689,13 +1689,13 @@ void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
 
 	if (final_items.empty()) {
 		showInfoDialog(parent, _("Info"),
-		              _("未选择任何要刷入的分区。"));
+		              _("No partitions were selected to flash from the folder."));
 		return;
 	}
 
 	// 总体确认
 	if (!showConfirmDialog(parent, _("Confirm"),
-	                       _("确认从所选文件夹开始刷入勾选的分区吗？"))) {
+	                       _("Start flashing the selected partitions from the folder?"))) {
 		return;
 	}
 
