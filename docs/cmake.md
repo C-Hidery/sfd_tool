@@ -401,8 +401,12 @@ SFD Tool 的 GUI 文案翻译使用 GNU gettext 体系，核心文件结构：
 
 2. **使用 `xgettext` 更新 POT 模板**
 
-   在项目根目录执行类似命令，将 C++ 源文件中的 `_()` 调用提取到
-   `locale/sfd_tool.pot`（可根据实际文件列表调整）：
+   一般情况下不需要手动调用 `xgettext`：`scripts/dev.sh` / `scripts/release.sh` /
+   `scripts/build.sh` 以及 Windows 下的 `dev.ps1` / `release.ps1` 会在 CMake 之前
+   自动执行一次 POT/PO 更新流程（包括 `xgettext` 与 `scripts/gen_po.py`）。
+
+   如需手动更新，可在项目根目录执行类似命令，将 C++ 源文件中的 `_()` 调用
+   提取到 `locale/sfd_tool.pot`：
 
    ```bash
    xgettext \
@@ -410,7 +414,7 @@ SFD Tool 的 GUI 文案翻译使用 GNU gettext 体系，核心文件结构：
      --keyword=_ \
      --from-code=UTF-8 \
      --output=locale/sfd_tool.pot \
-     main.cpp GtkWidgetHelper.cpp
+     main.cpp GtkWidgetHelper.cpp pages/page_*.cpp ui_common.cpp
    ```
 
    - 该命令会扫描指定源码中的 `_()` 调用，并生成/更新 `sfd_tool.pot`；
@@ -468,7 +472,8 @@ SFD Tool 的 GUI 文案翻译使用 GNU gettext 体系，核心文件结构：
      make locales
      ```
 
-     该命令内部等价于：
+     该命令会先调用 `update-po` 目标，通过 `xgettext` + `scripts/gen_po.py`
+     自动更新 `locale/sfd_tool.pot` 和 `zh_CN` 的 `.po`，然后再执行：
 
      ```bash
      msgfmt locale/zh_CN/LC_MESSAGES/sfd_tool.po \
@@ -482,7 +487,10 @@ SFD Tool 的 GUI 文案翻译使用 GNU gettext 体系，核心文件结构：
 > - **不要** 直接在 `sfd_tool.pot` 中填中文翻译；翻译应维护在
 >   `translation_dict` 和 `zh_CN` 的 `.po` 中；
 > - `scripts/gen_po.py` 只会 **追加新条目**，不会覆盖你手动修改
->   的 `.po` 现有内容和注释。
+>   的 `.po` 现有内容和注释；
+> - 如果发现 `sfd_tool.pot` 中还有带中文的 `msgid`，说明源码中仍存在
+>   硬编码中文字符串，应回到对应的 C++ 源文件中，将其改为纯英文 `msgid`，
+>   再通过上述流程（脚本或 `make locales`）重新生成 POT/PO。
 
 ---
 
