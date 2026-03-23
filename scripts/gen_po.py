@@ -53,6 +53,7 @@ translation_dict = {
     "No save path selected!": "未选择保存路径！",
     "Partition read completed!": "分区读取完成！",
     "Partition erase completed!": "分区擦除完成！",
+    "No partition table loaded, cannot restore from folder!": "当前设备尚未加载分区表，请先读取分区列表后再尝试从文件夹恢复。",
     "No partition table loaded, cannot modify partition size!": "当前未加载分区表，无法修改分区大小！",
     "Please fill in complete modification info!": "请填写完整的修改信息！",
     "Please enter a valid new size!": "请输入合法的新大小！",
@@ -62,10 +63,8 @@ translation_dict = {
     "Partition modification completed!": "分区修改完成！",
     "Partition already exists!": "分区已存在！",
     "Partition after does not exist!": "后一个指定的分区不存在！",
-    "Status": "状态",
-    "Not connected": "未连接",
-    "Mode": "模式",
-    "BROM Not connected!!!": "BROM 未连接!!!",
+    "Status : ": "状态：",
+    "   Mode : ": "   模式：",
     "Storage Type": "存储类型",
     "Unknown": "未知",
     "Slot": "槽位",
@@ -240,43 +239,86 @@ translation_dict = {
 pot_path = "locale/sfd_tool.pot"
 po_path = "locale/zh_CN/LC_MESSAGES/sfd_tool.po"
 
-with open(pot_path, "r", encoding="utf-8") as f:
-    lines = f.readlines()
 
-out_lines = []
-current_msgid = ""
-is_in_msgid = False
-msgid_line_index = -1
+def _extract_msgids(path):
+    """Return list of msgid strings (including header msgid "")."""
+    msgids = []
+    current = None
+    collecting = False
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("msgid "):
+                # finish previous
+                if current is not None:
+                    msgids.append(current)
+                raw = line[6:].strip()
+                if raw.startswith('"'):
+                    current = raw.strip().strip('"')
+                    collecting = True
+                else:
+                    current = ""
+                    collecting = False
+            elif collecting and line.startswith('"'):
+                # msgid continuation line
+                current += line.strip().strip('"')
+        # after loop
+        if current is not None:
+            msgids.append(current)
+    return msgids
 
-i = 0
-while i < len(lines):
-    line = lines[i]
-    if line.startswith("msgid "):
-        out_lines.append(line)
-        current_msgid = line[6:].strip().strip('"')
-        
-        # Handle multi-line msgid
-        j = i + 1
-        while j < len(lines) and lines[j].startswith('"') and not lines[j].startswith('msgstr'):
-            out_lines.append(lines[j])
-            current_msgid += lines[j].strip().strip('"')
-            j += 1
-            
-        i = j - 1
-    elif line.startswith("msgstr "):
-        if current_msgid in translation_dict:
-            # We translate the unescaped literal newline \\n text etc correctly here
-            translation = translation_dict[current_msgid]
-            out_lines.append(f'msgstr "{translation}"\n')
-        elif current_msgid == "":
-            out_lines.append('msgstr ""\n"Content-Type: text/plain; charset=UTF-8\\n"\n')
-        else:
-            out_lines.append(f'msgstr "{current_msgid}"\n') # Fallback
-    else:
-        out_lines.append(line)
-    i += 1
 
-with open(po_path, "w", encoding="utf-8") as f:
-    f.writelines(out_lines)
+def _escape_for_po(text: str) -> str:
+    """Escape string for inclusion in a PO file."""
+    return (
+        text.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+    )
 
-print("Generated po file successfully.")
+
+def main() -> None:
+    if not os.path.exists(pot_path):
+        raise SystemExit(f"POT file not found: {pot_path}")
+    if not os.path.exists(po_path):
+        raise SystemExit(f"PO file not found: {po_path}")
+
+    pot_ids = [mid for mid in _extract_msgids(pot_path) if mid != ""]
+    po_ids = set(mid for mid in _extract_msgids(po_path) if mid != "")
+
+    missing_ids = [mid for mid in pot_ids if mid not in po_ids]
+
+    if not missing_ids:
+        print("No new msgid found; PO is up to date.")
+        return
+
+    auto_filled = []
+    untranslated = []
+
+    with open(po_path, "a", encoding="utf-8") as f:
+        f.write("\n\n# ===== Auto-appended entries from sfd_tool.pot =====\n")
+        for mid in missing_ids:
+            if mid in translation_dict:
+                translation = translation_dict[mid]
+                auto_filled.append(mid)
+            else:
+                # English fallback, needs real translation later
+                translation = mid
+                untranslated.append(mid)
+
+            f.write("\n")
+            f.write(f'msgid "{_escape_for_po(mid)}"\n')
+            f.write(f'msgstr "{_escape_for_po(translation)}"\n')
+
+    print(f"Total msgid in POT (excluding header): {len(pot_ids)}")
+    print(f"Existing msgid in PO: {len(po_ids)}")
+    print(f"New entries appended: {len(missing_ids)}")
+    print(f"  Auto-filled with translation_dict: {len(auto_filled)}")
+    print(f"  Still untranslated (using English fallback): {len(untranslated)}")
+    if untranslated:
+        print("\nUntranslated msgid (need manual Chinese translation):")
+        for mid in untranslated:
+            print(f"- {mid}")
+
+
+if __name__ == "__main__":
+    main()
