@@ -385,7 +385,8 @@ bool Unpac::extractFiles() {
             return false;
         }
     }
-    const char* path = orig_dir.string().c_str();
+    const std::string path_str = orig_dir.string();
+    const char* path = path_str.c_str();
 #ifndef _WIN32
     if (path && chdir(path)) {
         printf("chdir failed\n");
