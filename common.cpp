@@ -348,6 +348,7 @@ struct UiProgressData {
 void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned long long time0) {
     static int completed0 = 0;
     static uint64_t done0 = 0;
+    static uint64_t last_ui_done = 0; // 上次用于 UI 刷新的已完成字节数
 
     unsigned long long time = GetTickCount64();
     if (completed0 == PROGRESS_BAR_WIDTH) {
@@ -356,27 +357,37 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
     }
 
     int completed = (int)(PROGRESS_BAR_WIDTH * done / (double)total);
+
+    // 终端文本进度条：仍然按 2.5% 一格刷新
     if (completed != completed0 && isCancel == 0) {
         int remaining = PROGRESS_BAR_WIDTH - completed;
-        DBG_LOG("[" );
+        DBG_LOG("[");
         for (int i = 0; i < completed; i++) {
             DBG_LOG("=");
         }
         for (int i = 0; i < remaining; i++) {
             DBG_LOG(" ");
         }
-        DBG_LOG("]%6.1f%% Speed:%6.2fMb/s\r", 100 * done / (double)total, (double)1000 * done / (time - time0) / 1024 / 1024);
-        if(io->nor_bar) DBG_LOG("\n");
+        DBG_LOG("]%6.1f%% Speed:%6.2fMb/s\r",
+                100 * done / (double)total,
+                (double)1000 * done / (time - time0) / 1024 / 1024);
+        if (io->nor_bar) DBG_LOG("\n");
         completed0 = completed;
         done0 = done;
+    }
 
-        // 更新UI进度条和百分比标签
-        if (isHelperInit) {
-            // 计算进度百分比
+    // GUI 进度条和状态文本：按绝对字节量刷新
+    if (isHelperInit && isCancel == 0) {
+        // 阈值：每读取至少 4MB 或任务完成时刷新一次
+        const uint64_t UI_UPDATE_BYTES = 4ULL * 1024ULL * 1024ULL;
+        if (done == total || done - last_ui_done >= UI_UPDATE_BYTES) {
+            last_ui_done = done;
+
             double progress_percent = done / (double)total;
-            double speed_mb_s = (time > time0) ? (double)1000 * done / (double)(time - time0) / 1024.0 / 1024.0 : 0.0;
+            double speed_mb_s = (time > time0)
+                ? (double)1000 * done / (double)(time - time0) / 1024.0 / 1024.0
+                : 0.0;
 
-            // 在主线程中更新UI
             g_idle_add([](gpointer data) -> gboolean {
                 auto* progress_data = static_cast<UiProgressData*>(data);
                 double   percent     = progress_data->percent;
@@ -388,13 +399,6 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
                     GtkWidget* progressBar = helper.getWidget("progressBar_1");
                     if (progressBar && GTK_IS_PROGRESS_BAR(progressBar)) {
                         gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(progressBar), percent);
-                        /*
-                        // 可选：在进度条上显示文本
-                        char progress_text[32];
-                        snprintf(progress_text, sizeof(progress_text), "%.1f%%", percent * 100);
-                        gtk_progress_bar_set_text(GTK_PROGRESS_BAR(progressBar), progress_text);
-                        gtk_progress_bar_set_show_text(GTK_PROGRESS_BAR(progressBar), TRUE);
-						*/
                     }
 
                     // 更新百分比标签
