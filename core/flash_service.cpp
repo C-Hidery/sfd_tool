@@ -104,7 +104,7 @@ public:
 
         // 计算逻辑期望读取大小
         uint64_t expected = (uint64_t)gPartInfo.size;
-        if (gPartInfo.name && std::strstr(gPartInfo.name, "nv1")) {
+        if (std::strstr(gPartInfo.name, "nv1")) {
             if (expected > 512) {
                 expected -= 512; // 与 dump_partition 中 nv1 特例保持一致
             } else {
