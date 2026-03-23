@@ -906,3 +906,6 @@ msgstr "已选择关键分区（例如 boot、vbmeta 等），刷写这些分区
 msgid "Start flashing selected partitions from the folder?"
 msgstr "确定开始从该文件夹批量刷入已选中的分区吗？"
 
+msgid "partition read incomplete"
+msgstr "分区读取不完整"
+
