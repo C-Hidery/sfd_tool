@@ -118,13 +118,15 @@ LOCALEDIR ?= $(DATADIR)/locale
 # CXXFLAGS += $(shell pkg-config --cflags nlohmann_json 2>/dev/null || echo "-I/usr/include/nlohmann")
 # LIBS += $(shell pkg-config --libs nlohmann_json 2>/dev/null || echo "-ljson")
 
+I18N_SOURCES = main.cpp GtkWidgetHelper.cpp ui_common.cpp pages/*.cpp
+
 # locale 生成（仍用于 install 兼容逻辑）
 .PHONY: update-po
 update-po:
 	@if command -v xgettext >/dev/null 2>&1; then \
 	  echo "[i18n] Updating locale/sfd_tool.pot ..."; \
 	  xgettext --language=C++ --keyword=_ --from-code=UTF-8 \
-	    --output=locale/sfd_tool.pot main.cpp GtkWidgetHelper.cpp pages/page_*.cpp ui_common.cpp; \
+	    --output=locale/sfd_tool.pot $(I18N_SOURCES); \
 	  if command -v python3 >/dev/null 2>&1; then \
 	    python3 scripts/gen_po.py; \
 	  elif command -v python >/dev/null 2>&1; then \

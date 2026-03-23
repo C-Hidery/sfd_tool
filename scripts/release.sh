@@ -26,7 +26,7 @@ update_i18n() {
     --keyword=_ \
     --from-code=UTF-8 \
     --output=locale/sfd_tool.pot \
-    main.cpp GtkWidgetHelper.cpp pages/page_*.cpp ui_common.cpp
+    ${I18N_SOURCES}
 
   local PYTHON_BIN="${PYTHON:-python3}"
   if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
