@@ -197,10 +197,6 @@ public:
                                          SlotSelection slot_selection = SlotSelection::Auto,
                                          std::uint32_t block_size = 0) = 0;
 
-    // 对指定分区做简单校验
-    virtual FlashStatus verifyPartition(const std::string& partition_name,
-                                        SlotSelection slot_selection = SlotSelection::Auto) = 0;
-
     // 擦除指定分区
     virtual FlashStatus erasePartition(const std::string& partition_name) = 0;
 

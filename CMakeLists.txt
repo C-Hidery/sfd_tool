@@ -35,7 +35,6 @@ if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4 AND USE_LIBUSB)
     set(USE_LIBUSB OFF CACHE BOOL "Enable libusb backend" FORCE)
 endif()
 
-
 # Termux 支持：与 Makefile 的 termux 目标对应
 option(TERMUX "Enable Termux specific build options" OFF)
 
@@ -159,19 +158,39 @@ if (WIN32)
         )
     endif()
 endif()
+
 # ================= 主可执行程序 =================
 add_executable(sfd_tool
     main.cpp
     main_console.cpp
 )
 
-# Windows: 只有在32位或非SPRD版本时才直接包含 BMPlatform
+# ================= Windows 资源文件 (.rc) 支持 =================
+if (WIN32)
+    # 添加资源文件
+    set(RESOURCE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/app.rc")
+    
+    if (EXISTS ${RESOURCE_FILE})
+        # 方法1：使用 cmake 的 rc 编译（推荐）
+        target_sources(sfd_tool PRIVATE ${RESOURCE_FILE})
+        
+        # 设置资源文件的编译选项
+        set_source_files_properties(${RESOURCE_FILE} PROPERTIES
+            LANGUAGE RC
+        )
+        
+        message(STATUS "Including Windows resource file: ${RESOURCE_FILE}")
+        
+        # 定义版本宏供资源文件使用
+        target_compile_definitions(sfd_tool PRIVATE
+            SFD_TOOL_VERSION="${SFD_TOOL_VERSION_STR}"
+            SFD_TOOL_VERSION_COMMA=${SFD_TOOL_VERSION_STR}
+        )
+    else()
+        message(WARNING "Resource file not found: ${RESOURCE_FILE}")
+    endif()
+endif()
 
-# 链接子模块和公共 UI 库
-target_link_libraries(sfd_tool
-    PRIVATE
-        sfd_ui
-)
 # Windows: 直接包含 BMPlatform 相关源文件
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT USE_LIBUSB)
     target_sources(sfd_tool PRIVATE
@@ -186,10 +205,11 @@ elseif (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
     )
 endif()
 
-# 删除下面这段代码
-# if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT USE_LIBUSB)
-#     target_link_libraries(sfd_tool PRIVATE BMPlatform)
-# endif()
+# 链接子模块和公共 UI 库
+target_link_libraries(sfd_tool
+    PRIVATE
+        sfd_ui
+)
 
 # 公共目标列表，方便批量设置编译选项
 set(SFD_COMMON_TARGETS sfd_tool core_lib pages_lib sfd_ui ${SFD_TEST_TARGETS})
@@ -293,9 +313,8 @@ if (WIN32)
     foreach(tgt IN LISTS SFD_TEST_TARGETS)
         target_link_libraries(${tgt} PRIVATE dbghelp setupapi)
     endforeach()
-    
-    
 endif()
+
 # ================= 依赖：GTK3 / libusb =================
 find_package(PkgConfig QUIET)
 
@@ -520,7 +539,7 @@ endif()
 # 安装图标（需要 ImageMagick convert，行为与 Makefile 类似；Windows 上跳过）
 if (NOT WIN32)
     find_program(CONVERT_EXECUTABLE convert)
-    set(ICON_SRC ${CMAKE_CURRENT_SOURCE_DIR}/assets/icon.png)
+    set(ICON_SRC ${CMAKE_CURRENT_SOURCE_DIR}/icon.png)
 
     if (EXISTS ${ICON_SRC} AND CONVERT_EXECUTABLE)
         set(ICON_SIZES 16 32 48 256)
