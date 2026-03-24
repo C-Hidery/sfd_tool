@@ -21,6 +21,7 @@
 #include <gtk/gtk.h>
 #include <sstream>
 #include <iomanip>
+#include <algorithm>
 #include "version.h"
 #include "core/config_service.h"
 #ifdef __linux__
@@ -37,6 +38,15 @@
 #include <windows.h>
 #include <dbghelp.h>
 #include <sys/stat.h>
+#endif
+
+#ifdef _WIN32
+#ifdef min
+#undef min
+#endif
+#ifdef max
+#undef max
+#endif
 #endif
 
 std::string g_about_text;
