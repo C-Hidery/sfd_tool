@@ -453,7 +453,7 @@ int gtk_kmain(int argc, char** argv) {
 #endif
 
 	const int target_w = 1174;
-	const int target_h = 765;
+	const int target_h = 820;
 	const int margin_w = 100;
 	const int margin_h = 100;
 
