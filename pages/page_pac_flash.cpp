@@ -137,12 +137,14 @@ void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 		}, GTK_WINDOW(helper.getWidget("main_window")));
 		return;
 	}
+	std::thread([](){
 #ifndef _WIN32
-    sleep(5);
+    	sleep(5);
 #else
-    Sleep(5000);
+    	Sleep(5000);
 #endif
-	exit(0);
+		exit(0);
+	}).detach();
 }
 
 // ===== UI 构建 =====

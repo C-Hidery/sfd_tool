@@ -77,7 +77,7 @@ fi
 ICNS_SRC="$DIST_DIR/SFDTool.icns"
 if [[ ! -f "$ICNS_SRC" ]]; then
   if command -v sips >/dev/null 2>&1 && command -v iconutil >/dev/null 2>&1; then
-    ICON_PNG="assets/icon.png"
+    ICON_PNG="icon.png"
     if [[ -f "$ICON_PNG" ]]; then
       ICONSET_DIR="$DIST_DIR/SFDTool.iconset"
       rm -rf "$ICONSET_DIR"
@@ -91,7 +91,7 @@ if [[ ! -f "$ICNS_SRC" ]]; then
 
       iconutil -c icns "$ICONSET_DIR" -o "$ICNS_SRC" || echo "[macos-app] Warning: iconutil failed, continuing without .icns" >&2
     else
-      echo "[macos-app] Warning: assets/icon.png not found, skipping .icns generation" >&2
+      echo "[macos-app] Warning: icon.png not found, skipping .icns generation" >&2
     fi
   else
     echo "[macos-app] Warning: sips/iconutil not available, skipping .icns generation" >&2

@@ -71,7 +71,7 @@
 - 修改根目录 `VERSION.txt`；
 - 在 `docs/VERSION_LOG.md` 末尾追加新版本条目；
 - 同步 `packaging/rpm-build/sfd-tool.spec` 中的 `Version` 字段；
-- 更新 `assets/app.rc` 中的 Windows 资源版本；
+- 更新 `app.rc` 中的 Windows 资源版本；
 - 创建一条形如 `Version: 1.8.2.2` 的 git commit。
 
 如不使用脚本，可按下一小节手动操作。
@@ -131,7 +131,7 @@
 
 ```bash
 git add VERSION.txt docs/VERSION_LOG.md \
-        packaging/rpm-build/sfd-tool.spec assets/app.rc
+        packaging/rpm-build/sfd-tool.spec app.rc
 
 git commit -m "Version: 1.8.2.2"
 
@@ -184,7 +184,7 @@ git push
 ## 5. 同步 Windows 可执行文件属性版本（可选）
 
 若希望 Windows 可执行文件的“属性→详细信息”中显示与版本号一致的
-信息，需要更新资源文件 [assets/app.rc](../assets/app.rc)：
+信息，需要更新资源文件 [app.rc](../app.rc)：
 
 1. 找到类似以下字段：
 

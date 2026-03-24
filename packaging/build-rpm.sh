@@ -17,8 +17,8 @@ mkdir -p ~/rpmbuild/{SOURCES,SPECS,RPMS,SRPMS,BUILD}
 
 # 创建源码包
 mkdir -p /tmp/$PKGNAME-$VERSION
-cp -r CMakeLists.txt version.h.in *.cpp *.h *.hpp *.txt *.md Makefile third_party packaging scripts assets locale core pages docs /tmp/$PKGNAME-$VERSION/
-[ -f assets/icon.png ] && cp assets/icon.png /tmp/$PKGNAME-$VERSION/
+cp -r CMakeLists.txt version.h.in *.rc icon.* *.cpp *.h *.hpp *.txt *.md Makefile third_party packaging scripts locale core pages docs /tmp/$PKGNAME-$VERSION/
+[ -f icon.png ] && cp icon.png /tmp/$PKGNAME-$VERSION/
 cp packaging/sfd_tool.desktop /tmp/$PKGNAME-$VERSION/
 cp packaging/man_sfd-tool.1 /tmp/$PKGNAME-$VERSION/
 

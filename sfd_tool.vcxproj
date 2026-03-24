@@ -89,11 +89,11 @@
   </ItemGroup>
   
   <ItemGroup>
-    <ResourceCompile Include="assets\app.rc" />
+    <ResourceCompile Include="app.rc" />
   </ItemGroup>
   
   <ItemGroup>
-    <Image Include="assets\icon.ico" />
+    <Image Include="icon.ico" />
   </ItemGroup>
   
   <!-- ==================== 全局属性 ==================== -->

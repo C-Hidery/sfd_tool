@@ -410,13 +410,6 @@ public:
         return make_ok();
     }
 
-    FlashStatus verifyPartition(const std::string& partition_name,
-                                SlotSelection /*slot_selection*/) override {
-        // 当前工程中暂无显式 verify 实现，这里先返回不支持
-        DEG_LOG(W, "verifyPartition: not implemented, partition=%s", partition_name.c_str());
-        return make_error(FlashErrorCode::UnsupportedOperation, "verifyPartition not implemented");
-    }
-
     FlashStatus erasePartition(const std::string& partition_name) override {
         if (!io_ || !app_) {
             DEG_LOG(E, "erasePartition: context not set");
