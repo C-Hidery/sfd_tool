@@ -346,86 +346,77 @@ struct UiProgressData {
 };
 
 void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned long long time0) {
-    static int completed0 = 0;
-    static uint64_t done0 = 0;
-    static uint64_t last_ui_done = 0; // 上次用于 UI 刷新的已完成字节数
-
     unsigned long long time = GetTickCount64();
-    if (completed0 == PROGRESS_BAR_WIDTH) {
-        completed0 = 0;
-        done0 = 0;
+
+    if (isCancel) {
+        return;
     }
 
-    int completed = (int)(PROGRESS_BAR_WIDTH * done / (double)total);
+    // 计算进度百分比（0.0 ~ 1.0）
+    double percent = total ? (done / (double)total) : 0.0;
+    if (percent < 0.0) percent = 0.0;
+    if (percent > 1.0) percent = 1.0;
 
-    // 终端文本进度条：仍然按 2.5% 一格刷新
-    if (completed != completed0 && isCancel == 0) {
-        int remaining = PROGRESS_BAR_WIDTH - completed;
-        DBG_LOG("[");
-        for (int i = 0; i < completed; i++) {
-            DBG_LOG("=");
-        }
-        for (int i = 0; i < remaining; i++) {
-            DBG_LOG(" ");
-        }
-        DBG_LOG("]%6.1f%% Speed:%6.2fMb/s\r",
-                100 * done / (double)total,
-                (double)1000 * done / (time - time0) / 1024 / 1024);
-        if (io->nor_bar) DBG_LOG("\n");
-        completed0 = completed;
-        done0 = done;
+    // 终端文本进度条：每次调用都刷新一行，视觉上连续前进
+    int completed = (int)(PROGRESS_BAR_WIDTH * percent);
+    if (completed < 0) completed = 0;
+    if (completed > PROGRESS_BAR_WIDTH) completed = PROGRESS_BAR_WIDTH;
+    int remaining = PROGRESS_BAR_WIDTH - completed;
+
+    DBG_LOG("[");
+    for (int i = 0; i < completed; i++) {
+        DBG_LOG("=");
+    }
+    for (int i = 0; i < remaining; i++) {
+        DBG_LOG(" ");
     }
 
-    // GUI 进度条和状态文本：按绝对字节量刷新
-    if (isHelperInit && isCancel == 0) {
-        // 阈值：每读取至少 4MB 或任务完成时刷新一次
-        const uint64_t UI_UPDATE_BYTES = 4ULL * 1024ULL * 1024ULL;
-        if (done == total || done - last_ui_done >= UI_UPDATE_BYTES) {
-            last_ui_done = done;
+    double speed_mb_s = (time > time0)
+        ? (double)1000 * done / (double)(time - time0) / 1024.0 / 1024.0
+        : 0.0;
 
-            double progress_percent = done / (double)total;
-            double speed_mb_s = (time > time0)
-                ? (double)1000 * done / (double)(time - time0) / 1024.0 / 1024.0
-                : 0.0;
+    DBG_LOG("]%6.1f%% Speed:%6.2fMb/s\r", percent * 100.0, speed_mb_s);
+    if (io->nor_bar) DBG_LOG("\n");
 
-            g_idle_add([](gpointer data) -> gboolean {
-                auto* progress_data = static_cast<UiProgressData*>(data);
-                double   percent     = progress_data->percent;
-                uint64_t done_value  = progress_data->done;
-                double   speed_mb_s  = progress_data->speed_mb_s;
+    // GUI 进度条和状态文本：每个数据块触发一次更新，保证视觉连续
+    if (isHelperInit) {
+        g_idle_add([](gpointer data) -> gboolean {
+            auto* progress_data = static_cast<UiProgressData*>(data);
+            double   percent_val = progress_data->percent;
+            uint64_t done_value  = progress_data->done;
+            double   speed_val   = progress_data->speed_mb_s;
 
-                if (isHelperInit) {
-                    // 更新进度条
-                    GtkWidget* progressBar = helper.getWidget("progressBar_1");
-                    if (progressBar && GTK_IS_PROGRESS_BAR(progressBar)) {
-                        gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(progressBar), percent);
-                    }
-
-                    // 更新百分比标签
-                    GtkWidget* percentLabel = helper.getWidget("percent");
-                    if (percentLabel && GTK_IS_LABEL(percentLabel)) {
-                        char percent_text[16];
-                        snprintf(percent_text, sizeof(percent_text), "%.1f%%", percent * 100);
-                        gtk_label_set_text(GTK_LABEL(percentLabel), percent_text);
-                    }
-
-                    // 更新底部连接状态文本，展示当前进度与速度
-                    GtkWidget* conStatus = helper.getWidget("con");
-                    if (conStatus && GTK_IS_LABEL(conStatus)) {
-                        char status_text[160];
-                        double mb_done = done_value / (1024.0 * 1024.0);
-                        snprintf(status_text, sizeof(status_text),
-                                 "read: %.1f MB | %.2f MB/s",
-                                 mb_done,
-                                 speed_mb_s);
-                        gtk_label_set_text(GTK_LABEL(conStatus), status_text);
-                    }
+            if (isHelperInit) {
+                // 更新进度条
+                GtkWidget* progressBar = helper.getWidget("progressBar_1");
+                if (progressBar && GTK_IS_PROGRESS_BAR(progressBar)) {
+                    gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(progressBar), percent_val);
                 }
 
-                delete progress_data;
-                return G_SOURCE_REMOVE;
-            }, new UiProgressData{progress_percent, done, speed_mb_s});
-        }
+                // 更新百分比标签
+                GtkWidget* percentLabel = helper.getWidget("percent");
+                if (percentLabel && GTK_IS_LABEL(percentLabel)) {
+                    char percent_text[16];
+                    snprintf(percent_text, sizeof(percent_text), "%.1f%%", percent_val * 100.0);
+                    gtk_label_set_text(GTK_LABEL(percentLabel), percent_text);
+                }
+
+                // 更新底部连接状态文本，展示当前进度与速度
+                GtkWidget* conStatus = helper.getWidget("con");
+                if (conStatus && GTK_IS_LABEL(conStatus)) {
+                    char status_text[160];
+                    double mb_done = done_value / (1024.0 * 1024.0);
+                    snprintf(status_text, sizeof(status_text),
+                             "read: %.1f MB | %.2f MB/s",
+                             mb_done,
+                             speed_val);
+                    gtk_label_set_text(GTK_LABEL(conStatus), status_text);
+                }
+            }
+
+            delete progress_data;
+            return G_SOURCE_REMOVE;
+        }, new UiProgressData{percent, done, speed_mb_s});
     }
 }
 
