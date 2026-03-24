@@ -49,8 +49,6 @@ sfd_tool/
 │   ├── page_debug.cpp/.h         # 调试设置页（Debug Options）
 │   ├── page_log.cpp/.h           # 日志页（Log）
 │   └── page_about.cpp/.h         # 关于页（About）
-│
-├── assets/                   # 图标、rc 资源等
 ├── packaging/                # 打包脚本与元数据（deb/rpm/spec/desktop/man 等）
 ├── locale/                   # 国际化翻译文件（.po / .mo）
 ├── third_party/              # 第三方依赖
