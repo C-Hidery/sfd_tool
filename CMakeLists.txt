@@ -62,11 +62,9 @@ add_library(sfd_ui STATIC
     ui_common.cpp
 )
 
-target_link_libraries(sfd_ui
-    PRIVATE
-        pages_lib
-        core_lib
-)
+# 注意：不在此处直接链接 core_lib/pages_lib，
+# 由最终可执行文件和测试目标按需显式链接，
+# 以避免在某些平台上出现静态库重复/顺序相关的警告。
 
 target_include_directories(sfd_ui
     PUBLIC
@@ -168,12 +166,29 @@ add_executable(sfd_tool
 # Windows: 只有在32位或非SPRD版本时才直接包含 BMPlatform
 
 # 链接子模块和公共 UI 库
-target_link_libraries(sfd_tool
-    PRIVATE
+if(APPLE OR WIN32)
+    set(SFD_TOOL_LIBS
         core_lib
         pages_lib
         sfd_ui
+    )
+else()
+    # Linux 等使用静态库时，重复一遍以解决循环依赖链接顺序问题
+    set(SFD_TOOL_LIBS
+        core_lib
+        pages_lib
+        sfd_ui
+        core_lib
+        pages_lib
+        sfd_ui
+    )
+endif()
+
+target_link_libraries(sfd_tool
+    PRIVATE
+        ${SFD_TOOL_LIBS}
 )
+
 # Windows: 直接包含 BMPlatform 相关源文件
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT USE_LIBUSB)
     target_sources(sfd_tool PRIVATE
