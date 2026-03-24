@@ -1,4 +1,4 @@
-// BMPlatform_Proxy.cpp - 确保所有方法都有实现
+// BMPlatform_Proxy.cpp - 代理通道实现
 #include "BMPlatform.h"
 #include <windows.h>
 #include <cstring>
@@ -41,9 +41,8 @@ struct ResponsePacket {
 };
 #pragma pack(pop)
 
-// CProxyChannel 构造函数和析构函数
+// CProxyChannel 构造函数
 CProxyChannel::CProxyChannel() : m_hPipe(INVALID_HANDLE_VALUE), m_objectId(0) {
-    // 构造函数实现
 }
 
 CProxyChannel::~CProxyChannel() {
@@ -88,49 +87,101 @@ BOOL CProxyChannel::ConnectToProxy() {
         Sleep(100);
     }
     
-    // 启动新的代理进程
+    // 获取当前程序（sfd_tool.exe）所在目录
+    char exePath[MAX_PATH];
+    char workingDir[MAX_PATH];
+    GetModuleFileNameA(NULL, exePath, MAX_PATH);
+    
+    char* lastSlash = strrchr(exePath, '\\');
+    if (lastSlash) {
+        *(lastSlash + 1) = '\0';
+    }
+    strcpy_s(workingDir, exePath);
+    
+    // 构建 Proxy32.exe 完整路径
     char proxyPath[MAX_PATH];
-    GetCurrentDirectoryA(MAX_PATH, proxyPath);
-    strcat_s(proxyPath, "\\Proxy32.exe");
+    strcpy_s(proxyPath, workingDir);
+    strcat_s(proxyPath, "Proxy32.exe");
+    
+    std::cout << "Starting Proxy32.exe from: " << proxyPath << std::endl;
+    std::cout << "Working directory: " << workingDir << std::endl;
+    
+    // 检查 Proxy32.exe 是否存在
+    if (GetFileAttributesA(proxyPath) == INVALID_FILE_ATTRIBUTES) {
+        std::cerr << "Proxy32.exe not found at: " << proxyPath << std::endl;
+        return FALSE;
+    }
+    
+    // 构建环境变量（继承当前环境并添加 DLL 路径）
+    char oldPath[4096];
+    GetEnvironmentVariableA("PATH", oldPath, sizeof(oldPath));
+    char newPath[8192];
+    snprintf(newPath, sizeof(newPath), "%s;%s;C:\\Windows\\SysWOW64", workingDir, oldPath);
+    
+    // 创建环境块
+    char envBlock[16384];
+    snprintf(envBlock, sizeof(envBlock), 
+             "PATH=%s\0", newPath);
     
     STARTUPINFOA si = { sizeof(si) };
     PROCESS_INFORMATION pi;
     
-    if (CreateProcessA(proxyPath, NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
-        Sleep(1000);
+    // 启动 Proxy32.exe，指定工作目录和环境
+    if (!CreateProcessA(
+        proxyPath,              // 可执行文件路径
+        NULL,                   // 命令行
+        NULL,                   // 进程安全属性
+        NULL,                   // 线程安全属性
+        FALSE,                  // 继承句柄
+        CREATE_UNICODE_ENVIRONMENT,  // 创建标志
+        (LPVOID)envBlock,       // 环境变量
+        workingDir,             // 工作目录（关键！）
+        &si,                    // 启动信息
+        &pi)) {                 // 进程信息
         
-        for (int i = 0; i < 10; i++) {
-            m_hPipe = CreateFileA(
-                "\\\\.\\pipe\\SPRDChannelProxy",
-                GENERIC_READ | GENERIC_WRITE,
-                0, NULL, OPEN_EXISTING, 0, NULL);
-            
-            if (m_hPipe != INVALID_HANDLE_VALUE) {
-                DWORD pipeMode = PIPE_READMODE_MESSAGE;
-                SetNamedPipeHandleState(m_hPipe, &pipeMode, NULL, NULL);
-                
-                CommandPacket cmd = {0};
-                cmd.cmd = CMD_CREATE_CHANNEL;
-                
-                ResponsePacket resp;
-                DWORD bytesWritten, bytesRead;
-                
-                if (WriteFile(m_hPipe, &cmd, sizeof(cmd), &bytesWritten, NULL) &&
-                    ReadFile(m_hPipe, &resp, sizeof(resp), &bytesRead, NULL) &&
-                    resp.success) {
-                    m_objectId = resp.result;
-                    return TRUE;
-                }
-                
-                CloseHandle(m_hPipe);
-                m_hPipe = INVALID_HANDLE_VALUE;
-            }
-            Sleep(100);
-        }
+        DWORD error = GetLastError();
+        std::cerr << "Failed to start Proxy32.exe. Error: " << error << std::endl;
+        return FALSE;
     }
     
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    
+    // 等待代理进程启动
+    Sleep(1500);
+    
+    // 连接到代理进程
+    for (int i = 0; i < 15; i++) {
+        m_hPipe = CreateFileA(
+            "\\\\.\\pipe\\SPRDChannelProxy",
+            GENERIC_READ | GENERIC_WRITE,
+            0, NULL, OPEN_EXISTING, 0, NULL);
+        
+        if (m_hPipe != INVALID_HANDLE_VALUE) {
+            DWORD pipeMode = PIPE_READMODE_MESSAGE;
+            SetNamedPipeHandleState(m_hPipe, &pipeMode, NULL, NULL);
+            
+            CommandPacket cmd = {0};
+            cmd.cmd = CMD_CREATE_CHANNEL;
+            
+            ResponsePacket resp;
+            DWORD bytesWritten, bytesRead;
+            
+            if (WriteFile(m_hPipe, &cmd, sizeof(cmd), &bytesWritten, NULL) &&
+                ReadFile(m_hPipe, &resp, sizeof(resp), &bytesRead, NULL) &&
+                resp.success) {
+                m_objectId = resp.result;
+                std::cout << "Connected to Proxy32, object ID: " << m_objectId << std::endl;
+                return TRUE;
+            }
+            
+            CloseHandle(m_hPipe);
+            m_hPipe = INVALID_HANDLE_VALUE;
+        }
+        Sleep(200);
+    }
+    
+    std::cerr << "Failed to connect to Proxy32 after starting it" << std::endl;
     return FALSE;
 }
 
