@@ -24,7 +24,7 @@ rm -rf /tmp/build-$PKGNAME
 mkdir -p /tmp/build-$PKGNAME/$ARCHIVE
 
 # 复制文件
-cp -r CMakeLists.txt version.h.in *.cpp *.h *.hpp *.txt *.md Makefile \
+cp -r CMakeLists.txt version.h.in *.rc icon.* *.cpp *.h *.hpp *.txt *.md Makefile \
     third_party packaging scripts locale core pages docs \
     /tmp/build-$PKGNAME/$ARCHIVE/
 [ -f icon.png ] && cp icon.png /tmp/build-$PKGNAME/$ARCHIVE/
