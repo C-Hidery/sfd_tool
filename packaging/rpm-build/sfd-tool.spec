@@ -35,6 +35,7 @@ GUI tool for dumping and programming Spreadtrum device firmware.
 # 使用 CMake + Ninja 构建，始终启用 GTK 与 libusb
 cmake -S . -B build_cmake -G "Ninja" \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=%{_prefix} \
   -DUSE_GTK=ON \
   -DUSE_LIBUSB=ON
 cmake --build build_cmake
