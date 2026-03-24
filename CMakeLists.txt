@@ -442,11 +442,9 @@ if (USE_LIBUSB)
             target_link_directories(${tgt} PRIVATE ${LIBUSB_LIBRARY_DIRS})
         endforeach()
 
-        # 在最终可执行文件和测试可执行文件上链接 libusb 库
-        target_link_libraries(sfd_tool PRIVATE ${LIBUSB_LIBRARIES})
-        foreach(tgt IN LISTS SFD_TEST_TARGETS)
-            target_link_libraries(${tgt} PRIVATE ${LIBUSB_LIBRARIES})
-        endforeach()
+        # 由 core_lib 统一链接 libusb，其他可执行文件和测试通过依赖 core_lib
+        # 获得正确的链接顺序，避免在 GNU ld 下出现未解析的 libusb 符号。
+        target_link_libraries(core_lib PUBLIC ${LIBUSB_LIBRARIES})
     endif()
 else()
     foreach(tgt IN LISTS SFD_COMMON_TARGETS)
