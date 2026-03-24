@@ -1,3 +1,9 @@
+sfd-tool (1.8.2.5-1-ltv) unstable; urgency=medium
+
+  * 优化：进度条实时更新，自适应UI窗口可调整
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Tue, 24 Mar 2026 16:49:17 +0800
+
 sfd-tool (1.8.2.4-1-ltv) unstable; urgency=medium
 
   * 修复 Proxy32 相关问题，提升设备兼容性
