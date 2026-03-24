@@ -172,33 +172,33 @@ if [[ -f packaging/rpm-build/sfd-tool.spec ]]; then
 fi
 
 # Windows 资源文件中的版本（可选）
-if [[ -f assets/app.rc ]]; then
-  echo "[附加] 更新 assets/app.rc 里的版本号..."
+if [[ -f app.rc ]]; then
+  echo "[附加] 更新 app.rc 里的版本号..."
   VERSION_COMMA="${NEW_VERSION//./,}"
 
   # 数字版本: FILEVERSION / PRODUCTVERSION
-  sed_inplace_e "s/^( FILEVERSION )[0-9,]+/\\1$VERSION_COMMA/" assets/app.rc
-  sed_inplace_e "s/^( PRODUCTVERSION )[0-9,]+/\\1$VERSION_COMMA/" assets/app.rc
+  sed_inplace_e "s/^( FILEVERSION )[0-9,]+/\\1$VERSION_COMMA/" app.rc
+  sed_inplace_e "s/^( PRODUCTVERSION )[0-9,]+/\\1$VERSION_COMMA/" app.rc
 
   # 字符串版本: \"FileVersion\" / \"ProductVersion\"
-  sed_inplace_e "s/(\"FileVersion\", \"?)[0-9.]+(\"?)/\\1$NEW_VERSION\\2/" assets/app.rc
-  sed_inplace_e "s/(\"ProductVersion\", \"?)[0-9.]+(\"?)/\\1$NEW_VERSION\\2/" assets/app.rc
+  sed_inplace_e "s/(\"FileVersion\", \"?)[0-9.]+(\"?)/\\1$NEW_VERSION\\2/" app.rc
+  sed_inplace_e "s/(\"ProductVersion\", \"?)[0-9.]+(\"?)/\\1$NEW_VERSION\\2/" app.rc
 else
-  echo "Warning: assets/app.rc 不存在，跳过" >&2
+  echo "Warning: app.rc 不存在，跳过" >&2
 fi
 
 # 提交到 git
 
 echo
 echo "Git 变更预览："
-git status --short VERSION.txt docs/VERSION_LOG.md packaging/rpm-build/sfd-tool.spec assets/app.rc || true
+git status --short VERSION.txt docs/VERSION_LOG.md packaging/rpm-build/sfd-tool.spec app.rc || true
 
 echo
 echo "正在提交版本变更..."
 git add VERSION.txt
 [[ -f docs/VERSION_LOG.md ]] && git add docs/VERSION_LOG.md
 [[ -f packaging/rpm-build/sfd-tool.spec ]] && git add packaging/rpm-build/sfd-tool.spec
-[[ -f assets/app.rc ]] && git add assets/app.rc
+[[ -f app.rc ]] && git add app.rc
 [[ -f packaging/debian/changelog ]] && git add packaging/debian/changelog
 
 git commit -m "Version: $NEW_VERSION"

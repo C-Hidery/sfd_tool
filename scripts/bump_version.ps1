@@ -174,9 +174,9 @@ else {
 }
 
 # 附加：更新 Windows 资源文件中的版本
-if (Test-Path "assets/app.rc") {
-    Write-Host "[附加] 更新 assets/app.rc 里的版本号..."
-    $rcText = Get-Content "assets/app.rc" -Raw
+if (Test-Path "app.rc") {
+    Write-Host "[附加] 更新 app.rc 里的版本号..."
+    $rcText = Get-Content "app.rc" -Raw
 
     $versionComma = ($newVersion -replace '\.', ',')
 
@@ -188,15 +188,15 @@ if (Test-Path "assets/app.rc") {
     $rcText = $rcText -replace 'VALUE "FileVersion",\s*"[0-9.]+"', { param($m) 'VALUE "FileVersion", "' + $newVersion + '"' }
     $rcText = $rcText -replace 'VALUE "ProductVersion",\s*"[0-9.]+"', { param($m) 'VALUE "ProductVersion", "' + $newVersion + '"' }
 
-    Set-Content -Path "assets/app.rc" -Value $rcText -Encoding UTF8
+    Set-Content -Path "app.rc" -Value $rcText -Encoding UTF8
 }
 else {
-    Write-Warning "assets/app.rc 不存在，跳过"
+    Write-Warning "app.rc 不存在，跳过"
 }
 
 Write-Host ""
 Write-Host "Git 变更预览：" -ForegroundColor Cyan
-& git status --short VERSION.txt docs/VERSION_LOG.md packaging/rpm-build/sfd-tool.spec assets/app.rc
+& git status --short VERSION.txt docs/VERSION_LOG.md packaging/rpm-build/sfd-tool.spec app.rc
 
 Write-Host ""
 Write-Host "正在提交版本变更..." -ForegroundColor Cyan
@@ -207,8 +207,8 @@ if (Test-Path "docs/VERSION_LOG.md") {
 if (Test-Path "packaging/rpm-build/sfd-tool.spec") {
     git add packaging/rpm-build/sfd-tool.spec
 }
-if (Test-Path "assets/app.rc") {
-    git add assets/app.rc
+if (Test-Path "app.rc") {
+    git add app.rc
 }
 
 git commit -m ("Version: " + $newVersion)

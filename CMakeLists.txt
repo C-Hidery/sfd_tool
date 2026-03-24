@@ -539,7 +539,7 @@ endif()
 # 安装图标（需要 ImageMagick convert，行为与 Makefile 类似；Windows 上跳过）
 if (NOT WIN32)
     find_program(CONVERT_EXECUTABLE convert)
-    set(ICON_SRC ${CMAKE_CURRENT_SOURCE_DIR}/assets/icon.png)
+    set(ICON_SRC ${CMAKE_CURRENT_SOURCE_DIR}/icon.png)
 
     if (EXISTS ${ICON_SRC} AND CONVERT_EXECUTABLE)
         set(ICON_SIZES 16 32 48 256)
