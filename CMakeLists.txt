@@ -63,7 +63,7 @@ add_library(sfd_ui STATIC
 )
 
 target_link_libraries(sfd_ui
-    PUBLIC
+    PRIVATE
         pages_lib
         core_lib
 )
@@ -170,6 +170,8 @@ add_executable(sfd_tool
 # 链接子模块和公共 UI 库
 target_link_libraries(sfd_tool
     PRIVATE
+        core_lib
+        pages_lib
         sfd_ui
 )
 # Windows: 直接包含 BMPlatform 相关源文件
