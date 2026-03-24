@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-24 08:51+0800\n"
+"POT-Creation-Date: 2026-03-24 10:02+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,12 +17,12 @@ msgstr ""
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: main.cpp:286 pages/page_partition.cpp:417 pages/page_partition.cpp:600
+#: main.cpp:296 pages/page_partition.cpp:417 pages/page_partition.cpp:600
 #: pages/page_partition.cpp:762 pages/page_partition.cpp:911
 msgid "Warning"
 msgstr ""
 
-#: main.cpp:286
+#: main.cpp:296
 msgid ""
 "You are running this tool without root permission!\n"
 "It may cause device connecting issue\n"
@@ -31,11 +31,11 @@ msgid ""
 "sudo -E /path/to/sfd_tool"
 msgstr ""
 
-#: main.cpp:298
+#: main.cpp:308
 msgid "Program Crash"
 msgstr ""
 
-#: main.cpp:298
+#: main.cpp:308
 msgid ""
 "The program encountered an unhandled exception, which may be caused by "
 "device connection issues or a bug in the program.\n"
