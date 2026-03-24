@@ -43,8 +43,8 @@ GtkWidget* LogPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_widget_set_margin_end(mainBox, 40);
 	gtk_widget_set_margin_top(mainBox, 40);
 	gtk_widget_set_margin_bottom(mainBox, 40);
-	// 设定固定宽高与截图比例一致
-	gtk_widget_set_size_request(mainBox, 900, -1);
+	// 设定最小宽度，避免在小屏上撑死高度
+	gtk_widget_set_size_request(mainBox, 700, -1);
 
 	// 外框包裹日志显示区域
 	GtkWidget* logFrame = gtk_frame_new(NULL);

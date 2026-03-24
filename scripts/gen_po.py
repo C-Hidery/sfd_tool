@@ -53,6 +53,7 @@ translation_dict = {
     "No save path selected!": "未选择保存路径！",
     "Partition read completed!": "分区读取完成！",
     "Partition erase completed!": "分区擦除完成！",
+    "No partition table loaded, cannot restore from folder!": "当前设备尚未加载分区表，请先读取分区列表后再尝试从文件夹恢复。",
     "No partition table loaded, cannot modify partition size!": "当前未加载分区表，无法修改分区大小！",
     "Please fill in complete modification info!": "请填写完整的修改信息！",
     "Please enter a valid new size!": "请输入合法的新大小！",
@@ -62,10 +63,8 @@ translation_dict = {
     "Partition modification completed!": "分区修改完成！",
     "Partition already exists!": "分区已存在！",
     "Partition after does not exist!": "后一个指定的分区不存在！",
-    "Status": "状态",
-    "Not connected": "未连接",
-    "Mode": "模式",
-    "BROM Not connected!!!": "BROM 未连接!!!",
+    "Status : ": "状态：",
+    "   Mode : ": "   模式：",
     "Storage Type": "存储类型",
     "Unknown": "未知",
     "Slot": "槽位",
@@ -234,49 +233,158 @@ translation_dict = {
     "An error occurred. The application will now exit.": "监测到错误，应用程序将退出。",
     "XML files (*.xml)": "XML文件 (*.xml)",
     "Text files (*.txt)": "文本文件 (*.txt)",
-    "All files (*.*)": "所有文件 (*.*)"
+    "All files (*.*)": "所有文件 (*.*)",
+    "File does not exist.": "文件不存在！",
+    "PAC unpacked successfully.": "PAC文件解包成功。",
+    "Failed to unpack PAC.": "PAC文件解包失败。",
+    "PAC flashed successfully.": "PAC文件刷写成功。",
+    "Failed to flash PAC.": "PAC文件刷写失败。",
+    "UI language": "界面语言",
+    "System default": "系统默认",
+    "Simplified Chinese": "简体中文",
+    "English": "英文",
+    "Apply": "应用",
+    "Reset to default block size": "重置为默认块大小",
+    "Failed to create config service.": "创建配置服务失败。",
+    "Language will take effect after restart.": "语言将在重启后生效。",
+    "CVE Bypass Options": "CVE 绕过选项",
+    "SPRD4 Options": "SPRD4 选项",
+    "Not connected": "未连接",
+    "BROM Not connected!!!": "BROM 未连接！！！",
+    "Pactime": "PAC 时间",
+    "Storage Check": "存储检查",
+    "Partition read failed!": "分区读取失败！",
+    "Success": "成功",
+    "PAC Flash": "PAC 刷机",
+    "PAC File": "PAC 文件",
+    "PAC File Path": "PAC 文件路径",
+    "Unpack PAC": "解包 PAC",
+    "Please select a partition": "请选择一个分区",
+    "Partition Name": "分区名",
+    "Size": "大小",
+    "Type": "类型",
+    "Flash Operation": "刷写操作",
+    "Select slot mode:": "请选择槽位模式：",
+    "Not VAB (Non-AB)": "非 VAB（非 A/B）",
+    "Slot A": "槽位 A",
+    "Slot B": "槽位 B",
+    "START PAC Flash": "开始 PAC 刷写",
+    "partition backup cancelled": "分区备份已取消",
+    "Partition backup completed! Saved to: ": "分区备份完成！已保存到：",
+    "Restore From Folder": "从文件夹恢复",
+    "Change size": "修改大小",
+    "Please check a partition you want to change": "请选择你要修改的分区",
+    "New size (MB)": "新大小（MB）",
+    "Add partition": "添加分区",
+    "Enter partition name:": "请输入分区名称：",
+    "Size (MB):": "大小（MB）：",
+    "Remove partition": "删除分区",
+    "Please check a partition you want to remove": "请选择你要删除的分区",
+    "Delete": "删除",
+    "Rename partition": "重命名分区",
+    "Please check a partition you want to rename": "请选择你要重命名的分区",
+    "Critical": "严重",
+    "Partition Size": "分区大小",
+    "File Size": "文件大小",
+    "No partitions selected to flash.": "未选择要刷写的分区。",
+    "No partition table loaded on the current device. Please read the partition list first, then try restoring from the folder again.": "当前设备尚未加载分区表，请先读取分区列表后再尝试从文件夹恢复。",
+    "No partition images matching the current partition table were found in the selected folder.": "在所选的文件夹中未找到可与当前分区表匹配的分区镜像。",
+    "No partitions were selected to flash from the folder.": "未选择任何要刷入的分区。",
+    "Start flashing the selected partitions from the folder?": "确认从所选文件夹开始刷入勾选的分区吗？",
+    "Partition read completed! Saved to: ": "分区读取完成！已保存到："
 }
 
 pot_path = "locale/sfd_tool.pot"
 po_path = "locale/zh_CN/LC_MESSAGES/sfd_tool.po"
 
-with open(pot_path, "r", encoding="utf-8") as f:
-    lines = f.readlines()
 
-out_lines = []
-current_msgid = ""
-is_in_msgid = False
-msgid_line_index = -1
+def _extract_msgids(path):
+    """Return list of msgid strings (including header msgid "").
 
-i = 0
-while i < len(lines):
-    line = lines[i]
-    if line.startswith("msgid "):
-        out_lines.append(line)
-        current_msgid = line[6:].strip().strip('"')
-        
-        # Handle multi-line msgid
-        j = i + 1
-        while j < len(lines) and lines[j].startswith('"') and not lines[j].startswith('msgstr'):
-            out_lines.append(lines[j])
-            current_msgid += lines[j].strip().strip('"')
-            j += 1
-            
-        i = j - 1
-    elif line.startswith("msgstr "):
-        if current_msgid in translation_dict:
-            # We translate the unescaped literal newline \\n text etc correctly here
-            translation = translation_dict[current_msgid]
-            out_lines.append(f'msgstr "{translation}"\n')
-        elif current_msgid == "":
-            out_lines.append('msgstr ""\n"Content-Type: text/plain; charset=UTF-8\\n"\n')
-        else:
-            out_lines.append(f'msgstr "{current_msgid}"\n') # Fallback
-    else:
-        out_lines.append(line)
-    i += 1
+    注意：只收集 msgid 及其续行，一旦遇到 msgstr 即停止，
+    避免把 header 的 msgstr 行误拼进 msgid。
+    """
+    msgids = []
+    current = None
+    collecting = False
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("msgid "):
+                # 结束上一个 msgid
+                if current is not None:
+                    msgids.append(current)
+                raw = line[6:].strip()
+                if raw.startswith('"'):
+                    current = raw.strip().strip('"')
+                    collecting = True
+                else:
+                    current = ""
+                    collecting = False
+            elif collecting:
+                if line.startswith("msgstr"):
+                    # 到达 msgstr 段，停止拼接 msgid
+                    collecting = False
+                elif line.startswith('"'):
+                    # msgid 续行
+                    current += line.strip().strip('"')
+        # 文件末尾收尾
+        if current is not None:
+            msgids.append(current)
+    return msgids
 
-with open(po_path, "w", encoding="utf-8") as f:
-    f.writelines(out_lines)
 
-print("Generated po file successfully.")
+def _escape_for_po(text: str) -> str:
+    """Escape string for inclusion in a PO file."""
+    return (
+        text.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+    )
+
+
+def main() -> None:
+    if not os.path.exists(pot_path):
+        raise SystemExit(f"POT file not found: {pot_path}")
+    if not os.path.exists(po_path):
+        raise SystemExit(f"PO file not found: {po_path}")
+
+    pot_ids = [mid for mid in _extract_msgids(pot_path) if mid != ""]
+    po_ids = set(mid for mid in _extract_msgids(po_path) if mid != "")
+
+    missing_ids = [mid for mid in pot_ids if mid not in po_ids]
+
+    if not missing_ids:
+        print("No new msgid found; PO is up to date.")
+        return
+
+    auto_filled = []
+    untranslated = []
+
+    with open(po_path, "a", encoding="utf-8") as f:
+        f.write("\n\n# ===== Auto-appended entries from sfd_tool.pot =====\n")
+        for mid in missing_ids:
+            if mid in translation_dict:
+                translation = translation_dict[mid]
+                auto_filled.append(mid)
+            else:
+                # English fallback, needs real translation later
+                translation = mid
+                untranslated.append(mid)
+
+            f.write("\n")
+            f.write(f'msgid "{_escape_for_po(mid)}"\n')
+            f.write(f'msgstr "{_escape_for_po(translation)}"\n')
+
+    print(f"Total msgid in POT (excluding header): {len(pot_ids)}")
+    print(f"Existing msgid in PO: {len(po_ids)}")
+    print(f"New entries appended: {len(missing_ids)}")
+    print(f"  Auto-filled with translation_dict: {len(auto_filled)}")
+    print(f"  Still untranslated (using English fallback): {len(untranslated)}")
+    if untranslated:
+        print("\nUntranslated msgid (need manual Chinese translation):")
+        for mid in untranslated:
+            print(f"- {mid}")
+
+
+if __name__ == "__main__":
+    main()

@@ -99,7 +99,7 @@ void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 	const char* pac_path = helper.getEntryText(helper.getWidget("pac_file_path"));
 	if (!pac_path || !*pac_path) {
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist.\n文件不存在！"));
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
 		}, GTK_WINDOW(helper.getWidget("main_window")));
 		return;
 	}
@@ -108,13 +108,13 @@ void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 	if (i_is)
 	{
 		gui_idle_call_wait_drag([helper]() {
-			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC unpacked successfully.\nPAC文件解包成功。"));
+			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC unpacked successfully."));
 		}, GTK_WINDOW(helper.getWidget("main_window")));
 	}
 	else
 	{
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Failed to unpack PAC.\nPAC文件解包失败。"));
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Failed to unpack PAC."));
 		}, GTK_WINDOW(helper.getWidget("main_window")));
 		return;
 	}
@@ -127,13 +127,13 @@ void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 	if (i_is)
 	{
 		gui_idle_call_wait_drag([helper]() {
-			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC flashed successfully. this tool will exit.\nPAC文件刷写成功, 工具即将退出。"));
+			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC flashed successfully."));
 		}, GTK_WINDOW(helper.getWidget("main_window")));
 	}
 	else
 	{
 		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Failed to flash PAC.\nPAC文件刷写失败。"));
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Failed to flash PAC."));
 		}, GTK_WINDOW(helper.getWidget("main_window")));
 		return;
 	}

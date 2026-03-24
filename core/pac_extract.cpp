@@ -385,7 +385,8 @@ bool Unpac::extractFiles() {
             return false;
         }
     }
-    const char* path = orig_dir.string().c_str();
+    const std::string path_str = orig_dir.string();
+    const char* path = path_str.c_str();
 #ifndef _WIN32
     if (path && chdir(path)) {
         printf("chdir failed\n");
@@ -1060,7 +1061,7 @@ bool pac_flash(spdio_t* io, const char* floder)
 				if (fi == nullptr) {
 					DEG_LOG(W, "File does not exist.\n");
 					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "File does not exist.\n文件不存在\n");
-                      return false;
+                      return;
                 } else fclose(fi);
 					
 				send_file(io, fdl1_path.c_str(), fdl1_base_addr, 0, 528, 0, 0);
@@ -1206,8 +1207,10 @@ bool pac_flash(spdio_t* io, const char* floder)
     DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
     load_partitions(io, "pac_unpack_output", blk_size, g_app_state.flash.selected_ab, 0);
     encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
-	if(!send_and_check(io)) return true;
-    else return false;
+    if (!send_and_check(io)) {
+        // reset failed, but keep running
+    }
     }).detach();
+    return true;
 }
 

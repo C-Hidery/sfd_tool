@@ -40,7 +40,9 @@ TEST_CASE("backupPartitions enumerates partitions and builds X/name.img paths") 
     std::strncpy(fake_table[2].name, "missing", sizeof(fake_table[2].name) - 1);
     fake_table[2].size = 4096 * 1024;
 
+    // 清空全局状态，避免上一次测试运行留下的副作用
     io = nullptr;
+    g_app_state = AppState{};
     g_app_state.flash.isCMethod = 0;
 
     std::unique_ptr<FlashService> svc = createFlashService();
