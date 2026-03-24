@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-23 17:10+0800\n"
+"POT-Creation-Date: 2026-03-24 08:51+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -669,60 +669,60 @@ msgstr ""
 msgid "Failed to flash PAC."
 msgstr ""
 
-#: pages/page_pac_flash.cpp:160
+#: pages/page_pac_flash.cpp:166
 msgid "PAC Flash"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:177
+#: pages/page_pac_flash.cpp:183
 msgid "PAC File"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:186
+#: pages/page_pac_flash.cpp:192
 msgid "PAC File Path"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:201
+#: pages/page_pac_flash.cpp:207
 msgid "Unpack PAC"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:211
+#: pages/page_pac_flash.cpp:217
 msgid "Please select a partition"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:230 pages/page_partition.cpp:1230
+#: pages/page_pac_flash.cpp:236 pages/page_partition.cpp:1230
 #: pages/page_partition.cpp:1548
 msgid "Partition Name"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:232 pages/page_partition.cpp:1232
+#: pages/page_pac_flash.cpp:238 pages/page_partition.cpp:1232
 msgid "Size"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:234 pages/page_partition.cpp:1234
+#: pages/page_pac_flash.cpp:240 pages/page_partition.cpp:1234
 msgid "Type"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:244
+#: pages/page_pac_flash.cpp:250
 msgid "Flash Operation"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:252
+#: pages/page_pac_flash.cpp:258
 msgid "Select slot mode:"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:258
+#: pages/page_pac_flash.cpp:264
 msgid "Not VAB (Non-AB)"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:259
+#: pages/page_pac_flash.cpp:265
 msgid "Slot A"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:260
+#: pages/page_pac_flash.cpp:266
 msgid "Slot B"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:268
+#: pages/page_pac_flash.cpp:274
 msgid "START PAC Flash"
 msgstr ""
 
