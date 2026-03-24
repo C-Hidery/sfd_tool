@@ -491,7 +491,7 @@ int gtk_kmain(int argc, char** argv) {
 	initDragDetection(GTK_WINDOW(window));
 
 	// 创建Notebook（标签页控件）
-	GtkWidget* notebook = helper.createNotebook("main_notebook", 0, 0, 1174, 672);
+	GtkWidget* notebook = helper.createNotebook("main_notebook", 0, 0, 1174, 0);
 	{
 		// ========== 模块化页面创建 ==========
 		create_connect_page(helper, notebook);
