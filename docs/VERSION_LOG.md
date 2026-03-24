@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 1.8.2.3 LTV Edition
+Version 1.8.2.4 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -160,6 +160,17 @@ UI Refactor, optimization code logic.
 
 ---v 1.8.2.3---
 修复：分区备份校验兼容 NV 分区 512 字节偏移行为，完善：国际化自动化脚本
+
+---v 1.8.2.4---
+修复 Proxy32 相关问题，提升设备兼容性
+修复 PAC 相关逻辑异常，避免刷机流程出错
+修复 Linux 下备份文件和文件夹被写成 root 权限的问题
+修复 macOS 默认窗口尺寸计算逻辑，改用非废弃 GTK API
+优化全盘备份行为：默认排除 userdata 分区，并在完成后保留提示信息
+优化进度条刷新逻辑：按已读字节量实时刷新 GUI 显示，更平滑直观
+优化窗口默认尺寸与分辨率适配，避免小屏幕分辨率下遮挡底部状态栏
+更新 locale/sfd_tool.pot 翻译模板，同步最新文案
+合并上游 develop 分支最新改动
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
