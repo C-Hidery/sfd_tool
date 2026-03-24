@@ -455,7 +455,6 @@ int gtk_kmain(int argc, char** argv) {
 	const int target_w = 1174;
 	const int target_h = 820;
 	const int margin_w = 100;
-	const int margin_h = 100;
 
 	int win_w = target_w;
 	int win_h = target_h;
@@ -464,7 +463,7 @@ int gtk_kmain(int argc, char** argv) {
 		win_w = std::min(target_w, screen_w - margin_w);
 	}
 	if (screen_h > 0) {
-		win_h = std::min(target_h, screen_h - margin_h);
+		win_h = (screen_h < target_h) ? screen_h : target_h;
 	}
 
 	// 再兜底确保窗口不会太小
