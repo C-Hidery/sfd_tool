@@ -246,7 +246,7 @@ GtkWidget* ManualPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_widget_set_margin_top(mainBox, 20);
 	gtk_widget_set_margin_bottom(mainBox, 20);
 	gtk_widget_set_halign(mainBox, GTK_ALIGN_CENTER);
-	gtk_widget_set_size_request(mainBox, 600, -1);
+	gtk_widget_set_size_request(mainBox, 520, -1);
 
 	auto makeCardBox = [](int pad_h, int pad_v) -> GtkWidget* {
 		GtkWidget* box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);

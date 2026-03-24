@@ -21,6 +21,7 @@
 #include <gtk/gtk.h>
 #include <sstream>
 #include <iomanip>
+#include <algorithm>
 #include "version.h"
 #include "core/config_service.h"
 #ifdef __linux__
@@ -37,6 +38,15 @@
 #include <windows.h>
 #include <dbghelp.h>
 #include <sys/stat.h>
+#endif
+
+#ifdef _WIN32
+#ifdef min
+#undef min
+#endif
+#ifdef max
+#undef max
+#endif
 #endif
 
 std::string g_about_text;
@@ -419,7 +429,48 @@ int gtk_kmain(int argc, char** argv) {
 	// Window Setup
 	GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	gtk_window_set_title(GTK_WINDOW(window), "SFD Tool GUI By Ryan Crepa");
-	gtk_window_set_default_size(GTK_WINDOW(window), 1174, 765);
+	// 根据屏幕分辨率自适应默认窗口大小，给小屏幕留出边距
+	GdkScreen* screen = gdk_screen_get_default();
+	int screen_w = 0;
+	int screen_h = 0;
+
+#if GTK_CHECK_VERSION(3, 22, 0)
+	GdkDisplay* display = gdk_display_get_default();
+	if (display) {
+		GdkMonitor* primary = gdk_display_get_primary_monitor(display);
+		if (primary) {
+			GdkRectangle geometry{};
+			gdk_monitor_get_geometry(primary, &geometry);
+			screen_w = geometry.width;
+			screen_h = geometry.height;
+		}
+	}
+#else
+	if (screen) {
+		screen_w = gdk_screen_get_width(screen);
+		screen_h = gdk_screen_get_height(screen);
+	}
+#endif
+
+	const int target_w = 1174;
+	const int target_h = 820;
+	const int margin_w = 100;
+
+	int win_w = target_w;
+	int win_h = target_h;
+
+	if (screen_w > 0) {
+		win_w = std::min(target_w, screen_w - margin_w);
+	}
+	if (screen_h > 0) {
+		win_h = (screen_h < target_h) ? screen_h : target_h;
+	}
+
+	// 再兜底确保窗口不会太小
+	if (win_w < 800) win_w = 800;
+	if (win_h < 600) win_h = 600;
+
+	gtk_window_set_default_size(GTK_WINDOW(window), win_w, win_h);
 
 	// 启用键盘事件（用于快捷键）
 	gtk_widget_add_events(window, GDK_KEY_PRESS_MASK);
@@ -439,7 +490,7 @@ int gtk_kmain(int argc, char** argv) {
 	initDragDetection(GTK_WINDOW(window));
 
 	// 创建Notebook（标签页控件）
-	GtkWidget* notebook = helper.createNotebook("main_notebook", 0, 0, 1174, 672);
+	GtkWidget* notebook = helper.createNotebook("main_notebook", 0, 0, 1174, 0);
 	{
 		// ========== 模块化页面创建 ==========
 		create_connect_page(helper, notebook);

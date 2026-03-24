@@ -820,6 +820,13 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* connectPage = helper.createGrid("connect_page", 5, 5);
 	helper.addNotebookPage(notebook, connectPage, _("Connect"));
 
+	// 外层滚动窗口，适配小屏幕高度
+	GtkWidget* connectScroll = gtk_scrolled_window_new(NULL, NULL);
+	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(connectScroll),
+	                               GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+	gtk_widget_set_hexpand(connectScroll, TRUE);
+	gtk_widget_set_vexpand(connectScroll, TRUE);
+
 	// 创建连接页的根垂直盒子
 	GtkWidget* mainConnectBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 15);
 	gtk_widget_set_margin_start(mainConnectBox, 20);
@@ -1078,7 +1085,8 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* modeStatus = helper.createLabel(_("BROM Not connected!!!"), "mode", 0, 0, 200, 19);
 
 	// 把整合完毕的 mainConnectBox 添加到 connectPage
-	gtk_grid_attach(GTK_GRID(connectPage), mainConnectBox, 0, 0, 5, 5);
+	gtk_container_add(GTK_CONTAINER(connectScroll), mainConnectBox);
+	gtk_grid_attach(GTK_GRID(connectPage), connectScroll, 0, 0, 5, 5);
 
 	return connectPage;
 }

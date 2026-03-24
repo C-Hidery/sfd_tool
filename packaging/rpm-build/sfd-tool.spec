@@ -6,7 +6,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        1.8.2.2
+Version:        1.8.2.5
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -35,6 +35,7 @@ GUI tool for dumping and programming Spreadtrum device firmware.
 # 使用 CMake + Ninja 构建，始终启用 GTK 与 libusb
 cmake -S . -B build_cmake -G "Ninja" \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=%{_prefix} \
   -DUSE_GTK=ON \
   -DUSE_LIBUSB=ON
 cmake --build build_cmake
@@ -59,6 +60,15 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Tue Mar 24 2026 RyanCrepa <Ryan110413@outlook.com> - 1.8.2.5-1-ltv
+- -inf
+
+* Tue Mar 24 2026 RyanCrepa <Ryan110413@outlook.com> - 1.8.2.4-1-ltv
+- -inf
+
+* Mon Mar 23 2026 RyanCrepa <Ryan110413@outlook.com> - 1.8.2.3-1-ltv
+- -inf
+
 * Sat Mar 21 2026 RyanCrepa <Ryan110413@outlook.com> - 1.8.2.2-1-ltv
 - -inf
 

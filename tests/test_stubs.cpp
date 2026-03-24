@@ -21,11 +21,29 @@ int g_default_blk_size = 0;    // 默认块大小，占位
 static spdio_t* g_test_io = nullptr;
 spdio_t*& io = g_test_io;
 
-// test_stubs.cpp
-// 改为定义引用变量
-static int s_bOpened = 0;
-int& m_bOpened = s_bOpened;
+static int g_test_m_bOpened = -1;
+int& m_bOpened = g_test_m_bOpened;
+
 // ===== 针对 core/logging.cpp & pac_extract.cpp 的 GUI 相关桩实现 =====
 
 // 在测试环境中不弹出对话框，只打印到 stderr，避免依赖 GTK/窗口
+// 同时避免与正式实现重复定义，只引入声明，具体实现在 common.cpp / GtkWidgetHelper.cpp / ui_common.cpp
 
+extern bool Err_Showed;
+extern bool isHelperInit;
+extern GtkWidgetHelper helper;
+
+void append_log_to_ui(int type, const char* message);
+
+std::string showFileChooser(GtkWindow* parent, bool open);
+std::string showFolderChooser(GtkWindow* parent);
+void showInfoDialog(GtkWindow* parent, const char* title, const char* message);
+void showWarningDialog(GtkWindow* parent, const char* title, const char* message);
+void showErrorDialog(GtkWindow* parent, const char* title, const char* message);
+bool showConfirmDialog(GtkWindow* parent, const char* title, const char* message);
+std::string showSaveFileDialog(GtkWindow* parent,
+                               const std::string& default_filename,
+                               const std::vector<std::pair<std::string, std::string>>& filters);
+
+bool isWindowDragging(GtkWindow* window);
+void initDragDetection(GtkWindow* window);

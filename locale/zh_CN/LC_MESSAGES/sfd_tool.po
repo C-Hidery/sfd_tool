@@ -18,6 +18,7 @@ msgstr ""
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+# ===== 全局消息/通用提示 =====
 #: main.cpp:66 main.cpp:371 main.cpp:491 main.cpp:677 main.cpp:845 main.cpp:998
 #: main.cpp:1678
 msgid "Warning"
@@ -345,6 +346,7 @@ msgstr "FDL1执行成功"
 msgid "FDL1 executed successfully!"
 msgstr "FDL1已成功执行！"
 
+# ===== 连接/欢迎 页面 =====
 #: main.cpp:2536
 msgid "Connect"
 msgstr "连接"
@@ -361,6 +363,7 @@ msgstr "请将你的设备连接到BROM模式"
 msgid "Press and hold the volume up or down keys and the power key to connect"
 msgstr "按住音量增大或减小键和电源键进行连接"
 
+# ===== FDL 发送设置 页面 =====
 #: main.cpp:2560 main.cpp:2561
 msgid "FDL Send Settings"
 msgstr "FDL发送设置"
@@ -415,7 +418,7 @@ msgstr "连接等待时间 (s):"
 
 #: main.cpp:2643
 msgid "Status : "
-msgstr "Status : "
+msgstr "状态："
 
 #: main.cpp:2644
 msgid "Not connected"
@@ -423,12 +426,13 @@ msgstr "未连接"
 
 #: main.cpp:2645
 msgid "   Mode : "
-msgstr "   Mode : "
+msgstr "   模式："
 
 #: main.cpp:2646
 msgid "BROM Not connected!!!"
 msgstr "BROM 未连接!!!"
 
+# ===== 分区操作 页面 =====
 #: main.cpp:2708
 msgid "Partition Operation"
 msgstr "分区操作"
@@ -520,6 +524,7 @@ msgstr "欲重命名分区：请选择一个你想重命名的分区"
 msgid "New name"
 msgstr "新名称"
 
+# ===== 手动操作 页面 =====
 #: main.cpp:2834
 msgid "Manually Operate"
 msgstr "手动操作"
@@ -544,6 +549,7 @@ msgstr "读取分区 (Extract)"
 msgid "Erase partition"
 msgstr "擦除分区 (Erase)"
 
+# ===== 高级操作 页面 =====
 #: main.cpp:2915
 msgid "Advanced Operation"
 msgstr "高级操作"
@@ -597,6 +603,7 @@ msgid ""
 "[CAUTION] Disable AVB verification by patching trustos(Android 9 and lower)"
 msgstr "【警告】修补trustos以禁用AVB校验 (Android 9及以下)"
 
+# ===== 高级设置 页面 =====
 #: main.cpp:2981
 msgid "Advanced Settings"
 msgstr "高级设置"
@@ -677,6 +684,7 @@ msgstr "发送结束块数据"
 msgid "A/B Part read/flash manually set --- FDL2"
 msgstr "A/B分区刷写手工干预 --- FDL2"
 
+# ===== 调试选项 页面 =====
 #: main.cpp:3180
 msgid "Debug Options"
 msgstr "调试设置"
@@ -699,6 +707,7 @@ msgid ""
 "This page contains device debugging functions"
 msgstr "调试选项页面\n此页面包含设备调试功能"
 
+# ===== 日志/关于/电源操作 =====
 #: main.cpp:3231
 msgid "About"
 msgstr "关于"
@@ -855,17 +864,9 @@ msgstr "PAC烧录时间"
 msgid "PAC Time"
 msgstr "PAC烧录时间"
 
-msgid "Device unattached, exiting...\n设备已断开连接！正在退出..."
-msgstr "设备已断开连接！正在退出..."
 
-msgid "File does not exist.\n文件不存在！"
-msgstr "文件不存在！"
 
-msgid "Failed to unpack PAC file.\nPAC文件解包失败！"
-msgstr "PAC文件解包失败！"
 
-msgid "Device unattached, exiting...\n设备已断开连接！正在退出...\n"
-msgstr "设备已断开连接！正在退出...\n"
 
 msgid "Language will take effect after restart."
 msgstr "语言将在重启后生效。"
@@ -906,3 +907,101 @@ msgstr "已选择关键分区（例如 boot、vbmeta 等），刷写这些分区
 msgid "Start flashing selected partitions from the folder?"
 msgstr "确定开始从该文件夹批量刷入已选中的分区吗？"
 
+msgid "partition read incomplete"
+msgstr "分区读取不完整"
+
+
+
+# ===== Auto-appended entries from sfd_tool.pot =====
+
+msgid "UI language"
+msgstr "UI language"
+
+msgid "System default"
+msgstr "System default"
+
+msgid "Simplified Chinese"
+msgstr "Simplified Chinese"
+
+msgid "English"
+msgstr "English"
+
+msgid "Failed to create config service."
+msgstr "Failed to create config service."
+
+msgid "CVE Bypass Options"
+msgstr "CVE 绕过选项"
+
+msgid "SPRD4 Options"
+msgstr "SPRD4 选项"
+
+msgid "Pactime"
+msgstr "PAC 时间"
+
+msgid "Chip UID"
+msgstr "获取芯片 UID"
+
+msgid "Storage Check"
+msgstr "存储检查"
+
+msgid "Partition read failed!"
+msgstr "分区读取失败！"
+
+msgid "Success"
+msgstr "成功"
+
+
+
+
+
+msgid "partition backup cancelled"
+msgstr "分区备份已取消"
+
+msgid "Partition backup completed! Saved to: "
+msgstr "分区备份完成！已保存到："
+
+msgid "当前设备尚未加载分区表，请先读取分区列表后再尝试从文件夹恢复。"
+msgstr "当前设备尚未加载分区表，请先读取分区列表后再尝试从文件夹恢复。"
+
+msgid "在所选的文件夹中未找到可与当前分区表匹配的分区镜像。"
+msgstr "在所选的文件夹中未找到可与当前分区表匹配的分区镜像。"
+
+msgid "未选择任何要刷入的分区。"
+msgstr "未选择任何要刷入的分区。"
+
+msgid "确认从所选文件夹开始刷入勾选的分区吗？"
+msgstr "确认从所选文件夹开始刷入勾选的分区吗？"
+
+
+
+# ===== Auto-appended entries from sfd_tool.pot =====
+
+msgid "No partition table loaded on the current device. Please read the partition list first, then try restoring from the folder again."
+msgstr "当前设备尚未加载分区表，请先读取分区列表后再尝试从文件夹恢复。"
+
+msgid "No partition images matching the current partition table were found in the selected folder."
+msgstr "在所选的文件夹中未找到可与当前分区表匹配的分区镜像。"
+
+msgid "No partitions were selected to flash from the folder."
+msgstr "未选择任何要刷入的分区。"
+
+msgid "Start flashing the selected partitions from the folder?"
+msgstr "确认从所选文件夹开始刷入勾选的分区吗？"
+
+
+# ===== Auto-appended entries from sfd_tool.pot =====
+
+msgid "File does not exist."
+msgstr "文件不存在！"
+
+msgid "PAC unpacked successfully."
+msgstr "PAC文件解包成功。"
+
+msgid "Failed to unpack PAC."
+msgstr "PAC文件解包失败。"
+
+msgid "PAC flashed successfully."
+msgstr "PAC文件刷写成功。"
+
+msgid "Failed to flash PAC."
+msgstr "PAC文件刷写失败。"

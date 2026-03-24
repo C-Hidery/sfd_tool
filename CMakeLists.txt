@@ -61,11 +61,9 @@ add_library(sfd_ui STATIC
     ui_common.cpp
 )
 
-target_link_libraries(sfd_ui
-    PUBLIC
-        pages_lib
-        core_lib
-)
+# 注意：不在此处直接链接 core_lib/pages_lib，
+# 由最终可执行文件和测试目标按需显式链接，
+# 以避免在某些平台上出现静态库重复/顺序相关的警告。
 
 target_include_directories(sfd_ui
     PUBLIC
@@ -190,6 +188,30 @@ if (WIN32)
         message(WARNING "Resource file not found: ${RESOURCE_FILE}")
     endif()
 endif()
+
+# 链接子模块和公共 UI 库
+if(APPLE OR WIN32)
+    set(SFD_TOOL_LIBS
+        core_lib
+        pages_lib
+        sfd_ui
+    )
+else()
+    # Linux 等使用静态库时，重复一遍以解决循环依赖链接顺序问题
+    set(SFD_TOOL_LIBS
+        core_lib
+        pages_lib
+        sfd_ui
+        core_lib
+        pages_lib
+        sfd_ui
+    )
+endif()
+
+target_link_libraries(sfd_tool
+    PRIVATE
+        ${SFD_TOOL_LIBS}
+)
 
 # Windows: 直接包含 BMPlatform 相关源文件
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT USE_LIBUSB)
@@ -442,11 +464,9 @@ if (USE_LIBUSB)
             target_link_directories(${tgt} PRIVATE ${LIBUSB_LIBRARY_DIRS})
         endforeach()
 
-        # 在最终可执行文件和测试可执行文件上链接 libusb 库
-        target_link_libraries(sfd_tool PRIVATE ${LIBUSB_LIBRARIES})
-        foreach(tgt IN LISTS SFD_TEST_TARGETS)
-            target_link_libraries(${tgt} PRIVATE ${LIBUSB_LIBRARIES})
-        endforeach()
+        # 由 core_lib 统一链接 libusb，其他可执行文件和测试通过依赖 core_lib
+        # 获得正确的链接顺序，避免在 GNU ld 下出现未解析的 libusb 符号。
+        target_link_libraries(core_lib PUBLIC ${LIBUSB_LIBRARIES})
     endif()
 else()
     foreach(tgt IN LISTS SFD_COMMON_TARGETS)

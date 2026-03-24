@@ -10,8 +10,37 @@ set -euo pipefail
 # - 编译 Release 版本（不自动运行，可手动执行二进制）
 
 BUILD_DIR="build_cmake"
+I18N_SOURCES="main.cpp GtkWidgetHelper.cpp pages/page_*.cpp ui_common.cpp"
 
 OS_NAME="$(uname -s 2>/dev/null || echo unknown)"
+
+update_i18n() {
+  if ! command -v xgettext >/dev/null 2>&1; then
+    echo "[release][i18n] 未找到 xgettext，跳过 POT/PO 更新" >&2
+    return
+  fi
+
+  echo "[release][i18n] 更新 locale/sfd_tool.pot ..."
+  xgettext \
+    --language=C++ \
+    --keyword=_ \
+    --from-code=UTF-8 \
+    --output=locale/sfd_tool.pot \
+    ${I18N_SOURCES}
+
+  local PYTHON_BIN="${PYTHON:-python3}"
+  if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+    PYTHON_BIN="python"
+  fi
+
+  if command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+    echo "[release][i18n] 同步 zh_CN sfd_tool.po ..."
+    "${PYTHON_BIN}" scripts/gen_po.py || \
+      echo "[release][i18n] gen_po.py 执行失败，跳过本次翻译同步" >&2
+  else
+    echo "[release][i18n] 未找到 python3/python，跳过 gen_po.py" >&2
+  fi
+}
 
 # 1. 检查 cmake 是否存在
 if ! command -v cmake >/dev/null 2>&1; then
@@ -31,6 +60,9 @@ if ! command -v cmake >/dev/null 2>&1; then
   esac
   exit 1
 fi
+
+# 在配置/构建前更新 POT/PO，避免漏翻
+update_i18n
 
 # 2. 选择生成器（优先 Ninja，没有则回退 Unix Makefiles）
 GENERATOR="Ninja"

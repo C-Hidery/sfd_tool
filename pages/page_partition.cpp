@@ -1062,6 +1062,7 @@ std::string BuildBackupRootDirForGuiBackup() {
 void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
 
+#if defined(__APPLE__)
 	helper.setLabelText(helper.getWidget("con"), "Backup partitions");
 	std::thread([helper]() mutable {
 		auto& settings = GetGuiIoSettings();
@@ -1092,6 +1093,44 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 			helper.setLabelText(helper.getWidget("con"), "Ready");
 		}, GTK_WINDOW(helper.getWidget("main_window")));
 	}).detach();
+#else
+	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+	std::string output_dir = showFolderChooser(parent);
+	if (output_dir.empty()) {
+		// 用户取消选择，直接返回
+		return;
+	}
+
+	helper.setLabelText(helper.getWidget("con"), "Backup partitions");
+	std::thread([helper, output_dir]() mutable {
+		auto& settings = GetGuiIoSettings();
+
+		std::unique_ptr<sfd::FlashService> svc = sfd::createFlashService();
+		svc->setContext(io, &g_app_state);
+
+		std::vector<std::string> names; // 为空表示备份全部
+
+		std::uint32_t step = GetEffectiveManualBlockSize();
+		DEG_LOG(I, "[blk] backup_all GUI step=%u", step);
+
+		sfd::FlashStatus st = svc->backupPartitions(names, output_dir, sfd::SlotSelection::Auto, step);
+		gui_idle_call_wait_drag([helper, st, output_dir]() mutable {
+			if (!st.success) {
+				// 备份取消：使用可本地化字符串
+				if (st.code == sfd::FlashErrorCode::Cancelled) {
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("partition backup cancelled"));
+				} else {
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), st.message.c_str());
+				}
+			} else {
+				// 成功时提示输出目录
+				std::string msg = std::string(_("Partition backup completed! Saved to: ")) + output_dir;
+				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Completed"))), msg.c_str());
+			}
+			helper.setLabelText(helper.getWidget("con"), "Ready");
+		}, GTK_WINDOW(helper.getWidget("main_window")));
+	}).detach();
+#endif
 }
 
 void confirm_partition_c(GtkWidgetHelper helper) {
@@ -1174,7 +1213,8 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_box_pack_start(GTK_BOX(mainBox), selectTitle, FALSE, FALSE, 0);
 
 	GtkWidget* listScroll = gtk_scrolled_window_new(NULL, NULL);
-	gtk_widget_set_size_request(listScroll, -1, 220);
+	// 为小屏幕保留更多垂直空间，适当降低默认高度
+	gtk_widget_set_size_request(listScroll, -1, 180);
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(listScroll),
 	                               GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 	// 添加边框(阴影)使其看起来像表格区块
@@ -1429,7 +1469,8 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 
 	GtkWidget* content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
 	GtkWidget* scrolled = gtk_scrolled_window_new(nullptr, nullptr);
-	gtk_widget_set_size_request(scrolled, 700, 320);
+	// 在对话框中适当减小默认高度，避免在低分辨率屏幕上遮挡底部状态栏
+	gtk_widget_set_size_request(scrolled, 700, 260);
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 	gtk_container_add(GTK_CONTAINER(content), scrolled);
 
@@ -1625,12 +1666,38 @@ void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
 		return;
 	}
 
-	auto* svc = ensure_flash_service();
+	// 直接使用当前 io 分区表构建视图，确保与界面一致
 	std::vector<sfd::DevicePartitionInfo> partitions;
-	sfd::FlashStatus st = svc->getCachedDevicePartitions(partitions);
-	if (!st.success || partitions.empty()) {
-		showErrorDialog(parent, _("Error"), _("No partition table loaded, cannot restore from folder!"));
-		return;
+	if (!isCMethod) {
+		if (io->part_count == 0) {
+			showErrorDialog(parent, _("Error"),
+			                _("No partition table loaded on the current device. Please read the partition list first, then try restoring from the folder again."));
+			return;
+		}
+		partitions.reserve(io->part_count);
+		for (int i = 0; i < io->part_count; ++i) {
+			sfd::DevicePartitionInfo info{};
+			info.name = io->ptable[i].name;
+			info.size = static_cast<std::uint64_t>(io->ptable[i].size);
+			info.readable = true;
+			info.writable = true;
+			partitions.push_back(info);
+		}
+	} else {
+		if (io->part_count_c == 0) {
+			showErrorDialog(parent, _("Error"),
+			                _("No partition table loaded on the current device. Please read the partition list first, then try restoring from the folder again."));
+			return;
+		}
+		partitions.reserve(io->part_count_c);
+		for (int i = 0; i < io->part_count_c; ++i) {
+			sfd::DevicePartitionInfo info{};
+			info.name = io->Cptable[i].name;
+			info.size = static_cast<std::uint64_t>(io->Cptable[i].size);
+			info.readable = true;
+			info.writable = true;
+			partitions.push_back(info);
+		}
 	}
 
 	std::string folder = showFolderChooser(parent);
@@ -1641,7 +1708,8 @@ void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
 
 	auto items = scan_folder_and_match_partitions(folder, partitions);
 	if (items.empty()) {
-		showInfoDialog(parent, _("Info"), _("No matching partition images found in the selected folder."));
+		showInfoDialog(parent, _("Info"),
+		              _("No partition images matching the current partition table were found in the selected folder."));
 		return;
 	}
 
@@ -1661,13 +1729,14 @@ void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
 	}
 
 	if (final_items.empty()) {
-		showInfoDialog(parent, _("Info"), _("No partitions selected to flash."));
+		showInfoDialog(parent, _("Info"),
+		              _("No partitions were selected to flash from the folder."));
 		return;
 	}
 
 	// 总体确认
 	if (!showConfirmDialog(parent, _("Confirm"),
-	                       _("Start flashing selected partitions from the folder?"))) {
+	                       _("Start flashing the selected partitions from the folder?"))) {
 		return;
 	}
 
