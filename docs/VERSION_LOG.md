@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 1.8.2.5 LTV Edition
+Version 1.8.2.6 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -174,6 +174,9 @@ UI Refactor, optimization code logic.
 
 ---v 1.8.2.5---
 优化：进度条实时更新，自适应UI窗口可调整
+
+---v 1.8.2.6---
+优化：底部状态栏适配和数据展示
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
