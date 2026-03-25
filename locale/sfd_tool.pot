@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-25 10:58+0800\n"
+"POT-Creation-Date: 2026-03-25 13:46+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -91,7 +91,7 @@ msgstr ""
 
 #: pages/page_advanced_op.cpp:53 pages/page_advanced_op.cpp:68
 #: pages/page_connect.cpp:122 pages/page_connect.cpp:401
-#: pages/page_connect.cpp:403 pages/page_manual.cpp:230
+#: pages/page_connect.cpp:403 pages/page_manual.cpp:199
 #: pages/page_partition.cpp:1021
 msgid "Tips"
 msgstr ""
@@ -140,7 +140,7 @@ msgstr ""
 #: pages/page_advanced_set.cpp:67 pages/page_advanced_set.cpp:74
 #: pages/page_advanced_set.cpp:79 pages/page_advanced_set.cpp:84
 #: pages/page_advanced_set.cpp:89 pages/page_advanced_set.cpp:94
-#: pages/page_advanced_set.cpp:455 pages/page_debug.cpp:53
+#: pages/page_advanced_set.cpp:462 pages/page_debug.cpp:53
 #: pages/page_debug.cpp:73 pages/page_debug.cpp:90 pages/page_debug.cpp:93
 #: pages/page_partition.cpp:1589 pages/page_partition.cpp:1711
 #: pages/page_partition.cpp:1732
@@ -261,83 +261,83 @@ msgstr ""
 msgid "Data block size"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:188 pages/page_advanced_set.cpp:218
+#: pages/page_advanced_set.cpp:194 pages/page_advanced_set.cpp:224
 msgid "Value:"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:199
+#: pages/page_advanced_set.cpp:205
 msgid "Reset to default block size"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:207
+#: pages/page_advanced_set.cpp:213
 msgid "Rawdata Mode --- Value support: {1, 2}"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:216
+#: pages/page_advanced_set.cpp:222
 msgid "Enable Rawdata mode"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:217
+#: pages/page_advanced_set.cpp:223
 msgid "Disable Rawdata mode"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:239
+#: pages/page_advanced_set.cpp:245
 msgid "Transcode --- FDL1/2"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:248
+#: pages/page_advanced_set.cpp:254
 msgid "Enable transcode - FDL1"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:249
+#: pages/page_advanced_set.cpp:255
 msgid "Disable transcode --- FDL2"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:262
+#: pages/page_advanced_set.cpp:268
 msgid "Charging Mode --- BROM"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:271
+#: pages/page_advanced_set.cpp:277
 msgid "Enable Charging mode --- BROM"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:272
+#: pages/page_advanced_set.cpp:278
 msgid "Disable Charging mode --- BROM"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:285
+#: pages/page_advanced_set.cpp:291
 msgid "Send End Data"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:294
+#: pages/page_advanced_set.cpp:300
 msgid "Enable sending end data"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:295
+#: pages/page_advanced_set.cpp:301
 msgid "Disable sending end data"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:308
+#: pages/page_advanced_set.cpp:314
 msgid "Operation timeout"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:328
+#: pages/page_advanced_set.cpp:334
 msgid "A/B Part read/flash manually set --- FDL2"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:337
+#: pages/page_advanced_set.cpp:343
 msgid "Not VAB --- FDL2"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:338
+#: pages/page_advanced_set.cpp:344
 msgid "A Parts --- FDL2"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:339
+#: pages/page_advanced_set.cpp:345
 msgid "B Parts --- FDL2"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:434 pages/page_advanced_set.cpp:449
+#: pages/page_advanced_set.cpp:441 pages/page_advanced_set.cpp:456
 #: pages/page_pac_flash.cpp:102 pages/page_pac_flash.cpp:117
 #: pages/page_pac_flash.cpp:136 pages/page_partition.cpp:398
 #: pages/page_partition.cpp:407 pages/page_partition.cpp:412
@@ -363,11 +363,11 @@ msgstr ""
 msgid "Error"
 msgstr ""
 
-#: pages/page_advanced_set.cpp:435
+#: pages/page_advanced_set.cpp:442
 msgid "Failed to create config service."
 msgstr ""
 
-#: pages/page_advanced_set.cpp:456
+#: pages/page_advanced_set.cpp:463
 msgid "Language will take effect after restart."
 msgstr ""
 
@@ -579,7 +579,7 @@ msgstr ""
 msgid "No partition image file selected!"
 msgstr ""
 
-#: pages/page_manual.cpp:46 pages/page_manual.cpp:99 pages/page_manual.cpp:196
+#: pages/page_manual.cpp:46 pages/page_manual.cpp:99 pages/page_manual.cpp:165
 msgid "No partition name specified!"
 msgstr ""
 
@@ -587,61 +587,57 @@ msgstr ""
 msgid "Partition write completed!"
 msgstr ""
 
-#: pages/page_manual.cpp:117
-msgid "Partition read failed!"
-msgstr ""
-
-#: pages/page_manual.cpp:119 pages/page_manual.cpp:174
+#: pages/page_manual.cpp:143
 msgid "Partition read completed!"
 msgstr ""
 
-#: pages/page_manual.cpp:210 pages/page_partition.cpp:380
+#: pages/page_manual.cpp:179 pages/page_partition.cpp:380
 msgid "Partition erase completed!"
 msgstr ""
 
-#: pages/page_manual.cpp:230 pages/page_partition.cpp:1021
+#: pages/page_manual.cpp:199 pages/page_partition.cpp:1021
 msgid "Current partition operation cancelled!"
 msgstr ""
 
-#: pages/page_manual.cpp:235
+#: pages/page_manual.cpp:204
 msgid "Manually Operate"
 msgstr ""
 
-#: pages/page_manual.cpp:266
+#: pages/page_manual.cpp:235
 msgid "Write partition"
 msgstr ""
 
-#: pages/page_manual.cpp:277 pages/page_manual.cpp:335
-#: pages/page_manual.cpp:371
+#: pages/page_manual.cpp:246 pages/page_manual.cpp:304
+#: pages/page_manual.cpp:340
 msgid "Partition name:"
 msgstr ""
 
-#: pages/page_manual.cpp:290 pages/page_partition.cpp:1551
+#: pages/page_manual.cpp:259 pages/page_partition.cpp:1551
 msgid "Image file path:"
 msgstr ""
 
-#: pages/page_manual.cpp:312 pages/page_partition.cpp:1253
+#: pages/page_manual.cpp:281 pages/page_partition.cpp:1253
 #: pages/page_partition.cpp:1467
 msgid "WRITE"
 msgstr ""
 
-#: pages/page_manual.cpp:324
+#: pages/page_manual.cpp:293
 msgid "Extract partition"
 msgstr ""
 
-#: pages/page_manual.cpp:348 pages/page_partition.cpp:1255
+#: pages/page_manual.cpp:317 pages/page_partition.cpp:1255
 msgid "EXTRACT"
 msgstr ""
 
-#: pages/page_manual.cpp:360
+#: pages/page_manual.cpp:329
 msgid "Erase partition"
 msgstr ""
 
-#: pages/page_manual.cpp:384 pages/page_partition.cpp:1256
+#: pages/page_manual.cpp:353 pages/page_partition.cpp:1256
 msgid "ERASE"
 msgstr ""
 
-#: pages/page_manual.cpp:393 pages/page_partition.cpp:1272
+#: pages/page_manual.cpp:362 pages/page_partition.cpp:1272
 #: pages/page_partition.cpp:1466
 msgid "Cancel"
 msgstr ""

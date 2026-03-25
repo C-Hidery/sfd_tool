@@ -1073,10 +1073,10 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 		std::string output_dir = BuildBackupRootDirForGuiBackup();
 		std::vector<std::string> names; // 为空表示备份全部
 
-		std::uint32_t step = GetEffectiveManualBlockSize();
-		DEG_LOG(I, "[blk] backup_all GUI step=%u", step);
+		auto blk_cfg = MakeBlockSizeConfigFromGui();
+		DEG_LOG(I, "[blk] backup_all GUI step=%u", blk_cfg.manual_block_size);
 
-		sfd::FlashStatus st = svc->backupPartitions(names, output_dir, sfd::SlotSelection::Auto, step);
+		sfd::FlashStatus st = svc->backupPartitions(names, output_dir, sfd::SlotSelection::Auto, blk_cfg);
 		gui_idle_call_wait_drag([helper, st, output_dir]() mutable {
 			if (!st.success) {
 				// 备份取消：使用可本地化字符串
@@ -1110,10 +1110,10 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 
 		std::vector<std::string> names; // 为空表示备份全部
 
-		std::uint32_t step = GetEffectiveManualBlockSize();
-		DEG_LOG(I, "[blk] backup_all GUI step=%u", step);
+		auto blk_cfg = MakeBlockSizeConfigFromGui();
+		DEG_LOG(I, "[blk] backup_all GUI step=%u", blk_cfg.manual_block_size);
 
-		sfd::FlashStatus st = svc->backupPartitions(names, output_dir, sfd::SlotSelection::Auto, step);
+		sfd::FlashStatus st = svc->backupPartitions(names, output_dir, sfd::SlotSelection::Auto, blk_cfg);
 		gui_idle_call_wait_drag([helper, st, output_dir]() mutable {
 			if (!st.success) {
 				// 备份取消：使用可本地化字符串

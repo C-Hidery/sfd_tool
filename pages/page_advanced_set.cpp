@@ -178,8 +178,14 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* blkBox = makeCardBox(32, 16);
 	gtk_container_add(GTK_CONTAINER(blkFrame), blkBox);
 
+	// 从当前 GUI 配置初始化滑条和数值显示
+	auto& blk_settings = GetGuiIoSettings();
+	uint32_t initial_step = MakeBlockSizeConfigFromGui().manual_block_size;
+	if (initial_step < 10000) initial_step = 10000;
+	if (initial_step > 60000) initial_step = 60000;
+
 	GtkWidget* blkSlider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 10000, 60000, 10000);
-	gtk_range_set_value(GTK_RANGE(blkSlider), 10000);
+	gtk_range_set_value(GTK_RANGE(blkSlider), initial_step);
 	gtk_scale_set_draw_value(GTK_SCALE(blkSlider), TRUE);
 	gtk_scale_set_value_pos(GTK_SCALE(blkSlider), GTK_POS_RIGHT);
 	gtk_widget_set_name(blkSlider, "blk_size");
@@ -187,7 +193,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
 	GtkWidget* sizeConLabel = gtk_label_new(_("Value:"));
 	helper.addWidget("blk_label", sizeConLabel);
-	GtkWidget* sizeCon = helper.createLabel("10000", "size_con", 0, 0, 60, 20);
+	GtkWidget* sizeCon = helper.createLabel(std::to_string(initial_step).c_str(), "size_con", 0, 0, 60, 20);
 
 	GtkWidget* sliderBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
 	gtk_box_pack_start(GTK_BOX(sliderBox), blkSlider, TRUE, TRUE, 0);
@@ -386,6 +392,7 @@ void AdvancedSetPage::bindSignals(GtkWidgetHelper& helper) {
 		auto& s = GetGuiIoSettings();
 		GtkWidget* sc = helper.getWidget("size_con");
 		gtk_label_set_text(GTK_LABEL(sc), std::to_string(s.manual_block_size).c_str());
+		gtk_range_set_value(GTK_RANGE(helper.getWidget("blk_size")), s.manual_block_size);
 		LogBlkState("adv_set blk_reset");
 	});
 	helper.bindClick(helper.getWidget("raw_data_en"), [&]() {
