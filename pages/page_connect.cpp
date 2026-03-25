@@ -137,7 +137,19 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	check_root_permission(helper);
 #endif
 	helper.disableWidget("connect_1");
-	double wait_time = helper.getSpinValue(waitBox);
+	double wait_time = 30.0;
+	if (waitBox && GTK_IS_ENTRY(waitBox)) {
+		const char* text = helper.getEntryText(waitBox);
+		if (text && *text) {
+			char* endptr = nullptr;
+			long value = strtol(text, &endptr, 10);
+			if (endptr != text) {
+				if (value < 1) value = 1;
+				if (value > 65535) value = 65535;
+				wait_time = static_cast<double>(value);
+			}
+		}
+	}
 	bool isSprd4 = helper.getSwitchState(sprd4Switch);
 	bool isOneMode = helper.getSwitchState(sprd4OneMode);
 	bool isCve = helper.getSwitchState(cveSwitch);
@@ -1092,9 +1104,9 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkStyleContext* styleCtx = gtk_widget_get_style_context(customSpinBox);
 	gtk_style_context_add_class(styleCtx, "linked");
 
-	GtkWidget* waitCon = helper.createSpinButton(1, 65535, 1, "wait_con", 30, 0, 0, 60, 32);
-	gtk_widget_set_name(waitCon, "wait_con_no_arrow");
-	
+	GtkWidget* waitCon = helper.createEntry("wait_con", "30", false, 0, 0, 60, 32, 0);
+	gtk_entry_set_alignment(GTK_ENTRY(waitCon), 0.5);
+
 	GtkWidget* btnMinus = gtk_button_new_with_label("-");
 	GtkWidget* btnPlus = gtk_button_new_with_label("+");
 	gtk_widget_set_size_request(btnMinus, 32, 32);
@@ -1102,11 +1114,29 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
 	g_signal_connect(btnMinus, "clicked", G_CALLBACK(+[](GtkButton* btn, gpointer data) {
 		(void)btn;
-		gtk_spin_button_spin(GTK_SPIN_BUTTON(data), GTK_SPIN_STEP_BACKWARD, 1);
+		GtkWidget* entry = GTK_WIDGET(data);
+		const char* text = gtk_entry_get_text(GTK_ENTRY(entry));
+		char* endptr = nullptr;
+		long value = strtol(text, &endptr, 10);
+		if (endptr == text) value = 30;
+		if (value > 1) value -= 1;
+		else value = 1;
+		char buf[32];
+		snprintf(buf, sizeof(buf), "%ld", value);
+		gtk_entry_set_text(GTK_ENTRY(entry), buf);
 	}), waitCon);
 	g_signal_connect(btnPlus, "clicked", G_CALLBACK(+[](GtkButton* btn, gpointer data) {
 		(void)btn;
-		gtk_spin_button_spin(GTK_SPIN_BUTTON(data), GTK_SPIN_STEP_FORWARD, 1);
+		GtkWidget* entry = GTK_WIDGET(data);
+		const char* text = gtk_entry_get_text(GTK_ENTRY(entry));
+		char* endptr = nullptr;
+		long value = strtol(text, &endptr, 10);
+		if (endptr == text) value = 30;
+		if (value < 65535) value += 1;
+		else value = 65535;
+		char buf[32];
+		snprintf(buf, sizeof(buf), "%ld", value);
+		gtk_entry_set_text(GTK_ENTRY(entry), buf);
 	}), waitCon);
 
 	gtk_box_pack_start(GTK_BOX(customSpinBox), waitCon, FALSE, FALSE, 0);
