@@ -533,7 +533,8 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 
 		// 如果已经探测到设备默认块大小（如 UFS 上的 0xF800），同步更新高级设置页中的显示，
 		// 让“数据块大小”滑块与数值直接反映统一后的默认步长（例如 63488）。
-		if (g_default_blk_size > DEFAULT_BLK_SIZE) {
+		// 如果已经探测到设备默认块大小并成功刷新分区表，则允许用户调整数据块大小
+		if (io->part_count > 0 || io->part_count_c > 0) {
 			gui_idle_call([helper]() mutable {
 				auto cfg = MakeBlockSizeConfigFromGui();
 				uint32_t effective_step = cfg.manual_block_size;
@@ -554,6 +555,9 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 					if (value > max) value = max;
 					gtk_range_set_value(GTK_RANGE(slider), value);
 				}
+
+				helper.enableWidget("blk_size");
+				helper.enableWidget("blk_reset");
 
 				LogBlkState("connect_update_blk_ui");
 			});

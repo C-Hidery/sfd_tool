@@ -94,6 +94,9 @@ void Enable_Startup(GtkWidgetHelper helper) {
 	helper.enableWidget("raw_data_en");
 	helper.enableWidget("raw_data_dis");
 	helper.enableWidget("pac_flash_start"); //BROM下允许使用PAC烧录功能
+	// 启动时禁止修改数据块大小，只有在成功连接设备并刷新分区表后才允许操作
+	helper.disableWidget("blk_size");
+	helper.disableWidget("blk_reset");
 }
 
 void EnableWidgets(GtkWidgetHelper helper) {
