@@ -530,6 +530,34 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				helper.setLabelText(helper.getWidget("storage_mode"),"Nand");
 			});
 		}
+
+		// 如果已经探测到设备默认块大小（如 UFS 上的 0xF800），同步更新高级设置页中的显示，
+		// 让“数据块大小”滑块与数值直接反映统一后的默认步长（例如 63488）。
+		if (g_default_blk_size > DEFAULT_BLK_SIZE) {
+			gui_idle_call([helper]() mutable {
+				auto cfg = MakeBlockSizeConfigFromGui();
+				uint32_t effective_step = cfg.manual_block_size;
+
+				GtkWidget* sizeCon = helper.getWidget("size_con");
+				if (sizeCon && GTK_IS_LABEL(sizeCon)) {
+					gtk_label_set_text(GTK_LABEL(sizeCon), std::to_string(effective_step).c_str());
+				}
+
+				GtkWidget* slider = helper.getWidget("blk_size");
+				if (slider && GTK_IS_RANGE(slider)) {
+					gdouble min = 10000.0;
+					gdouble max = std::max(min, static_cast<gdouble>(effective_step));
+					gtk_range_set_range(GTK_RANGE(slider), min, max);
+
+					gdouble value = static_cast<gdouble>(effective_step);
+					if (value < min) value = min;
+					if (value > max) value = max;
+					gtk_range_set_value(GTK_RANGE(slider), value);
+				}
+
+				LogBlkState("connect_update_blk_ui");
+			});
+		}
 		if (g_app_state.flash.gpt_failed != 1) {
 			if (g_app_state.flash.selected_ab == 2) {
 
