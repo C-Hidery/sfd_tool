@@ -1079,10 +1079,10 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_box_pack_start(GTK_BOX(mainConnectBox), actionBox, TRUE, FALSE, 15);
 
 	// Status labels（这些在底部控制栏也需要用到）
-	GtkWidget* statusLabel = helper.createLabel(_("Status : "), "status_label", 0, 0, 70, 24);
+	GtkWidget* statusLabel = helper.createLabel(_("Status: "), "status_label", 0, 0, 70, 24);
 	GtkWidget* conStatus = helper.createLabel(_("Not connected"), "con", 0, 0, 150, 23);
-	GtkWidget* modeLabel = helper.createLabel(_("   Mode : "), "mode_label", 0, 0, 50, 19);
-	GtkWidget* modeStatus = helper.createLabel(_("BROM Not connected!!!"), "mode", 0, 0, 200, 19);
+	GtkWidget* modeLabel = helper.createLabel(_("Mode: "), "mode_label", 0, 0, 50, 19);
+	GtkWidget* modeStatus = helper.createLabel(_("BROM Not connected!!!"), "mode", 0, 0, 140, 19);
 
 	// 把整合完毕的 mainConnectBox 添加到 connectPage
 	gtk_container_add(GTK_CONTAINER(connectScroll), mainConnectBox);

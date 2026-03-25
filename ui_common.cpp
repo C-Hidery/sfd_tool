@@ -372,30 +372,20 @@ GtkWidget* create_bottom_controls(GtkWidgetHelper& helper) {
 	gtk_box_pack_start(GTK_BOX(mdBoxLabel), modeStatus, FALSE, FALSE, 0);
 
 	GtkWidget* stgBoxLabel = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-	GtkWidget* storageLabel = helper.createLabel("Storage:", "", 0, 0, 60, 20);
-	GtkWidget* storageMode = helper.createLabel("Unknown", "storage_mode", 0, 0, 100, 20);
+	GtkWidget* storageLabel = helper.createLabel("Storage:", "", 0, 0, 80, 20);
+	GtkWidget* storageMode = helper.createLabel("Unknown", "storage_mode", 0, 0, 120, 20);
 	gtk_label_set_xalign(GTK_LABEL(storageLabel), 0.0);
 	gtk_label_set_xalign(GTK_LABEL(storageMode), 0.0);
 	gtk_box_pack_start(GTK_BOX(stgBoxLabel), storageLabel, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(stgBoxLabel), storageMode, FALSE, FALSE, 0);
 
 	GtkWidget* sltBoxLabel = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-	GtkWidget* slotLabel = helper.createLabel("Slot:", "", 0, 0, 40, 20);
-	GtkWidget* slotMode = helper.createLabel("Unknown", "slot_mode", 0, 0, 100, 20);
+	GtkWidget* slotLabel = helper.createLabel("Slot:", "", 0, 0, 80, 20);
+	GtkWidget* slotMode = helper.createLabel("Unknown", "slot_mode", 0, 0, 120, 20);
 	gtk_label_set_xalign(GTK_LABEL(slotLabel), 0.0);
 	gtk_label_set_xalign(GTK_LABEL(slotMode), 0.0);
 	gtk_box_pack_start(GTK_BOX(sltBoxLabel), slotLabel, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(sltBoxLabel), slotMode, FALSE, FALSE, 0);
-
-	// 将左侧四段状态添加至最底层横行
-	gtk_box_pack_start(GTK_BOX(bottomStatusBox), stBoxLabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(bottomStatusBox), mdBoxLabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(bottomStatusBox), stgBoxLabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(bottomStatusBox), sltBoxLabel, FALSE, FALSE, 0);
-
-	// 将中间弹性撑开
-	GtkWidget* stSpacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-	gtk_box_pack_start(GTK_BOX(bottomStatusBox), stSpacer, TRUE, TRUE, 0);
 
 	// 右侧进度文字
 	GtkWidget* prgTextHBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
@@ -406,7 +396,20 @@ GtkWidget* create_bottom_controls(GtkWidgetHelper& helper) {
 	gtk_box_pack_start(GTK_BOX(prgTextHBox), progressLabel, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(prgTextHBox), percentLabel, FALSE, FALSE, 0);
 
-	gtk_box_pack_end(GTK_BOX(bottomStatusBox), prgTextHBox, FALSE, FALSE, 0);
+	// 左侧状态
+	gtk_box_pack_start(GTK_BOX(bottomStatusBox), stBoxLabel, FALSE, FALSE, 0);
+
+	// 右侧整体区域：模式 + 存储 + 槽位 + 进度
+	GtkWidget* rightGroup = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 20);
+	gtk_box_pack_start(GTK_BOX(rightGroup), mdBoxLabel, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(rightGroup), stgBoxLabel, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(rightGroup), sltBoxLabel, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(rightGroup), prgTextHBox, FALSE, FALSE, 0);
+
+	// 中间弹性空白：由它扩展，保证右侧整体一起移动
+	GtkWidget* stSpacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+	gtk_box_pack_start(GTK_BOX(bottomStatusBox), stSpacer, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(bottomStatusBox), rightGroup, FALSE, FALSE, 0);
 
 	// 将三层组装
 	gtk_box_pack_start(GTK_BOX(bottomContainer), topActionBox, FALSE, FALSE, 0);

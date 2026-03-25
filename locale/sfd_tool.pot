@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-24 10:02+0800\n"
+"POT-Creation-Date: 2026-03-25 09:46+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -358,7 +358,7 @@ msgstr ""
 #: pages/page_partition.cpp:1121 pages/page_partition.cpp:1123
 #: pages/page_partition.cpp:1644 pages/page_partition.cpp:1673
 #: pages/page_partition.cpp:1688 ui_common.cpp:191 ui_common.cpp:208
-#: ui_common.cpp:424 ui_common.cpp:440 ui_common.cpp:456 ui_common.cpp:478
+#: ui_common.cpp:427 ui_common.cpp:443 ui_common.cpp:459 ui_common.cpp:481
 msgid "Error"
 msgstr ""
 
@@ -432,87 +432,87 @@ msgstr ""
 msgid "Connect"
 msgstr ""
 
-#: pages/page_connect.cpp:834
+#: pages/page_connect.cpp:841
 msgid "Welcome to SFD Tool GUI!"
 msgstr ""
 
-#: pages/page_connect.cpp:835
+#: pages/page_connect.cpp:842
 msgid "Please connect your device with BROM mode"
 msgstr ""
 
-#: pages/page_connect.cpp:843
+#: pages/page_connect.cpp:850
 msgid "Press and hold the volume up or down keys and the power key to connect"
 msgstr ""
 
-#: pages/page_connect.cpp:858
+#: pages/page_connect.cpp:865
 msgid "FDL Send Settings"
 msgstr ""
 
-#: pages/page_connect.cpp:872
+#: pages/page_connect.cpp:879
 msgid "FDL File Path :"
 msgstr ""
 
-#: pages/page_connect.cpp:893
+#: pages/page_connect.cpp:900
 msgid "FDL Send Address :"
 msgstr ""
 
-#: pages/page_connect.cpp:902
+#: pages/page_connect.cpp:909
 msgid "Execute"
 msgstr ""
 
-#: pages/page_connect.cpp:917
+#: pages/page_connect.cpp:924
 msgid "CVE Bypass Options"
 msgstr ""
 
-#: pages/page_connect.cpp:930
+#: pages/page_connect.cpp:937
 msgid "Try to use CVE to skip FDL verification"
 msgstr ""
 
-#: pages/page_connect.cpp:943
+#: pages/page_connect.cpp:950
 msgid "Enable CVE v2"
 msgstr ""
 
-#: pages/page_connect.cpp:956
+#: pages/page_connect.cpp:963
 msgid "CVE Binary File Address"
 msgstr ""
 
-#: pages/page_connect.cpp:974
+#: pages/page_connect.cpp:981
 msgid "SPRD4 Options"
 msgstr ""
 
-#: pages/page_connect.cpp:987
+#: pages/page_connect.cpp:994
 msgid "Kick device to SPRD4"
 msgstr ""
 
-#: pages/page_connect.cpp:1000
+#: pages/page_connect.cpp:1007
 msgid "Kick One-time Mode"
 msgstr ""
 
-#: pages/page_connect.cpp:1013
+#: pages/page_connect.cpp:1020
 msgid "CVE Addr"
 msgstr ""
 
-#: pages/page_connect.cpp:1033
+#: pages/page_connect.cpp:1040
 msgid "CONNECT"
 msgstr ""
 
-#: pages/page_connect.cpp:1038
+#: pages/page_connect.cpp:1045
 msgid "Wait connection time (s):"
 msgstr ""
 
-#: pages/page_connect.cpp:1075
-msgid "Status : "
+#: pages/page_connect.cpp:1082
+msgid "Status: "
 msgstr ""
 
-#: pages/page_connect.cpp:1076
+#: pages/page_connect.cpp:1083
 msgid "Not connected"
 msgstr ""
 
-#: pages/page_connect.cpp:1077
-msgid "   Mode : "
+#: pages/page_connect.cpp:1084
+msgid "Mode: "
 msgstr ""
 
-#: pages/page_connect.cpp:1078
+#: pages/page_connect.cpp:1085
 msgid "BROM Not connected!!!"
 msgstr ""
 
@@ -669,60 +669,60 @@ msgstr ""
 msgid "Failed to flash PAC."
 msgstr ""
 
-#: pages/page_pac_flash.cpp:166
+#: pages/page_pac_flash.cpp:168
 msgid "PAC Flash"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:183
+#: pages/page_pac_flash.cpp:185
 msgid "PAC File"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:192
+#: pages/page_pac_flash.cpp:194
 msgid "PAC File Path"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:207
+#: pages/page_pac_flash.cpp:209
 msgid "Unpack PAC"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:217
+#: pages/page_pac_flash.cpp:219
 msgid "Please select a partition"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:236 pages/page_partition.cpp:1230
+#: pages/page_pac_flash.cpp:238 pages/page_partition.cpp:1230
 #: pages/page_partition.cpp:1548
 msgid "Partition Name"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:238 pages/page_partition.cpp:1232
+#: pages/page_pac_flash.cpp:240 pages/page_partition.cpp:1232
 msgid "Size"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:240 pages/page_partition.cpp:1234
+#: pages/page_pac_flash.cpp:242 pages/page_partition.cpp:1234
 msgid "Type"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:250
+#: pages/page_pac_flash.cpp:252
 msgid "Flash Operation"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:258
+#: pages/page_pac_flash.cpp:260
 msgid "Select slot mode:"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:264
+#: pages/page_pac_flash.cpp:266
 msgid "Not VAB (Non-AB)"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:265
+#: pages/page_pac_flash.cpp:267
 msgid "Slot A"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:266
+#: pages/page_pac_flash.cpp:268
 msgid "Slot B"
 msgstr ""
 
-#: pages/page_pac_flash.cpp:274
+#: pages/page_pac_flash.cpp:276
 msgid "START PAC Flash"
 msgstr ""
 
@@ -958,8 +958,8 @@ msgstr ""
 msgid "Partition read completed! Saved to: "
 msgstr ""
 
-#: ui_common.cpp:191 ui_common.cpp:208 ui_common.cpp:424 ui_common.cpp:440
-#: ui_common.cpp:456 ui_common.cpp:478
+#: ui_common.cpp:191 ui_common.cpp:208 ui_common.cpp:427 ui_common.cpp:443
+#: ui_common.cpp:459 ui_common.cpp:481
 msgid "Device unattached, exiting..."
 msgstr ""
 
@@ -979,6 +979,6 @@ msgstr ""
 msgid "BOOT TO FASTBOOT"
 msgstr ""
 
-#: ui_common.cpp:402
+#: ui_common.cpp:392
 msgid "Progress:"
 msgstr ""
