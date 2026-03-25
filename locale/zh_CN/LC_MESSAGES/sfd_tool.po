@@ -1005,3 +1005,12 @@ msgstr "PAC文件刷写成功。"
 
 msgid "Failed to flash PAC."
 msgstr "PAC文件刷写失败。"
+
+
+# ===== Auto-appended entries from sfd_tool.pot =====
+
+msgid "Select All"
+msgstr "全选"
+
+msgid "Unselect All"
+msgstr "取消全选"

@@ -1474,11 +1474,22 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 	    nullptr);
 
 	GtkWidget* content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+
+	GtkWidget* button_box = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
+	gtk_button_box_set_layout(GTK_BUTTON_BOX(button_box), GTK_BUTTONBOX_START);
+	gtk_box_set_spacing(GTK_BOX(button_box), 6);
+	gtk_box_pack_start(GTK_BOX(content), button_box, FALSE, FALSE, 6);
+
+	GtkWidget* select_all_btn = gtk_button_new_with_label(_("Select All"));
+	GtkWidget* unselect_all_btn = gtk_button_new_with_label(_("Unselect All"));
+	gtk_box_pack_start(GTK_BOX(button_box), select_all_btn, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(button_box), unselect_all_btn, FALSE, FALSE, 0);
+
 	GtkWidget* scrolled = gtk_scrolled_window_new(nullptr, nullptr);
 	// 在对话框中适当减小默认高度，避免在低分辨率屏幕上遮挡底部状态栏
 	gtk_widget_set_size_request(scrolled, 900, 560);
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-	gtk_container_add(GTK_CONTAINER(content), scrolled);
+	gtk_box_pack_start(GTK_BOX(content), scrolled, TRUE, TRUE, 0);
 
 	GtkListStore* store = gtk_list_store_new(6,
 	                                         G_TYPE_BOOLEAN,  // 0: selected
@@ -1548,6 +1559,28 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 			gtk_list_store_set(GTK_LIST_STORE(model), &iter, 0, !active, -1);
 		}
 		gtk_tree_path_free(path);
+	}), tree);
+
+	g_signal_connect(select_all_btn, "clicked", G_CALLBACK(+[] (GtkButton* /*button*/, gpointer data) {
+		GtkTreeView* view = GTK_TREE_VIEW(data);
+		GtkTreeModel* model = gtk_tree_view_get_model(view);
+		GtkTreeIter iter;
+		gboolean valid = gtk_tree_model_get_iter_first(model, &iter);
+		while (valid) {
+			gtk_list_store_set(GTK_LIST_STORE(model), &iter, 0, TRUE, -1);
+			valid = gtk_tree_model_iter_next(model, &iter);
+		}
+	}), tree);
+
+	g_signal_connect(unselect_all_btn, "clicked", G_CALLBACK(+[] (GtkButton* /*button*/, gpointer data) {
+		GtkTreeView* view = GTK_TREE_VIEW(data);
+		GtkTreeModel* model = gtk_tree_view_get_model(view);
+		GtkTreeIter iter;
+		gboolean valid = gtk_tree_model_get_iter_first(model, &iter);
+		while (valid) {
+			gtk_list_store_set(GTK_LIST_STORE(model), &iter, 0, FALSE, -1);
+			valid = gtk_tree_model_iter_next(model, &iter);
+		}
 	}), tree);
 
 	// 其余列：分区名、镜像路径、分区大小、文件大小、关键标记
