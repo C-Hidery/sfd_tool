@@ -22,7 +22,7 @@ sfd_tool/
 ├── main_console.cpp          # 命令行模式入口（--no-gui），实现 CLI 命令解析与帮助文本
 ├── common.cpp / common.h     # 历史上集中逻辑的“公共模块”，部分职责已向 core/ 迁移
 ├── ui/ui_common.cpp / .h        # 与 UI 相关的通用逻辑（启用/禁用控件、状态栏等）
-├── GtkWidgetHelper.cpp/.hpp  # GTK 控件封装与辅助函数
+├── ui/GtkWidgetHelper.cpp/.hpp  # GTK 控件封装与辅助函数
 ├── ui_page.h                 # 页面初始化/信号绑定接口约定
 ├── i18n.h                    # gettext 国际化宏定义
 ├── GenTosNoAvb.h             # 与 AVB/TrustOS 相关的高级操作辅助

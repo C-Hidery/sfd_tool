@@ -45,7 +45,7 @@
 #include <ctype.h> // tolower
 #include <math.h>
 #include <time.h>
-#include "GtkWidgetHelper.hpp"
+#include "ui/GtkWidgetHelper.hpp"
 #include <regex>
 #include <fstream>
 #define NEWN new (std::nothrow)

@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include "common.h"
 #include "main.h"
-#include "GtkWidgetHelper.hpp"
+#include "ui/GtkWidgetHelper.hpp"
 #include "i18n.h"
 #include "ui/ui_common.h"
 #include "pages/page_connect.h"

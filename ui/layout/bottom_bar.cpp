@@ -1,5 +1,5 @@
 #include "bottom_bar.h"
-#include "GtkWidgetHelper.hpp"
+#include "ui/GtkWidgetHelper.hpp"
 #include "common.h"
 #include "i18n.h"
 

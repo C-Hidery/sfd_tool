@@ -1,5 +1,5 @@
 #pragma once
-#include "../GtkWidgetHelper.hpp"
+#include "ui/GtkWidgetHelper.hpp"
 #include "ui/ui_page.h"
 
 // About 页面实现 IPage 接口

@@ -1,5 +1,5 @@
 #pragma once
-#include "../GtkWidgetHelper.hpp"
+#include "ui/GtkWidgetHelper.hpp"
 #include "../common.h"
 #include "ui/ui_page.h"
 

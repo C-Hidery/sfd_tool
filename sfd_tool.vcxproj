@@ -18,7 +18,7 @@
     <ClCompile Include="main_console.cpp" />
     
     <!-- UI 公共层 -->
-    <ClCompile Include="GtkWidgetHelper.cpp" />
+    <ClCompile Include="ui\GtkWidgetHelper.cpp" />
     <ClCompile Include="ui\ui_common.cpp" />
     
     <!-- 历史公共模块（逐步向 core 迁移） -->

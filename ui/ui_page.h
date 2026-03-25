@@ -1,5 +1,5 @@
 #pragma once
-#include "../GtkWidgetHelper.hpp"
+#include "GtkWidgetHelper.hpp"
 
 // 统一的页面接口：封装页面创建与信号绑定两个生命周期
 class IPage {

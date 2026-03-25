@@ -95,7 +95,7 @@
     <ClCompile Include="BMPlatform.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="GtkWidgetHelper.cpp">
+    <ClCompile Include="ui\GtkWidgetHelper.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="main_console.cpp">

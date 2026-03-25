@@ -118,7 +118,7 @@ LOCALEDIR ?= $(DATADIR)/locale
 # CXXFLAGS += $(shell pkg-config --cflags nlohmann_json 2>/dev/null || echo "-I/usr/include/nlohmann")
 # LIBS += $(shell pkg-config --libs nlohmann_json 2>/dev/null || echo "-ljson")
 
-I18N_SOURCES = main.cpp GtkWidgetHelper.cpp ui/ui_common.cpp pages/*.cpp
+I18N_SOURCES = main.cpp ui/GtkWidgetHelper.cpp ui/ui_common.cpp pages/*.cpp
 
 # locale 生成（仍用于 install 兼容逻辑）
 .PHONY: update-po

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-25 10:46+0800\n"
+"POT-Creation-Date: 2026-03-25 10:58+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -44,40 +44,40 @@ msgid ""
 "are used, and try running the tool again."
 msgstr ""
 
-#: GtkWidgetHelper.cpp:53
+#: ui/GtkWidgetHelper.cpp:53
 msgid "Select file"
 msgstr ""
 
-#: GtkWidgetHelper.cpp:56 GtkWidgetHelper.cpp:63 GtkWidgetHelper.cpp:94
-#: GtkWidgetHelper.cpp:169
+#: ui/GtkWidgetHelper.cpp:56 ui/GtkWidgetHelper.cpp:63
+#: ui/GtkWidgetHelper.cpp:94 ui/GtkWidgetHelper.cpp:169
 msgid "_Cancel"
 msgstr ""
 
-#: GtkWidgetHelper.cpp:57
+#: ui/GtkWidgetHelper.cpp:57
 msgid "_Open"
 msgstr ""
 
-#: GtkWidgetHelper.cpp:60
+#: ui/GtkWidgetHelper.cpp:60
 msgid "Save file"
 msgstr ""
 
-#: GtkWidgetHelper.cpp:64 GtkWidgetHelper.cpp:170
+#: ui/GtkWidgetHelper.cpp:64 ui/GtkWidgetHelper.cpp:170
 msgid "_Save"
 msgstr ""
 
-#: GtkWidgetHelper.cpp:70 GtkWidgetHelper.cpp:188
+#: ui/GtkWidgetHelper.cpp:70 ui/GtkWidgetHelper.cpp:188
 msgid "All files (*.*)"
 msgstr ""
 
-#: GtkWidgetHelper.cpp:91
+#: ui/GtkWidgetHelper.cpp:91
 msgid "Select folder"
 msgstr ""
 
-#: GtkWidgetHelper.cpp:95
+#: ui/GtkWidgetHelper.cpp:95
 msgid "_Select"
 msgstr ""
 
-#: GtkWidgetHelper.cpp:166
+#: ui/GtkWidgetHelper.cpp:166
 msgid "Saving files"
 msgstr ""
 
