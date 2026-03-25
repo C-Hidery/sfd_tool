@@ -156,12 +156,12 @@ if [[ -f packaging/rpm-build/sfd-tool.spec ]]; then
   RPM_DATE="$(LC_ALL=C date '+%a %b %d %Y')"
   RPM_VER="${NEW_VERSION}-1-ltv"
   tmp_file="$(mktemp)"
-  awk -v d="$RPM_DATE" -v v="$RPM_VER" -v log="$LOG_LINE" '
+  awk -v d="$RPM_DATE" -v v="$RPM_VER" -v msg="$LOG_LINE" '
     BEGIN { inserted=0 }
     /^%changelog/ && !inserted {
       print "%changelog"
       print "* " d " RyanCrepa <Ryan110413@outlook.com> - " v
-      print "- " log
+      print "- " msg
       print ""
       inserted=1
       next
