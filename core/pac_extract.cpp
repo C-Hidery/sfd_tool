@@ -1,4 +1,5 @@
 #include "pac_extract.h"
+#include "../i18n.h"
 #include "logging.h"  // 使用统一的 ERR_EXIT
 #include "app_state.h"
 #include "../common.h"
@@ -1207,9 +1208,15 @@ bool pac_flash(spdio_t* io, const char* floder)
     DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
     load_partitions(io, "pac_unpack_output", blk_size, g_app_state.flash.selected_ab, 0);
     encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
-    if (!send_and_check(io)) {
-        // reset failed, but keep running
-    }
+    if (!send_and_check(io)) gui_idle_call_wait_drag([]() {
+			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC flashed successfully."));
+		}, GTK_WINDOW(helper.getWidget("main_window")));
+#ifndef _WIN32
+    sleep(5);
+#else
+    Sleep(5000);
+#endif
+	exit(0);
     }).detach();
     return true;
 }
