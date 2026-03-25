@@ -1226,13 +1226,18 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_widget_set_name(treeView, "part_list");
 	helper.addWidget("part_list", treeView);
 	GtkCellRenderer* renderer = gtk_cell_renderer_text_new();
-	gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(treeView), -1,
-	        _("Partition Name"), renderer, "text", 0, NULL);
-	gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(treeView), -1,
-	        _("Size"), renderer, "text", 1, NULL);
-	gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(treeView), -1,
-	        _("Type"), renderer, "text", 2, NULL);
-	gtk_container_add(GTK_CONTAINER(listScroll), treeView);
+
+	GtkTreeViewColumn* col_name = gtk_tree_view_column_new_with_attributes(_("Partition Name"), renderer, "text", 0, NULL);
+	gtk_tree_view_append_column(GTK_TREE_VIEW(treeView), col_name);
+	gtk_tree_view_column_set_sort_column_id(col_name, 0);
+
+	GtkTreeViewColumn* col_size = gtk_tree_view_column_new_with_attributes(_("Size"), renderer, "text", 1, NULL);
+	gtk_tree_view_append_column(GTK_TREE_VIEW(treeView), col_size);
+	gtk_tree_view_column_set_sort_column_id(col_size, 1);
+
+	GtkTreeViewColumn* col_type = gtk_tree_view_column_new_with_attributes(_("Type"), renderer, "text", 2, NULL);
+	gtk_tree_view_append_column(GTK_TREE_VIEW(treeView), col_type);
+	gtk_tree_view_column_set_sort_column_id(col_type, 2);
 	gtk_box_pack_start(GTK_BOX(mainBox), listScroll, FALSE, FALSE, 0);
 
 	// ── 包含操作按钮的外框 ──
@@ -1481,6 +1486,7 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 	                                         G_TYPE_STRING,   // 3: part size
 	                                         G_TYPE_STRING,   // 4: file size
 	                                         G_TYPE_STRING);  // 5: critical mark
+	gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(store), 1, GTK_SORT_ASCENDING);
 
 	for (const auto& item : items) {
 		GtkTreeIter iter;
