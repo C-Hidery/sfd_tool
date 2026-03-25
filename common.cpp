@@ -1,9 +1,13 @@
 #include "common.h"
+#include "ui/layout/bottom_bar.h"
 #include <functional>
+#include <string>
+
 int isCancel = 0;
 bool isHelperInit = false;
 GtkWidgetHelper helper;
 bool Err_Showed = false;
+static std::string g_progress_desc;
 
 
 #if defined(_MSC_VER) || defined(_WIN32)
@@ -387,37 +391,40 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
             double   speed_val   = progress_data->speed_mb_s;
 
             if (isHelperInit) {
-                // 更新进度条
-                GtkWidget* progressBar = helper.getWidget("progressBar_1");
-                if (progressBar && GTK_IS_PROGRESS_BAR(progressBar)) {
-                    gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(progressBar), percent_val);
-                }
-
-                // 更新百分比标签
-                GtkWidget* percentLabel = helper.getWidget("percent");
-                if (percentLabel && GTK_IS_LABEL(percentLabel)) {
-                    char percent_text[16];
-                    snprintf(percent_text, sizeof(percent_text), "%.1f%%", percent_val * 100.0);
-                    gtk_label_set_text(GTK_LABEL(percentLabel), percent_text);
-                }
+                // 更新进度条 + 百分比
+                char percent_text[16];
+                snprintf(percent_text, sizeof(percent_text), "%.1f%%", percent_val * 100.0);
+                bottom_bar_set_progress(percent_val, percent_text);
 
                 // 更新底部连接状态文本，展示当前进度与速度
-                GtkWidget* conStatus = helper.getWidget("con");
-                if (conStatus && GTK_IS_LABEL(conStatus)) {
-                    char status_text[160];
-                    double mb_done = done_value / (1024.0 * 1024.0);
+                char status_text[160];
+                double mb_done = done_value / (1024.0 * 1024.0);
+
+                if (!g_progress_desc.empty()) {
+                    snprintf(status_text, sizeof(status_text),
+                             "%s | %.1f MB | %.2f MB/s",
+                             g_progress_desc.c_str(),
+                             mb_done,
+                             speed_val);
+                } else {
                     snprintf(status_text, sizeof(status_text),
                              "read: %.1f MB | %.2f MB/s",
                              mb_done,
                              speed_val);
-                    gtk_label_set_text(GTK_LABEL(conStatus), status_text);
                 }
+
+                bottom_bar_set_io_status(status_text);
             }
 
             delete progress_data;
             return G_SOURCE_REMOVE;
         }, new UiProgressData{percent, done, speed_mb_s});
     }
+}
+
+void set_progress_desc(const char* desc) {
+    if (desc) g_progress_desc = desc;
+    else g_progress_desc.clear();
 }
 
 extern uint64_t fblk_size;
@@ -437,6 +444,9 @@ uint64_t dump_partition(spdio_t *io,
 	DEG_LOG(OP,"Start to read partition %s",name);
 	DEG_LOG(I,"Type CTRL + C to cancel...");
 	start_signal();
+
+	set_progress_desc(name);
+
 	if (!strcmp(name, "super")) dump_partition(io, "metadata", 0, check_partition(io, "metadata", 1), "metadata.bin", step);
 	else if (!strncmp(name, "userdata", 8)) { if (!check_confirm("read userdata")) return 0; }
 	else if (strstr(name, "nv1")) {
@@ -507,6 +517,8 @@ uint64_t dump_partition(spdio_t *io,
 		(long long)(offset - start));
 	DEG_LOG(I, "Cost time %.6f seconds", time_spent);
 	fclose(fo);
+
+	set_progress_desc(nullptr);
 
 	encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
 	send_and_check(io);

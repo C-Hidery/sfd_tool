@@ -1,6 +1,6 @@
 #pragma once
-#include "../GtkWidgetHelper.hpp"
-#include "../ui_page.h"
+#include "ui/GtkWidgetHelper.hpp"
+#include "ui/ui_page.h"
 
 // Debug 页面实现 IPage 接口
 class DebugPage : public IPage {

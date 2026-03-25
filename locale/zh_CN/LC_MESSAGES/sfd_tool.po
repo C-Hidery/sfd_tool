@@ -417,7 +417,7 @@ msgid "Wait connection time (s):"
 msgstr "连接等待时间 (s):"
 
 #: main.cpp:2643
-msgid "Status : "
+msgid "Status: "
 msgstr "状态："
 
 #: main.cpp:2644
@@ -425,8 +425,8 @@ msgid "Not connected"
 msgstr "未连接"
 
 #: main.cpp:2645
-msgid "   Mode : "
-msgstr "   模式："
+msgid "Mode: "
+msgstr "模式："
 
 #: main.cpp:2646
 msgid "BROM Not connected!!!"
@@ -1005,3 +1005,12 @@ msgstr "PAC文件刷写成功。"
 
 msgid "Failed to flash PAC."
 msgstr "PAC文件刷写失败。"
+
+
+# ===== Auto-appended entries from sfd_tool.pot =====
+
+msgid "Select All"
+msgstr "全选"
+
+msgid "Unselect All"
+msgstr "取消全选"

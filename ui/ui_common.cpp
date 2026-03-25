@@ -1,4 +1,5 @@
-#include "ui_common.h"
+#include "ui/layout/bottom_bar.h"
+#include "ui/ui_common.h"
 #include "common.h"
 #include "main.h"
 #include "i18n.h"
@@ -93,6 +94,9 @@ void Enable_Startup(GtkWidgetHelper helper) {
 	helper.enableWidget("raw_data_en");
 	helper.enableWidget("raw_data_dis");
 	helper.enableWidget("pac_flash_start"); //BROM下允许使用PAC烧录功能
+	// 启动时禁止修改数据块大小，只有在成功连接设备并刷新分区表后才允许操作
+	helper.disableWidget("blk_size");
+	helper.disableWidget("blk_reset");
 }
 
 void EnableWidgets(GtkWidgetHelper helper) {
@@ -306,114 +310,7 @@ void showExitAfterDelayDialog(GtkWindow* parent,
 }
 
 GtkWidget* create_bottom_controls(GtkWidgetHelper& helper) {
-	// 外层垂直 Box 包裹整个底部控制区
-	GtkWidget* bottomContainer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-	gtk_widget_set_margin_start(bottomContainer, 15);
-	gtk_widget_set_margin_end(bottomContainer, 15);
-	gtk_widget_set_margin_top(bottomContainer, 10);
-	gtk_widget_set_margin_bottom(bottomContainer, 10);
-
-	// 【第一行】: 横向排列的控制按钮，整体居中
-	GtkWidget* topActionBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-	GtkWidget* buttonsHBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-	
-	GtkWidget* poweroffBtn = helper.createButton(_("POWEROFF"), "poweroff", nullptr, 0, 0, 130, 32);
-	GtkWidget* rebootBtn = helper.createButton(_("REBOOT"), "reboot", nullptr, 0, 0, 110, 32);
-	GtkWidget* recoveryBtn = helper.createButton(_("BOOT TO RECOVERY"), "recovery", nullptr, 0, 0, 180, 32);
-	GtkWidget* fastbootBtn = helper.createButton(_("BOOT TO FASTBOOT"), "fastboot", nullptr, 0, 0, 180, 32);
-	
-	gtk_box_pack_start(GTK_BOX(buttonsHBox), poweroffBtn, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(buttonsHBox), rebootBtn, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(buttonsHBox), recoveryBtn, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(buttonsHBox), fastbootBtn, FALSE, FALSE, 0);
-
-	// 占位居中
-	GtkWidget* cSpacer1 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-	GtkWidget* cSpacer2 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-	gtk_box_pack_start(GTK_BOX(topActionBox), cSpacer1, TRUE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX(topActionBox), buttonsHBox, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(topActionBox), cSpacer2, TRUE, TRUE, 0);
-
-	// 【第二行】: 分界线、进度条与文字
-	GtkWidget* midProgressBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
-	
-	// 顶部带有一根横贯长线
-	GtkWidget* statSeparatorTop = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
-	gtk_box_pack_start(GTK_BOX(midProgressBox), statSeparatorTop, FALSE, FALSE, 0);
-
-	// 长进度条
-	GtkWidget* progressBar = gtk_progress_bar_new();
-	gtk_widget_set_name(progressBar, "progressBar_1");
-	helper.addWidget("progressBar_1", progressBar);
-	gtk_widget_set_hexpand(progressBar, TRUE);
-	gtk_widget_set_size_request(progressBar, -1, 4); 
-	gtk_widget_set_margin_top(progressBar, 5);
-	gtk_box_pack_start(GTK_BOX(midProgressBox), progressBar, FALSE, FALSE, 0);
-
-	// 【第三行】: 状态栏和进度数
-	GtkWidget* bottomStatusBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 20);
-
-	// 各状态子 Box
-	GtkWidget* statusLabel = helper.getWidget("status_label");
-	GtkWidget* conStatus = helper.getWidget("con");
-	GtkWidget* modeLabel = helper.getWidget("mode_label");
-	GtkWidget* modeStatus = helper.getWidget("mode");
-
-	GtkWidget* stBoxLabel = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-	gtk_label_set_xalign(GTK_LABEL(statusLabel), 0.0);
-	gtk_label_set_xalign(GTK_LABEL(conStatus), 0.0);
-	gtk_box_pack_start(GTK_BOX(stBoxLabel), statusLabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(stBoxLabel), conStatus, FALSE, FALSE, 0);
-
-	GtkWidget* mdBoxLabel = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-	gtk_label_set_xalign(GTK_LABEL(modeLabel), 0.0);
-	gtk_label_set_xalign(GTK_LABEL(modeStatus), 0.0);
-	gtk_box_pack_start(GTK_BOX(mdBoxLabel), modeLabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(mdBoxLabel), modeStatus, FALSE, FALSE, 0);
-
-	GtkWidget* stgBoxLabel = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-	GtkWidget* storageLabel = helper.createLabel("Storage:", "", 0, 0, 60, 20);
-	GtkWidget* storageMode = helper.createLabel("Unknown", "storage_mode", 0, 0, 100, 20);
-	gtk_label_set_xalign(GTK_LABEL(storageLabel), 0.0);
-	gtk_label_set_xalign(GTK_LABEL(storageMode), 0.0);
-	gtk_box_pack_start(GTK_BOX(stgBoxLabel), storageLabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(stgBoxLabel), storageMode, FALSE, FALSE, 0);
-
-	GtkWidget* sltBoxLabel = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-	GtkWidget* slotLabel = helper.createLabel("Slot:", "", 0, 0, 40, 20);
-	GtkWidget* slotMode = helper.createLabel("Unknown", "slot_mode", 0, 0, 100, 20);
-	gtk_label_set_xalign(GTK_LABEL(slotLabel), 0.0);
-	gtk_label_set_xalign(GTK_LABEL(slotMode), 0.0);
-	gtk_box_pack_start(GTK_BOX(sltBoxLabel), slotLabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(sltBoxLabel), slotMode, FALSE, FALSE, 0);
-
-	// 将左侧四段状态添加至最底层横行
-	gtk_box_pack_start(GTK_BOX(bottomStatusBox), stBoxLabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(bottomStatusBox), mdBoxLabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(bottomStatusBox), stgBoxLabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(bottomStatusBox), sltBoxLabel, FALSE, FALSE, 0);
-
-	// 将中间弹性撑开
-	GtkWidget* stSpacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-	gtk_box_pack_start(GTK_BOX(bottomStatusBox), stSpacer, TRUE, TRUE, 0);
-
-	// 右侧进度文字
-	GtkWidget* prgTextHBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-	GtkWidget* progressLabel = helper.createLabel(_("Progress:"), "progress_label", 0, 0, 60, 20);
-	GtkWidget* percentLabel = helper.createLabel("0%", "percent", 0, 0, 40, 20);
-	gtk_label_set_xalign(GTK_LABEL(progressLabel), 1.0);
-	gtk_label_set_xalign(GTK_LABEL(percentLabel), 1.0);
-	gtk_box_pack_start(GTK_BOX(prgTextHBox), progressLabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(prgTextHBox), percentLabel, FALSE, FALSE, 0);
-
-	gtk_box_pack_end(GTK_BOX(bottomStatusBox), prgTextHBox, FALSE, FALSE, 0);
-
-	// 将三层组装
-	gtk_box_pack_start(GTK_BOX(bottomContainer), topActionBox, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(bottomContainer), midProgressBox, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(bottomContainer), bottomStatusBox, FALSE, FALSE, 0);
-
-	return bottomContainer;
+	return bottom_bar_create(helper);
 }
 
 

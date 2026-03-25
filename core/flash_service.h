@@ -191,11 +191,28 @@ public:
     // 将文件写入单个分区
     virtual FlashStatus writePartitionFromFile(const PartitionIoOptions& options) = 0;
 
-    // 备份若干分区（names 为空表示全部）到目录
+// 备份若干分区（names 为空表示全部）到目录
     virtual FlashStatus backupPartitions(const std::vector<std::string>& partition_names,
                                          const std::string& output_directory,
-                                         SlotSelection slot_selection = SlotSelection::Auto,
-                                         std::uint32_t block_size = 0) = 0;
+                                         SlotSelection slot_selection,
+                                         const BlockSizeConfig& block_cfg) = 0;
+
+    // 兼容旧接口：通过裸 block_size 间接构造 BlockSizeConfig
+    FlashStatus backupPartitions(const std::vector<std::string>& partition_names,
+                                 const std::string& output_directory,
+                                 SlotSelection slot_selection = SlotSelection::Auto,
+                                 std::uint32_t block_size = 0) {
+        BlockSizeConfig cfg{};
+        if (block_size) {
+            cfg.mode = BlockSizeMode::MANUAL_BLOCK_SIZE;
+            cfg.manual_block_size = block_size;
+        } else {
+            cfg.mode = BlockSizeMode::AUTO_DEFAULT;
+            cfg.manual_block_size = 0;
+        }
+        cfg.use_compat_chain = true;
+        return backupPartitions(partition_names, output_directory, slot_selection, cfg);
+    }
 
     // 擦除指定分区
     virtual FlashStatus erasePartition(const std::string& partition_name) = 0;

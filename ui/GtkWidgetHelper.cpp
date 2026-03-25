@@ -1,5 +1,5 @@
 // GtkWidgetHelper.cpp
-#include "GtkWidgetHelper.hpp"
+#include "ui/GtkWidgetHelper.hpp"
 #include "i18n.h"
 #include <iostream>
 #include <sstream>

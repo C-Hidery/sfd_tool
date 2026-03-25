@@ -1,5 +1,5 @@
 #pragma once
-#include "../GtkWidgetHelper.hpp"
+#include "ui/GtkWidgetHelper.hpp"
 
 // 创建 Advanced Operation 标签页 UI 并添加到 notebook
 GtkWidget* create_advanced_op_page(GtkWidgetHelper& helper, GtkWidget* notebook);

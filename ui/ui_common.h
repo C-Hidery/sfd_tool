@@ -2,7 +2,7 @@
 #include "GtkWidgetHelper.hpp"
 #include <functional>
 #include <atomic>
-#include "core/flash_service.h"  // 引入 sfd::BlockSizeMode/BlockSizeConfig
+#include "../core/flash_service.h"  // 引入 sfd::BlockSizeMode/BlockSizeConfig
 
 using BlockSizeMode = sfd::BlockSizeMode;
 using BlockSizeConfig = sfd::BlockSizeConfig;

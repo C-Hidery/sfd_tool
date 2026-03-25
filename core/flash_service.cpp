@@ -336,7 +336,7 @@ public:
     FlashStatus backupPartitions(const std::vector<std::string>& partition_names,
                                  const std::string& output_directory,
                                  SlotSelection /*slot_selection*/,
-                                 std::uint32_t block_size) override {
+                                 const BlockSizeConfig& blk_cfg) override {
         if (!io_ || !app_) {
             DEG_LOG(E, "backupPartitions: context not set");
             return make_error(FlashErrorCode::InternalError, "context not set");
@@ -370,16 +370,6 @@ public:
                     names.push_back(pname);
                 }
             }
-        }
-
-        // 统一通过 PartitionReadService 执行实际的分区读取
-        BlockSizeConfig blk_cfg{};
-        if (block_size) {
-            blk_cfg.mode = BlockSizeMode::MANUAL_BLOCK_SIZE;
-            blk_cfg.manual_block_size = block_size;
-        } else {
-            blk_cfg.mode = BlockSizeMode::AUTO_DEFAULT;
-            blk_cfg.manual_block_size = 0;
         }
 
         auto& reader = partition_reader_;

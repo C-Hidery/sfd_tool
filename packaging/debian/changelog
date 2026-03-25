@@ -1,3 +1,27 @@
+sfd-tool (1.8.3.2-1-ltv) unstable; urgency=medium
+
+  * 优化批量恢复刷机体验；修复连接时间误触
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Wed, 25 Mar 2026 19:12:02 +0800
+
+sfd-tool (1.8.3.1-1-ltv) unstable; urgency=medium
+
+  * 优化：统一分区读取与全盘备份的数据块配置与显示
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Wed, 25 Mar 2026 15:28:15 +0800
+
+sfd-tool (1.8.3.0-1-ltv) unstable; urgency=medium
+
+  * 重构：UI相关的目录结构
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Wed, 25 Mar 2026 11:39:42 +0800
+
+sfd-tool (1.8.2.6-1-ltv) unstable; urgency=medium
+
+  * 优化：底部状态栏适配和数据展示
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Wed, 25 Mar 2026 10:22:09 +0800
+
 sfd-tool (1.8.2.5-1-ltv) unstable; urgency=medium
 
   * 优化：进度条实时更新，自适应UI窗口可调整

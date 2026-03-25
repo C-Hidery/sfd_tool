@@ -1,13 +1,24 @@
+#include "ui/layout/bottom_bar.h"
 #include "page_connect.h"
 #include "../common.h"
 #include "../main.h"
 #include "../i18n.h"
-#include "../ui_common.h"
+#include "ui/ui_common.h"
 #include "../core/device_service.h"
 #include "../core/config_service.h"
 #include "page_partition.h"
 #include <thread>
 #include <chrono>
+#include <algorithm>
+
+#ifdef _WIN32
+#ifdef max
+#undef max
+#endif
+#ifdef min
+#undef min
+#endif
+#endif
 
 extern spdio_t*& io;
 extern int ret;
@@ -114,7 +125,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	GtkWidget* cveAddr = helper.getWidget("cve_addr");
 	GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
 	GtkWidget* sprd4OneMode = helper.getWidget("sprd4_one_mode");
-	helper.setLabelText(helper.getWidget("con"), "Waiting for connection...");
+	bottom_bar_set_status("Waiting for connection...");
 	if (argc > 1 && !strcmp(argv[1], "--reconnect")) {
 		stage = 99;
 		gui_idle_call_wait_drag([helper]() {
@@ -126,7 +137,19 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	check_root_permission(helper);
 #endif
 	helper.disableWidget("connect_1");
-	double wait_time = helper.getSpinValue(waitBox);
+	double wait_time = 30.0;
+	if (waitBox && GTK_IS_ENTRY(waitBox)) {
+		const char* text = helper.getEntryText(waitBox);
+		if (text && *text) {
+			char* endptr = nullptr;
+			long value = strtol(text, &endptr, 10);
+			if (endptr != text) {
+				if (value < 1) value = 1;
+				if (value > 65535) value = 65535;
+				wait_time = static_cast<double>(value);
+			}
+		}
+	}
 	bool isSprd4 = helper.getSwitchState(sprd4Switch);
 	bool isOneMode = helper.getSwitchState(sprd4OneMode);
 	bool isCve = helper.getSwitchState(cveSwitch);
@@ -402,8 +425,8 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Since your device is in SPRD4 mode, you can choose to skip FDL setting and directly execute FDL, but not all devices support that, please proceed with caution!"));
 			}
 		}
-		else if (g_app_state.device.device_stage == FDL2) helper.setLabelText(helper.getWidget("con"), "Ready");
-		helper.setLabelText(helper.getWidget("con"), "Connected");
+		else if (g_app_state.device.device_stage == FDL2) bottom_bar_set_status("Ready");
+		bottom_bar_set_status("Connected");
 		Enable_Startup(helper);
 		update_mode_label_from_device_service(helper);
 	},GTK_WINDOW(helper.getWidget("main_window")));
@@ -425,7 +448,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		fdl2_path_json = fdl_path;
 		fdl2_addr_json = fdl_addr;
 		std::string dtxt = helper.getLabelText(helper.getWidget("con"));
-		helper.setLabelText(helper.getWidget("con"), dtxt + " -> FDL Executing");
+		bottom_bar_set_status(dtxt + " -> FDL Executing");
 		//Send fdl2
 		if (g_app_state.device.device_mode == SPRD3) {
 			FILE *fi = oxfopen(fdl_path, "r");
@@ -529,6 +552,38 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				helper.setLabelText(helper.getWidget("storage_mode"),"Nand");
 			});
 		}
+
+		// 如果已经探测到设备默认块大小（如 UFS 上的 0xF800），同步更新高级设置页中的显示，
+		// 让“数据块大小”滑块与数值直接反映统一后的默认步长（例如 63488）。
+		// 如果已经探测到设备默认块大小并成功刷新分区表，则允许用户调整数据块大小
+		if (io->part_count > 0 || io->part_count_c > 0) {
+			gui_idle_call([helper]() mutable {
+				auto cfg = MakeBlockSizeConfigFromGui();
+				uint32_t effective_step = cfg.manual_block_size;
+
+				GtkWidget* sizeCon = helper.getWidget("size_con");
+				if (sizeCon && GTK_IS_LABEL(sizeCon)) {
+					gtk_label_set_text(GTK_LABEL(sizeCon), std::to_string(effective_step).c_str());
+				}
+
+				GtkWidget* slider = helper.getWidget("blk_size");
+				if (slider && GTK_IS_RANGE(slider)) {
+					gdouble min = 10000.0;
+					gdouble max = std::max(min, static_cast<gdouble>(effective_step));
+					gtk_range_set_range(GTK_RANGE(slider), min, max);
+
+					gdouble value = static_cast<gdouble>(effective_step);
+					if (value < min) value = min;
+					if (value > max) value = max;
+					gtk_range_set_value(GTK_RANGE(slider), value);
+				}
+
+				helper.enableWidget("blk_size");
+				helper.enableWidget("blk_reset");
+
+				LogBlkState("connect_update_blk_ui");
+			});
+		}
 		if (g_app_state.flash.gpt_failed != 1) {
 			if (g_app_state.flash.selected_ab == 2) {
 
@@ -588,7 +643,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			EnableWidgets(helper);
 			helper.disableWidget("fdl_exec");
 			helper.setLabelText(helper.getWidget("mode"), "FDL2");
-			helper.setLabelText(helper.getWidget("con"), "Ready");
+		bottom_bar_set_status("Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
 
 		// FDL2 执行完成后，再通过 DeviceService 探测一次设备信息
@@ -635,7 +690,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		fdl1_addr_json = fdl_addr;
 		DEG_LOG(I, "Executing FDL file: %s at address: 0x%X", fdl_path, fdl_addr);
 		std::string dtxt = helper.getLabelText(helper.getWidget("con"));
-		helper.setLabelText(helper.getWidget("con"), dtxt + " -> FDL Executing");
+		bottom_bar_set_status(dtxt + " -> FDL Executing");
 		std::thread([helper, fdl_path, fdl_addr, execfile]() mutable {
 			FILE* fi = oxfopen(fdl_path, "r");
 			GtkWidget* cveSwitch = helper.getWidget("exec_addr");
@@ -799,7 +854,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				gui_idle_call_wait_drag([helper]() mutable {
 					showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("FDL1 Executed"), _("FDL1 executed successfully!"));
 					helper.setLabelText(helper.getWidget("mode"), "FDL1");
-					helper.setLabelText(helper.getWidget("con"), "Connected");
+					bottom_bar_set_status("Connected");
 				},GTK_WINDOW(helper.getWidget("main_window")));
 			}
 			waitFDL1 = 1;
@@ -1049,9 +1104,9 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkStyleContext* styleCtx = gtk_widget_get_style_context(customSpinBox);
 	gtk_style_context_add_class(styleCtx, "linked");
 
-	GtkWidget* waitCon = helper.createSpinButton(1, 65535, 1, "wait_con", 30, 0, 0, 60, 32);
-	gtk_widget_set_name(waitCon, "wait_con_no_arrow");
-	
+	GtkWidget* waitCon = helper.createEntry("wait_con", "30", false, 0, 0, 60, 32, 0);
+	gtk_entry_set_alignment(GTK_ENTRY(waitCon), 0.5);
+
 	GtkWidget* btnMinus = gtk_button_new_with_label("-");
 	GtkWidget* btnPlus = gtk_button_new_with_label("+");
 	gtk_widget_set_size_request(btnMinus, 32, 32);
@@ -1059,11 +1114,29 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
 	g_signal_connect(btnMinus, "clicked", G_CALLBACK(+[](GtkButton* btn, gpointer data) {
 		(void)btn;
-		gtk_spin_button_spin(GTK_SPIN_BUTTON(data), GTK_SPIN_STEP_BACKWARD, 1);
+		GtkWidget* entry = GTK_WIDGET(data);
+		const char* text = gtk_entry_get_text(GTK_ENTRY(entry));
+		char* endptr = nullptr;
+		long value = strtol(text, &endptr, 10);
+		if (endptr == text) value = 30;
+		if (value > 1) value -= 1;
+		else value = 1;
+		char buf[32];
+		snprintf(buf, sizeof(buf), "%ld", value);
+		gtk_entry_set_text(GTK_ENTRY(entry), buf);
 	}), waitCon);
 	g_signal_connect(btnPlus, "clicked", G_CALLBACK(+[](GtkButton* btn, gpointer data) {
 		(void)btn;
-		gtk_spin_button_spin(GTK_SPIN_BUTTON(data), GTK_SPIN_STEP_FORWARD, 1);
+		GtkWidget* entry = GTK_WIDGET(data);
+		const char* text = gtk_entry_get_text(GTK_ENTRY(entry));
+		char* endptr = nullptr;
+		long value = strtol(text, &endptr, 10);
+		if (endptr == text) value = 30;
+		if (value < 65535) value += 1;
+		else value = 65535;
+		char buf[32];
+		snprintf(buf, sizeof(buf), "%ld", value);
+		gtk_entry_set_text(GTK_ENTRY(entry), buf);
 	}), waitCon);
 
 	gtk_box_pack_start(GTK_BOX(customSpinBox), waitCon, FALSE, FALSE, 0);
@@ -1078,11 +1151,10 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
 	gtk_box_pack_start(GTK_BOX(mainConnectBox), actionBox, TRUE, FALSE, 15);
 
-	// Status labels（这些在底部控制栏也需要用到）
-	GtkWidget* statusLabel = helper.createLabel(_("Status : "), "status_label", 0, 0, 70, 24);
+	GtkWidget* statusLabel = helper.createLabel(_("Status: "), "status_label", 0, 0, 70, 24);
 	GtkWidget* conStatus = helper.createLabel(_("Not connected"), "con", 0, 0, 150, 23);
-	GtkWidget* modeLabel = helper.createLabel(_("   Mode : "), "mode_label", 0, 0, 50, 19);
-	GtkWidget* modeStatus = helper.createLabel(_("BROM Not connected!!!"), "mode", 0, 0, 200, 19);
+	GtkWidget* modeLabel = helper.createLabel(_("Mode: "), "mode_label", 0, 0, 50, 19);
+	GtkWidget* modeStatus = helper.createLabel(_("BROM Not connected!!!"), "mode", 0, 0, 140, 19);
 
 	// 把整合完毕的 mainConnectBox 添加到 connectPage
 	gtk_container_add(GTK_CONTAINER(connectScroll), mainConnectBox);

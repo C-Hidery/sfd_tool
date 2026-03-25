@@ -4,7 +4,7 @@
 #include "../core/config_service.h"
 #include "../core/pac_extract.h"  // FindFDLInExtFloder & Stages
 #include "../i18n.h"
-#include "../ui_common.h"
+#include "ui/ui_common.h"
 #include <string>
 #include <thread>
 #include <cstdio>

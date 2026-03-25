@@ -1,5 +1,5 @@
 #pragma once
-#include "../GtkWidgetHelper.hpp"
+#include "ui/GtkWidgetHelper.hpp"
 
 // 创建 Connect 标签页 UI 并添加到 notebook
 // 返回 connectPage 中创建的状态标签用于底部控制栏

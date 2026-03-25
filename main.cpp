@@ -4,9 +4,9 @@
 #include <cstdlib>
 #include "common.h"
 #include "main.h"
-#include "GtkWidgetHelper.hpp"
+#include "ui/GtkWidgetHelper.hpp"
 #include "i18n.h"
-#include "ui_common.h"
+#include "ui/ui_common.h"
 #include "pages/page_connect.h"
 #include "pages/page_partition.h"
 #include "pages/page_manual.h"
@@ -515,7 +515,8 @@ int gtk_kmain(int argc, char** argv) {
 		const gchar* css =
 		    "label.big-label { font-size: 20px; }"
 		    "progressbar { min-height: 9px; }"
-		    "#wait_con_no_arrow button { min-width: 0px; padding: 0px; border: none; background: transparent; -gtk-icon-source: none; color: transparent; opacity: 0; }";
+		    "#wait_con_no_arrow button { min-width: 0px; padding: 0px; border: none; background: transparent; -gtk-icon-source: none; color: transparent; opacity: 0; }"
+		    "#wait_con_no_arrow entry, #wait_con_no_arrow spinbutton, #wait_con_no_arrow text, #wait_con_no_arrow * { background: transparent; box-shadow: none; border: none; }";
 		gtk_css_provider_load_from_data(provider, css, -1, NULL);
 		gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
 		        GTK_STYLE_PROVIDER(provider),

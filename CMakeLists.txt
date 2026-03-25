@@ -57,8 +57,9 @@ endif()
 # ================= 公共 UI / CLI 静态库（主程序和测试共用） =================
 add_library(sfd_ui STATIC
     common.cpp
-    GtkWidgetHelper.cpp
-    ui_common.cpp
+    ui/GtkWidgetHelper.cpp
+    ui/ui_common.cpp
+    ui/layout/bottom_bar.cpp
 )
 
 # 注意：不在此处直接链接 core_lib/pages_lib，

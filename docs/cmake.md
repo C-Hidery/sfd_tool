@@ -414,7 +414,7 @@ SFD Tool 的 GUI 文案翻译使用 GNU gettext 体系，核心文件结构：
      --keyword=_ \
      --from-code=UTF-8 \
      --output=locale/sfd_tool.pot \
-     main.cpp GtkWidgetHelper.cpp pages/page_*.cpp ui_common.cpp
+     main.cpp ui/GtkWidgetHelper.cpp pages/page_*.cpp ui/ui_common.cpp
    ```
 
    - 该命令会扫描指定源码中的 `_()` 调用，并生成/更新 `sfd_tool.pot`；

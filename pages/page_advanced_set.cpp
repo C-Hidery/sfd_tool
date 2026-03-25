@@ -2,8 +2,18 @@
 #include "../common.h"
 #include "../main.h"
 #include "../i18n.h"
-#include "../ui_common.h"
+#include "ui/ui_common.h"
 #include "../core/config_service.h"
+#include <algorithm>
+
+#ifdef _WIN32
+#ifdef max
+#undef max
+#endif
+#ifdef min
+#undef min
+#endif
+#endif
 
 extern spdio_t*& io;
 extern int blk_size;
@@ -178,8 +188,18 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* blkBox = makeCardBox(32, 16);
 	gtk_container_add(GTK_CONTAINER(blkFrame), blkBox);
 
-	GtkWidget* blkSlider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 10000, 60000, 10000);
-	gtk_range_set_value(GTK_RANGE(blkSlider), 10000);
+	// 从当前 GUI 配置初始化滑条和数值显示
+	auto cfg = MakeBlockSizeConfigFromGui();
+	uint32_t effective_step = cfg.manual_block_size;
+	// 初始范围保持 10000~60000，和旧版本一致，避免 min == max
+	gdouble slider_min = 10000.0;
+	gdouble slider_max = 60000.0;
+	uint32_t slider_step = effective_step ? effective_step : static_cast<uint32_t>(slider_min);
+	if (slider_step < static_cast<uint32_t>(slider_min)) slider_step = static_cast<uint32_t>(slider_min);
+	if (slider_step > static_cast<uint32_t>(slider_max)) slider_step = static_cast<uint32_t>(slider_max);
+
+	GtkWidget* blkSlider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, slider_min, slider_max, 10000);
+	gtk_range_set_value(GTK_RANGE(blkSlider), slider_step);
 	gtk_scale_set_draw_value(GTK_SCALE(blkSlider), TRUE);
 	gtk_scale_set_value_pos(GTK_SCALE(blkSlider), GTK_POS_RIGHT);
 	gtk_widget_set_name(blkSlider, "blk_size");
@@ -187,7 +207,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
 	GtkWidget* sizeConLabel = gtk_label_new(_("Value:"));
 	helper.addWidget("blk_label", sizeConLabel);
-	GtkWidget* sizeCon = helper.createLabel("10000", "size_con", 0, 0, 60, 20);
+	GtkWidget* sizeCon = helper.createLabel(std::to_string(slider_step).c_str(), "size_con", 0, 0, 60, 20);
 
 	GtkWidget* sliderBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
 	gtk_box_pack_start(GTK_BOX(sliderBox), blkSlider, TRUE, TRUE, 0);
@@ -197,6 +217,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_box_pack_start(GTK_BOX(blkBox), sliderBox, FALSE, FALSE, 0);
 
 	GtkWidget* blkResetBtn = helper.createButton(_("Reset to default block size"), "blk_reset", nullptr, 0, 0, 220, 32);
+	gtk_widget_set_sensitive(blkResetBtn, FALSE);
 	gtk_box_pack_start(GTK_BOX(blkBox), blkResetBtn, FALSE, FALSE, 0);
 
 	gtk_box_pack_start(GTK_BOX(mainBox), blkFrame, FALSE, FALSE, 0);
@@ -386,6 +407,13 @@ void AdvancedSetPage::bindSignals(GtkWidgetHelper& helper) {
 		auto& s = GetGuiIoSettings();
 		GtkWidget* sc = helper.getWidget("size_con");
 		gtk_label_set_text(GTK_LABEL(sc), std::to_string(s.manual_block_size).c_str());
+		GtkWidget* slider = helper.getWidget("blk_size");
+		if (slider && GTK_IS_RANGE(slider)) {
+			gdouble min = 10000.0;
+			gdouble max = std::max(min, static_cast<gdouble>(s.manual_block_size));
+			gtk_range_set_range(GTK_RANGE(slider), min, max);
+			gtk_range_set_value(GTK_RANGE(slider), s.manual_block_size);
+		}
 		LogBlkState("adv_set blk_reset");
 	});
 	helper.bindClick(helper.getWidget("raw_data_en"), [&]() {

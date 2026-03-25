@@ -3,7 +3,7 @@
 #include "../main.h"
 #include "../i18n.h"
 #include "../core/flash_service.h"
-#include "../ui_common.h"
+#include "ui/ui_common.h"
 #include <thread>
 #include <iostream>
 #ifndef _WIN32
@@ -237,7 +237,7 @@ scan_folder_and_match_partitions(const std::string& folder,
         item.image_path = full_path;
         item.image_size = static_cast<std::uint64_t>(st.st_size);
         item.is_critical = is_critical_partition_name(item.part.name);
-        item.selected = !item.is_critical;
+        item.selected = true;
         DEG_LOG(I, "[restore-folder] matched partition=%s path=%s size=%llu critical=%d",
                 item.part.name.c_str(), item.image_path.c_str(),
                 static_cast<unsigned long long>(item.image_size), item.is_critical ? 1 : 0);
@@ -1073,10 +1073,10 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 		std::string output_dir = BuildBackupRootDirForGuiBackup();
 		std::vector<std::string> names; // 为空表示备份全部
 
-		std::uint32_t step = GetEffectiveManualBlockSize();
-		DEG_LOG(I, "[blk] backup_all GUI step=%u", step);
+		auto blk_cfg = MakeBlockSizeConfigFromGui();
+		DEG_LOG(I, "[blk] backup_all GUI step=%u", blk_cfg.manual_block_size);
 
-		sfd::FlashStatus st = svc->backupPartitions(names, output_dir, sfd::SlotSelection::Auto, step);
+		sfd::FlashStatus st = svc->backupPartitions(names, output_dir, sfd::SlotSelection::Auto, blk_cfg);
 		gui_idle_call_wait_drag([helper, st, output_dir]() mutable {
 			if (!st.success) {
 				// 备份取消：使用可本地化字符串
@@ -1110,10 +1110,10 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 
 		std::vector<std::string> names; // 为空表示备份全部
 
-		std::uint32_t step = GetEffectiveManualBlockSize();
-		DEG_LOG(I, "[blk] backup_all GUI step=%u", step);
+		auto blk_cfg = MakeBlockSizeConfigFromGui();
+		DEG_LOG(I, "[blk] backup_all GUI step=%u", blk_cfg.manual_block_size);
 
-		sfd::FlashStatus st = svc->backupPartitions(names, output_dir, sfd::SlotSelection::Auto, step);
+		sfd::FlashStatus st = svc->backupPartitions(names, output_dir, sfd::SlotSelection::Auto, blk_cfg);
 		gui_idle_call_wait_drag([helper, st, output_dir]() mutable {
 			if (!st.success) {
 				// 备份取消：使用可本地化字符串
@@ -1226,12 +1226,18 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_widget_set_name(treeView, "part_list");
 	helper.addWidget("part_list", treeView);
 	GtkCellRenderer* renderer = gtk_cell_renderer_text_new();
-	gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(treeView), -1,
-	        _("Partition Name"), renderer, "text", 0, NULL);
-	gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(treeView), -1,
-	        _("Size"), renderer, "text", 1, NULL);
-	gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(treeView), -1,
-	        _("Type"), renderer, "text", 2, NULL);
+
+	GtkTreeViewColumn* col_name = gtk_tree_view_column_new_with_attributes(_("Partition Name"), renderer, "text", 0, NULL);
+	gtk_tree_view_append_column(GTK_TREE_VIEW(treeView), col_name);
+	gtk_tree_view_column_set_sort_column_id(col_name, 0);
+
+	GtkTreeViewColumn* col_size = gtk_tree_view_column_new_with_attributes(_("Size"), renderer, "text", 1, NULL);
+	gtk_tree_view_append_column(GTK_TREE_VIEW(treeView), col_size);
+	gtk_tree_view_column_set_sort_column_id(col_size, 1);
+
+	GtkTreeViewColumn* col_type = gtk_tree_view_column_new_with_attributes(_("Type"), renderer, "text", 2, NULL);
+	gtk_tree_view_append_column(GTK_TREE_VIEW(treeView), col_type);
+	gtk_tree_view_column_set_sort_column_id(col_type, 2);
 	gtk_container_add(GTK_CONTAINER(listScroll), treeView);
 	gtk_box_pack_start(GTK_BOX(mainBox), listScroll, FALSE, FALSE, 0);
 
@@ -1468,20 +1474,34 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 	    nullptr);
 
 	GtkWidget* content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+
+	GtkWidget* button_box = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
+	gtk_button_box_set_layout(GTK_BUTTON_BOX(button_box), GTK_BUTTONBOX_START);
+	gtk_box_set_spacing(GTK_BOX(button_box), 6);
+	gtk_box_pack_start(GTK_BOX(content), button_box, FALSE, FALSE, 6);
+
+	GtkWidget* select_all_btn = gtk_button_new_with_label(_("Select All"));
+	GtkWidget* unselect_all_btn = gtk_button_new_with_label(_("Unselect All"));
+	gtk_box_pack_start(GTK_BOX(button_box), select_all_btn, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(button_box), unselect_all_btn, FALSE, FALSE, 0);
+
 	GtkWidget* scrolled = gtk_scrolled_window_new(nullptr, nullptr);
 	// 在对话框中适当减小默认高度，避免在低分辨率屏幕上遮挡底部状态栏
-	gtk_widget_set_size_request(scrolled, 700, 260);
+	gtk_widget_set_size_request(scrolled, 900, 560);
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-	gtk_container_add(GTK_CONTAINER(content), scrolled);
+	gtk_box_pack_start(GTK_BOX(content), scrolled, TRUE, TRUE, 0);
 
-	GtkListStore* store = gtk_list_store_new(6,
+	GtkListStore* store = gtk_list_store_new(7,
 	                                         G_TYPE_BOOLEAN,  // 0: selected
 	                                         G_TYPE_STRING,   // 1: part name
 	                                         G_TYPE_STRING,   // 2: image path
 	                                         G_TYPE_STRING,   // 3: part size
 	                                         G_TYPE_STRING,   // 4: file size
-	                                         G_TYPE_STRING);  // 5: critical mark
+	                                         G_TYPE_STRING,   // 5: critical mark
+	                                         G_TYPE_INT);     // 6: original index
+	gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(store), 1, GTK_SORT_ASCENDING);
 
+	int idx = 0;
 	for (const auto& item : items) {
 		GtkTreeIter iter;
 		gtk_list_store_append(store, &iter);
@@ -1517,7 +1537,9 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 		                   3, part_size_text.c_str(),
 		                   4, file_size_text.c_str(),
 		                   5, critical_mark,
+		                   6, idx,
 		                   -1);
+		++idx;
 	}
 
 	GtkWidget* tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
@@ -1541,6 +1563,28 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 			gtk_list_store_set(GTK_LIST_STORE(model), &iter, 0, !active, -1);
 		}
 		gtk_tree_path_free(path);
+	}), tree);
+
+	g_signal_connect(select_all_btn, "clicked", G_CALLBACK(+[] (GtkButton* /*button*/, gpointer data) {
+		GtkTreeView* view = GTK_TREE_VIEW(data);
+		GtkTreeModel* model = gtk_tree_view_get_model(view);
+		GtkTreeIter iter;
+		gboolean valid = gtk_tree_model_get_iter_first(model, &iter);
+		while (valid) {
+			gtk_list_store_set(GTK_LIST_STORE(model), &iter, 0, TRUE, -1);
+			valid = gtk_tree_model_iter_next(model, &iter);
+		}
+	}), tree);
+
+	g_signal_connect(unselect_all_btn, "clicked", G_CALLBACK(+[] (GtkButton* /*button*/, gpointer data) {
+		GtkTreeView* view = GTK_TREE_VIEW(data);
+		GtkTreeModel* model = gtk_tree_view_get_model(view);
+		GtkTreeIter iter;
+		gboolean valid = gtk_tree_model_get_iter_first(model, &iter);
+		while (valid) {
+			gtk_list_store_set(GTK_LIST_STORE(model), &iter, 0, FALSE, -1);
+			valid = gtk_tree_model_iter_next(model, &iter);
+		}
 	}), tree);
 
 	// 其余列：分区名、镜像路径、分区大小、文件大小、关键标记
@@ -1567,17 +1611,21 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 		GtkTreeModel* model = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
 		GtkTreeIter iter;
 		gboolean valid = gtk_tree_model_get_iter_first(model, &iter);
-		std::size_t index = 0;
-		while (valid && index < items.size()) {
+		while (valid) {
 			gboolean active = FALSE;
-			gtk_tree_model_get(model, &iter, 0, &active, -1);
+			gint orig_index = -1;
+			gtk_tree_model_get(model, &iter,
+			                   0, &active,
+			                   6, &orig_index,
+			                   -1);
 
-			BatchPartitionWriteItem item = items[index];
-			item.selected = active;
-			result.push_back(std::move(item));
+			if (orig_index >= 0 && (std::size_t)orig_index < items.size()) {
+				BatchPartitionWriteItem item = items[orig_index];
+				item.selected = active;
+				result.push_back(std::move(item));
+			}
 
 			valid = gtk_tree_model_iter_next(model, &iter);
-			++index;
 		}
 
 		// 若全未选中则提示

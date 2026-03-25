@@ -10,7 +10,7 @@ set -euo pipefail
 # - 编译 Release 版本（不自动运行，可手动执行二进制）
 
 BUILD_DIR="build_cmake"
-I18N_SOURCES="main.cpp GtkWidgetHelper.cpp pages/page_*.cpp ui_common.cpp"
+I18N_SOURCES="main.cpp ui/GtkWidgetHelper.cpp pages/page_*.cpp ui/ui_common.cpp"
 
 OS_NAME="$(uname -s 2>/dev/null || echo unknown)"
 
