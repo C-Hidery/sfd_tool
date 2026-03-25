@@ -1,3 +1,9 @@
+sfd-tool (1.8.3.2-1-ltv) unstable; urgency=medium
+
+  * 优化批量恢复刷机体验；修复连接时间误触
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Wed, 25 Mar 2026 19:12:02 +0800
+
 sfd-tool (1.8.3.1-1-ltv) unstable; urgency=medium
 
   * 优化：统一分区读取与全盘备份的数据块配置与显示
