@@ -73,8 +73,8 @@ GtkWidget* bottom_bar_create(GtkWidgetHelper& helper_ref) {
     GtkWidget* bottomStatusBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 20);
 
     // Status 区域："Status:" + con 文案
-    GtkWidget* statusLabel = helper.createLabel(_("Status: "), "status_label", 0, 0, 70, 24);
-    GtkWidget* conStatus = helper.createLabel(_("Not connected"), "con", 0, 0, 150, 23);
+    GtkWidget* statusLabel = helper.createLabel(_("Status: "), "status_label", 0, 0, -1, 24);
+    GtkWidget* conStatus = helper.createLabel(_("Not connected"), "con", 0, 0, -1, 23);
 
     GtkWidget* stBoxLabel = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     gtk_label_set_xalign(GTK_LABEL(statusLabel), 0.0);
@@ -85,7 +85,7 @@ GtkWidget* bottom_bar_create(GtkWidgetHelper& helper_ref) {
     s_status_value_label = conStatus;
 
     // Mode 区域
-    GtkWidget* modeLabel = helper.createLabel(_("Mode: "), "mode_label", 0, 0, 50, 19);
+    GtkWidget* modeLabel = helper.createLabel(_("Mode: "), "mode_label", 0, 0, -1, 19);
     GtkWidget* modeStatus = helper.createLabel(_("BROM Not connected!!!"), "mode", 0, 0, 140, 19);
 
     GtkWidget* mdBoxLabel = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
@@ -98,7 +98,7 @@ GtkWidget* bottom_bar_create(GtkWidgetHelper& helper_ref) {
 
     // Storage 区域
     GtkWidget* stgBoxLabel = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-    GtkWidget* storageLabel = helper.createLabel("Storage:", "storage_label", 0, 0, 80, 20);
+    GtkWidget* storageLabel = helper.createLabel("Storage:", "storage_label", 0, 0, -1, 20);
     GtkWidget* storageMode = helper.createLabel("Unknown", "storage_mode", 0, 0, 120, 20);
     gtk_label_set_xalign(GTK_LABEL(storageLabel), 0.0);
     gtk_label_set_xalign(GTK_LABEL(storageMode), 0.0);
@@ -109,7 +109,7 @@ GtkWidget* bottom_bar_create(GtkWidgetHelper& helper_ref) {
 
     // Slot 区域
     GtkWidget* sltBoxLabel = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-    GtkWidget* slotLabel = helper.createLabel("Slot:", "slot_label", 0, 0, 80, 20);
+    GtkWidget* slotLabel = helper.createLabel("Slot:", "slot_label", 0, 0, -1, 20);
     GtkWidget* slotMode = helper.createLabel("Unknown", "slot_mode", 0, 0, 120, 20);
     gtk_label_set_xalign(GTK_LABEL(slotLabel), 0.0);
     gtk_label_set_xalign(GTK_LABEL(slotMode), 0.0);
@@ -120,7 +120,7 @@ GtkWidget* bottom_bar_create(GtkWidgetHelper& helper_ref) {
 
     // 右侧 Progress 文本区域
     GtkWidget* prgTextHBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-    GtkWidget* progressLabel = helper.createLabel(_("Progress:"), "progress_label", 0, 0, 60, 20);
+    GtkWidget* progressLabel = helper.createLabel(_("Progress:"), "progress_label", 0, 0, -1, 20);
     GtkWidget* percentLabel = helper.createLabel("0%", "percent", 0, 0, 40, 20);
     gtk_label_set_xalign(GTK_LABEL(progressLabel), 1.0);
     gtk_label_set_xalign(GTK_LABEL(percentLabel), 1.0);
