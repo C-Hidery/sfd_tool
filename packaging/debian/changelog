@@ -1,3 +1,9 @@
+sfd-tool (1.8.3.1-1-ltv) unstable; urgency=medium
+
+  * 优化：统一分区读取与全盘备份的数据块配置与显示
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Wed, 25 Mar 2026 15:28:15 +0800
+
 sfd-tool (1.8.3.0-1-ltv) unstable; urgency=medium
 
   * 重构：UI相关的目录结构

@@ -6,7 +6,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        1.8.3.0
+Version:        1.8.3.1
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -60,6 +60,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Wed Mar 25 2026 RyanCrepa <Ryan110413@outlook.com> - 1.8.3.1-1-ltv
+- 优化：统一分区读取与全盘备份的数据块配置与显示
+
 * Wed Mar 25 2026 RyanCrepa <Ryan110413@outlook.com> - 1.8.3.0-1-ltv
 - 重构：UI相关的目录结构
 
