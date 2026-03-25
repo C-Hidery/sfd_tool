@@ -15,7 +15,7 @@ $arch      = "x64"
 
 function Update-I18N {
     param(
-        [string]$Sources = "main.cpp GtkWidgetHelper.cpp pages/page_*.cpp ui_common.cpp"
+        [string]$Sources = "main.cpp GtkWidgetHelper.cpp pages/page_*.cpp ui/ui_common.cpp"
     )
 
     if (-not (Get-Command xgettext -ErrorAction SilentlyContinue)) {

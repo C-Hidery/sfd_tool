@@ -1,5 +1,5 @@
-#include "bottom_bar.h"
-#include "ui_common.h"
+#include "ui/layout/bottom_bar.h"
+#include "ui/ui_common.h"
 #include "common.h"
 #include "main.h"
 #include "i18n.h"

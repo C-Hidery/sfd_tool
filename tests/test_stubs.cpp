@@ -1,13 +1,13 @@
 #include <stdint.h>
 #include "app_state.h"
 #include "common.h"
-#include "ui_common.h"
+#include "ui/ui_common.h"
 
 // 前向声明，仅用于定义引用/指针，不需要完整类型
 struct spdio_t;
 
 // 为测试提供的最小全局变量实现，避免依赖 GUI/main 逻辑
-// 这些符号在正常应用中由 main.cpp/common.cpp/ui_common.cpp 提供，这里只给出安全的空壳/默认值。
+// 这些符号在正常应用中由 main.cpp/common.cpp/ui/ui_common.cpp 提供，这里只给出安全的空壳/默认值。
 
 AppState g_app_state{};        // 全局应用状态实例（测试中不会真正使用设备）
 int fdl1_loaded = 0;           // FDL1 加载状态，占位
@@ -27,7 +27,7 @@ int& m_bOpened = g_test_m_bOpened;
 // ===== 针对 core/logging.cpp & pac_extract.cpp 的 GUI 相关桩实现 =====
 
 // 在测试环境中不弹出对话框，只打印到 stderr，避免依赖 GTK/窗口
-// 同时避免与正式实现重复定义，只引入声明，具体实现在 common.cpp / GtkWidgetHelper.cpp / ui_common.cpp
+// 同时避免与正式实现重复定义，只引入声明，具体实现在 common.cpp / GtkWidgetHelper.cpp / ui/ui_common.cpp
 
 extern bool Err_Showed;
 extern bool isHelperInit;

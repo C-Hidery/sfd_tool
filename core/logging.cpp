@@ -1,6 +1,6 @@
 #include "logging.h"
 #include "../common.h"
-#include "../ui_common.h"
+#include "../ui/ui_common.h"
 #include <stdarg.h>
 #include <time.h>
 #include <string.h>

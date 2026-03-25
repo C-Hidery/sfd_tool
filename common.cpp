@@ -1,5 +1,5 @@
 #include "common.h"
-#include "bottom_bar.h"
+#include "ui/layout/bottom_bar.h"
 #include <functional>
 #include <string>
 

@@ -6,7 +6,7 @@
 #include "main.h"
 #include "GtkWidgetHelper.hpp"
 #include "i18n.h"
-#include "ui_common.h"
+#include "ui/ui_common.h"
 #include "pages/page_connect.h"
 #include "pages/page_partition.h"
 #include "pages/page_manual.h"

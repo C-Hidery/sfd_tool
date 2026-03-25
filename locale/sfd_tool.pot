@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-25 10:20+0800\n"
+"POT-Creation-Date: 2026-03-25 10:46+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -357,8 +357,9 @@ msgstr ""
 #: pages/page_partition.cpp:1084 pages/page_partition.cpp:1086
 #: pages/page_partition.cpp:1121 pages/page_partition.cpp:1123
 #: pages/page_partition.cpp:1644 pages/page_partition.cpp:1673
-#: pages/page_partition.cpp:1688 ui_common.cpp:192 ui_common.cpp:209
-#: ui_common.cpp:318 ui_common.cpp:334 ui_common.cpp:350 ui_common.cpp:372
+#: pages/page_partition.cpp:1688 ui/ui_common.cpp:192 ui/ui_common.cpp:209
+#: ui/ui_common.cpp:318 ui/ui_common.cpp:334 ui/ui_common.cpp:350
+#: ui/ui_common.cpp:372
 msgid "Error"
 msgstr ""
 
@@ -958,7 +959,7 @@ msgstr ""
 msgid "Partition read completed! Saved to: "
 msgstr ""
 
-#: ui_common.cpp:192 ui_common.cpp:209 ui_common.cpp:318 ui_common.cpp:334
-#: ui_common.cpp:350 ui_common.cpp:372
+#: ui/ui_common.cpp:192 ui/ui_common.cpp:209 ui/ui_common.cpp:318
+#: ui/ui_common.cpp:334 ui/ui_common.cpp:350 ui/ui_common.cpp:372
 msgid "Device unattached, exiting..."
 msgstr ""

@@ -1,6 +1,6 @@
 #pragma once
 #include "../GtkWidgetHelper.hpp"
-#include "../ui_page.h"
+#include "ui/ui_page.h"
 
 // Log 页面实现 IPage 接口
 class LogPage : public IPage {

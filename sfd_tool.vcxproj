@@ -19,7 +19,7 @@
     
     <!-- UI 公共层 -->
     <ClCompile Include="GtkWidgetHelper.cpp" />
-    <ClCompile Include="ui_common.cpp" />
+    <ClCompile Include="ui\ui_common.cpp" />
     
     <!-- 历史公共模块（逐步向 core 迁移） -->
     <ClCompile Include="common.cpp" />
@@ -58,8 +58,8 @@
     <ClInclude Include="Wrapper.h" />
     <ClInclude Include="GtkWidgetHelper.hpp" />
     <ClInclude Include="GenTosNoAvb.h" />
-    <ClInclude Include="ui_common.h" />
-    <ClInclude Include="ui_page.h" />
+    <ClInclude Include="ui/ui_common.h" />
+    <ClInclude Include="ui\ui_page.h" />
     <ClInclude Include="i18n.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="spd_cmd.h" />

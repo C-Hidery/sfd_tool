@@ -58,8 +58,8 @@ endif()
 add_library(sfd_ui STATIC
     common.cpp
     GtkWidgetHelper.cpp
-    ui_common.cpp
-    bottom_bar.cpp
+    ui/ui_common.cpp
+    ui/layout/bottom_bar.cpp
 )
 
 # 注意：不在此处直接链接 core_lib/pages_lib，

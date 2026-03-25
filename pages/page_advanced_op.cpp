@@ -2,11 +2,11 @@
 #include "../common.h"
 #include "../main.h"
 #include "../i18n.h"
-#include "../ui_common.h"
+#include "ui/ui_common.h"
 #include "../GenTosNoAvb.h"
 #include "page_partition.h"
 #include "../core/flash_service.h"
-#include "../ui_common.h"
+#include "ui/ui_common.h"
 #include <thread>
 #include <memory>
 #include <vector>

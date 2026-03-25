@@ -2,7 +2,7 @@
 #include "doctest.h"
 
 #include "core/flash_service.h"
-#include "ui_common.h"
+#include "ui/ui_common.h"
 #include "app_state.h"
 #include "common.h"
 #include "usb_transport.h"

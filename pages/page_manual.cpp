@@ -2,9 +2,9 @@
 #include "../common.h"
 #include "../main.h"
 #include "../i18n.h"
-#include "../ui_common.h"
+#include "ui/ui_common.h"
 #include "../core/flash_service.h"
-#include "../ui_common.h"
+#include "ui/ui_common.h"
 #include <thread>
 
 extern spdio_t*& io;

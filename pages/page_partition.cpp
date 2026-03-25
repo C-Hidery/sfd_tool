@@ -3,7 +3,7 @@
 #include "../main.h"
 #include "../i18n.h"
 #include "../core/flash_service.h"
-#include "../ui_common.h"
+#include "ui/ui_common.h"
 #include <thread>
 #include <iostream>
 #ifndef _WIN32

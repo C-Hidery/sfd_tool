@@ -36,7 +36,7 @@
     <ClInclude Include="GenTosNoAvb.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="ui_common.h">
+    <ClInclude Include="ui/ui_common.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="core\file_io.h">
@@ -101,7 +101,7 @@
     <ClCompile Include="main_console.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="ui_common.cpp">
+    <ClCompile Include="ui\ui_common.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="core\logging.cpp">

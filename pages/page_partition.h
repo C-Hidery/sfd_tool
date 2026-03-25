@@ -2,7 +2,7 @@
 #include "../GtkWidgetHelper.hpp"
 #include "../common.h"
 #include "../core/flash_service.h"
-#include "../ui_page.h"
+#include "ui/ui_page.h"
 #include <vector>
 
 // Partition 页面实现 IPage 接口，同时对外保留原有辅助函数

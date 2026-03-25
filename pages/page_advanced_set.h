@@ -1,6 +1,6 @@
 #pragma once
 #include "../GtkWidgetHelper.hpp"
-#include "../ui_page.h"
+#include "ui/ui_page.h"
 
 // Advanced Settings 页面实现 IPage 接口
 class AdvancedSetPage : public IPage {
