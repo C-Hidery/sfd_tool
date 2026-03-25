@@ -1,3 +1,4 @@
+#include "bottom_bar.h"
 #include "page_connect.h"
 #include "../common.h"
 #include "../main.h"
@@ -114,7 +115,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	GtkWidget* cveAddr = helper.getWidget("cve_addr");
 	GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
 	GtkWidget* sprd4OneMode = helper.getWidget("sprd4_one_mode");
-	helper.setLabelText(helper.getWidget("con"), "Waiting for connection...");
+	bottom_bar_set_status("Waiting for connection...");
 	if (argc > 1 && !strcmp(argv[1], "--reconnect")) {
 		stage = 99;
 		gui_idle_call_wait_drag([helper]() {
@@ -402,8 +403,8 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Since your device is in SPRD4 mode, you can choose to skip FDL setting and directly execute FDL, but not all devices support that, please proceed with caution!"));
 			}
 		}
-		else if (g_app_state.device.device_stage == FDL2) helper.setLabelText(helper.getWidget("con"), "Ready");
-		helper.setLabelText(helper.getWidget("con"), "Connected");
+		else if (g_app_state.device.device_stage == FDL2) bottom_bar_set_status("Ready");
+		bottom_bar_set_status("Connected");
 		Enable_Startup(helper);
 		update_mode_label_from_device_service(helper);
 	},GTK_WINDOW(helper.getWidget("main_window")));
@@ -425,7 +426,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		fdl2_path_json = fdl_path;
 		fdl2_addr_json = fdl_addr;
 		std::string dtxt = helper.getLabelText(helper.getWidget("con"));
-		helper.setLabelText(helper.getWidget("con"), dtxt + " -> FDL Executing");
+		bottom_bar_set_status(dtxt + " -> FDL Executing");
 		//Send fdl2
 		if (g_app_state.device.device_mode == SPRD3) {
 			FILE *fi = oxfopen(fdl_path, "r");
@@ -588,7 +589,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			EnableWidgets(helper);
 			helper.disableWidget("fdl_exec");
 			helper.setLabelText(helper.getWidget("mode"), "FDL2");
-			helper.setLabelText(helper.getWidget("con"), "Ready");
+		bottom_bar_set_status("Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
 
 		// FDL2 执行完成后，再通过 DeviceService 探测一次设备信息
@@ -635,7 +636,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		fdl1_addr_json = fdl_addr;
 		DEG_LOG(I, "Executing FDL file: %s at address: 0x%X", fdl_path, fdl_addr);
 		std::string dtxt = helper.getLabelText(helper.getWidget("con"));
-		helper.setLabelText(helper.getWidget("con"), dtxt + " -> FDL Executing");
+		bottom_bar_set_status(dtxt + " -> FDL Executing");
 		std::thread([helper, fdl_path, fdl_addr, execfile]() mutable {
 			FILE* fi = oxfopen(fdl_path, "r");
 			GtkWidget* cveSwitch = helper.getWidget("exec_addr");
@@ -799,7 +800,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				gui_idle_call_wait_drag([helper]() mutable {
 					showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("FDL1 Executed"), _("FDL1 executed successfully!"));
 					helper.setLabelText(helper.getWidget("mode"), "FDL1");
-					helper.setLabelText(helper.getWidget("con"), "Connected");
+					bottom_bar_set_status("Connected");
 				},GTK_WINDOW(helper.getWidget("main_window")));
 			}
 			waitFDL1 = 1;
@@ -1078,7 +1079,6 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
 	gtk_box_pack_start(GTK_BOX(mainConnectBox), actionBox, TRUE, FALSE, 15);
 
-	// Status labels（这些在底部控制栏也需要用到）
 	GtkWidget* statusLabel = helper.createLabel(_("Status: "), "status_label", 0, 0, 70, 24);
 	GtkWidget* conStatus = helper.createLabel(_("Not connected"), "con", 0, 0, 150, 23);
 	GtkWidget* modeLabel = helper.createLabel(_("Mode: "), "mode_label", 0, 0, 50, 19);

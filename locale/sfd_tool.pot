@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-25 09:46+0800\n"
+"POT-Creation-Date: 2026-03-25 10:10+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -90,8 +90,8 @@ msgid "Device is not using VAB!"
 msgstr ""
 
 #: pages/page_advanced_op.cpp:53 pages/page_advanced_op.cpp:68
-#: pages/page_connect.cpp:121 pages/page_connect.cpp:400
-#: pages/page_connect.cpp:402 pages/page_manual.cpp:230
+#: pages/page_connect.cpp:122 pages/page_connect.cpp:401
+#: pages/page_connect.cpp:403 pages/page_manual.cpp:230
 #: pages/page_partition.cpp:1021
 msgid "Tips"
 msgstr ""
@@ -357,8 +357,8 @@ msgstr ""
 #: pages/page_partition.cpp:1084 pages/page_partition.cpp:1086
 #: pages/page_partition.cpp:1121 pages/page_partition.cpp:1123
 #: pages/page_partition.cpp:1644 pages/page_partition.cpp:1673
-#: pages/page_partition.cpp:1688 ui_common.cpp:191 ui_common.cpp:208
-#: ui_common.cpp:427 ui_common.cpp:443 ui_common.cpp:459 ui_common.cpp:481
+#: pages/page_partition.cpp:1688 ui_common.cpp:192 ui_common.cpp:209
+#: ui_common.cpp:318 ui_common.cpp:334 ui_common.cpp:350 ui_common.cpp:372
 msgid "Error"
 msgstr ""
 
@@ -370,133 +370,133 @@ msgstr ""
 msgid "Language will take effect after restart."
 msgstr ""
 
-#: pages/page_connect.cpp:121
+#: pages/page_connect.cpp:122
 msgid ""
 "You have entered Reconnect Mode, which only supports compatibility-method "
 "partition list retrieval, and [storage mode/slot mode] can not be gotten!"
 msgstr ""
 
-#: pages/page_connect.cpp:397
+#: pages/page_connect.cpp:398
 msgid "Successfully connected"
 msgstr ""
 
-#: pages/page_connect.cpp:397
+#: pages/page_connect.cpp:398
 msgid "Device already connected! Some advanced settings opened!"
 msgstr ""
 
-#: pages/page_connect.cpp:400
+#: pages/page_connect.cpp:401
 msgid "Please execute FDL file to continue!"
 msgstr ""
 
-#: pages/page_connect.cpp:402
+#: pages/page_connect.cpp:403
 msgid ""
 "Since your device is in SPRD4 mode, you can choose to skip FDL setting and "
 "directly execute FDL, but not all devices support that, please proceed with "
 "caution!"
 msgstr ""
 
-#: pages/page_connect.cpp:442 pages/page_connect.cpp:692
+#: pages/page_connect.cpp:443 pages/page_connect.cpp:693
 #: pages/page_partition.cpp:1140 pages/page_partition.cpp:1738
 msgid "Confirm"
 msgstr ""
 
-#: pages/page_connect.cpp:442 pages/page_connect.cpp:692
+#: pages/page_connect.cpp:443 pages/page_connect.cpp:693
 msgid "Device can be booted without FDL in SPRD4 mode, continue?"
 msgstr ""
 
-#: pages/page_connect.cpp:587
+#: pages/page_connect.cpp:588
 msgid "FDL2 Executed"
 msgstr ""
 
-#: pages/page_connect.cpp:587
+#: pages/page_connect.cpp:588
 msgid "FDL2 executed successfully!"
 msgstr ""
 
-#: pages/page_connect.cpp:756
+#: pages/page_connect.cpp:757
 msgid "High Speed Mode Enabled"
 msgstr ""
 
-#: pages/page_connect.cpp:756
+#: pages/page_connect.cpp:757
 msgid "Do not set block size manually in high speed mode!"
 msgstr ""
 
-#: pages/page_connect.cpp:800
+#: pages/page_connect.cpp:801
 msgid "FDL1 Executed"
 msgstr ""
 
-#: pages/page_connect.cpp:800
+#: pages/page_connect.cpp:801
 msgid "FDL1 executed successfully!"
 msgstr ""
 
-#: pages/page_connect.cpp:821
+#: pages/page_connect.cpp:822
 msgid "Connect"
 msgstr ""
 
-#: pages/page_connect.cpp:841
+#: pages/page_connect.cpp:842
 msgid "Welcome to SFD Tool GUI!"
 msgstr ""
 
-#: pages/page_connect.cpp:842
+#: pages/page_connect.cpp:843
 msgid "Please connect your device with BROM mode"
 msgstr ""
 
-#: pages/page_connect.cpp:850
+#: pages/page_connect.cpp:851
 msgid "Press and hold the volume up or down keys and the power key to connect"
 msgstr ""
 
-#: pages/page_connect.cpp:865
+#: pages/page_connect.cpp:866
 msgid "FDL Send Settings"
 msgstr ""
 
-#: pages/page_connect.cpp:879
+#: pages/page_connect.cpp:880
 msgid "FDL File Path :"
 msgstr ""
 
-#: pages/page_connect.cpp:900
+#: pages/page_connect.cpp:901
 msgid "FDL Send Address :"
 msgstr ""
 
-#: pages/page_connect.cpp:909
+#: pages/page_connect.cpp:910
 msgid "Execute"
 msgstr ""
 
-#: pages/page_connect.cpp:924
+#: pages/page_connect.cpp:925
 msgid "CVE Bypass Options"
 msgstr ""
 
-#: pages/page_connect.cpp:937
+#: pages/page_connect.cpp:938
 msgid "Try to use CVE to skip FDL verification"
 msgstr ""
 
-#: pages/page_connect.cpp:950
+#: pages/page_connect.cpp:951
 msgid "Enable CVE v2"
 msgstr ""
 
-#: pages/page_connect.cpp:963
+#: pages/page_connect.cpp:964
 msgid "CVE Binary File Address"
 msgstr ""
 
-#: pages/page_connect.cpp:981
+#: pages/page_connect.cpp:982
 msgid "SPRD4 Options"
 msgstr ""
 
-#: pages/page_connect.cpp:994
+#: pages/page_connect.cpp:995
 msgid "Kick device to SPRD4"
 msgstr ""
 
-#: pages/page_connect.cpp:1007
+#: pages/page_connect.cpp:1008
 msgid "Kick One-time Mode"
 msgstr ""
 
-#: pages/page_connect.cpp:1020
+#: pages/page_connect.cpp:1021
 msgid "CVE Addr"
 msgstr ""
 
-#: pages/page_connect.cpp:1040
+#: pages/page_connect.cpp:1041
 msgid "CONNECT"
 msgstr ""
 
-#: pages/page_connect.cpp:1045
+#: pages/page_connect.cpp:1046
 msgid "Wait connection time (s):"
 msgstr ""
 
@@ -958,27 +958,7 @@ msgstr ""
 msgid "Partition read completed! Saved to: "
 msgstr ""
 
-#: ui_common.cpp:191 ui_common.cpp:208 ui_common.cpp:427 ui_common.cpp:443
-#: ui_common.cpp:459 ui_common.cpp:481
+#: ui_common.cpp:192 ui_common.cpp:209 ui_common.cpp:318 ui_common.cpp:334
+#: ui_common.cpp:350 ui_common.cpp:372
 msgid "Device unattached, exiting..."
-msgstr ""
-
-#: ui_common.cpp:320
-msgid "POWEROFF"
-msgstr ""
-
-#: ui_common.cpp:321
-msgid "REBOOT"
-msgstr ""
-
-#: ui_common.cpp:322
-msgid "BOOT TO RECOVERY"
-msgstr ""
-
-#: ui_common.cpp:323
-msgid "BOOT TO FASTBOOT"
-msgstr ""
-
-#: ui_common.cpp:392
-msgid "Progress:"
 msgstr ""

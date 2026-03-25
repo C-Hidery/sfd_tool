@@ -1,4 +1,5 @@
 #include "common.h"
+#include "bottom_bar.h"
 #include <functional>
 #include <string>
 
@@ -390,41 +391,29 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
             double   speed_val   = progress_data->speed_mb_s;
 
             if (isHelperInit) {
-                // 更新进度条
-                GtkWidget* progressBar = helper.getWidget("progressBar_1");
-                if (progressBar && GTK_IS_PROGRESS_BAR(progressBar)) {
-                    gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(progressBar), percent_val);
-                }
-
-                // 更新百分比标签
-                GtkWidget* percentLabel = helper.getWidget("percent");
-                if (percentLabel && GTK_IS_LABEL(percentLabel)) {
-                    char percent_text[16];
-                    snprintf(percent_text, sizeof(percent_text), "%.1f%%", percent_val * 100.0);
-                    gtk_label_set_text(GTK_LABEL(percentLabel), percent_text);
-                }
+                // 更新进度条 + 百分比
+                char percent_text[16];
+                snprintf(percent_text, sizeof(percent_text), "%.1f%%", percent_val * 100.0);
+                bottom_bar_set_progress(percent_val, percent_text);
 
                 // 更新底部连接状态文本，展示当前进度与速度
-                GtkWidget* conStatus = helper.getWidget("con");
-                if (conStatus && GTK_IS_LABEL(conStatus)) {
-                    char status_text[160];
-                    double mb_done = done_value / (1024.0 * 1024.0);
+                char status_text[160];
+                double mb_done = done_value / (1024.0 * 1024.0);
 
-                    if (!g_progress_desc.empty()) {
-                        snprintf(status_text, sizeof(status_text),
-                                 "%s | %.1f MB | %.2f MB/s",
-                                 g_progress_desc.c_str(),
-                                 mb_done,
-                                 speed_val);
-                    } else {
-                        snprintf(status_text, sizeof(status_text),
-                                 "read: %.1f MB | %.2f MB/s",
-                                 mb_done,
-                                 speed_val);
-                    }
-
-                    gtk_label_set_text(GTK_LABEL(conStatus), status_text);
+                if (!g_progress_desc.empty()) {
+                    snprintf(status_text, sizeof(status_text),
+                             "%s | %.1f MB | %.2f MB/s",
+                             g_progress_desc.c_str(),
+                             mb_done,
+                             speed_val);
+                } else {
+                    snprintf(status_text, sizeof(status_text),
+                             "read: %.1f MB | %.2f MB/s",
+                             mb_done,
+                             speed_val);
                 }
+
+                bottom_bar_set_io_status(status_text);
             }
 
             delete progress_data;
