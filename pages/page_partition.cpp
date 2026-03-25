@@ -1238,6 +1238,7 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkTreeViewColumn* col_type = gtk_tree_view_column_new_with_attributes(_("Type"), renderer, "text", 2, NULL);
 	gtk_tree_view_append_column(GTK_TREE_VIEW(treeView), col_type);
 	gtk_tree_view_column_set_sort_column_id(col_type, 2);
+	gtk_container_add(GTK_CONTAINER(listScroll), treeView);
 	gtk_box_pack_start(GTK_BOX(mainBox), listScroll, FALSE, FALSE, 0);
 
 	// ── 包含操作按钮的外框 ──
