@@ -237,7 +237,7 @@ scan_folder_and_match_partitions(const std::string& folder,
         item.image_path = full_path;
         item.image_size = static_cast<std::uint64_t>(st.st_size);
         item.is_critical = is_critical_partition_name(item.part.name);
-        item.selected = !item.is_critical;
+        item.selected = true;
         DEG_LOG(I, "[restore-folder] matched partition=%s path=%s size=%llu critical=%d",
                 item.part.name.c_str(), item.image_path.c_str(),
                 static_cast<unsigned long long>(item.image_size), item.is_critical ? 1 : 0);
@@ -1470,7 +1470,7 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 	GtkWidget* content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
 	GtkWidget* scrolled = gtk_scrolled_window_new(nullptr, nullptr);
 	// 在对话框中适当减小默认高度，避免在低分辨率屏幕上遮挡底部状态栏
-	gtk_widget_set_size_request(scrolled, 700, 260);
+	gtk_widget_set_size_request(scrolled, 900, 560);
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 	gtk_container_add(GTK_CONTAINER(content), scrolled);
 
