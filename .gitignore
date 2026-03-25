@@ -370,3 +370,6 @@ build*/
 pac_*/
 dist/
 
+# Ignore gettext templates
+*.pot
+
