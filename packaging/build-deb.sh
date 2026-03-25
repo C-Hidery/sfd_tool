@@ -2,6 +2,10 @@
 # sfd_tool DEB build script
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$SCRIPT_DIR/.."
+cd "$REPO_ROOT"
+
 APPNAME="sfd_tool"
 PKGNAME="sfd-tool"
 
@@ -24,8 +28,8 @@ rm -rf /tmp/build-$PKGNAME
 mkdir -p /tmp/build-$PKGNAME/$ARCHIVE
 
 # 复制文件
-cp -r CMakeLists.txt version.h.in *.rc icon.* *.cpp *.h *.hpp *.txt *.md Makefile \
-    third_party packaging scripts locale core pages docs \
+cp -r CMakeLists.txt version.h.in *.rc icon.* *.cpp *.h *.txt *.md Makefile \
+    third_party ui packaging scripts locale core pages docs \
     /tmp/build-$PKGNAME/$ARCHIVE/
 [ -f icon.png ] && cp icon.png /tmp/build-$PKGNAME/$ARCHIVE/
 cp packaging/sfd_tool.desktop /tmp/build-$PKGNAME/$ARCHIVE/

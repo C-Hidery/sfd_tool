@@ -9,6 +9,16 @@
 #include "page_partition.h"
 #include <thread>
 #include <chrono>
+#include <algorithm>
+
+#ifdef _WIN32
+#ifdef max
+#undef max
+#endif
+#ifdef min
+#undef min
+#endif
+#endif
 
 extern spdio_t*& io;
 extern int ret;
