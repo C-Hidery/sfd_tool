@@ -1491,15 +1491,17 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 	gtk_box_pack_start(GTK_BOX(content), scrolled, TRUE, TRUE, 0);
 
-	GtkListStore* store = gtk_list_store_new(6,
+	GtkListStore* store = gtk_list_store_new(7,
 	                                         G_TYPE_BOOLEAN,  // 0: selected
 	                                         G_TYPE_STRING,   // 1: part name
 	                                         G_TYPE_STRING,   // 2: image path
 	                                         G_TYPE_STRING,   // 3: part size
 	                                         G_TYPE_STRING,   // 4: file size
-	                                         G_TYPE_STRING);  // 5: critical mark
+	                                         G_TYPE_STRING,   // 5: critical mark
+	                                         G_TYPE_INT);     // 6: original index
 	gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(store), 1, GTK_SORT_ASCENDING);
 
+	int idx = 0;
 	for (const auto& item : items) {
 		GtkTreeIter iter;
 		gtk_list_store_append(store, &iter);
@@ -1535,7 +1537,9 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 		                   3, part_size_text.c_str(),
 		                   4, file_size_text.c_str(),
 		                   5, critical_mark,
+		                   6, idx,
 		                   -1);
+		++idx;
 	}
 
 	GtkWidget* tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
@@ -1607,17 +1611,21 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 		GtkTreeModel* model = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
 		GtkTreeIter iter;
 		gboolean valid = gtk_tree_model_get_iter_first(model, &iter);
-		std::size_t index = 0;
-		while (valid && index < items.size()) {
+		while (valid) {
 			gboolean active = FALSE;
-			gtk_tree_model_get(model, &iter, 0, &active, -1);
+			gint orig_index = -1;
+			gtk_tree_model_get(model, &iter,
+			                   0, &active,
+			                   6, &orig_index,
+			                   -1);
 
-			BatchPartitionWriteItem item = items[index];
-			item.selected = active;
-			result.push_back(std::move(item));
+			if (orig_index >= 0 && (std::size_t)orig_index < items.size()) {
+				BatchPartitionWriteItem item = items[orig_index];
+				item.selected = active;
+				result.push_back(std::move(item));
+			}
 
 			valid = gtk_tree_model_iter_next(model, &iter);
-			++index;
 		}
 
 		// 若全未选中则提示
