@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./scripts/build.sh",
+            "statusMessage": "正在执行 ./scripts/build.sh 编译测试..."
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(make clean)",
+      "Bash(make)",
+      "Bash(make -j4)",
+      "WebSearch",
+      "Bash(python -:*)"
+    ]
+  }
+}

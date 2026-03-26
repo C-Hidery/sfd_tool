@@ -1,0 +1,13 @@
+{
+  "agent": {
+    "permissions": {
+      "defaultMode": "bypass",
+      "autoAccept": [
+        "file_read",
+        "file_write",
+        "shell_execute",
+        "create_file"
+      ]
+    }
+  }
+}
