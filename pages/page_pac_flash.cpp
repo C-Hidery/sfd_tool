@@ -123,28 +123,7 @@ void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 
 void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
-	bool i_is = pac_flash(io, "pac_unpack_output");
-	if (i_is)
-	{
-		gui_idle_call_wait_drag([helper]() {
-			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC flashed successfully."));
-		}, GTK_WINDOW(helper.getWidget("main_window")));
-	}
-	else
-	{
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Failed to flash PAC."));
-		}, GTK_WINDOW(helper.getWidget("main_window")));
-		return;
-	}
-	std::thread([](){
-#ifndef _WIN32
-    	sleep(5);
-#else
-    	Sleep(5000);
-#endif
-		exit(0);
-	}).detach();
+	pac_flash(io, "pac_unpack_output");
 }
 
 // ===== UI 构建 =====
