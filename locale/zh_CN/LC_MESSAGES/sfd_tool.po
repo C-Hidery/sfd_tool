@@ -1014,3 +1014,12 @@ msgstr "全选"
 
 msgid "Unselect All"
 msgstr "取消全选"
+
+
+# ===== Auto-appended entries from sfd_tool.pot =====
+
+msgid "Erase ALL partitions completed!"
+msgstr "全部分区擦除完成！"
+
+msgid "ERASE ALL"
+msgstr "擦除全部分区"
