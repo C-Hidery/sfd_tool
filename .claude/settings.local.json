@@ -16,6 +16,7 @@
   },
   "permissions": {
     "allow": [
+      "Bash(./scripts/build.sh)",
       "Bash(make clean)",
       "Bash(make)",
       "Bash(make -j4)",
