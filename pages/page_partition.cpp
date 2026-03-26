@@ -418,12 +418,15 @@ void confirm_erase_all_partitions(GtkWidgetHelper helper) {
 			LongTaskConfig cfg{
 				[helper](std::atomic_bool& cancel_flag) mutable {
 					(void)cancel_flag;
-					// 使用已有 erase_partition 封装的 "all" 分支，底层会发送 erase_all 命令
-					erase_partition(io, "all", g_app_state.flash.isCMethod);
-					// erase_partition 内部已经输出日志和耗时，这里仅在 GUI 上提示完成
-					gui_idle_call_wait_drag([helper]() mutable {
+					auto* svc = ensure_flash_service();
+					sfd::FlashStatus st = svc->eraseAllPartitions();
+					gui_idle_call_wait_drag([helper, st]() mutable {
 						GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
-						showInfoDialog(parent, _(_(("Completed"))), _("Erase ALL partitions completed!"));
+						if (!st.success) {
+							showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
+						} else {
+							showInfoDialog(parent, _(_(("Completed"))), _("Erase ALL partitions completed!"));
+						}
 						helper.setLabelText(helper.getWidget("con"), "Ready");
 					}, GTK_WINDOW(helper.getWidget("main_window")));
 				},

@@ -428,6 +428,17 @@ public:
         return make_ok();
     }
 
+    FlashStatus eraseAllPartitions() override {
+        if (!io_ || !app_) {
+            DEG_LOG(E, "eraseAllPartitions: context not set");
+            return make_error(FlashErrorCode::InternalError, "context not set");
+        }
+
+        DEG_LOG(OP, "eraseAllPartitions: all, CMethod=%d", app_->flash.isCMethod);
+        erase_partition(io_, "all", app_->flash.isCMethod);
+        return make_ok();
+    }
+
     FlashStatus queryPacFlashTime(std::uint64_t& out_seconds) override {
         if (!io_) {
             DEG_LOG(E, "queryPacFlashTime: io not set");

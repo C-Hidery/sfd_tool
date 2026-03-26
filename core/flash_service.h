@@ -217,6 +217,9 @@ public:
     // 擦除指定分区
     virtual FlashStatus erasePartition(const std::string& partition_name) = 0;
 
+    // 擦除所有分区/整片 flash（等价于 CLI erase_all）
+    virtual FlashStatus eraseAllPartitions() = 0;
+
     // 导出当前分区表到 XML 文件（用于 Advanced/Partition 页）
     virtual FlashStatus exportPartitionTableToXml(const std::string& output_path) = 0;
 
