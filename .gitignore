@@ -364,6 +364,7 @@ FodyWeavers.xsd
 # executable files
 sfd_tool
 
+.claude/worktrees
 task/
 build*/
 pac_*/
