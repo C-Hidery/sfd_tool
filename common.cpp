@@ -447,7 +447,10 @@ uint64_t dump_partition(spdio_t *io,
 
 	set_progress_desc(name);
 
-	if (!strcmp(name, "super")) dump_partition(io, "metadata", 0, check_partition(io, "metadata", 1), "metadata.bin", step);
+	if (!strcmp(name, "super")) {
+		dump_partition(io, "metadata", 0, check_partition(io, "metadata", 1), "metadata.bin", step);
+		set_progress_desc(name);
+	}
 	else if (!strncmp(name, "userdata", 8)) { if (!check_confirm("read userdata")) return 0; }
 	else if (strstr(name, "nv1")) {
 		strcpy(name_tmp, name);
