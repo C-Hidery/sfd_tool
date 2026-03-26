@@ -1,3 +1,9 @@
+sfd-tool (1.8.3.3-1-ltv) unstable; urgency=medium
+
+  * 修复：super 分区备份状态栏显示问题；优化：分区操作页按钮布局；新增：分区操作页新增“抹除所有分区”功能
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Thu, 26 Mar 2026 18:23:46 +0800
+
 sfd-tool (1.8.3.2-1-ltv) unstable; urgency=medium
 
   * 优化批量恢复刷机体验；修复连接时间误触
