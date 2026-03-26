@@ -35,6 +35,96 @@ GitHub Releases 中通常会提供：
 具体支持的系统版本和产物名称，请以最新 Release 页面和
 [.github/workflows/build.yml](.github/workflows/build.yml) 为准。
 
+![Logo](icon.png)
+
+![License](https://img.shields.io/github/license/C-Hidery/sfd_tool)
+
+## 介绍
+
+
+这是工具'spreadtrum_flash'的维护
+
+
+**(这个版本添加了GTK3图形化)**
+
+[spreadtrum_flash](https://github.com/TomKing062/spreadtrum_flash)
+
+---
+
+编译之前:
+
+``` bash
+sudo apt update
+# Ubuntu/Debian
+sudo apt install libusb-1.0-0-dev gcc g++ libgtk-3-dev pkg-config make cmake
+# Fedora/RHEL
+sudo dnf install gcc-c++ gtk3-devel libusb1-devel libusb1 pkgconf-pkg-config make cmake
+# macOS
+brew install libusb gtk+3 pkg-config make cmake
+# Android(Termux)
+pkg install x11-repo
+pkg install termux-api libusb clang git pkg-config gtk3 glib pango libcairo gdk-pixbuf at-spi2-core xorgproto xorg-util-macros make cmake
+```
+
+然后make:
+``` bash
+make
+# Termux
+make termux
+# Locate
+make locates
+```
+
+在Termux上使用（无GUI）:
+
+``` bash
+# 搜索OTG设备
+termux-usb -l
+#输出示例
+#[
+#  "/dev/bus/usb/xxx/xxx"
+#]
+# 授权OTG设备(示例)
+termux-usb -r /dev/bus/usb/xxx/xxx
+# 运行
+termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
+```
+
+**警告：你可能需要使用ROOT权限运行工具！**
+
+---
+
+***对比spd_dump修改的一些命令:***
+
+    part_table [FILE PATH]
+
+**等效于`partition_list`命令.**
+
+    exec_addr [BINARY FILE] [ADDR]
+    
+**已修改, 你需要提供文件路径和发送地址**
+
+    exec <ADDR>
+
+**已修改, 在执行FDL1是需要提供FDL1地址**
+
+    read_spec [PART NAME] [OFFSET] [SIZE] [FILE]
+
+**已修改, 等效于`read_part`命令，`read_part` 之后就等同于 `r`**
+
+    --no-fdl
+
+**新参数, 如果你想在SPRD4下无FDL刷机，那么执行它.**
+
+    cptable
+    
+**新命令, 如果分区表不可用，可在FDL2下使用兼容性模式读取分区表**
+
+    --no-gui
+
+**新参数，无GUI启动工具（下文也会提到）**
+
+
 ---
 
 ## 主要功能概览

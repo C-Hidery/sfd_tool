@@ -8,6 +8,97 @@ operations**, with first‑class support for modern 64‑bit platforms.
 > in [docs/USER_GUIDE_ZH.md](docs/USER_GUIDE_ZH.md) is the canonical, most
 > detailed end‑user documentation.
 
+![Logo](icon.png)
+
+![License](https://img.shields.io/github/license/C-Hidery/sfd_tool)
+
+## Introduction
+
+
+This is the modified version of tool 'spreadtrum_flash'
+
+sfd_tool is a maintenance release for spreadtrum_flash
+
+**(This version adds GTK3 graphical interface)**
+
+[spreadtrum_flash](https://github.com/TomKing062/spreadtrum_flash)
+
+---
+
+Run this before making:
+
+``` bash
+sudo apt update
+# Ubuntu/Debian
+sudo apt install libusb-1.0-0-dev gcc g++ libgtk-3-dev pkg-config make cmake
+# Fedora/RHEL
+sudo dnf install gcc-c++ gtk3-devel libusb1-devel libusb1 pkgconf-pkg-config make cmake
+# macOS
+brew install libusb gtk+3 pkg-config make cmake
+# Android(Termux)
+pkg install x11-repo
+pkg install termux-api libusb clang git pkg-config gtk3 glib pango libcairo gdk-pixbuf at-spi2-core xorgproto xorg-util-macros make cmake
+```
+
+Then make:
+``` bash
+make
+# Termux
+make termux
+# Locate
+make locates
+```
+
+Use on Termux(No GUI):
+
+``` bash
+# Search OTG device
+termux-usb -l
+# example
+#[
+#  "/dev/bus/usb/xxx/xxx"
+#]
+# Authorize OTG device
+termux-usb -r /dev/bus/usb/xxx/xxx
+# Run(example)
+termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
+```
+
+**WARN : You may must run tool as root to connect to device correctly!**
+
+---
+
+***Modified commands:***
+
+    part_table [FILE PATH]
+
+**This command is equivalent to the `partition_list` command.**
+
+    exec_addr [BINARY FILE] [ADDR]
+    
+**Modified, you need to provide file path and address**
+
+    exec <ADDR>
+
+**Modified, you need to provide FDL1 address when you execute FDL1**
+
+    read_spec [PART NAME] [OFFSET] [SIZE] [FILE]
+
+**Modified, equivalent to the `read_part` command, then `read_part` is equivalent to the `r`**
+
+    --no-fdl
+
+**New option, execute it if you want to connect to device without FDL1/2(Only Sprd4 Mode).**
+
+    cptable
+    
+**New command, use it to get partition table through compatibility method(FDL2 only)**
+
+    --no-gui
+
+**New parameter, open sfd_tool without GUI**
+
+
 ## Features
 
 - **Cross‑platform GUI** (GTK3)
