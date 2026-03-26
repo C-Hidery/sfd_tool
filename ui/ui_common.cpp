@@ -107,6 +107,7 @@ void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("list_read");
 	helper.enableWidget("list_write");
 	helper.enableWidget("list_erase");
+	helper.enableWidget("erase_all_partitions");
 	helper.enableWidget("m_write");
 	helper.enableWidget("m_read");
 	helper.enableWidget("m_erase");
@@ -148,6 +149,7 @@ void DisableWidgets(GtkWidgetHelper helper) {
 	helper.disableWidget("list_read");
 	helper.disableWidget("list_write");
 	helper.disableWidget("list_erase");
+	helper.disableWidget("erase_all_partitions");
 	helper.disableWidget("m_write");
 	helper.disableWidget("m_read");
 	helper.disableWidget("m_erase");

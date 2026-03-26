@@ -24,8 +24,14 @@ void update_partition_size(spdio_t* io);
 // 兼容模式分区表确认
 void confirm_partition_c(GtkWidgetHelper helper);
 
+// 抹除所有分区操作确认
+void confirm_erase_all_partitions(GtkWidgetHelper helper);
+
 // 创建 Partition Operation 标签页 UI 并添加到 notebook
 GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook);
+
+// 分区页内触发“抹除所有分区”按钮/菜单回调
+void on_button_clicked_erase_all_partitions(GtkWidgetHelper helper);
 
 // 绑定 Partition Operation 页面信号
 void bind_partition_signals(GtkWidgetHelper& helper);

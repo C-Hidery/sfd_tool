@@ -393,6 +393,54 @@ void on_button_clicked_list_erase(GtkWidgetHelper helper) {
 
 }
 
+void on_button_clicked_erase_all_partitions(GtkWidgetHelper helper) {
+	confirm_erase_all_partitions(helper);
+}
+
+void confirm_erase_all_partitions(GtkWidgetHelper helper) {
+	ensure_device_attached_or_exit(helper);
+	gui_idle_call_with_callback(
+		[helper]() -> bool {
+			return showConfirmDialog(
+				GTK_WINDOW(helper.getWidget("main_window")),
+				_(("Confirm")),
+				_(("This operation will erase ALL partitions on the current device.\nAll data on all partitions will be lost and CANNOT be recovered.\nDo you want to continue?"))
+			);
+		},
+		[helper](bool result) mutable {
+			if (!result) {
+				DEG_LOG(I, "Erase all partitions cancelled by user");
+				return;
+			}
+
+			helper.setLabelText(helper.getWidget("con"), "Erase all partitions");
+
+			LongTaskConfig cfg{
+				[helper](std::atomic_bool& cancel_flag) mutable {
+					(void)cancel_flag;
+					// 使用已有 erase_partition 封装的 "all" 分支，底层会发送 erase_all 命令
+					erase_partition(io, "all", g_app_state.flash.isCMethod);
+					// erase_partition 内部已经输出日志和耗时，这里仅在 GUI 上提示完成
+					gui_idle_call_wait_drag([helper]() mutable {
+						GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+						showInfoDialog(parent, _(_(("Completed"))), _("Erase ALL partitions completed!"));
+						helper.setLabelText(helper.getWidget("con"), "Ready");
+					}, GTK_WINDOW(helper.getWidget("main_window")));
+				},
+				[helper]() mutable {
+					helper.setLabelText(helper.getWidget("con"), "Erase all partitions");
+				},
+				[helper]() mutable {
+					helper.setLabelText(helper.getWidget("con"), "Ready");
+				}
+			};
+
+			run_long_task(cfg);
+		},
+		GTK_WINDOW(helper.getWidget("main_window"))
+	);
+}
+
 void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 	if (io->part_count == 0 && io->part_count_c == 0) {
 		showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("No partition table loaded, cannot modify partition size!"));
@@ -1260,6 +1308,7 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* writeFBtn   = helper.createButton(_("FORCE WRITE"), "list_force_write",      nullptr, 0, 0, -1, 32);
 	GtkWidget* eraseBtn    = helper.createButton(_("ERASE"),       "list_erase",            nullptr, 0, 0, -1, 32);
 	GtkWidget* readBtn     = helper.createButton(_("EXTRACT"),     "list_read",             nullptr, 0, 0, -1, 32);
+	GtkWidget* eraseAllBtn = helper.createButton(_("ERASE ALL"),   "erase_all_partitions",  nullptr, 0, 0, -1, 32);
 	GtkWidget* backupAllBtn = helper.createButton(_("Backup All"), "backup_all",            nullptr, 0, 0, -1, 32);
 	GtkWidget* restoreFolderBtn = helper.createButton(_("Restore From Folder"), "restore_from_folder", nullptr, 0, 0, -1, 32);
 	GtkWidget* xmlGetBtn = helper.createButton(_("Get partition table through scanning an Xml file"), "xml_get", nullptr, 0, 0, -1, 32);
@@ -1282,6 +1331,8 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_widget_set_halign(eraseBtn, GTK_ALIGN_FILL);
 	gtk_widget_set_hexpand(readBtn, TRUE);
 	gtk_widget_set_halign(readBtn, GTK_ALIGN_FILL);
+	gtk_widget_set_hexpand(eraseAllBtn, TRUE);
+	gtk_widget_set_halign(eraseAllBtn, GTK_ALIGN_FILL);
 	gtk_widget_set_hexpand(backupAllBtn, TRUE);
 	gtk_widget_set_halign(backupAllBtn, GTK_ALIGN_FILL);
 	gtk_widget_set_hexpand(restoreFolderBtn, TRUE);
@@ -1293,16 +1344,17 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_widget_set_hexpand(cancelBtn, TRUE);
 	gtk_widget_set_halign(cancelBtn, GTK_ALIGN_FILL);
 
-	// 3 行 × 3 列严格对齐
+	// 3 行 × 4 列严格对齐
 	gtk_grid_attach(GTK_GRID(opGrid), writeBtn,         0, 0, 1, 1);
 	gtk_grid_attach(GTK_GRID(opGrid), writeFBtn,        1, 0, 1, 1);
 	gtk_grid_attach(GTK_GRID(opGrid), eraseBtn,         2, 0, 1, 1);
+	gtk_grid_attach(GTK_GRID(opGrid), eraseAllBtn,      3, 0, 1, 1);
 	gtk_grid_attach(GTK_GRID(opGrid), readBtn,          0, 1, 1, 1);
 	gtk_grid_attach(GTK_GRID(opGrid), backupAllBtn,     1, 1, 1, 1);
 	gtk_grid_attach(GTK_GRID(opGrid), restoreFolderBtn, 2, 1, 1, 1);
-	gtk_grid_attach(GTK_GRID(opGrid), xmlGetBtn,        0, 2, 1, 1);
-	gtk_grid_attach(GTK_GRID(opGrid), xmlExportBtn,     1, 2, 1, 1);
-	gtk_grid_attach(GTK_GRID(opGrid), cancelBtn,        2, 2, 1, 1);
+	gtk_grid_attach(GTK_GRID(opGrid), xmlGetBtn,        3, 1, 1, 1);
+	gtk_grid_attach(GTK_GRID(opGrid), xmlExportBtn,     0, 2, 1, 1);
+	gtk_grid_attach(GTK_GRID(opGrid), cancelBtn,        1, 2, 1, 1);
 	gtk_widget_set_margin_bottom(opGrid, 16);
 
 	gtk_box_pack_start(GTK_BOX(mainBox), opFrame, FALSE, FALSE, 0);
@@ -1311,6 +1363,7 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_widget_set_sensitive(writeBtn,    FALSE);
 	gtk_widget_set_sensitive(readBtn,     FALSE);
 	gtk_widget_set_sensitive(eraseBtn,    FALSE);
+	gtk_widget_set_sensitive(eraseAllBtn, FALSE);
 	gtk_widget_set_sensitive(backupAllBtn, FALSE);
 	gtk_widget_set_sensitive(cancelBtn,   TRUE);
 	gtk_widget_set_sensitive(restoreFolderBtn, FALSE);
@@ -1989,5 +2042,8 @@ void bind_partition_signals(GtkWidgetHelper& helper) {
 	});
 	helper.bindClick(helper.getWidget("restore_from_folder"),[&](){
 		on_button_clicked_restore_from_folder(helper);
+	});
+	helper.bindClick(helper.getWidget("erase_all_partitions"),[&](){
+		on_button_clicked_erase_all_partitions(helper);
 	});
 }
