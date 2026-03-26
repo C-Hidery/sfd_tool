@@ -1255,36 +1255,55 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* opContainerBox = makeCardBox(12, 10);
 	gtk_container_add(GTK_CONTAINER(opFrame), opContainerBox);
 
-	// ── 按钮行 1：五个主操作按钮 ──
+	// ── 操作区按钮网格（三列对齐） ──
 	GtkWidget* writeBtn    = helper.createButton(_("WRITE"),       "list_write",            nullptr, 0, 0, -1, 32);
 	GtkWidget* writeFBtn   = helper.createButton(_("FORCE WRITE"), "list_force_write",      nullptr, 0, 0, -1, 32);
-	GtkWidget* readBtn     = helper.createButton(_("EXTRACT"),     "list_read",             nullptr, 0, 0, -1, 32);
 	GtkWidget* eraseBtn    = helper.createButton(_("ERASE"),       "list_erase",            nullptr, 0, 0, -1, 32);
+	GtkWidget* readBtn     = helper.createButton(_("EXTRACT"),     "list_read",             nullptr, 0, 0, -1, 32);
 	GtkWidget* backupAllBtn = helper.createButton(_("Backup All"), "backup_all",            nullptr, 0, 0, -1, 32);
 	GtkWidget* restoreFolderBtn = helper.createButton(_("Restore From Folder"), "restore_from_folder", nullptr, 0, 0, -1, 32);
-
-	GtkWidget* btnRow1 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-	gtk_widget_set_halign(btnRow1, GTK_ALIGN_FILL);
-	gtk_box_pack_start(GTK_BOX(btnRow1), writeBtn,     TRUE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX(btnRow1), writeFBtn,    TRUE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX(btnRow1), readBtn,      TRUE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX(btnRow1), eraseBtn,     TRUE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX(btnRow1), backupAllBtn, TRUE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX(btnRow1), restoreFolderBtn, TRUE, TRUE, 0);
-	gtk_widget_set_margin_bottom(btnRow1, 8);
-	gtk_box_pack_start(GTK_BOX(opContainerBox), btnRow1, FALSE, FALSE, 0);
-
-	// ── 按钮行 2：取消 + XML获取 ──
-	GtkWidget* cancelBtn = helper.createButton(_("Cancel"), "list_cancel", nullptr, 0, 0, 100, 32);
 	GtkWidget* xmlGetBtn = helper.createButton(_("Get partition table through scanning an Xml file"), "xml_get", nullptr, 0, 0, -1, 32);
 	GtkWidget* xmlExportBtn = helper.createButton(_("Extract part info to a XML file (if support)"), "export_part_xml", nullptr, 0, 0, -1, 32);
+	GtkWidget* cancelBtn = helper.createButton(_("Cancel"), "list_cancel", nullptr, 0, 0, -1, 32);
 
-	GtkWidget* btnRow2 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-	gtk_box_pack_start(GTK_BOX(btnRow2), cancelBtn, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(btnRow2), xmlGetBtn, TRUE,  TRUE,  0);
-	gtk_box_pack_start(GTK_BOX(btnRow2), xmlExportBtn, TRUE,  TRUE,  0);
-	gtk_widget_set_margin_bottom(btnRow2, 16);
-	gtk_box_pack_start(GTK_BOX(opContainerBox), btnRow2, FALSE, FALSE, 0);
+	GtkWidget* opGrid = gtk_grid_new();
+	gtk_grid_set_row_spacing(GTK_GRID(opGrid), 8);
+	gtk_grid_set_column_spacing(GTK_GRID(opGrid), 8);
+	gtk_grid_set_column_homogeneous(GTK_GRID(opGrid), TRUE);
+	gtk_widget_set_hexpand(opGrid, TRUE);
+	gtk_container_add(GTK_CONTAINER(opContainerBox), opGrid);
+
+	// 所有按钮在各自列中拉伸，占满宽度
+	gtk_widget_set_hexpand(writeBtn, TRUE);
+	gtk_widget_set_halign(writeBtn, GTK_ALIGN_FILL);
+	gtk_widget_set_hexpand(writeFBtn, TRUE);
+	gtk_widget_set_halign(writeFBtn, GTK_ALIGN_FILL);
+	gtk_widget_set_hexpand(eraseBtn, TRUE);
+	gtk_widget_set_halign(eraseBtn, GTK_ALIGN_FILL);
+	gtk_widget_set_hexpand(readBtn, TRUE);
+	gtk_widget_set_halign(readBtn, GTK_ALIGN_FILL);
+	gtk_widget_set_hexpand(backupAllBtn, TRUE);
+	gtk_widget_set_halign(backupAllBtn, GTK_ALIGN_FILL);
+	gtk_widget_set_hexpand(restoreFolderBtn, TRUE);
+	gtk_widget_set_halign(restoreFolderBtn, GTK_ALIGN_FILL);
+	gtk_widget_set_hexpand(xmlGetBtn, TRUE);
+	gtk_widget_set_halign(xmlGetBtn, GTK_ALIGN_FILL);
+	gtk_widget_set_hexpand(xmlExportBtn, TRUE);
+	gtk_widget_set_halign(xmlExportBtn, GTK_ALIGN_FILL);
+	gtk_widget_set_hexpand(cancelBtn, TRUE);
+	gtk_widget_set_halign(cancelBtn, GTK_ALIGN_FILL);
+
+	// 3 行 × 3 列严格对齐
+	gtk_grid_attach(GTK_GRID(opGrid), writeBtn,         0, 0, 1, 1);
+	gtk_grid_attach(GTK_GRID(opGrid), writeFBtn,        1, 0, 1, 1);
+	gtk_grid_attach(GTK_GRID(opGrid), eraseBtn,         2, 0, 1, 1);
+	gtk_grid_attach(GTK_GRID(opGrid), readBtn,          0, 1, 1, 1);
+	gtk_grid_attach(GTK_GRID(opGrid), backupAllBtn,     1, 1, 1, 1);
+	gtk_grid_attach(GTK_GRID(opGrid), restoreFolderBtn, 2, 1, 1, 1);
+	gtk_grid_attach(GTK_GRID(opGrid), xmlGetBtn,        0, 2, 1, 1);
+	gtk_grid_attach(GTK_GRID(opGrid), xmlExportBtn,     1, 2, 1, 1);
+	gtk_grid_attach(GTK_GRID(opGrid), cancelBtn,        2, 2, 1, 1);
+	gtk_widget_set_margin_bottom(opGrid, 16);
 
 	gtk_box_pack_start(GTK_BOX(mainBox), opFrame, FALSE, FALSE, 0);
 
