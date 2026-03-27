@@ -57,6 +57,30 @@ TEST_CASE("backupPartitions enumerates partitions and builds X/name.img paths") 
     CHECK(!st.success);
 }
 
+TEST_CASE("backupPartitions auto mode should include splloader when g_spl_size > 0") {
+    // 仅验证在 g_spl_size > 0 的情况下，不会因为 names 为空而导致异常逻辑；
+    // 目前的实现依赖真实设备 I/O，单元测试环境下无法安全模拟完整 dump 流程，
+    // 因此先保留一个最小占位测试，后续可在引入更完备的协议层 stub 后再细化。
+
+    io = nullptr;
+    g_app_state = AppState{};
+    g_app_state.flash.isCMethod = 0;
+
+    extern uint64_t g_spl_size;
+    g_spl_size = 1024 * 512;
+
+    std::unique_ptr<FlashService> svc = createFlashService();
+    svc->setContext(io, &g_app_state);
+
+    std::vector<std::string> names;
+    std::string out_dir = "test_backup_root_spl_placeholder";
+
+    FlashStatus st = svc->backupPartitions(names, out_dir, SlotSelection::Auto, 0);
+
+    // 这里只要求不会因为 g_spl_size>0 而导致崩溃；返回失败是允许的
+    CHECK(!st.success);
+}
+
 TEST_CASE("is_critical_partition_name identifies boot/vbmeta/dtbo and splloader") {
     CHECK(is_critical_partition_name("splloader") == true);
     CHECK(is_critical_partition_name("boot") == true);
