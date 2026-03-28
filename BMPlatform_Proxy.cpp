@@ -177,10 +177,10 @@ BOOL CProxyChannel::ConnectToProxy() {
     return FALSE;
 }
 
-// SendCommand 实现
-BOOL CProxyChannel::SendCommand(DWORD cmd, void* params, DWORD paramSize, void* resp, DWORD respSize) {
+// 修改 SendCommand，返回结果值
+DWORD CProxyChannel::SendCommand(DWORD cmd, void* params, DWORD paramSize, void* resp, DWORD respSize) {
     if (!ConnectToProxy()) {
-        return FALSE;
+        return 0;
     }
     
     CommandPacket packet = {0};
@@ -194,13 +194,13 @@ BOOL CProxyChannel::SendCommand(DWORD cmd, void* params, DWORD paramSize, void* 
     
     DWORD bytesWritten;
     if (!WriteFile(m_hPipe, &packet, sizeof(packet), &bytesWritten, NULL)) {
-        return FALSE;
+        return 0;
     }
     
     ResponsePacket response;
     DWORD bytesRead;
     if (!ReadFile(m_hPipe, &response, sizeof(response), &bytesRead, NULL)) {
-        return FALSE;
+        return 0;
     }
     
     if (resp && respSize > 0 && response.dataSize > 0) {
@@ -208,7 +208,7 @@ BOOL CProxyChannel::SendCommand(DWORD cmd, void* params, DWORD paramSize, void* 
         memcpy(resp, response.data, copySize);
     }
     
-    return response.success;
+    return response.success ? response.result : 0;  // 返回 result 而不是 success
 }
 
 // 其他方法的实现
@@ -277,15 +277,16 @@ DWORD CProxyChannel::Write(LPVOID lpData, DWORD dwDataSize, DWORD dwReserved) {
         DWORD dwReserved;
     } params = { dwDataSize, dwReserved };
     
-    DWORD bytesWritten = 0;
-    if (SendCommand(CMD_WRITE, &params, sizeof(params), &bytesWritten, sizeof(bytesWritten))) {
+    DWORD result = 0;
+    if (SendCommand(CMD_WRITE, &params, sizeof(params), &result, sizeof(result))) {
+        // 发送实际数据
         if (dwDataSize > 0 && lpData) {
             ResponsePacket resp;
             DWORD bytesWritten2;
             WriteFile(m_hPipe, lpData, dwDataSize, &bytesWritten2, NULL);
             ReadFile(m_hPipe, &resp, sizeof(resp), &bytesWritten2, NULL);
         }
-        return bytesWritten;
+        return result;  // 现在 result 是实际写入的字节数
     }
     return 0;
 }
