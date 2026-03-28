@@ -194,13 +194,13 @@ BOOL CProxyChannel::SendCommand(DWORD cmd, void* params, DWORD paramSize, void* 
     
     DWORD bytesWritten;
     if (!WriteFile(m_hPipe, &packet, sizeof(packet), &bytesWritten, NULL)) {
-        return 0;
+        return FALSE;
     }
     
     ResponsePacket response;
     DWORD bytesRead;
     if (!ReadFile(m_hPipe, &response, sizeof(response), &bytesRead, NULL)) {
-        return 0;
+        return FALSE;
     }
     
     if (resp && respSize > 0 && response.dataSize > 0) {
@@ -248,47 +248,77 @@ BOOL CProxyChannel::Clear() {
     return FALSE;
 }
 
-DWORD CProxyChannel::Read(LPVOID lpData, DWORD dwDataSize, DWORD dwTimeOut, DWORD dwReserved) {
-    struct {
-        DWORD dwDataSize;
-        DWORD dwTimeOut;
-        DWORD dwReserved;
-    } params = { dwDataSize, dwTimeOut, dwReserved };
+// Write 方法 - 直接处理，不使用 SendCommand
+DWORD CProxyChannel::Write(LPVOID lpData, DWORD dwDataSize, DWORD dwReserved) {
+    if (!ConnectToProxy()) {
+        return 0;
+    }
     
-    DWORD bytesRead = 0;
-    if (SendCommand(CMD_READ, &params, sizeof(params), &bytesRead, sizeof(bytesRead))) {
-        if (bytesRead > 0 && lpData) {
-            ResponsePacket resp;
-            DWORD bytesRead2;
-            ReadFile(m_hPipe, &resp, sizeof(resp), &bytesRead2, NULL);
-            if (resp.dataSize > 0) {
-                memcpy(lpData, resp.data, min(dwDataSize, resp.dataSize));
-                return resp.dataSize;
-            }
-        }
-        return bytesRead;
+    // 构建命令包，包含要写入的数据
+    CommandPacket packet = {0};
+    packet.cmd = CMD_WRITE;
+    packet.objectId = m_objectId;
+    packet.dataSize = dwDataSize;
+    if (dwDataSize > 0 && lpData && dwDataSize <= sizeof(packet.data)) {
+        memcpy(packet.data, lpData, dwDataSize);
+    }
+    
+    // 发送命令和数据
+    DWORD bytesWritten;
+    if (!WriteFile(m_hPipe, &packet, sizeof(packet), &bytesWritten, NULL)) {
+        return 0;
+    }
+    
+    // 读取响应
+    ResponsePacket response;
+    DWORD bytesRead;
+    if (!ReadFile(m_hPipe, &response, sizeof(response), &bytesRead, NULL)) {
+        return 0;
+    }
+    
+    // 返回实际写入的字节数
+    if (response.success) {
+        return response.result;
     }
     return 0;
 }
 
-DWORD CProxyChannel::Write(LPVOID lpData, DWORD dwDataSize, DWORD dwReserved) {
-    struct {
-        DWORD dwDataSize;
-        DWORD dwReserved;
-    } params = { dwDataSize, dwReserved };
-    
-    DWORD result = 0;
-    if (SendCommand(CMD_WRITE, &params, sizeof(params), &result, sizeof(result))) {
-        // 发送实际数据
-        if (dwDataSize > 0 && lpData) {
-            ResponsePacket resp;
-            DWORD bytesWritten2;
-            WriteFile(m_hPipe, lpData, dwDataSize, &bytesWritten2, NULL);
-            ReadFile(m_hPipe, &resp, sizeof(resp), &bytesWritten2, NULL);
-        }
-        return result;  // 现在 result 是实际写入的字节数
+// Read 方法 - 直接处理，不使用 SendCommand
+DWORD CProxyChannel::Read(LPVOID lpData, DWORD dwDataSize, DWORD dwTimeOut, DWORD dwReserved) {
+    if (!ConnectToProxy()) {
+        return 0;
     }
-    return 0;
+    
+    // 构建命令包
+    CommandPacket packet = {0};
+    packet.cmd = CMD_READ;
+    packet.objectId = m_objectId;
+    packet.param1 = dwDataSize;
+    packet.param2 = dwTimeOut;
+    packet.param3 = dwReserved;
+    
+    // 发送命令
+    DWORD bytesWritten;
+    if (!WriteFile(m_hPipe, &packet, sizeof(packet), &bytesWritten, NULL)) {
+        return 0;
+    }
+    
+    // 读取响应（包含读取的数据）
+    ResponsePacket response;
+    DWORD bytesRead;
+    if (!ReadFile(m_hPipe, &response, sizeof(response), &bytesRead, NULL)) {
+        return 0;
+    }
+    
+    // 复制读取的数据
+    if (response.success && response.dataSize > 0 && lpData) {
+        DWORD copySize = min(dwDataSize, response.dataSize);
+        memcpy(lpData, response.data, copySize);
+        return copySize;
+    }
+    
+    // 返回 result（可能是读取的字节数或 0）
+    return response.result;
 }
 
 void CProxyChannel::FreeMem(LPVOID pMemBlock) {
