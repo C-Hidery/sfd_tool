@@ -82,13 +82,15 @@ jobs:
           Write-Host "Using vcpkg: $vcpkgExe"
           & $vcpkgExe install "gettext:${{ matrix.vcpkg_triplet }}"
           
+          # 如果是 libusb 版，额外安装 libusb
           if ("${{ matrix.use_libusb }}" -eq "ON") {
             Write-Host "Installing libusb for libusb version..."
             & $vcpkgExe install "libusb:${{ matrix.vcpkg_triplet }}"
           }
 
       - name: Install MSYS2 and GTK3
-        if: matrix.arch != 'x86'  # Proxy32 不需要 GTK
+        shell: pwsh
+        if: matrix.artifact_name != 'Proxy32'  # Proxy32 不需要 GTK3
         run: |
           $msysPath = "C:\msys64"
 
@@ -100,8 +102,8 @@ jobs:
             exit $LASTEXITCODE
           }
 
-          Write-Host "安装 ${{ matrix.msys_gtk_arch }} GTK3 完整开发包..."
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-${{ matrix.msys_gtk_arch }}-gtk3 mingw-w64-${{ matrix.msys_gtk_arch }}-harfbuzz mingw-w64-${{ matrix.msys_gtk_arch }}-pango mingw-w64-${{ matrix.msys_gtk_arch }}-cairo mingw-w64-${{ matrix.msys_gtk_arch }}-glib2"
+          Write-Host "安装 x64 GTK3 完整开发包..."
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
 
           if ($LASTEXITCODE -ne 0) {
             Write-Error "GTK3/MSYS2 依赖安装失败"
@@ -113,7 +115,6 @@ jobs:
             Write-Error "安装 gettext 失败"
             exit $LASTEXITCODE
           }
-
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.artifact_name }}/${{ matrix.config }}/ | Out-Null
 
@@ -152,12 +153,6 @@ jobs:
             ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
             Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
             
-            # SPRD 版本还需要复制 BMPlatform.dll
-            if ("${{ matrix.use_libusb }}" -eq "OFF") {
-              if (Test-Path "build_cmake/bin/x64/${{ matrix.config }}/BMPlatform.dll") {
-                Copy-Item "build_cmake/bin/x64/${{ matrix.config }}/BMPlatform.dll" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
-              }
-            }
           }
 
       # Proxy32 不需要复制 GTK DLL 等
