@@ -131,17 +131,27 @@ jobs:
 
           # 复制主程序
           Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
+      - name: Build Proxy32.exe (32-bit) for SPRD version
+        if: matrix.use_libusb == 'OFF'
+        shell: pwsh
+        run: |
+          Write-Host "Building Proxy32.exe (32-bit)..."
           
-          # 如果是 SPRD 版本（非 libusb），复制 BMPlatform.dll 和 Proxy32.exe
-          if ("${{ matrix.use_libusb }}" -eq "OFF") {
-            if (Test-Path "build_cmake/bin/x86/Release/Proxy32.exe") {
-              Copy-Item "build_cmake/bin/x86/Release/Proxy32.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
-              Write-Host "Copied Proxy32.exe"
-            }
-            else {
-              Write-Warning "Proxy32.exe not found, skipping copy"
-            }
-          }
+          # 创建输出目录
+          $outDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          
+          # 设置 32 位 VS 环境
+          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
+          
+          # 编译 Proxy32.exe
+          cl /nologo /O2 /MT /EHsc /D_WIN32 /D_CONSOLE /D_PROXY32_EXE `
+            /I"." `
+            Proxy32.cpp `
+            /Fe"$outDir\Proxy32.exe" `
+            /link dbghelp.lib
+          
+          Write-Host "Proxy32.exe built successfully"
 
       - name: Copy DLLs from GTK3 bin directory
         run: |
