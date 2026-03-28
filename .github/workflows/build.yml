@@ -141,29 +141,59 @@ jobs:
           $outDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
           
-          # 使用完整的 32 位编译器路径，避免被覆盖
-          $cl32 = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\Hostx86\x86\cl.exe"
-          $link32 = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\Hostx86\x86\link.exe"
+          # VS 2022 路径
+          $vcToolsPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207"
+          $sdkPath = "C:\Program Files (x86)\Windows Kits\10"
+          $sdkVersion = "10.0.22621.0"  # 使用 CI 中存在的版本
           
-          # 设置 32 位编译的 include 和 lib 路径
-          $includePath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\include;C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\ucrt;C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\um;C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\shared"
-          $libPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\lib\x86;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0\ucrt\x86;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0\um\x86"
+          # 32 位工具链
+          $cl32 = "$vcToolsPath\bin\Hostx86\x86\cl.exe"
+          $link32 = "$vcToolsPath\bin\Hostx86\x86\link.exe"
           
-          # 编译 Proxy32.exe
-          & $cl32 /nologo /O2 /MT /EHsc /D_WIN32 /D_CONSOLE /D_PROXY32_EXE /D_CRT_SECURE_NO_WARNINGS `
-            /I"." `
-            /I"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\include" `
-            /I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\ucrt" `
-            /I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\um" `
-            Proxy32.cpp `
-            /Fe"$outDir\Proxy32.exe" `
-            /link /MACHINE:X86 /SUBSYSTEM:CONSOLE dbghelp.lib
+          # 32 位 include 路径
+          $includes = @(
+            ".",
+            "$vcToolsPath\include",
+            "$sdkPath\Include\$sdkVersion\ucrt",
+            "$sdkPath\Include\$sdkVersion\um",
+            "$sdkPath\Include\$sdkVersion\shared"
+          )
+          $includeArgs = $includes | ForEach-Object { "/I `"$_`"" }
+          
+          # 32 位 lib 路径
+          $libs = @(
+            "$vcToolsPath\lib\x86",
+            "$sdkPath\Lib\$sdkVersion\ucrt\x86",
+            "$sdkPath\Lib\$sdkVersion\um\x86"
+          )
+          $libArgs = $libs | ForEach-Object { "/LIBPATH:`"$_`"" }
+          
+          # 编译命令
+          $compileCmd = @(
+            "`"$cl32`"", "/nologo", "/O2", "/MT", "/EHsc",
+            "/D_WIN32", "/D_CONSOLE", "/D_PROXY32_EXE", "/D_CRT_SECURE_NO_WARNINGS",
+            $includeArgs,
+            "Proxy32.cpp",
+            "/Fe`"$outDir\Proxy32.exe`"",
+            "/link", $libArgs, "/MACHINE:X86", "/SUBSYSTEM:CONSOLE",
+            "dbghelp.lib", "kernel32.lib", "user32.lib", "advapi32.lib"
+          )
+          
+          $compileCmdStr = $compileCmd -join " "
+          Write-Host "Running: $compileCmdStr"
+          
+          # 执行编译
+          & cmd /c $compileCmdStr
+          
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Compilation failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
           
           Write-Host "Proxy32.exe built successfully"
           
           # 验证架构
           & dumpbin /headers "$outDir\Proxy32.exe" | Select-String "machine"
-
       - name: Copy DLLs from GTK3 bin directory
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
