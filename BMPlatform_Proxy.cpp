@@ -140,7 +140,7 @@ BOOL CProxyChannel::ConnectToProxy() {
     CloseHandle(pi.hThread);
     
     // 等待代理进程启动
-    Sleep(1500);
+    Sleep(500);
     
     // 连接到代理进程
     for (int i = 0; i < 15; i++) {
