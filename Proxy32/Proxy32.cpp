@@ -233,8 +233,23 @@ BOOL HandleReleaseChannel(DWORD channelId) {
 
 BOOL HandleOpen(DWORD channelId, PCCHANNEL_ATTRIBUTE pAttr) {
     ICommChannel* pChannel = g_channelManager.GetChannel(channelId);
-    if (!pChannel) return FALSE;
-    return pChannel->Open(pAttr);
+    if (!pChannel) {
+        std::cerr << "HandleOpen: channel not found, ID=" << channelId << std::endl;
+        return FALSE;
+    }
+    
+    std::cout << "HandleOpen: Opening COM" << pAttr->Com.dwPortNum 
+              << " at " << pAttr->Com.dwBaudRate << " baud" << std::endl;
+    
+    BOOL result = pChannel->Open(pAttr);
+    
+    if (result) {
+        std::cout << "HandleOpen: SUCCESS" << std::endl;
+    } else {
+        std::cerr << "HandleOpen: FAILED" << std::endl;
+    }
+    
+    return result;
 }
 
 void HandleClose(DWORD channelId) {
@@ -244,14 +259,30 @@ void HandleClose(DWORD channelId) {
 
 DWORD HandleRead(DWORD channelId, LPVOID lpData, DWORD dwDataSize, DWORD dwTimeOut) {
     ICommChannel* pChannel = g_channelManager.GetChannel(channelId);
-    if (!pChannel) return 0;
-    return pChannel->Read(lpData, dwDataSize, dwTimeOut);
+    if (!pChannel) {
+        std::cerr << "HandleRead: channel not found" << std::endl;
+        return 0;
+    }
+    
+    DWORD bytesRead = pChannel->Read(lpData, dwDataSize, dwTimeOut);
+    if (bytesRead > 0) {
+        std::cout << "HandleRead: read " << bytesRead << " bytes" << std::endl;
+    }
+    return bytesRead;
 }
 
 DWORD HandleWrite(DWORD channelId, LPVOID lpData, DWORD dwDataSize) {
     ICommChannel* pChannel = g_channelManager.GetChannel(channelId);
-    if (!pChannel) return 0;
-    return pChannel->Write(lpData, dwDataSize);
+    if (!pChannel) {
+        std::cerr << "HandleWrite: channel not found" << std::endl;
+        return 0;
+    }
+    
+    std::cout << "HandleWrite: writing " << dwDataSize << " bytes" << std::endl;
+    DWORD bytesWritten = pChannel->Write(lpData, dwDataSize);
+    std::cout << "HandleWrite: wrote " << bytesWritten << " bytes" << std::endl;
+    
+    return bytesWritten;
 }
 
 BOOL HandleClear(DWORD channelId) {
