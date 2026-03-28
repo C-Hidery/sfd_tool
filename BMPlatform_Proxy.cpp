@@ -178,9 +178,9 @@ BOOL CProxyChannel::ConnectToProxy() {
 }
 
 // 修改 SendCommand，返回结果值
-DWORD CProxyChannel::SendCommand(DWORD cmd, void* params, DWORD paramSize, void* resp, DWORD respSize) {
+BOOL CProxyChannel::SendCommand(DWORD cmd, void* params, DWORD paramSize, void* resp, DWORD respSize) {
     if (!ConnectToProxy()) {
-        return 0;
+        return FALSE;
     }
     
     CommandPacket packet = {0};
@@ -208,7 +208,7 @@ DWORD CProxyChannel::SendCommand(DWORD cmd, void* params, DWORD paramSize, void*
         memcpy(resp, response.data, copySize);
     }
     
-    return response.success ? response.result : 0;  // 返回 result 而不是 success
+    return response.success;
 }
 
 // 其他方法的实现
