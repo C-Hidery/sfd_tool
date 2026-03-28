@@ -5,6 +5,7 @@
 #include <mutex>
 #include <string>
 #include <cstring>
+#include <cstdio>
 
 #pragma warning(disable: 4996)
 
@@ -130,6 +131,7 @@ pfReleaseChannel g_pfReleaseChannel = NULL;
 ChannelManager g_channelManager;
 HANDLE g_hPipe = INVALID_HANDLE_VALUE;
 BOOL g_bRunning = TRUE;
+std::string g_pipeName;
 
 BOOL InitChannelDll() {
     if (g_hChannelLib) return TRUE;
@@ -233,8 +235,23 @@ BOOL HandleReleaseChannel(DWORD channelId) {
 
 BOOL HandleOpen(DWORD channelId, PCCHANNEL_ATTRIBUTE pAttr) {
     ICommChannel* pChannel = g_channelManager.GetChannel(channelId);
-    if (!pChannel) return FALSE;
-    return pChannel->Open(pAttr);
+    if (!pChannel) {
+        std::cerr << "HandleOpen: channel not found, ID=" << channelId << std::endl;
+        return FALSE;
+    }
+    
+    std::cout << "HandleOpen: Opening COM" << pAttr->Com.dwPortNum 
+              << " at " << pAttr->Com.dwBaudRate << " baud" << std::endl;
+    
+    BOOL result = pChannel->Open(pAttr);
+    
+    if (result) {
+        std::cout << "HandleOpen: SUCCESS" << std::endl;
+    } else {
+        std::cerr << "HandleOpen: FAILED" << std::endl;
+    }
+    
+    return result;
 }
 
 void HandleClose(DWORD channelId) {
@@ -244,14 +261,30 @@ void HandleClose(DWORD channelId) {
 
 DWORD HandleRead(DWORD channelId, LPVOID lpData, DWORD dwDataSize, DWORD dwTimeOut) {
     ICommChannel* pChannel = g_channelManager.GetChannel(channelId);
-    if (!pChannel) return 0;
-    return pChannel->Read(lpData, dwDataSize, dwTimeOut);
+    if (!pChannel) {
+        std::cerr << "HandleRead: channel not found" << std::endl;
+        return 0;
+    }
+    
+    DWORD bytesRead = pChannel->Read(lpData, dwDataSize, dwTimeOut);
+    if (bytesRead > 0) {
+        std::cout << "HandleRead: read " << bytesRead << " bytes" << std::endl;
+    }
+    return bytesRead;
 }
 
 DWORD HandleWrite(DWORD channelId, LPVOID lpData, DWORD dwDataSize) {
     ICommChannel* pChannel = g_channelManager.GetChannel(channelId);
-    if (!pChannel) return 0;
-    return pChannel->Write(lpData, dwDataSize);
+    if (!pChannel) {
+        std::cerr << "HandleWrite: channel not found" << std::endl;
+        return 0;
+    }
+    
+    std::cout << "HandleWrite: writing " << dwDataSize << " bytes" << std::endl;
+    DWORD bytesWritten = pChannel->Write(lpData, dwDataSize);
+    std::cout << "HandleWrite: wrote " << bytesWritten << " bytes" << std::endl;
+    
+    return bytesWritten;
 }
 
 BOOL HandleClear(DWORD channelId) {
@@ -260,33 +293,34 @@ BOOL HandleClear(DWORD channelId) {
     return pChannel->Clear();
 }
 
-BOOL HandleSetReceiver(DWORD channelId, ULONG ulMsgId, BOOL bRcvThread, LPCVOID pReceiver) {
+BOOL HandleSetReceiver(DWORD channelId, ULONG ulMsgId, BOOL bRcvThread, DWORD dwReceiver) {
     ICommChannel* pChannel = g_channelManager.GetChannel(channelId);
     if (!pChannel) return FALSE;
-    return pChannel->SetReceiver(ulMsgId, bRcvThread, pReceiver);
+    // 将 DWORD 转换回指针（仅适用于64位到32位的转换）
+    return pChannel->SetReceiver(ulMsgId, bRcvThread, (LPCVOID)(ULONG_PTR)dwReceiver);
 }
 
-BOOL HandleGetProperty(DWORD channelId, LONG lFlags, DWORD dwPropertyID, LPVOID pValue) {
+BOOL HandleGetProperty(DWORD channelId, LONG lFlags, DWORD dwPropertyID, LPVOID pValue, DWORD dwValueSize) {
     ICommChannel* pChannel = g_channelManager.GetChannel(channelId);
     if (!pChannel) return FALSE;
     return pChannel->GetProperty(lFlags, dwPropertyID, pValue);
 }
 
-BOOL HandleSetProperty(DWORD channelId, LONG lFlags, DWORD dwPropertyID, LPCVOID pValue) {
+BOOL HandleSetProperty(DWORD channelId, LONG lFlags, DWORD dwPropertyID, DWORD dwValue) {
     ICommChannel* pChannel = g_channelManager.GetChannel(channelId);
     if (!pChannel) return FALSE;
-    return pChannel->SetProperty(lFlags, dwPropertyID, pValue);
+    return pChannel->SetProperty(lFlags, dwPropertyID, &dwValue);
 }
 
-void HandleFreeMem(DWORD channelId, LPVOID pMemBlock) {
+void HandleFreeMem(DWORD channelId, ULONG_PTR ptrValue) {
     ICommChannel* pChannel = g_channelManager.GetChannel(channelId);
-    if (pChannel) pChannel->FreeMem(pMemBlock);
+    if (pChannel) pChannel->FreeMem((LPVOID)ptrValue);
 }
 
 void ProcessCommand(const CommandPacket& cmd, ResponsePacket& resp) {
     memset(&resp, 0, sizeof(resp));
     resp.success = TRUE;
-    
+    std::cout << "ProcessCommand: cmd=" << cmd.cmd << std::endl;
     switch (cmd.cmd) {
         case CMD_CREATE_CHANNEL:
             resp.result = HandleCreateChannel();
@@ -297,8 +331,13 @@ void ProcessCommand(const CommandPacket& cmd, ResponsePacket& resp) {
             break;
         case CMD_OPEN: {
             CHANNEL_ATTRIBUTE attr;
-            memcpy(&attr, cmd.data, sizeof(CHANNEL_ATTRIBUTE));
-            resp.success = HandleOpen(cmd.objectId, &attr);
+            if (cmd.dataSize >= sizeof(CHANNEL_ATTRIBUTE)) {
+                memcpy(&attr, cmd.data, sizeof(CHANNEL_ATTRIBUTE));
+                resp.success = HandleOpen(cmd.objectId, &attr);
+            } else {
+                std::cerr << "CMD_OPEN: data size too small: " << cmd.dataSize << std::endl;
+                resp.success = FALSE;
+            }
             break;
         }
         case CMD_CLOSE:
@@ -322,27 +361,30 @@ void ProcessCommand(const CommandPacket& cmd, ResponsePacket& resp) {
             resp.success = HandleClear(cmd.objectId);
             break;
         case CMD_SET_RECEIVER: {
-            struct { ULONG ulMsgId; BOOL bRcvThread; LPCVOID pReceiver; }* pParams;
+            struct { ULONG ulMsgId; BOOL bRcvThread; DWORD dwReceiver; }* pParams;
             pParams = (decltype(pParams))cmd.data;
-            resp.success = HandleSetReceiver(cmd.objectId, pParams->ulMsgId, pParams->bRcvThread, pParams->pReceiver);
+            resp.success = HandleSetReceiver(cmd.objectId, pParams->ulMsgId, 
+                                            pParams->bRcvThread, pParams->dwReceiver);
             break;
         }
         case CMD_GET_PROPERTY: {
-            struct { LONG lFlags; DWORD dwPropertyID; }* pParams;
+            struct { LONG lFlags; DWORD dwPropertyID; DWORD dwValueSize; }* pParams;
             pParams = (decltype(pParams))cmd.data;
             DWORD value = 0;
-            resp.success = HandleGetProperty(cmd.objectId, pParams->lFlags, pParams->dwPropertyID, &value);
+            resp.success = HandleGetProperty(cmd.objectId, pParams->lFlags, 
+                                            pParams->dwPropertyID, &value, pParams->dwValueSize);
             if (resp.success) resp.result = value;
             break;
         }
         case CMD_SET_PROPERTY: {
             struct { LONG lFlags; DWORD dwPropertyID; DWORD dwValue; }* pParams;
             pParams = (decltype(pParams))cmd.data;
-            resp.success = HandleSetProperty(cmd.objectId, pParams->lFlags, pParams->dwPropertyID, &pParams->dwValue);
+            resp.success = HandleSetProperty(cmd.objectId, pParams->lFlags, 
+                                            pParams->dwPropertyID, pParams->dwValue);
             break;
         }
         case CMD_FREE_MEM:
-            HandleFreeMem(cmd.objectId, (LPVOID)(ULONG_PTR)cmd.param1);
+            HandleFreeMem(cmd.objectId, (ULONG_PTR)cmd.param1);
             resp.success = TRUE;
             break;
         case CMD_SHUTDOWN:
@@ -355,7 +397,7 @@ void ProcessCommand(const CommandPacket& cmd, ResponsePacket& resp) {
     }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     // 获取 Proxy32.exe 所在目录
     char exePath[MAX_PATH];
     GetModuleFileNameA(NULL, exePath, MAX_PATH);
@@ -367,8 +409,18 @@ int main() {
     // 切换到程序所在目录
     SetCurrentDirectoryA(exePath);
     
+    // 解析命令行参数，获取管道ID
+    DWORD pipeId = 1;
+    if (argc >= 2) {
+        pipeId = atoi(argv[1]);
+    }
+    
+    // 构建唯一的管道名
+    g_pipeName = "\\\\.\\pipe\\SPRDChannelProxy_" + std::to_string(pipeId);
+    
     std::cout << "========================================" << std::endl;
     std::cout << "SPRD Channel Proxy32 started (PID: " << GetCurrentProcessId() << ")" << std::endl;
+    std::cout << "Pipe name: " << g_pipeName << std::endl;
     std::cout << "Proxy32.exe directory: " << exePath << std::endl;
     std::cout << "Current working directory: " << exePath << std::endl;
     std::cout << "========================================" << std::endl;
@@ -396,9 +448,9 @@ int main() {
     
     std::cout << "========================================" << std::endl;
     
-    // 创建命名管道
+    // 创建命名管道（使用唯一名称）
     g_hPipe = CreateNamedPipeA(
-        "\\\\.\\pipe\\SPRDChannelProxy",
+        g_pipeName.c_str(),
         PIPE_ACCESS_DUPLEX,
         PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
         1,

@@ -163,6 +163,8 @@ Makefiles. See:
 - [docs/cmake.md](docs/cmake.md) – Chinese CMake/build guide with more
   details, including per‑user config and `ui_language`.
 
+Warn: SPRD Driver version need Proxy32.exe, but it will not be built by cmake, you have to build it with x86 compiler.
+
 ## Running
 
 ### GUI

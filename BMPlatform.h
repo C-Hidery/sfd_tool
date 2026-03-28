@@ -2,6 +2,8 @@
 
 #include <Windows.h>
 #include <tchar.h>
+#include <mutex>
+
 #define INVALID_VALUE ((DWORD)-1)
 #define INFINITE_LOGFILE_SIZE ( 0 )
 
@@ -60,7 +62,7 @@ enum CHANNEL_TYPE {
 	CHANNEL_TYPE_FILE = 2,
 	CHANNEL_TYPE_USBMON = 3
 };
-
+#pragma pack(push, 1) 
 typedef struct _CHANNEL_ATTRIBUTE {
 	CHANNEL_TYPE ChannelType;
 	union {
@@ -106,6 +108,9 @@ class CProxyChannel : public ICommChannel {
 private:
 	HANDLE m_hPipe;
 	DWORD m_objectId;
+	HANDLE m_hProxyProcess;  // 代理进程句柄
+	std::mutex m_pipeMutex;   // 管道访问互斥锁
+	BOOL m_bConnected;        // 连接状态
 	BOOL ConnectToProxy();
 	BOOL SendCommand(DWORD cmd, void* params, DWORD paramSize, void* resp, DWORD respSize);
 public:
@@ -136,6 +141,7 @@ public:
 	pfReleaseChannel m_pfReleaseChannel;
 	HMODULE m_hChannelLib;
 	BOOL m_bUseProxy;
+	BOOL m_bInitialized;  // 添加初始化标志
 	BOOL InitInstance();
 	int ExitInstance();
 };
@@ -156,14 +162,10 @@ public:
 	void FreeMem(LPVOID pMemBlock);
 private:
 	ICommChannel *m_pChannel;
+	BOOL c_m_bOpened;  // 成员变量，跟踪每个对象的连接状态
 };
 
-// 全局变量声明
-// 在文件末尾修改全局变量声明
-// 删除原来的：
-// extern int& m_bOpened;
-
-// 改为：
+// 全局变量声明（保持原有，供外部使用）
 extern int m_bOpened;
 
 // 内联析构函数实现
