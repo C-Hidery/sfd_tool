@@ -157,7 +157,8 @@ jobs:
           
           # 编译命令
           $cmd = @"
-          "$cl32" /nologo /O2 /MT /EHsc /D_WIN32 /D_CONSOLE /D_PROXY32_EXE /D_CRT_SECURE_NO_WARNINGS $includes Proxy32.cpp /Fe"$outDir\Proxy32.exe" /link $libpaths /MACHINE:X86 /SUBSYSTEM:CONSOLE dbghelp.lib kernel32.lib user32.lib advapi32.lib"@
+          "$cl32" /nologo /O2 /MT /EHsc /D_WIN32 /D_CONSOLE /D_PROXY32_EXE /D_CRT_SECURE_NO_WARNINGS $includes Proxy32.cpp /Fe"$outDir\Proxy32.exe" /link $libpaths /MACHINE:X86 /SUBSYSTEM:CONSOLE dbghelp.lib kernel32.lib user32.lib advapi32.lib
+          "@
           
           Write-Host "Running: $cmd"
           
@@ -173,7 +174,7 @@ jobs:
           
           # 验证架构
           & dumpbin /headers "$outDir\Proxy32.exe" | Select-String "machine"
-          
+
       - name: Copy DLLs from GTK3 bin directory
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
