@@ -112,30 +112,22 @@ BOOL CProxyChannel::ConnectToProxy() {
         return FALSE;
     }
     
-    // 构建环境变量（继承当前环境并添加 DLL 路径）
-    char oldPath[4096];
-    GetEnvironmentVariableA("PATH", oldPath, sizeof(oldPath));
-    char newPath[8192];
-    snprintf(newPath, sizeof(newPath), "%s;%s;C:\\Windows\\SysWOW64", workingDir, oldPath);
-    
-    // 创建环境块
-    char envBlock[16384];
-    snprintf(envBlock, sizeof(envBlock), 
-             "PATH=%s\0", newPath);
+    // 简单方法：不传递自定义环境，让子进程继承父进程的环境
+    // 父进程的环境已经包含正确的 PATH
     
     STARTUPINFOA si = { sizeof(si) };
     PROCESS_INFORMATION pi;
     
-    // 启动 Proxy32.exe，指定工作目录和环境
+    // 不使用自定义环境，让子进程继承
     if (!CreateProcessA(
         proxyPath,              // 可执行文件路径
         NULL,                   // 命令行
         NULL,                   // 进程安全属性
         NULL,                   // 线程安全属性
         FALSE,                  // 继承句柄
-        CREATE_UNICODE_ENVIRONMENT,  // 创建标志
-        (LPVOID)envBlock,       // 环境变量
-        workingDir,             // 工作目录（关键！）
+        0,                      // 创建标志（不使用自定义环境）
+        NULL,                   // 环境变量（继承父进程）
+        workingDir,             // 工作目录
         &si,                    // 启动信息
         &pi)) {                 // 进程信息
         
