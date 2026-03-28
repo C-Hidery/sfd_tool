@@ -200,7 +200,7 @@ jobs:
           }
 
       - name: Copy SPRD Driver Files (SPRD version only)
-        if: matrix.use_libusb == 'OFF' -and matrix.artifact_name != 'Proxy32'
+        if: matrix.use_libusb == 'OFF' && matrix.artifact_name != 'Proxy32'
         run: |
           $destDir = "./build/SPRD/Release/"
           if (Test-Path "third_party/Lib/Channel9.dll") {
