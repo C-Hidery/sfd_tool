@@ -60,7 +60,7 @@ enum CHANNEL_TYPE {
 	CHANNEL_TYPE_FILE = 2,
 	CHANNEL_TYPE_USBMON = 3
 };
-
+#pragma pack(push, 1) 
 typedef struct _CHANNEL_ATTRIBUTE {
 	CHANNEL_TYPE ChannelType;
 	union {

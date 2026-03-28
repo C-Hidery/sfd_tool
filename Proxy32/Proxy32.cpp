@@ -328,8 +328,13 @@ void ProcessCommand(const CommandPacket& cmd, ResponsePacket& resp) {
             break;
         case CMD_OPEN: {
             CHANNEL_ATTRIBUTE attr;
-            memcpy(&attr, cmd.data, sizeof(CHANNEL_ATTRIBUTE));
-            resp.success = HandleOpen(cmd.objectId, &attr);
+            if (cmd.dataSize >= sizeof(CHANNEL_ATTRIBUTE)) {
+                memcpy(&attr, cmd.data, sizeof(CHANNEL_ATTRIBUTE));
+                resp.success = HandleOpen(cmd.objectId, &attr);
+            } else {
+                std::cerr << "CMD_OPEN: data size too small: " << cmd.dataSize << std::endl;
+                resp.success = FALSE;
+            }
             break;
         }
         case CMD_CLOSE:
