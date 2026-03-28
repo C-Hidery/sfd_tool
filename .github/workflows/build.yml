@@ -32,7 +32,7 @@ jobs:
             vcpkg_triplet: x64-windows
             artifact_name: LibUSB
           
-          # x64 架构：SPRD 原生驱动版（现在使用 Proxy32 方案）
+          # x64 架构：SPRD 原生驱动版
           - arch: x64
             config: Release
             msys_gtk_arch: mingw64
@@ -40,6 +40,15 @@ jobs:
             use_libusb: OFF
             vcpkg_triplet: x64-windows
             artifact_name: SPRD
+          
+          # x86 架构：专门编译 Proxy32 (32位)
+          - arch: x86
+            config: Release
+            msys_gtk_arch: mingw32
+            cmake_platform: Win32
+            use_libusb: OFF
+            vcpkg_triplet: x86-windows
+            artifact_name: Proxy32
 
     steps:
       - name: Checkout Repository
@@ -62,6 +71,7 @@ jobs:
             vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-
 
       - name: Install gettext (libintl) via vcpkg
+        if: matrix.arch != 'x86'  # Proxy32 不需要 gettext
         shell: pwsh
         run: |
           $vcpkgExe = "C:\vcpkg\vcpkg.exe"
@@ -72,13 +82,13 @@ jobs:
           Write-Host "Using vcpkg: $vcpkgExe"
           & $vcpkgExe install "gettext:${{ matrix.vcpkg_triplet }}"
           
-          # 如果是 libusb 版，额外安装 libusb
           if ("${{ matrix.use_libusb }}" -eq "ON") {
             Write-Host "Installing libusb for libusb version..."
             & $vcpkgExe install "libusb:${{ matrix.vcpkg_triplet }}"
           }
 
       - name: Install MSYS2 and GTK3
+        if: matrix.arch != 'x86'  # Proxy32 不需要 GTK
         run: |
           $msysPath = "C:\msys64"
 
@@ -90,8 +100,8 @@ jobs:
             exit $LASTEXITCODE
           }
 
-          Write-Host "安装 x64 GTK3 完整开发包..."
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
+          Write-Host "安装 ${{ matrix.msys_gtk_arch }} GTK3 完整开发包..."
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-${{ matrix.msys_gtk_arch }}-gtk3 mingw-w64-${{ matrix.msys_gtk_arch }}-harfbuzz mingw-w64-${{ matrix.msys_gtk_arch }}-pango mingw-w64-${{ matrix.msys_gtk_arch }}-cairo mingw-w64-${{ matrix.msys_gtk_arch }}-glib2"
 
           if ($LASTEXITCODE -ne 0) {
             Write-Error "GTK3/MSYS2 依赖安装失败"
@@ -112,70 +122,47 @@ jobs:
         run: |
           $env:Path = "C:\msys64\usr\bin;" + $env:Path
 
-          cmake -S . -B build_cmake `
-            -G "Visual Studio 17 2022" `
-            -A ${{ matrix.cmake_platform }} `
-            -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" `
-            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON `
-            -DUSE_GTK=ON `
-            -DUSE_LIBUSB=${{ matrix.use_libusb }} `
-            -DSFD_ENABLE_TESTS=ON
-
-      - name: Build sfd_tool (${{ matrix.artifact_name }} - ${{ matrix.config }})
-        shell: pwsh
-        run: |
-          $env:Path = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin;C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin;" + $env:Path
-
-          cmake --build build_cmake --config ${{ matrix.config }} -- /m
-          ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
-
-          # 复制主程序
-          Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
-      
-      - name: Build Proxy32.exe (32-bit) for SPRD version
-        if: matrix.use_libusb == 'OFF'
-        shell: pwsh
-        run: |
-          Write-Host "Building Proxy32.exe (32-bit)..."
-          
-          $outDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
-          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-          
-          # VS 2022 路径
-          $vcToolsPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207"
-          $sdkPath = "C:\Program Files (x86)\Windows Kits\10"
-          $sdkVersion = "10.0.22621.0"
-          
-          # 32 位工具链
-          $cl32 = "$vcToolsPath\bin\Hostx86\x86\cl.exe"
-          
-          # 构建 include 参数
-          $includes = "/I. /I`"$vcToolsPath\include`" /I`"$sdkPath\Include\$sdkVersion\ucrt`" /I`"$sdkPath\Include\$sdkVersion\um`" /I`"$sdkPath\Include\$sdkVersion\shared`""
-          
-          # 构建 lib 参数
-          $libpaths = "/LIBPATH:`"$vcToolsPath\lib\x86`" /LIBPATH:`"$sdkPath\Lib\$sdkVersion\ucrt\x86`" /LIBPATH:`"$sdkPath\Lib\$sdkVersion\um\x86`""
-          
-          # 编译命令
-          $cmd = @"
-          "$cl32" /nologo /O2 /MT /EHsc /D_WIN32 /D_CONSOLE /D_PROXY32_EXE /D_CRT_SECURE_NO_WARNINGS $includes Proxy32.cpp /Fe"$outDir\Proxy32.exe" /link $libpaths /MACHINE:X86 /SUBSYSTEM:CONSOLE dbghelp.lib kernel32.lib user32.lib advapi32.lib
-          "@
-          
-          Write-Host "Running: $cmd"
-          
-          # 执行编译
-          cmd /c $cmd
-          
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "Compilation failed with exit code $LASTEXITCODE"
-            exit $LASTEXITCODE
+          # Proxy32 使用简化的 CMake 配置
+          if ("${{ matrix.artifact_name }}" -eq "Proxy32") {
+            cmake -S Proxy32 -B build_cmake `
+              -G "Visual Studio 17 2022" `
+              -A ${{ matrix.cmake_platform }} `
+              -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          } else {
+            cmake -S . -B build_cmake `
+              -G "Visual Studio 17 2022" `
+              -A ${{ matrix.cmake_platform }} `
+              -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+              -DCMAKE_EXPORT_COMPILE_COMMANDS=ON `
+              -DUSE_GTK=ON `
+              -DUSE_LIBUSB=${{ matrix.use_libusb }} `
+              -DSFD_ENABLE_TESTS=ON
           }
-          
-          Write-Host "Proxy32.exe built successfully"
-          
-          # 验证架构
-          & dumpbin /headers "$outDir\Proxy32.exe" | Select-String "machine"
 
+      - name: Build (${{ matrix.artifact_name }} - ${{ matrix.config }})
+        shell: pwsh
+        run: |
+          if ("${{ matrix.artifact_name }}" -eq "Proxy32") {
+            # 只编译 Proxy32
+            cmake --build build_cmake --config ${{ matrix.config }} --target Proxy32 -- /m
+            Copy-Item "build_cmake/bin/${{ matrix.config }}/Proxy32.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
+          } else {
+            $env:Path = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin;C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin;" + $env:Path
+            cmake --build build_cmake --config ${{ matrix.config }} -- /m
+            ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
+            Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
+            
+            # SPRD 版本还需要复制 BMPlatform.dll
+            if ("${{ matrix.use_libusb }}" -eq "OFF") {
+              if (Test-Path "build_cmake/bin/x64/${{ matrix.config }}/BMPlatform.dll") {
+                Copy-Item "build_cmake/bin/x64/${{ matrix.config }}/BMPlatform.dll" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
+              }
+            }
+          }
+
+      # Proxy32 不需要复制 GTK DLL 等
       - name: Copy DLLs from GTK3 bin directory
+        if: matrix.artifact_name != 'Proxy32'
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           $gtkBinPath = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin"
@@ -189,6 +176,7 @@ jobs:
           }
 
       - name: Copy gettext runtime DLLs from vcpkg
+        if: matrix.artifact_name != 'Proxy32'
         shell: pwsh
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
@@ -212,10 +200,9 @@ jobs:
           }
 
       - name: Copy SPRD Driver Files (SPRD version only)
-        if: matrix.use_libusb == 'OFF'
+        if: matrix.use_libusb == 'OFF' -and matrix.artifact_name != 'Proxy32'
         run: |
           $destDir = "./build/SPRD/Release/"
-          # Channel9.dll 和 Channel.ini 需要放在 Proxy32.exe 同一目录
           if (Test-Path "third_party/Lib/Channel9.dll") {
             Copy-Item "third_party/Lib/Channel9.dll" -Destination $destDir -Force
             Write-Host "Copied Channel9.dll"
@@ -224,17 +211,13 @@ jobs:
             Copy-Item "third_party/Lib/Channel.ini" -Destination $destDir -Force
             Write-Host "Copied Channel.ini"
           }
-          # 也复制到 x86 目录（Proxy32 需要）
-          if (Test-Path "third_party/Lib/Channel9.dll") {
-            Copy-Item "third_party/Lib/Channel9.dll" -Destination "$destDir" -Force
-          }
 
       - name: Copy GTK Runtime Data Files
+        if: matrix.artifact_name != 'Proxy32'
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           $msysPrefix = "C:\msys64\${{ matrix.msys_gtk_arch }}"
 
-          # 复制图标主题
           $iconsSrc = "$msysPrefix\share\icons"
           if (Test-Path $iconsSrc) {
             $iconsDest = "$destDir\share\icons"
@@ -243,7 +226,6 @@ jobs:
             Copy-Item -Path "$iconsSrc\Adwaita" -Destination $iconsDest -Recurse -Force -ErrorAction SilentlyContinue
           }
           
-          # 复制 GSettings schemas
           $schemasSrc = "$msysPrefix\share\glib-2.0\schemas"
           if (Test-Path $schemasSrc) {
             $schemasDest = "$destDir\share\glib-2.0\schemas"
@@ -252,6 +234,7 @@ jobs:
           }
 
       - name: Copy locale (.mo) files
+        if: matrix.artifact_name != 'Proxy32'
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/locale/zh_CN/LC_MESSAGES"
           New-Item -ItemType Directory -Force -Path $destDir | Out-Null
@@ -261,6 +244,7 @@ jobs:
           }
 
       - name: Cleanup Build Directory
+        if: matrix.artifact_name != 'Proxy32'
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           $unwantedExtensions = @(".a", ".la", ".def", ".sh", ".py", ".pl", ".exp")
@@ -443,7 +427,11 @@ jobs:
             cp ../master/third_party/Lib/Channel9.dll sfd_tool_windows_x64_sprd/ 2>/dev/null || true
             cp ../master/third_party/Lib/Channel.ini sfd_tool_windows_x64_sprd/ 2>/dev/null || true
           fi
-
+          # 从 Proxy32 构建中复制 Proxy32.exe
+          if [ -d "sfd_tool_Proxy32_Release" ]; then
+            cp sfd_tool_Proxy32_Release/Proxy32.exe sfd_tool_windows_x64_sprd/ 2>/dev/null || true
+            echo "Proxy32.exe copied to SPRD folder"
+          fi
           # 复制文档
           cp ../master/*.md . 2>/dev/null || true
 
