@@ -131,27 +131,38 @@ jobs:
 
           # 复制主程序
           Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
+      
       - name: Build Proxy32.exe (32-bit) for SPRD version
         if: matrix.use_libusb == 'OFF'
         shell: pwsh
         run: |
           Write-Host "Building Proxy32.exe (32-bit)..."
           
-          # 创建输出目录
           $outDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
           
-          # 设置 32 位 VS 环境
-          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
+          # 使用完整的 32 位编译器路径，避免被覆盖
+          $cl32 = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\Hostx86\x86\cl.exe"
+          $link32 = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\Hostx86\x86\link.exe"
+          
+          # 设置 32 位编译的 include 和 lib 路径
+          $includePath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\include;C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\ucrt;C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\um;C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\shared"
+          $libPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\lib\x86;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0\ucrt\x86;C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0\um\x86"
           
           # 编译 Proxy32.exe
-          cl /nologo /O2 /MT /EHsc /D_WIN32 /D_CONSOLE /D_PROXY32_EXE `
+          & $cl32 /nologo /O2 /MT /EHsc /D_WIN32 /D_CONSOLE /D_PROXY32_EXE /D_CRT_SECURE_NO_WARNINGS `
             /I"." `
+            /I"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\include" `
+            /I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\ucrt" `
+            /I"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\um" `
             Proxy32.cpp `
             /Fe"$outDir\Proxy32.exe" `
-            /link dbghelp.lib
+            /link /MACHINE:X86 /SUBSYSTEM:CONSOLE dbghelp.lib
           
           Write-Host "Proxy32.exe built successfully"
+          
+          # 验证架构
+          & dumpbin /headers "$outDir\Proxy32.exe" | Select-String "machine"
 
       - name: Copy DLLs from GTK3 bin directory
         run: |
