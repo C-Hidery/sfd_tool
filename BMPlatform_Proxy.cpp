@@ -5,6 +5,7 @@
 #include <iostream>
 #include <sstream>
 #include <atomic>
+#include <map>
 
 // 管道命令定义
 enum ProxyCommand {
@@ -22,6 +23,11 @@ enum ProxyCommand {
     CMD_INIT_LOG,
     CMD_FREE_MEM,
     CMD_SHUTDOWN
+};
+
+// 异步事件类型
+enum AsyncEventType {
+    EVENT_ASYNC_DATA = 1,
 };
 
 #pragma pack(push, 1)
@@ -42,91 +48,141 @@ struct ResponsePacket {
     DWORD dataSize;
     BYTE data[4096];
 };
+
+struct AsyncEventPacket {
+    DWORD eventType;
+    DWORD objectId;
+    DWORD ulMsgId;
+    DWORD dataSize;
+    BYTE data[4096];
+};
 #pragma pack(pop)
 
-// 全局进程ID计数器，用于生成唯一管道名
+// SetReceiver 参数结构
+struct SetReceiverParams {
+    ULONG ulMsgId;
+    BOOL bRcvThread;
+    DWORD dwReceiver;
+    HANDLE hEventPipeWrite;
+};
+
+// 全局进程ID计数器
 static std::atomic<DWORD> g_pipeIdCounter(1);
 
 CProxyChannel::CProxyChannel() 
     : m_hPipe(INVALID_HANDLE_VALUE), 
       m_objectId(0), 
       m_hProxyProcess(NULL), 
-      m_bConnected(FALSE) {
+      m_bConnected(FALSE),
+      m_currentPort(0),
+      m_hEventPipe(INVALID_HANDLE_VALUE),
+      m_hEventPipeWrite(INVALID_HANDLE_VALUE),
+      m_hEventThread(NULL),
+      m_bStopEventThread(FALSE),
+      m_ulMsgId(0),
+      m_bRcvThread(FALSE),
+      m_dwReceiver(0) {
 }
 
 CProxyChannel::~CProxyChannel() {
+    m_bStopEventThread = TRUE;
+    
+    if (m_hEventPipe) {
+        DWORD dummy = 0;
+        WriteFile(m_hEventPipeWrite, &dummy, 1, &dummy, NULL);
+        if (m_hEventThread) {
+            WaitForSingleObject(m_hEventThread, 5000);
+            CloseHandle(m_hEventThread);
+        }
+        CloseHandle(m_hEventPipe);
+        CloseHandle(m_hEventPipeWrite);
+    }
+    
     if (m_hPipe != INVALID_HANDLE_VALUE) {
-        // 通知代理进程关闭
         CommandPacket cmd = {0};
         cmd.cmd = CMD_SHUTDOWN;
         cmd.objectId = m_objectId;
-        
         DWORD bytesWritten;
         WriteFile(m_hPipe, &cmd, sizeof(cmd), &bytesWritten, NULL);
-        
         CloseHandle(m_hPipe);
     }
     
     if (m_hProxyProcess) {
-        // 等待代理进程结束
         WaitForSingleObject(m_hProxyProcess, 5000);
         CloseHandle(m_hProxyProcess);
     }
 }
 
-// ConnectToProxy 实现（每个对象独立管道）
+DWORD WINAPI CProxyChannel::AsyncEventThreadProc(LPVOID lpParam) {
+    CProxyChannel* pThis = (CProxyChannel*)lpParam;
+    HANDLE hPipe = pThis->m_hEventPipe;
+    
+    while (!pThis->m_bStopEventThread) {
+        AsyncEventPacket pkt;
+        DWORD bytesRead;
+        
+        if (!ReadFile(hPipe, &pkt, sizeof(pkt), &bytesRead, NULL) || bytesRead == 0) {
+            if (pThis->m_bStopEventThread) break;
+            continue;
+        }
+        
+        if (pkt.eventType == EVENT_ASYNC_DATA) {
+            // 将数据通过 Windows 消息发送给原始接收者
+            if (pThis->m_bRcvThread) {
+                // 向线程发送消息
+                PostThreadMessage(pThis->m_dwReceiver, pThis->m_ulMsgId,
+                                  (WPARAM)pkt.data, (LPARAM)pkt.dataSize);
+            } else {
+                // 向窗口发送消息
+                PostMessage((HWND)(UINT_PTR)pThis->m_dwReceiver, pThis->m_ulMsgId,
+                            (WPARAM)pkt.data, (LPARAM)pkt.dataSize);
+            }
+        }
+    }
+    return 0;
+}
+
 BOOL CProxyChannel::ConnectToProxy() {
     if (m_bConnected && m_hPipe != INVALID_HANDLE_VALUE) {
         return TRUE;
     }
     
-    // 生成唯一的管道名
+    // 创建事件管道（可继承）
+    SECURITY_ATTRIBUTES sa = { sizeof(sa), NULL, TRUE };
+    if (!CreatePipe(&m_hEventPipe, &m_hEventPipeWrite, &sa, 0)) {
+        std::cerr << "Failed to create event pipe" << std::endl;
+        return FALSE;
+    }
+    
     DWORD pipeId = g_pipeIdCounter++;
     std::string pipeName = "\\\\.\\pipe\\SPRDChannelProxy_" + std::to_string(pipeId);
     
-    // 获取当前程序（sfd_tool.exe）所在目录
     char exePath[MAX_PATH];
     char workingDir[MAX_PATH];
     GetModuleFileNameA(NULL, exePath, MAX_PATH);
-    
     char* lastSlash = strrchr(exePath, '\\');
     if (lastSlash) {
         *(lastSlash + 1) = '\0';
     }
     strcpy_s(workingDir, exePath);
     
-    // 构建 Proxy32.exe 完整路径
     char proxyPath[MAX_PATH];
     strcpy_s(proxyPath, workingDir);
     strcat_s(proxyPath, "Proxy32.exe");
     
-    // 构建命令行，传递管道名参数
     char cmdLine[MAX_PATH * 2];
-    snprintf(cmdLine, sizeof(cmdLine), "\"%s\" %d", proxyPath, pipeId);
+    snprintf(cmdLine, sizeof(cmdLine), "\"%s\" %d %d", proxyPath, pipeId, (int)m_hEventPipeWrite);
     
     std::cout << "Starting Proxy32.exe with pipe ID: " << pipeId << std::endl;
     
-    // 检查 Proxy32.exe 是否存在
     if (GetFileAttributesA(proxyPath) == INVALID_FILE_ATTRIBUTES) {
         std::cerr << "Proxy32.exe not found at: " << proxyPath << std::endl;
         return FALSE;
     }
     
-    // 启动代理进程
     STARTUPINFOA si = { sizeof(si) };
     PROCESS_INFORMATION pi;
-    
-    if (!CreateProcessA(
-        proxyPath,
-        cmdLine,
-        NULL,
-        NULL,
-        FALSE,
-        0,
-        NULL,
-        workingDir,
-        &si,
-        &pi)) {
+    if (!CreateProcessA(proxyPath, cmdLine, NULL, NULL, TRUE, 0, NULL, workingDir, &si, &pi)) {
         DWORD error = GetLastError();
         std::cerr << "Failed to start Proxy32.exe. Error: " << error << std::endl;
         return FALSE;
@@ -135,35 +191,30 @@ BOOL CProxyChannel::ConnectToProxy() {
     m_hProxyProcess = pi.hProcess;
     CloseHandle(pi.hThread);
     
-    // 等待代理进程启动并创建管道
     Sleep(500);
     
-    // 连接到代理进程的唯一管道
     for (int i = 0; i < 15; i++) {
-        m_hPipe = CreateFileA(
-            pipeName.c_str(),
-            GENERIC_READ | GENERIC_WRITE,
-            0, NULL, OPEN_EXISTING, 0, NULL);
-        
+        m_hPipe = CreateFileA(pipeName.c_str(), GENERIC_READ | GENERIC_WRITE,
+                              0, NULL, OPEN_EXISTING, 0, NULL);
         if (m_hPipe != INVALID_HANDLE_VALUE) {
             DWORD pipeMode = PIPE_READMODE_MESSAGE;
             SetNamedPipeHandleState(m_hPipe, &pipeMode, NULL, NULL);
             
             CommandPacket cmd = {0};
             cmd.cmd = CMD_CREATE_CHANNEL;
-            
             ResponsePacket resp;
             DWORD bytesWritten, bytesRead;
-            
             if (WriteFile(m_hPipe, &cmd, sizeof(cmd), &bytesWritten, NULL) &&
                 ReadFile(m_hPipe, &resp, sizeof(resp), &bytesRead, NULL) &&
                 resp.success) {
                 m_objectId = resp.result;
                 m_bConnected = TRUE;
                 std::cout << "Connected to Proxy32, object ID: " << m_objectId << std::endl;
+                
+                // 启动事件处理线程
+                m_hEventThread = CreateThread(NULL, 0, AsyncEventThreadProc, this, 0, NULL);
                 return TRUE;
             }
-            
             CloseHandle(m_hPipe);
             m_hPipe = INVALID_HANDLE_VALUE;
         }
@@ -174,18 +225,16 @@ BOOL CProxyChannel::ConnectToProxy() {
     return FALSE;
 }
 
-// 修改 SendCommand，添加互斥锁保护
 BOOL CProxyChannel::SendCommand(DWORD cmd, void* params, DWORD paramSize, void* resp, DWORD respSize) {
     if (!ConnectToProxy()) {
         return FALSE;
     }
     
-    std::lock_guard<std::mutex> lock(m_pipeMutex);  // 互斥锁保护
+    std::lock_guard<std::mutex> lock(m_pipeMutex);
     
     CommandPacket packet = {0};
     packet.cmd = cmd;
     packet.objectId = m_objectId;
-    
     if (params && paramSize > 0 && paramSize <= sizeof(packet.data)) {
         packet.dataSize = paramSize;
         memcpy(packet.data, params, paramSize);
@@ -210,51 +259,55 @@ BOOL CProxyChannel::SendCommand(DWORD cmd, void* params, DWORD paramSize, void* 
     return response.success;
 }
 
-// 其他方法的实现
 BOOL CProxyChannel::InitLog(LPCWSTR pszLogName, UINT uiLogType, UINT uiLogLevel, 
                             ISpLog *pLogUtil, LPCWSTR pszBinLogFileExt) {
     return TRUE;
 }
 
 BOOL CProxyChannel::SetReceiver(ULONG ulMsgId, BOOL bRcvThread, LPCVOID pReceiver) {
-    // 注意：pReceiver 是指针，不能跨进程传递，这里只保存值
-    // 实际应用中，pReceiver 应该是一个可以在32位进程中使用的句柄或标识符
-    if (pReceiver) {
-        // 将指针值转换为 DWORD 传递（仅适用于64位地址转换到32位的情况）
-        DWORD dwReceiver = (DWORD)(ULONG_PTR)pReceiver;
-        struct {
-            ULONG ulMsgId;
-            BOOL bRcvThread;
-            DWORD dwReceiver;
-        } params = { ulMsgId, bRcvThread, dwReceiver };
-        return SendCommand(CMD_SET_RECEIVER, &params, sizeof(params), NULL, 0);
-    } else {
-        struct {
-            ULONG ulMsgId;
-            BOOL bRcvThread;
-            DWORD dwReceiver;
-        } params = { ulMsgId, bRcvThread, 0 };
-        return SendCommand(CMD_SET_RECEIVER, &params, sizeof(params), NULL, 0);
-    }
+    // 记录接收者信息
+    m_ulMsgId = ulMsgId;
+    m_bRcvThread = bRcvThread;
+    m_dwReceiver = (DWORD)(ULONG_PTR)pReceiver;
+    
+    SetReceiverParams params;
+    params.ulMsgId = ulMsgId;
+    params.bRcvThread = bRcvThread;
+    params.dwReceiver = m_dwReceiver;
+    params.hEventPipeWrite = m_hEventPipeWrite;
+    
+    return SendCommand(CMD_SET_RECEIVER, &params, sizeof(params), NULL, 0);
 }
 
 void CProxyChannel::GetReceiver(ULONG &ulMsgId, BOOL &bRcvThread, LPVOID &pReceiver) {
-    // 由于跨进程限制，此方法无法正常工作
-    // 建议改为使用 GetProperty 获取接收者信息
-    ulMsgId = 0;
-    bRcvThread = FALSE;
-    pReceiver = NULL;
+    ulMsgId = m_ulMsgId;
+    bRcvThread = m_bRcvThread;
+    pReceiver = (LPVOID)(ULONG_PTR)m_dwReceiver;
 }
 
 BOOL CProxyChannel::Open(PCCHANNEL_ATTRIBUTE pOpenArgument) {
-    // 注意：CHANNEL_ATTRIBUTE 中的 pFilePath 指针不能跨进程传递
-    // 如果使用文件通道，需要特殊处理（如传递文件路径字符串）
-    return SendCommand(CMD_OPEN, (void*)pOpenArgument, sizeof(CHANNEL_ATTRIBUTE), NULL, 0);
+    if (!pOpenArgument) return FALSE;
+    
+    DWORD portNum = pOpenArgument->Com.dwPortNum;
+    
+    // 如果已经打开了同一个端口，直接返回成功
+    if (m_bConnected && m_currentPort == portNum) {
+        std::cout << "Port COM" << portNum << " already opened in this channel, reusing." << std::endl;
+        return TRUE;
+    }
+    
+    BOOL result = SendCommand(CMD_OPEN, (void*)pOpenArgument, sizeof(CHANNEL_ATTRIBUTE), NULL, 0);
+    if (result) {
+        m_bConnected = TRUE;
+        m_currentPort = portNum;
+    }
+    return result;
 }
 
 void CProxyChannel::Close() {
     SendCommand(CMD_CLOSE, NULL, 0, NULL, 0);
     m_bConnected = FALSE;
+    m_currentPort = 0;
 }
 
 BOOL CProxyChannel::Clear() {
@@ -265,7 +318,6 @@ BOOL CProxyChannel::Clear() {
     return FALSE;
 }
 
-// Write 方法 - 添加互斥锁保护
 DWORD CProxyChannel::Write(LPVOID lpData, DWORD dwDataSize, DWORD dwReserved) {
     if (!ConnectToProxy()) {
         return 0;
@@ -273,7 +325,6 @@ DWORD CProxyChannel::Write(LPVOID lpData, DWORD dwDataSize, DWORD dwReserved) {
     
     std::lock_guard<std::mutex> lock(m_pipeMutex);
     
-    // 构建命令包，包含要写入的数据
     CommandPacket packet = {0};
     packet.cmd = CMD_WRITE;
     packet.objectId = m_objectId;
@@ -282,27 +333,23 @@ DWORD CProxyChannel::Write(LPVOID lpData, DWORD dwDataSize, DWORD dwReserved) {
         memcpy(packet.data, lpData, dwDataSize);
     }
     
-    // 发送命令和数据
     DWORD bytesWritten;
     if (!WriteFile(m_hPipe, &packet, sizeof(packet), &bytesWritten, NULL)) {
         return 0;
     }
     
-    // 读取响应
     ResponsePacket response;
     DWORD bytesRead;
     if (!ReadFile(m_hPipe, &response, sizeof(response), &bytesRead, NULL)) {
         return 0;
     }
     
-    // 返回实际写入的字节数
     if (response.success) {
         return response.result;
     }
     return 0;
 }
 
-// Read 方法 - 添加互斥锁保护
 DWORD CProxyChannel::Read(LPVOID lpData, DWORD dwDataSize, DWORD dwTimeOut, DWORD dwReserved) {
     if (!ConnectToProxy()) {
         return 0;
@@ -310,7 +357,6 @@ DWORD CProxyChannel::Read(LPVOID lpData, DWORD dwDataSize, DWORD dwTimeOut, DWOR
     
     std::lock_guard<std::mutex> lock(m_pipeMutex);
     
-    // 构建命令包
     CommandPacket packet = {0};
     packet.cmd = CMD_READ;
     packet.objectId = m_objectId;
@@ -318,51 +364,41 @@ DWORD CProxyChannel::Read(LPVOID lpData, DWORD dwDataSize, DWORD dwTimeOut, DWOR
     packet.param2 = dwTimeOut;
     packet.param3 = dwReserved;
     
-    // 发送命令
     DWORD bytesWritten;
     if (!WriteFile(m_hPipe, &packet, sizeof(packet), &bytesWritten, NULL)) {
         return 0;
     }
     
-    // 读取响应（包含读取的数据）
     ResponsePacket response;
     DWORD bytesRead;
     if (!ReadFile(m_hPipe, &response, sizeof(response), &bytesRead, NULL)) {
         return 0;
     }
     
-    // 复制读取的数据
     if (response.success && response.dataSize > 0 && lpData) {
         DWORD copySize = min(dwDataSize, response.dataSize);
         memcpy(lpData, response.data, copySize);
         return copySize;
     }
     
-    // 返回 result（可能是读取的字节数或 0）
     return response.result;
 }
 
 void CProxyChannel::FreeMem(LPVOID pMemBlock) {
-    // 注意：pMemBlock 指针不能跨进程传递
-    // 这里传递的是内存块标识符，实际释放应在创建内存的进程中执行
     ULONG_PTR ptrValue = (ULONG_PTR)pMemBlock;
     SendCommand(CMD_FREE_MEM, &ptrValue, sizeof(ptrValue), NULL, 0);
 }
 
 BOOL CProxyChannel::GetProperty(LONG lFlags, DWORD dwPropertyID, LPVOID pValue) {
-    // 支持传递任意大小的数据
     struct {
         LONG lFlags;
         DWORD dwPropertyID;
         DWORD dwValueSize;
     } params = { lFlags, dwPropertyID, pValue ? sizeof(DWORD) : 0 };
-    
-    // 对于大于 DWORD 的属性，需要特殊处理
     return SendCommand(CMD_GET_PROPERTY, &params, sizeof(params), pValue, sizeof(DWORD));
 }
 
 BOOL CProxyChannel::SetProperty(LONG lFlags, DWORD dwPropertyID, LPCVOID pValue) {
-    // 支持传递任意大小的数据
     struct {
         LONG lFlags;
         DWORD dwPropertyID;

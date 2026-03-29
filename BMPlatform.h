@@ -62,6 +62,7 @@ enum CHANNEL_TYPE {
 	CHANNEL_TYPE_FILE = 2,
 	CHANNEL_TYPE_USBMON = 3
 };
+
 #pragma pack(push, 1) 
 typedef struct _CHANNEL_ATTRIBUTE {
 	CHANNEL_TYPE ChannelType;
@@ -82,8 +83,8 @@ typedef struct _CHANNEL_ATTRIBUTE {
 		} File;
 	};
 } CHANNEL_ATTRIBUTE, *PCHANNEL_ATTRIBUTE;
-
 typedef const PCHANNEL_ATTRIBUTE PCCHANNEL_ATTRIBUTE;
+#pragma pack(pop)
 
 class ICommChannel {
 public:
@@ -106,13 +107,28 @@ public:
 // 代理通道类
 class CProxyChannel : public ICommChannel {
 private:
-	HANDLE m_hPipe;
+	HANDLE m_hPipe;                     // 命令管道
 	DWORD m_objectId;
-	HANDLE m_hProxyProcess;  // 代理进程句柄
-	std::mutex m_pipeMutex;   // 管道访问互斥锁
-	BOOL m_bConnected;        // 连接状态
+	HANDLE m_hProxyProcess;
+	std::mutex m_pipeMutex;
+	BOOL m_bConnected;
+	DWORD m_currentPort;                // 当前打开的端口号
+	
+	// 事件管道（用于异步接收）
+	HANDLE m_hEventPipe;                // 事件管道（主程序读端）
+	HANDLE m_hEventPipeWrite;           // 事件管道写端（传递给代理进程）
+	HANDLE m_hEventThread;              // 事件处理线程
+	BOOL m_bStopEventThread;
+	
+	// 记录原始接收者信息
+	ULONG m_ulMsgId;
+	BOOL m_bRcvThread;
+	DWORD m_dwReceiver;                 // 线程ID或窗口句柄
+	
 	BOOL ConnectToProxy();
 	BOOL SendCommand(DWORD cmd, void* params, DWORD paramSize, void* resp, DWORD respSize);
+	static DWORD WINAPI AsyncEventThreadProc(LPVOID lpParam);
+	
 public:
 	CProxyChannel();
 	virtual ~CProxyChannel();
@@ -141,7 +157,7 @@ public:
 	pfReleaseChannel m_pfReleaseChannel;
 	HMODULE m_hChannelLib;
 	BOOL m_bUseProxy;
-	BOOL m_bInitialized;  // 添加初始化标志
+	BOOL m_bInitialized;
 	BOOL InitInstance();
 	int ExitInstance();
 };
@@ -162,10 +178,10 @@ public:
 	void FreeMem(LPVOID pMemBlock);
 private:
 	ICommChannel *m_pChannel;
-	BOOL c_m_bOpened;  // 成员变量，跟踪每个对象的连接状态
+	BOOL c_m_bOpened;                   // 成员变量，跟踪当前对象的连接状态
 };
 
-// 全局变量声明（保持原有，供外部使用）
+// 全局变量声明（供外部使用）
 extern int m_bOpened;
 
 // 内联析构函数实现

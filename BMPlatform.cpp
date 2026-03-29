@@ -1,7 +1,7 @@
 #include "BMPlatform.h"
 #include <iostream>
 
-// 全局变量定义（保持原有）
+// 全局变量定义（保留，供外部使用）
 int m_bOpened = 0;
 
 CBMPlatformApp::CBMPlatformApp() {
@@ -9,7 +9,7 @@ CBMPlatformApp::CBMPlatformApp() {
 	m_pfReleaseChannel = NULL;
 	m_hChannelLib = NULL;
 	m_bUseProxy = TRUE;
-	m_bInitialized = FALSE;  // 初始化标志
+	m_bInitialized = FALSE;
 }
 
 // 创建代理通道的包装函数
@@ -25,11 +25,8 @@ static void ReleaseChannelWithProxy(ICommChannel *pChannel) {
 }
 
 BOOL CBMPlatformApp::InitInstance() {
-	// 防止重复初始化
-	if (m_bInitialized) {
-		return TRUE;
-	}
-	
+	if (m_bInitialized) return TRUE;
+
 #ifdef _WIN64
 	m_bUseProxy = TRUE;
 #else
@@ -70,7 +67,7 @@ CBMPlatformApp g_theApp;
 
 CBootModeOpr::CBootModeOpr() {
 	m_pChannel = NULL;
-	c_m_bOpened = FALSE;  // 初始化成员变量
+	c_m_bOpened = FALSE;
 	g_theApp.InitInstance();
 }
 
@@ -114,21 +111,29 @@ int CBootModeOpr::Write(UCHAR *lpData, int iDataSize) {
 
 BOOL CBootModeOpr::ConnectChannel(DWORD dwPort, ULONG ulMsgId, DWORD Receiver) {
 	if (!dwPort) return FALSE;
+	
+	// 如果已经连接，直接返回成功
+	if (c_m_bOpened) {
+		std::cout << "Channel already connected, skipping duplicate ConnectChannel" << std::endl;
+		return TRUE;
+	}
+	
 	if (Receiver) m_pChannel->SetReceiver(ulMsgId, TRUE, (LPVOID)Receiver);
 	CHANNEL_ATTRIBUTE ca;
 	ca.ChannelType = CHANNEL_TYPE_COM;
 	ca.Com.dwPortNum = dwPort;
 	ca.Com.dwBaudRate = 115200;
-	c_m_bOpened = m_pChannel->Open(&ca);  // 使用成员变量
-	m_bOpened = c_m_bOpened;  // 同步全局变量，供外部使用
+	
+	c_m_bOpened = m_pChannel->Open(&ca);
+	m_bOpened = c_m_bOpened;
 	if (c_m_bOpened) std::cout << "Successfully connected to port: " << dwPort << std::endl;
 	return c_m_bOpened;
 }
 
 BOOL CBootModeOpr::DisconnectChannel() {
 	m_pChannel->Close();
-	c_m_bOpened = FALSE;  // 重置成员变量
-	m_bOpened = FALSE;    // 同步全局变量
+	c_m_bOpened = FALSE;
+	m_bOpened = FALSE;
 	return TRUE;
 }
 
