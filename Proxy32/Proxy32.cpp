@@ -8,6 +8,10 @@
 #include <cstring>
 #include <cstdio>
 
+#ifndef WM_RCV_CHANNEL_DATA
+#define WM_RCV_CHANNEL_DATA (WM_USER + 0x100)
+#endif
+
 #pragma warning(disable: 4996)
 
 // 从 BMPlatform.h 复制的必要定义
