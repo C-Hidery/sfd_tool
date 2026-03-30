@@ -83,6 +83,8 @@ TEST_CASE("backupPartitions auto mode should include splloader when g_spl_size >
 
 TEST_CASE("is_critical_partition_name identifies boot/vbmeta/dtbo and splloader") {
     CHECK(is_critical_partition_name("splloader") == true);
+    CHECK(is_critical_partition_name("uboot") == true);
+    CHECK(is_critical_partition_name("uboot_a") == true);
     CHECK(is_critical_partition_name("boot") == true);
     CHECK(is_critical_partition_name("boot_a") == true);
     CHECK(is_critical_partition_name("boot_b") == true);
@@ -91,6 +93,12 @@ TEST_CASE("is_critical_partition_name identifies boot/vbmeta/dtbo and splloader"
     CHECK(is_critical_partition_name("vbmeta_system") == true);
     CHECK(is_critical_partition_name("dtbo") == true);
     CHECK(is_critical_partition_name("dtbo_a") == true);
+    CHECK(is_critical_partition_name("super") == true);
+    CHECK(is_critical_partition_name("metadata") == true);
+    CHECK(is_critical_partition_name("trustos") == true);
+    CHECK(is_critical_partition_name("teecfg") == true);
+    CHECK(is_critical_partition_name("sml") == true);
+    CHECK(is_critical_partition_name("recovery") == true);
 
     CHECK(is_critical_partition_name("system") == false);
     CHECK(is_critical_partition_name("userdata") == false);
