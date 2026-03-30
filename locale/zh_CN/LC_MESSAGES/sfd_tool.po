@@ -1104,3 +1104,12 @@ msgstr "刷写 super 后重置 metadata 失败："
 
 msgid "Checking backup integrity..."
 msgstr "正在检查备份完整性..."
+
+
+# ===== Auto-appended entries from sfd_tool.pot =====
+
+msgid "Processing..."
+msgstr "进行中..."
+
+msgid "Memory allocation failed!"
+msgstr "内存申请失败!"
