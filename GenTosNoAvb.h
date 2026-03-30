@@ -61,7 +61,7 @@ public:
             return 1;
         }
         if (*(uint32_t *)&mem[(*(uint32_t *)&mem[0x30]) + 0x200 + 0x50] && *(uint32_t *)&mem[(*(uint32_t *)&mem[0x30]) + 0x200 + 0x58])
-        size = *(uint32_t *)&mem[(*(uint32_t *)&mem[0x30]) + 0x200 + 0x50] + *(uint32_t *)&mem[(*(uint32_t *)&mem[0x30]) + 0x200 + 0x58];
+            size = *(uint32_t *)&mem[(*(uint32_t *)&mem[0x30]) + 0x200 + 0x50] + *(uint32_t *)&mem[(*(uint32_t *)&mem[0x30]) + 0x200 + 0x58];
         else if (*(uint32_t *)&mem[(*(uint32_t *)&mem[0x30]) + 0x200 + 0x30] && *(uint32_t *)&mem[(*(uint32_t *)&mem[0x30]) + 0x200 + 0x38])
             size = *(uint32_t *)&mem[(*(uint32_t *)&mem[0x30]) + 0x200 + 0x30] + *(uint32_t *)&mem[(*(uint32_t *)&mem[0x30]) + 0x200 + 0x38];
         else if (*(uint32_t *)&mem[(*(uint32_t *)&mem[0x30]) + 0x200 + 0x20] && *(uint32_t *)&mem[(*(uint32_t *)&mem[0x30]) + 0x200 + 0x28])
@@ -132,7 +132,7 @@ public:
                     {
                         if (*(uint16_t *)&mem[i - 4] == 0x3E0 && *(uint8_t *)&mem[i - 7] == 0x3)
                         {
-                            for (size_t m = start_pos; m < i; m += 4)
+                            for (int m = start_pos; m < i; m += 4)
                             {
                                 if (*(uint32_t *)&mem[m] >> 16 == 0x9400)
                                 {
@@ -145,7 +145,7 @@ public:
                             }
                             if (count1 && count2 && count1 + count2 > 2)
                             {
-                                printf("[TosPatcher] [INFO] detected mov at 0x%zx\n", i - 4);
+                                printf("detected mov at 0x%zx\n", i - 4);
                                 if (mov_count < 3)
                                 {
                                     pmov[mov_count] = i - 4;
