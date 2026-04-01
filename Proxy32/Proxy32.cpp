@@ -3,9 +3,14 @@
 #include <iostream>
 #include <map>
 #include <mutex>
+#include <set>
 #include <string>
 #include <cstring>
 #include <cstdio>
+
+#ifndef WM_RCV_CHANNEL_DATA
+#define WM_RCV_CHANNEL_DATA (WM_USER + 0x100)
+#endif
 
 #pragma warning(disable: 4996)
 
@@ -36,7 +41,6 @@ typedef struct _CHANNEL_ATTRIBUTE {
         } File;
     };
 } CHANNEL_ATTRIBUTE, *PCHANNEL_ATTRIBUTE;
-
 typedef const PCHANNEL_ATTRIBUTE PCCHANNEL_ATTRIBUTE;
 
 class ICommChannel {
@@ -80,6 +84,11 @@ enum ProxyCommand {
     CMD_SHUTDOWN
 };
 
+// 异步事件类型
+enum AsyncEventType {
+    EVENT_ASYNC_DATA = 1,
+};
+
 #pragma pack(push, 1)
 struct CommandPacket {
     DWORD cmd;
@@ -97,6 +106,21 @@ struct ResponsePacket {
     DWORD result;
     DWORD dataSize;
     BYTE data[4096];
+};
+
+struct AsyncEventPacket {
+    DWORD eventType;
+    DWORD objectId;
+    DWORD ulMsgId;
+    DWORD dataSize;
+    BYTE data[4096];
+};
+
+struct SetReceiverParams {
+    ULONG ulMsgId;
+    BOOL bRcvThread;
+    DWORD dwReceiver;
+    HANDLE hEventPipeWrite;
 };
 #pragma pack(pop)
 
@@ -125,6 +149,7 @@ public:
     }
 };
 
+// 全局变量
 HMODULE g_hChannelLib = NULL;
 pfCreateChannel g_pfCreateChannel = NULL;
 pfReleaseChannel g_pfReleaseChannel = NULL;
@@ -133,27 +158,38 @@ HANDLE g_hPipe = INVALID_HANDLE_VALUE;
 BOOL g_bRunning = TRUE;
 std::string g_pipeName;
 
+// 端口占用记录
+std::set<DWORD> g_openedPorts;
+std::mutex g_portMutex;
+
+// 通道窗口映射
+std::map<DWORD, HWND> g_channelWindowMap;
+std::mutex g_windowMapMutex;
+
+// 窗口过程声明
+LRESULT CALLBACK AsyncWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+struct ChannelWindowInfo {
+    DWORD channelId;
+    ULONG ulMsgId;
+    HANDLE hEventPipe;
+};
+
 BOOL InitChannelDll() {
     if (g_hChannelLib) return TRUE;
     
-    // 获取当前目录（已经切换到程序目录）
     char cwd[MAX_PATH];
     GetCurrentDirectoryA(MAX_PATH, cwd);
     std::cout << "Current directory: " << cwd << std::endl;
     
-    // 设置 DLL 搜索路径
     SetDllDirectoryA(cwd);
     
-    // 将当前目录添加到 PATH
     char oldPath[4096];
     GetEnvironmentVariableA("PATH", oldPath, sizeof(oldPath));
     char newPath[8192];
     snprintf(newPath, sizeof(newPath), "%s;%s;C:\\Windows\\SysWOW64", cwd, oldPath);
     SetEnvironmentVariableA("PATH", newPath);
     
-    std::cout << "PATH set to: " << newPath << std::endl;
-    
-    // 检查 Channel9.dll 是否存在
     char dllPath[MAX_PATH];
     strcpy_s(dllPath, cwd);
     strcat_s(dllPath, "\\Channel9.dll");
@@ -164,39 +200,28 @@ BOOL InitChannelDll() {
     }
     std::cout << "Channel9.dll found" << std::endl;
     
-    // 检查 Channel.ini 是否存在
     char iniPath[MAX_PATH];
     strcpy_s(iniPath, cwd);
     strcat_s(iniPath, "\\Channel.ini");
-    
     if (GetFileAttributesA(iniPath) == INVALID_FILE_ATTRIBUTES) {
         std::cerr << "WARNING: Channel.ini not found at: " << iniPath << std::endl;
     } else {
         std::cout << "Channel.ini found" << std::endl;
     }
     
-    // 尝试加载 DLL
     g_hChannelLib = LoadLibraryA("Channel9.dll");
-    
     if (!g_hChannelLib) {
-        // 尝试用完整路径
         g_hChannelLib = LoadLibraryA(dllPath);
-        
         if (!g_hChannelLib) {
             DWORD error = GetLastError();
             std::cerr << "Failed to load Channel9.dll. Error: " << error << std::endl;
-            
-            // 获取详细错误信息
             LPSTR msgBuf = NULL;
-            FormatMessageA(
-                FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
-                NULL, error, 0, (LPSTR)&msgBuf, 0, NULL);
-            
+            FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+                           NULL, error, 0, (LPSTR)&msgBuf, 0, NULL);
             if (msgBuf) {
                 std::cerr << "Details: " << msgBuf << std::endl;
                 LocalFree(msgBuf);
             }
-            
             return FALSE;
         }
     }
@@ -228,6 +253,16 @@ BOOL HandleReleaseChannel(DWORD channelId) {
     if (pChannel && g_pfReleaseChannel) {
         g_pfReleaseChannel(pChannel);
         g_channelManager.RemoveChannel(channelId);
+        
+        // 清理窗口映射
+        std::lock_guard<std::mutex> lock(g_windowMapMutex);
+        auto it = g_channelWindowMap.find(channelId);
+        if (it != g_channelWindowMap.end()) {
+            ChannelWindowInfo* info = (ChannelWindowInfo*)GetWindowLongPtr(it->second, GWLP_USERDATA);
+            delete info;
+            DestroyWindow(it->second);
+            g_channelWindowMap.erase(it);
+        }
         return TRUE;
     }
     return FALSE;
@@ -235,22 +270,28 @@ BOOL HandleReleaseChannel(DWORD channelId) {
 
 BOOL HandleOpen(DWORD channelId, PCCHANNEL_ATTRIBUTE pAttr) {
     ICommChannel* pChannel = g_channelManager.GetChannel(channelId);
-    if (!pChannel) {
-        std::cerr << "HandleOpen: channel not found, ID=" << channelId << std::endl;
-        return FALSE;
+    if (!pChannel) return FALSE;
+    
+    DWORD portNum = pAttr->Com.dwPortNum;
+    {
+        std::lock_guard<std::mutex> lock(g_portMutex);
+        if (g_openedPorts.find(portNum) != g_openedPorts.end()) {
+            std::cout << "Port COM" << portNum << " already opened in proxy, returning success." << std::endl;
+            return TRUE;
+        }
     }
     
-    std::cout << "HandleOpen: Opening COM" << pAttr->Com.dwPortNum 
+    std::cout << "HandleOpen: Opening COM" << portNum 
               << " at " << pAttr->Com.dwBaudRate << " baud" << std::endl;
     
     BOOL result = pChannel->Open(pAttr);
-    
     if (result) {
+        std::lock_guard<std::mutex> lock(g_portMutex);
+        g_openedPorts.insert(portNum);
         std::cout << "HandleOpen: SUCCESS" << std::endl;
     } else {
         std::cerr << "HandleOpen: FAILED" << std::endl;
     }
-    
     return result;
 }
 
@@ -261,29 +302,18 @@ void HandleClose(DWORD channelId) {
 
 DWORD HandleRead(DWORD channelId, LPVOID lpData, DWORD dwDataSize, DWORD dwTimeOut) {
     ICommChannel* pChannel = g_channelManager.GetChannel(channelId);
-    if (!pChannel) {
-        std::cerr << "HandleRead: channel not found" << std::endl;
-        return 0;
-    }
-    
+    if (!pChannel) return 0;
     DWORD bytesRead = pChannel->Read(lpData, dwDataSize, dwTimeOut);
-    if (bytesRead > 0) {
-        std::cout << "HandleRead: read " << bytesRead << " bytes" << std::endl;
-    }
+    if (bytesRead > 0) std::cout << "HandleRead: read " << bytesRead << " bytes" << std::endl;
     return bytesRead;
 }
 
 DWORD HandleWrite(DWORD channelId, LPVOID lpData, DWORD dwDataSize) {
     ICommChannel* pChannel = g_channelManager.GetChannel(channelId);
-    if (!pChannel) {
-        std::cerr << "HandleWrite: channel not found" << std::endl;
-        return 0;
-    }
-    
+    if (!pChannel) return 0;
     std::cout << "HandleWrite: writing " << dwDataSize << " bytes" << std::endl;
     DWORD bytesWritten = pChannel->Write(lpData, dwDataSize);
     std::cout << "HandleWrite: wrote " << bytesWritten << " bytes" << std::endl;
-    
     return bytesWritten;
 }
 
@@ -293,11 +323,47 @@ BOOL HandleClear(DWORD channelId) {
     return pChannel->Clear();
 }
 
-BOOL HandleSetReceiver(DWORD channelId, ULONG ulMsgId, BOOL bRcvThread, DWORD dwReceiver) {
+BOOL HandleSetReceiver(DWORD channelId, const SetReceiverParams* pParams) {
     ICommChannel* pChannel = g_channelManager.GetChannel(channelId);
     if (!pChannel) return FALSE;
-    // 将 DWORD 转换回指针（仅适用于64位到32位的转换）
-    return pChannel->SetReceiver(ulMsgId, bRcvThread, (LPCVOID)(ULONG_PTR)dwReceiver);
+    
+    // 注册窗口类（如果还没有注册）
+    static bool classRegistered = false;
+    if (!classRegistered) {
+        WNDCLASSA wc = {0};
+        wc.lpfnWndProc = AsyncWndProc;
+        wc.hInstance = GetModuleHandle(NULL);
+        wc.lpszClassName = "ProxyAsyncWnd";
+        RegisterClassA(&wc);
+        classRegistered = true;
+    }
+    
+    // 创建隐藏窗口作为异步接收者
+    HWND hWnd = CreateWindowA("ProxyAsyncWnd", NULL, 0, 0, 0, 0, 0, NULL, NULL, GetModuleHandle(NULL), NULL);
+    if (!hWnd) return FALSE;
+    
+    // 保存通道信息
+    ChannelWindowInfo* info = new ChannelWindowInfo;
+    info->channelId = channelId;
+    info->ulMsgId = pParams->ulMsgId;
+    info->hEventPipe = pParams->hEventPipeWrite;
+    SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)info);
+    
+    // 设置真实通道的接收者
+    if (!pChannel->SetReceiver(pParams->ulMsgId, FALSE, (LPCVOID)hWnd)) {
+        delete info;
+        DestroyWindow(hWnd);
+        return FALSE;
+    }
+    
+    // 保存映射
+    {
+        std::lock_guard<std::mutex> lock(g_windowMapMutex);
+        g_channelWindowMap[channelId] = hWnd;
+    }
+    
+    std::cout << "SetReceiver: created hidden window for channel " << channelId << std::endl;
+    return TRUE;
 }
 
 BOOL HandleGetProperty(DWORD channelId, LONG lFlags, DWORD dwPropertyID, LPVOID pValue, DWORD dwValueSize) {
@@ -317,18 +383,44 @@ void HandleFreeMem(DWORD channelId, ULONG_PTR ptrValue) {
     if (pChannel) pChannel->FreeMem((LPVOID)ptrValue);
 }
 
+LRESULT CALLBACK AsyncWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    if (msg == WM_RCV_CHANNEL_DATA) {
+        ChannelWindowInfo* info = (ChannelWindowInfo*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+        if (info && info->hEventPipe != INVALID_HANDLE_VALUE) {
+            BYTE* pData = (BYTE*)wParam;
+            DWORD dataSize = (DWORD)lParam;
+            
+            AsyncEventPacket pkt;
+            pkt.eventType = EVENT_ASYNC_DATA;
+            pkt.objectId = info->channelId;
+            pkt.ulMsgId = info->ulMsgId;
+            pkt.dataSize = dataSize;
+            if (dataSize > sizeof(pkt.data)) dataSize = sizeof(pkt.data);
+            memcpy(pkt.data, pData, dataSize);
+            
+            DWORD bytesWritten;
+            WriteFile(info->hEventPipe, &pkt, sizeof(pkt), &bytesWritten, NULL);
+        }
+        return 0;
+    }
+    return DefWindowProc(hWnd, msg, wParam, lParam);
+}
+
 void ProcessCommand(const CommandPacket& cmd, ResponsePacket& resp) {
     memset(&resp, 0, sizeof(resp));
     resp.success = TRUE;
     std::cout << "ProcessCommand: cmd=" << cmd.cmd << std::endl;
+    
     switch (cmd.cmd) {
         case CMD_CREATE_CHANNEL:
             resp.result = HandleCreateChannel();
             resp.success = (resp.result != 0);
             break;
+            
         case CMD_RELEASE_CHANNEL:
             resp.success = HandleReleaseChannel(cmd.objectId);
             break;
+            
         case CMD_OPEN: {
             CHANNEL_ATTRIBUTE attr;
             if (cmd.dataSize >= sizeof(CHANNEL_ATTRIBUTE)) {
@@ -340,10 +432,12 @@ void ProcessCommand(const CommandPacket& cmd, ResponsePacket& resp) {
             }
             break;
         }
+        
         case CMD_CLOSE:
             HandleClose(cmd.objectId);
             resp.success = TRUE;
             break;
+            
         case CMD_READ: {
             DWORD bytesRead = HandleRead(cmd.objectId, resp.data, cmd.param1, cmd.param2);
             resp.result = bytesRead;
@@ -351,22 +445,28 @@ void ProcessCommand(const CommandPacket& cmd, ResponsePacket& resp) {
             resp.success = TRUE;
             break;
         }
+        
         case CMD_WRITE: {
             DWORD bytesWritten = HandleWrite(cmd.objectId, (LPVOID)cmd.data, cmd.dataSize);
             resp.result = bytesWritten;
             resp.success = (bytesWritten == cmd.dataSize);
             break;
         }
+        
         case CMD_CLEAR:
             resp.success = HandleClear(cmd.objectId);
             break;
+            
         case CMD_SET_RECEIVER: {
-            struct { ULONG ulMsgId; BOOL bRcvThread; DWORD dwReceiver; }* pParams;
-            pParams = (decltype(pParams))cmd.data;
-            resp.success = HandleSetReceiver(cmd.objectId, pParams->ulMsgId, 
-                                            pParams->bRcvThread, pParams->dwReceiver);
+            if (cmd.dataSize >= sizeof(SetReceiverParams)) {
+                SetReceiverParams* pParams = (SetReceiverParams*)cmd.data;
+                resp.success = HandleSetReceiver(cmd.objectId, pParams);
+            } else {
+                resp.success = FALSE;
+            }
             break;
         }
+        
         case CMD_GET_PROPERTY: {
             struct { LONG lFlags; DWORD dwPropertyID; DWORD dwValueSize; }* pParams;
             pParams = (decltype(pParams))cmd.data;
@@ -376,6 +476,7 @@ void ProcessCommand(const CommandPacket& cmd, ResponsePacket& resp) {
             if (resp.success) resp.result = value;
             break;
         }
+        
         case CMD_SET_PROPERTY: {
             struct { LONG lFlags; DWORD dwPropertyID; DWORD dwValue; }* pParams;
             pParams = (decltype(pParams))cmd.data;
@@ -383,14 +484,17 @@ void ProcessCommand(const CommandPacket& cmd, ResponsePacket& resp) {
                                             pParams->dwPropertyID, pParams->dwValue);
             break;
         }
+        
         case CMD_FREE_MEM:
             HandleFreeMem(cmd.objectId, (ULONG_PTR)cmd.param1);
             resp.success = TRUE;
             break;
+            
         case CMD_SHUTDOWN:
             g_bRunning = FALSE;
             resp.success = TRUE;
             break;
+            
         default:
             resp.success = FALSE;
             break;
@@ -398,38 +502,31 @@ void ProcessCommand(const CommandPacket& cmd, ResponsePacket& resp) {
 }
 
 int main(int argc, char* argv[]) {
-    // 获取 Proxy32.exe 所在目录
     char exePath[MAX_PATH];
     GetModuleFileNameA(NULL, exePath, MAX_PATH);
     char* lastSlash = strrchr(exePath, '\\');
     if (lastSlash) {
         *lastSlash = '\0';
     }
-    
-    // 切换到程序所在目录
     SetCurrentDirectoryA(exePath);
     
-    // 解析命令行参数，获取管道ID
     DWORD pipeId = 1;
-    if (argc >= 2) {
-        pipeId = atoi(argv[1]);
-    }
+    HANDLE hEventPipeWrite = INVALID_HANDLE_VALUE;
+    if (argc >= 2) pipeId = atoi(argv[1]);
+    if (argc >= 3) hEventPipeWrite = (HANDLE)atoi(argv[2]);
     
-    // 构建唯一的管道名
     g_pipeName = "\\\\.\\pipe\\SPRDChannelProxy_" + std::to_string(pipeId);
     
     std::cout << "========================================" << std::endl;
     std::cout << "SPRD Channel Proxy32 started (PID: " << GetCurrentProcessId() << ")" << std::endl;
     std::cout << "Pipe name: " << g_pipeName << std::endl;
+    std::cout << "Event pipe handle: " << (int)hEventPipeWrite << std::endl;
     std::cout << "Proxy32.exe directory: " << exePath << std::endl;
-    std::cout << "Current working directory: " << exePath << std::endl;
     std::cout << "========================================" << std::endl;
     
-    // 验证关键文件
     char dllPath[MAX_PATH];
     strcpy_s(dllPath, exePath);
     strcat_s(dllPath, "\\Channel9.dll");
-    
     if (GetFileAttributesA(dllPath) != INVALID_FILE_ATTRIBUTES) {
         std::cout << "[OK] Channel9.dll found" << std::endl;
     } else {
@@ -439,34 +536,28 @@ int main(int argc, char* argv[]) {
     char iniPath[MAX_PATH];
     strcpy_s(iniPath, exePath);
     strcat_s(iniPath, "\\Channel.ini");
-    
     if (GetFileAttributesA(iniPath) != INVALID_FILE_ATTRIBUTES) {
         std::cout << "[OK] Channel.ini found" << std::endl;
     } else {
         std::cerr << "[WARNING] Channel.ini NOT found!" << std::endl;
     }
-    
     std::cout << "========================================" << std::endl;
     
-    // 创建命名管道（使用唯一名称）
-    g_hPipe = CreateNamedPipeA(
-        g_pipeName.c_str(),
+    // 创建命名管道
+    g_hPipe = CreateNamedPipeA(g_pipeName.c_str(),
         PIPE_ACCESS_DUPLEX,
         PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
         1,
         sizeof(ResponsePacket),
         sizeof(CommandPacket),
         0,
-        NULL
-    );
-    
+        NULL);
     if (g_hPipe == INVALID_HANDLE_VALUE) {
         std::cerr << "Failed to create named pipe. Error: " << GetLastError() << std::endl;
         return 1;
     }
     
     std::cout << "Waiting for client connection..." << std::endl;
-    
     if (!ConnectNamedPipe(g_hPipe, NULL)) {
         if (GetLastError() != ERROR_PIPE_CONNECTED) {
             std::cerr << "Failed to connect pipe. Error: " << GetLastError() << std::endl;
@@ -474,7 +565,6 @@ int main(int argc, char* argv[]) {
             return 1;
         }
     }
-    
     std::cout << "Client connected" << std::endl;
     std::cout << "========================================" << std::endl;
     

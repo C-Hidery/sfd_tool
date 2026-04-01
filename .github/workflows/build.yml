@@ -27,6 +27,7 @@ jobs:
           - arch: x64
             config: Release
             msys_gtk_arch: mingw64
+            msys_msystem: MINGW64
             cmake_platform: x64
             use_libusb: ON
             vcpkg_triplet: x64-windows
@@ -36,6 +37,7 @@ jobs:
           - arch: x64
             config: Release
             msys_gtk_arch: mingw64
+            msys_msystem: MINGW64
             cmake_platform: x64
             use_libusb: OFF
             vcpkg_triplet: x64-windows
@@ -45,6 +47,7 @@ jobs:
           - arch: x86
             config: Release
             msys_gtk_arch: mingw32
+            msys_msystem: MINGW32
             cmake_platform: Win32
             use_libusb: OFF
             vcpkg_triplet: x86-windows
@@ -81,40 +84,38 @@ jobs:
           }
           Write-Host "Using vcpkg: $vcpkgExe"
           & $vcpkgExe install "gettext:${{ matrix.vcpkg_triplet }}"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "安装 gettext 失败"
+            exit $LASTEXITCODE
+          }
           
           # 如果是 libusb 版，额外安装 libusb
           if ("${{ matrix.use_libusb }}" -eq "ON") {
             Write-Host "Installing libusb for libusb version..."
             & $vcpkgExe install "libusb:${{ matrix.vcpkg_triplet }}"
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "安装 libusb 失败"
+              exit $LASTEXITCODE
+            }
           }
 
-      - name: Install MSYS2 and GTK3
-        shell: pwsh
+      - name: Setup MSYS2 and GTK3
+        id: msys2
         if: matrix.artifact_name != 'Proxy32'  # Proxy32 不需要 GTK3
-        run: |
-          $msysPath = "C:\msys64"
-
-          Write-Host "安装 GTK3 开发包..."
-
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "pacman -Sy 失败"
-            exit $LASTEXITCODE
-          }
-
-          Write-Host "安装 x64 GTK3 完整开发包..."
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
-
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "GTK3/MSYS2 依赖安装失败"
-            exit $LASTEXITCODE
-          }
-
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed gettext"
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "安装 gettext 失败"
-            exit $LASTEXITCODE
-          }
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msys_msystem }}
+          release: false
+          update: true
+          cache: true
+          install: >-
+            gettext
+          pacboy: >-
+            gtk3:p
+            harfbuzz:p
+            pango:p
+            cairo:p
+            glib2:p
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.artifact_name }}/${{ matrix.config }}/ | Out-Null
 
