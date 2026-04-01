@@ -144,7 +144,6 @@ target_link_libraries(sfd_tool
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT USE_LIBUSB)
     target_sources(sfd_tool PRIVATE
         BMPlatform.cpp
-        BMPlatform_Proxy.cpp
         Wrapper.cpp
     )
 elseif (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)

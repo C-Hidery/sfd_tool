@@ -8,7 +8,6 @@ set(SFD_TEST_COMMON_SOURCES
 if (WIN32)
     list(APPEND SFD_TEST_COMMON_SOURCES
         ${CMAKE_SOURCE_DIR}/BMPlatform.cpp
-        ${CMAKE_SOURCE_DIR}/BMPlatform_Proxy.cpp   # 添加代理实现
         ${CMAKE_SOURCE_DIR}/Wrapper.cpp
     )
 endif()
