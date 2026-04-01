@@ -104,8 +104,8 @@ jobs:
         if: matrix.artifact_name != 'Proxy32'  # Proxy32 不需要 GTK3
         uses: msys2/setup-msys2@v2
         with:
-          location: C:\
           msystem: ${{ matrix.msys_msystem }}
+          release: false
           update: true
           cache: true
           install: >-
