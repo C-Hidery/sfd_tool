@@ -3,6 +3,103 @@
 #include <stdio.h>
 #include <string>
 
+// 包含与主程序相同的接口定义（但不需要完整的类实现）
+// 这里直接复制必要的定义，避免循环依赖
+
+#define INVALID_VALUE ((DWORD)-1)
+#define INFINITE_LOGFILE_SIZE ( 0 )
+
+typedef enum {
+    SPLOGLV_NONE = 0,
+    SPLOGLV_ERROR = 1,
+    SPLOGLV_WARN = 2,
+    SPLOGLV_INFO = 3,
+    SPLOGLV_DATA = 4,
+    SPLOGLV_VERBOSE = 5
+} SPLOG_LEVEL;
+
+enum {
+    LOG_READ = 0,
+    LOG_WRITE = 1,
+    LOG_ASYNC_READ = 2
+};
+
+class ISpLog {
+public:
+    enum OpenFlags {
+        modeTimeSuffix = 0x0001,
+        modeDateSuffix = 0x0002,
+        modeCreate = 0x1000,
+        modeNoTruncate = 0x2000,
+        typeText = 0x4000,
+        typeBinary = (int)0x8000,
+        modeBinNone = 0x0000,
+        modeBinRead = 0x0100,
+        modeBinWrite = 0x0200,
+        modeBinReadWrite = 0x0300,
+        defaultTextFlag = modeCreate | modeDateSuffix | typeText,
+        defaultBinaryFlag = modeCreate | modeDateSuffix | typeBinary | modeBinRead,
+        defaultDualFlag = modeCreate | modeDateSuffix | typeText | typeBinary | modeBinRead
+    };
+
+    virtual ~ISpLog(void) {};
+    virtual BOOL Open(LPCTSTR lpszLogPath,
+        UINT uFlags = ISpLog::defaultTextFlag,
+        UINT uLogLevel = SPLOGLV_INFO,
+        UINT uMaxFileSizeInMB = INFINITE_LOGFILE_SIZE) = 0;
+    virtual BOOL Close(void) = 0;
+    virtual void Release(void) = 0;
+    virtual BOOL LogHexData(const BYTE *pHexData, DWORD dwHexSize, UINT uFlag = LOG_READ) = 0;
+    virtual BOOL LogRawStrA(UINT uLogLevel, LPCSTR lpszString) = 0;
+    virtual BOOL LogRawStrW(UINT uLogLevel, LPCWSTR lpszString) = 0;
+    virtual BOOL LogFmtStrA(UINT uLogLevel, LPCSTR lpszFmt, ...) = 0;
+    virtual BOOL LogFmtStrW(UINT uLogLevel, LPCWSTR lpszFmt, ...) = 0;
+    virtual BOOL LogBufData(UINT uLogLevel, const BYTE *pBufData, DWORD dwBufSize, UINT uFlag = LOG_WRITE, const DWORD *pUserNeedSize = NULL) = 0;
+    virtual BOOL SetProperty(LONG lAttr, LONG lFlags, LPCVOID lpValue) = 0;
+    virtual BOOL GetProperty(LONG lAttr, LONG lFlags, LPVOID lpValue) = 0;
+};
+
+enum CHANNEL_TYPE {
+    CHANNEL_TYPE_COM = 0,
+    CHANNEL_TYPE_SOCKET = 1,
+    CHANNEL_TYPE_FILE = 2,
+    CHANNEL_TYPE_USBMON = 3
+};
+
+typedef struct _CHANNEL_ATTRIBUTE {
+    CHANNEL_TYPE ChannelType;
+    union {
+        struct { DWORD dwPortNum; DWORD dwBaudRate; } Com;
+        struct { DWORD dwPort; DWORD dwIP; DWORD dwFlag; } Socket;
+        struct { DWORD dwPackSize; DWORD dwPackFreq; WCHAR *pFilePath; } File;
+    };
+} CHANNEL_ATTRIBUTE, *PCHANNEL_ATTRIBUTE;
+typedef const PCHANNEL_ATTRIBUTE PCCHANNEL_ATTRIBUTE;
+
+class ICommChannel {
+public:
+    virtual ~ICommChannel() = 0;
+    virtual BOOL InitLog(LPCWSTR pszLogName, UINT uiLogType,
+        UINT uiLogLevel = INVALID_VALUE, ISpLog *pLogUtil = NULL,
+        LPCWSTR pszBinLogFileExt = NULL) = 0;
+    virtual BOOL SetReceiver(ULONG ulMsgId, BOOL bRcvThread, LPCVOID pReceiver) = 0;
+    virtual void GetReceiver(ULONG &ulMsgId, BOOL &bRcvThread, LPVOID &pReceiver) = 0;
+    virtual BOOL Open(PCCHANNEL_ATTRIBUTE pOpenArgument) = 0;
+    virtual void Close() = 0;
+    virtual BOOL Clear() = 0;
+    virtual DWORD Read(LPVOID lpData, DWORD dwDataSize, DWORD dwTimeOut, DWORD dwReserved = 0) = 0;
+    virtual DWORD Write(LPVOID lpData, DWORD dwDataSize, DWORD dwReserved = 0) = 0;
+    virtual void FreeMem(LPVOID pMemBlock) = 0;
+    virtual BOOL GetProperty(LONG lFlags, DWORD dwPropertyID, LPVOID pValue) = 0;
+    virtual BOOL SetProperty(LONG lFlags, DWORD dwPropertyID, LPCVOID pValue) = 0;
+};
+
+inline ICommChannel::~ICommChannel() {}
+
+// 函数指针类型定义
+typedef BOOL(*pfCreateChannel)(ICommChannel**, CHANNEL_TYPE);
+typedef void(*pfReleaseChannel)(ICommChannel*);
+
 // 与主程序通信的管道名称
 #define PIPE_NAME L"\\\\.\\pipe\\BMProxyPipe"
 
@@ -57,15 +154,6 @@ struct OpenParam {
     DWORD channelType;          // CHANNEL_TYPE
     DWORD comPort;              // 对于 COM 类型
     DWORD baudRate;
-    // 可扩展其他类型，这里仅实现 COM
-};
-
-struct CloseParam {
-    DWORD channelPtr;
-};
-
-struct ClearParam {
-    DWORD channelPtr;
 };
 
 struct ReadParam {
@@ -90,7 +178,6 @@ struct GetPropertyParam {
     LONG flags;
     DWORD propId;
     DWORD bufSize;
-    // 后面紧跟返回缓冲区
 };
 
 struct SetPropertyParam {
@@ -102,10 +189,7 @@ struct SetPropertyParam {
 };
 #pragma pack(pop)
 
-// 全局函数指针
-typedef BOOL(*pfCreateChannel)(ICommChannel**, CHANNEL_TYPE);
-typedef void(*pfReleaseChannel)(ICommChannel*);
-
+// 全局变量
 HMODULE g_hDll = NULL;
 pfCreateChannel g_pfCreateChannel = NULL;
 pfReleaseChannel g_pfReleaseChannel = NULL;
@@ -216,7 +300,7 @@ void ProcessCommand(HANDLE hPipe, ProxyCommand cmd, ICommChannel*& pChannel) {
         if (param.channelType == CHANNEL_TYPE_COM) {
             attr.Com.dwPortNum = param.comPort;
             attr.Com.dwBaudRate = param.baudRate;
-        } // 其他类型可扩展
+        }
         BOOL ret = pChannel->Open(&attr);
         SendResponse(hPipe, ret);
         break;
@@ -245,22 +329,24 @@ void ProcessCommand(HANDLE hPipe, ProxyCommand cmd, ICommChannel*& pChannel) {
     }
 
     case CMD_WRITE: {
-        WriteParam* param = (WriteParam*)malloc(sizeof(WriteParam) + 1024); // 临时分配
-        DWORD headerSize = sizeof(WriteParam) - 1; // 除去data[1]
-        if (!ReadFull(hPipe, param, headerSize)) {
-            free(param);
-            return;
-        }
-        DWORD dataLen = param->dataLen;
+        // 先读取固定头部
+        WriteParam header;
+        DWORD read;
+        if (!ReadFile(hPipe, &header, sizeof(WriteParam) - 1, &read, NULL) || 
+            read != sizeof(WriteParam) - 1) return;
+        
+        DWORD dataLen = header.dataLen;
+        BYTE* dataBuf = new BYTE[dataLen];
         if (dataLen > 0) {
-            if (!ReadFull(hPipe, param->data, dataLen)) {
-                free(param);
+            if (!ReadFile(hPipe, dataBuf, dataLen, &read, NULL) || read != dataLen) {
+                delete[] dataBuf;
                 return;
             }
         }
-        DWORD written = pChannel->Write(param->data, dataLen, param->reserved);
+        
+        DWORD written = pChannel->Write(dataBuf, dataLen);
         SendResponse(hPipe, written);
-        free(param);
+        delete[] dataBuf;
         break;
     }
 
@@ -283,22 +369,23 @@ void ProcessCommand(HANDLE hPipe, ProxyCommand cmd, ICommChannel*& pChannel) {
     }
 
     case CMD_SET_PROPERTY: {
-        SetPropertyParam* param = (SetPropertyParam*)malloc(sizeof(SetPropertyParam) + 1024);
-        DWORD headerSize = sizeof(SetPropertyParam) - 1;
-        if (!ReadFull(hPipe, param, headerSize)) {
-            free(param);
-            return;
-        }
-        DWORD dataSize = param->dataSize;
+        SetPropertyParam header;
+        DWORD read;
+        if (!ReadFile(hPipe, &header, sizeof(SetPropertyParam) - 1, &read, NULL) ||
+            read != sizeof(SetPropertyParam) - 1) return;
+        
+        DWORD dataSize = header.dataSize;
+        BYTE* dataBuf = new BYTE[dataSize];
         if (dataSize > 0) {
-            if (!ReadFull(hPipe, param->data, dataSize)) {
-                free(param);
+            if (!ReadFile(hPipe, dataBuf, dataSize, &read, NULL) || read != dataSize) {
+                delete[] dataBuf;
                 return;
             }
         }
-        BOOL ret = pChannel->SetProperty(param->flags, param->propId, param->data);
+        
+        BOOL ret = pChannel->SetProperty(header.flags, header.propId, dataBuf);
         SendResponse(hPipe, ret);
-        free(param);
+        delete[] dataBuf;
         break;
     }
 
@@ -318,7 +405,7 @@ int wmain() {
         PIPE_NAME,
         PIPE_ACCESS_DUPLEX,
         PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
-        1,          // 只支持一个客户端
+        PIPE_UNLIMITED_INSTANCES,  // 允许多个客户端
         4096, 4096, 0, NULL
     );
 
