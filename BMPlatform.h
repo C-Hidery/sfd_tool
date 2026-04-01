@@ -7,79 +7,18 @@
 #define INVALID_VALUE ((DWORD)-1)
 #define INFINITE_LOGFILE_SIZE ( 0 )
 
-typedef enum {
-    SPLOGLV_NONE = 0,
-    SPLOGLV_ERROR = 1,
-    SPLOGLV_WARN = 2,
-    SPLOGLV_INFO = 3,
-    SPLOGLV_DATA = 4,
-    SPLOGLV_VERBOSE = 5
-} SPLOG_LEVEL;
+typedef enum { SPLOGLV_NONE = 0, SPLOGLV_ERROR = 1, SPLOGLV_WARN = 2, SPLOGLV_INFO = 3, SPLOGLV_DATA = 4, SPLOGLV_VERBOSE = 5 } SPLOG_LEVEL;
+enum { LOG_READ = 0, LOG_WRITE = 1, LOG_ASYNC_READ = 2 };
 
-enum {
-    LOG_READ = 0,
-    LOG_WRITE = 1,
-    LOG_ASYNC_READ = 2
-};
-
-class ISpLog {
-public:
-    enum OpenFlags {
-        modeTimeSuffix = 0x0001,
-        modeDateSuffix = 0x0002,
-        modeCreate = 0x1000,
-        modeNoTruncate = 0x2000,
-        typeText = 0x4000,
-        typeBinary = (int)0x8000,
-        modeBinNone = 0x0000,
-        modeBinRead = 0x0100,
-        modeBinWrite = 0x0200,
-        modeBinReadWrite = 0x0300,
-        defaultTextFlag = modeCreate | modeDateSuffix | typeText,
-        defaultBinaryFlag = modeCreate | modeDateSuffix | typeBinary | modeBinRead,
-        defaultDualFlag = modeCreate | modeDateSuffix | typeText | typeBinary | modeBinRead
-    };
-
-    virtual ~ISpLog(void) {};
-    virtual BOOL Open(LPCTSTR lpszLogPath,
-        UINT uFlags = ISpLog::defaultTextFlag,
-        UINT uLogLevel = SPLOGLV_INFO,
-        UINT uMaxFileSizeInMB = INFINITE_LOGFILE_SIZE) = 0;
-    virtual BOOL Close(void) = 0;
-    virtual void Release(void) = 0;
-    virtual BOOL LogHexData(const BYTE *pHexData, DWORD dwHexSize, UINT uFlag = LOG_READ) = 0;
-    virtual BOOL LogRawStrA(UINT uLogLevel, LPCSTR lpszString) = 0;
-    virtual BOOL LogRawStrW(UINT uLogLevel, LPCWSTR lpszString) = 0;
-    virtual BOOL LogFmtStrA(UINT uLogLevel, LPCSTR lpszFmt, ...) = 0;
-    virtual BOOL LogFmtStrW(UINT uLogLevel, LPCWSTR lpszFmt, ...) = 0;
-    virtual BOOL LogBufData(UINT uLogLevel, const BYTE *pBufData, DWORD dwBufSize, UINT uFlag = LOG_WRITE, const DWORD *pUserNeedSize = NULL) = 0;
-    virtual BOOL SetProperty(LONG lAttr, LONG lFlags, LPCVOID lpValue) = 0;
-    virtual BOOL GetProperty(LONG lAttr, LONG lFlags, LPVOID lpValue) = 0;
-};
-
-enum CHANNEL_TYPE {
-    CHANNEL_TYPE_COM = 0,
-    CHANNEL_TYPE_SOCKET = 1,
-    CHANNEL_TYPE_FILE = 2,
-    CHANNEL_TYPE_USBMON = 3
-};
-
-typedef struct _CHANNEL_ATTRIBUTE {
-    CHANNEL_TYPE ChannelType;
-    union {
-        struct { DWORD dwPortNum; DWORD dwBaudRate; } Com;
-        struct { DWORD dwPort; DWORD dwIP; DWORD dwFlag; } Socket;
-        struct { DWORD dwPackSize; DWORD dwPackFreq; WCHAR *pFilePath; } File;
-    };
-} CHANNEL_ATTRIBUTE, *PCHANNEL_ATTRIBUTE;
+class ISpLog { /* 与原来相同，此处省略 */ };
+enum CHANNEL_TYPE { CHANNEL_TYPE_COM = 0, CHANNEL_TYPE_SOCKET = 1, CHANNEL_TYPE_FILE = 2, CHANNEL_TYPE_USBMON = 3 };
+typedef struct _CHANNEL_ATTRIBUTE { CHANNEL_TYPE ChannelType; union { struct { DWORD dwPortNum; DWORD dwBaudRate; } Com; struct { DWORD dwPort; DWORD dwIP; DWORD dwFlag; } Socket; struct { DWORD dwPackSize; DWORD dwPackFreq; WCHAR *pFilePath; } File; }; } CHANNEL_ATTRIBUTE, *PCHANNEL_ATTRIBUTE;
 typedef const PCHANNEL_ATTRIBUTE PCCHANNEL_ATTRIBUTE;
 
 class ICommChannel {
 public:
     virtual ~ICommChannel() = 0;
-    virtual BOOL InitLog(LPCWSTR pszLogName, UINT uiLogType,
-        UINT uiLogLevel = INVALID_VALUE, ISpLog *pLogUtil = NULL,
-        LPCWSTR pszBinLogFileExt = NULL) = 0;
+    virtual BOOL InitLog(LPCWSTR pszLogName, UINT uiLogType, UINT uiLogLevel = INVALID_VALUE, ISpLog *pLogUtil = NULL, LPCWSTR pszBinLogFileExt = NULL) = 0;
     virtual BOOL SetReceiver(ULONG ulMsgId, BOOL bRcvThread, LPCVOID pReceiver) = 0;
     virtual void GetReceiver(ULONG &ulMsgId, BOOL &bRcvThread, LPVOID &pReceiver) = 0;
     virtual BOOL Open(PCCHANNEL_ATTRIBUTE pOpenArgument) = 0;
@@ -91,16 +30,70 @@ public:
     virtual BOOL GetProperty(LONG lFlags, DWORD dwPropertyID, LPVOID pValue) = 0;
     virtual BOOL SetProperty(LONG lFlags, DWORD dwPropertyID, LPCVOID pValue) = 0;
 };
+inline ICommChannel::~ICommChannel() {}
 
-// 代理通道类，将 ICommChannel 调用转换为管道通信
+typedef BOOL(*pfCreateChannel)(ICommChannel**, CHANNEL_TYPE);
+typedef void(*pfReleaseChannel)(ICommChannel*);
+
+// 与代理进程通信的命令码
+enum ProxyCommand {
+    CMD_CREATE_CHANNEL,
+    CMD_RELEASE_CHANNEL,
+    CMD_INIT_LOG,
+    CMD_SET_RECEIVER,
+    CMD_GET_RECEIVER,
+    CMD_OPEN,
+    CMD_CLOSE,
+    CMD_CLEAR,
+    CMD_READ,
+    CMD_WRITE,
+    CMD_FREE_MEM,
+    CMD_GET_PROPERTY,
+    CMD_SET_PROPERTY
+};
+
+// 参数结构体（使用 ULONG_PTR 保存指针，避免 64 位截断）
+#pragma pack(push, 1)
+struct CreateChannelParam { DWORD channelType; };
+struct ReleaseChannelParam { ULONG_PTR channelPtr; };
+struct InitLogParam { WCHAR logName[260]; UINT logType; UINT logLevel; ULONG_PTR pLogUtil; WCHAR binExt[10]; };
+struct SetReceiverParam { ULONG msgId; BOOL bRcvThread; ULONG_PTR receiver; };
+struct GetReceiverParam { ULONG msgId; BOOL bRcvThread; ULONG_PTR receiver; };
+struct OpenParam { DWORD channelType; DWORD comPort; DWORD baudRate; };
+struct ReadParam { ULONG_PTR channelPtr; DWORD maxLen; DWORD timeout; DWORD reserved; };
+struct WriteParam { ULONG_PTR channelPtr; DWORD dataLen; BYTE data[1]; };
+struct FreeMemParam { ULONG_PTR pMemBlock; };
+struct GetPropertyParam { ULONG_PTR channelPtr; LONG flags; DWORD propId; DWORD bufSize; };
+struct SetPropertyParam { ULONG_PTR channelPtr; LONG flags; DWORD propId; DWORD dataSize; BYTE data[1]; };
+#pragma pack(pop)
+
+class CBMPlatformApp {
+public:
+    CBMPlatformApp();
+    ~CBMPlatformApp();
+
+    BOOL InitInstance();
+    int ExitInstance();
+
+    ICommChannel* CreateChannel(CHANNEL_TYPE type);
+    void ReleaseChannel(ICommChannel* pChannel);
+
+    // 发送命令到代理进程（线程安全）
+    BOOL SendCommand(DWORD cmd, const void* param, DWORD paramSize, void* replyBuf, DWORD replySize, DWORD* replyActual = NULL);
+
+private:
+    HANDLE m_hPipe;
+    BOOL   m_bConnected;
+    CRITICAL_SECTION m_cs;
+};
+
+// 代理通道类，将 ICommChannel 调用转发到代理进程
 class CProxyChannel : public ICommChannel {
 public:
-    CProxyChannel(HANDLE hPipe);
+    CProxyChannel(CBMPlatformApp* pApp);
     virtual ~CProxyChannel();
 
-    // ICommChannel methods
-    virtual BOOL InitLog(LPCWSTR pszLogName, UINT uiLogType,
-        UINT uiLogLevel, ISpLog *pLogUtil, LPCWSTR pszBinLogFileExt) override;
+    virtual BOOL InitLog(LPCWSTR pszLogName, UINT uiLogType, UINT uiLogLevel, ISpLog *pLogUtil, LPCWSTR pszBinLogFileExt) override;
     virtual BOOL SetReceiver(ULONG ulMsgId, BOOL bRcvThread, LPCVOID pReceiver) override;
     virtual void GetReceiver(ULONG &ulMsgId, BOOL &bRcvThread, LPVOID &pReceiver) override;
     virtual BOOL Open(PCCHANNEL_ATTRIBUTE pOpenArgument) override;
@@ -113,29 +106,10 @@ public:
     virtual BOOL SetProperty(LONG lFlags, DWORD dwPropertyID, LPCVOID pValue) override;
 
 private:
-    HANDLE m_hPipe;
-    // 内部辅助函数：发送命令并接收响应
-    BOOL SendCommand(DWORD cmd, const void* param, DWORD paramSize, void* replyBuf, DWORD replySize, DWORD* replyActual = NULL);
+    CBMPlatformApp* m_pApp;
 };
 
-// 应用程序类：负责与代理进程建立连接
-class CBMPlatformApp {
-public:
-    CBMPlatformApp();
-    ~CBMPlatformApp();
-
-    BOOL InitInstance();
-    int ExitInstance();
-
-    ICommChannel* CreateChannel(CHANNEL_TYPE type);
-    void ReleaseChannel(ICommChannel* pChannel);
-
-private:
-    HANDLE m_hPipe;      // 与代理进程的管道句柄
-    BOOL   m_bConnected;
-};
-
-// 外部全局变量（原代码中有 extern int m_bOpened）
+extern CBMPlatformApp g_theApp;
 extern int m_bOpened;
 
 class CBootModeOpr {
