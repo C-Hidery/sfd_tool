@@ -124,7 +124,7 @@ jobs:
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -U --noconfirm --overwrite='*' $pkgCacheUnix/mingw-w64-i686-*.pkg.tar.zst"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if ("${{ matrix.arch }}" -eq "x86"){
-              & & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --overwrite='*' gettext"
+              & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --overwrite='*' gettext"
           }
 
           # 生成 MSVC 兼容的 libintl.lib
