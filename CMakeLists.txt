@@ -211,6 +211,7 @@ if (USE_GTK)
         foreach(tgt IN LISTS SFD_COMMON_TARGETS)
             target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
             target_include_directories(${tgt} PRIVATE
+                "${_gtk_root}/include"
                 "${_gtk_root}/include/gtk-3.0"
                 "${_gtk_root}/include/glib-2.0"
                 "${_gtk_root}/lib/glib-2.0/include"
