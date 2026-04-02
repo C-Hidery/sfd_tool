@@ -33,22 +33,14 @@ jobs:
             artifact_name: LibUSB
           
           # x64 架构：SPRD 原生驱动版
-          - arch: x64
-            config: Release
-            msys_gtk_arch: mingw64
-            cmake_platform: x64
-            use_libusb: OFF
-            vcpkg_triplet: x64-windows
-            artifact_name: SPRD
-          
-          # x86 架构：专门编译 Proxy32 (32位)
           - arch: x86
             config: Release
             msys_gtk_arch: mingw32
-            cmake_platform: Win32
+            cmake_platform: x86
             use_libusb: OFF
             vcpkg_triplet: x86-windows
-            artifact_name: Proxy32
+            artifact_name: SPRD
+          
 
     steps:
       - name: Checkout Repository
@@ -90,7 +82,6 @@ jobs:
 
       - name: Install MSYS2 and GTK3
         shell: pwsh
-        if: matrix.artifact_name != 'Proxy32'  # Proxy32 不需要 GTK3
         run: |
           $msysPath = "C:\msys64"
 
@@ -101,9 +92,75 @@ jobs:
             Write-Error "pacman -Sy 失败"
             exit $LASTEXITCODE
           }
-
-          Write-Host "安装 x64 GTK3 完整开发包..."
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
+          
+          if (${ matrix.arch } == "x86") {
+            Write-Host "检测到 x86 架构，使用手动安装方式..."
+            
+            # 创建临时目录用于下载包
+            $pkgCache = "$msysPath\var\cache\pacman\pkg"
+            New-Item -ItemType Directory -Force -Path $pkgCache | Out-Null
+            
+            # 定义需要下载的包列表（GTK3 及其核心依赖）
+            $packages = @(
+              "mingw-w64-i686-gtk3",
+              "mingw-w64-i686-harfbuzz", 
+              "mingw-w64-i686-pango",
+              "mingw-w64-i686-cairo",
+              "mingw-w64-i686-glib2",
+              "mingw-w64-i686-gdk-pixbuf2",
+              "mingw-w64-i686-atk",
+              "mingw-w64-i686-freetype",
+              "mingw-w64-i686-fontconfig",
+              "mingw-w64-i686-libpng",
+              "mingw-w64-i686-libjpeg-turbo",
+              "mingw-w64-i686-libtiff",
+              "mingw-w64-i686-libxml2",
+              "mingw-w64-i686-gettext",
+              "mingw-w64-i686-zlib"
+            )
+            
+            # 使用中科大镜像源下载包（包含旧版本 32 位包）
+            $mirrorBase = "http://mirrors.ustc.edu.cn/msys2/mingw/i686"
+            
+            foreach ($pkg in $packages) {
+              Write-Host "正在下载: $pkg"
+              
+              # 先尝试获取最新版本号
+              $pkgSearch = & "$msysPath\usr\bin\bash.exe" -lc "pacman -Ss $pkg 2>/dev/null | grep '^mingw32/' | head -1"
+              
+              if ($pkgSearch -match "$pkg-([0-9\.]+)-any\.pkg\.tar\.zst") {
+                $version = $matches[1]
+                $pkgFile = "${pkg}-${version}-any.pkg.tar.zst"
+              } else {
+                # 如果无法获取版本，使用通配符方式下载（需要 curl）
+                Write-Host "尝试使用 curl 下载最新版本..."
+                $tempDir = "$env:TEMP\msys2_pkgs"
+                New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
+                
+                & "$msysPath\usr\bin\bash.exe" -lc "cd $tempDir && curl -O $mirrorBase/${pkg}-*.pkg.tar.zst"
+                
+                # 移动下载的文件到 pacman 缓存目录
+                Move-Item "$tempDir\*.pkg.tar.zst" $pkgCache -Force -ErrorAction SilentlyContinue
+                continue
+              }
+              
+              # 下载特定版本
+              $pkgUrl = "$mirrorBase/$pkgFile"
+              $pkgPath = "$pkgCache\$pkgFile"
+              
+              if (-not (Test-Path $pkgPath)) {
+                & "$msysPath\usr\bin\bash.exe" -lc "curl -L -o $pkgPath $pkgUrl"
+              }
+            }
+            
+            Write-Host "开始安装 32 位 GTK3 及依赖包..."
+            # 使用 --overwrite 强制安装
+            & "$msysPath\usr\bin\bash.exe" -lc "pacman -U --noconfirm --needed $pkgCache\mingw-w64-i686-*.pkg.tar.zst"
+            
+          } else {
+            Write-Host "安装 x64 GTK3 完整开发包..."
+            & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
+          }
 
           if ($LASTEXITCODE -ne 0) {
             Write-Error "GTK3/MSYS2 依赖安装失败"
@@ -143,21 +200,15 @@ jobs:
       - name: Build (${{ matrix.artifact_name }} - ${{ matrix.config }})
         shell: pwsh
         run: |
-          if ("${{ matrix.artifact_name }}" -eq "Proxy32") {
-            # 只编译 Proxy32
-            cmake --build build_cmake --config ${{ matrix.config }} --target Proxy32 -- /m
-            Copy-Item "build_cmake/bin/${{ matrix.config }}/Proxy32.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
-          } else {
             $env:Path = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin;C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin;" + $env:Path
             cmake --build build_cmake --config ${{ matrix.config }} -- /m
             ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
             Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
             
-          }
+          
 
       # Proxy32 不需要复制 GTK DLL 等
       - name: Copy DLLs from GTK3 bin directory
-        if: matrix.artifact_name != 'Proxy32'
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           $gtkBinPath = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin"
@@ -171,7 +222,6 @@ jobs:
           }
 
       - name: Copy gettext runtime DLLs from vcpkg
-        if: matrix.artifact_name != 'Proxy32'
         shell: pwsh
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
@@ -195,7 +245,7 @@ jobs:
           }
 
       - name: Copy SPRD Driver Files (SPRD version only)
-        if: matrix.use_libusb == 'OFF' && matrix.artifact_name != 'Proxy32'
+        if: matrix.use_libusb == 'OFF'
         run: |
           $destDir = "./build/SPRD/Release/"
           if (Test-Path "third_party/Lib/Channel9.dll") {
@@ -208,7 +258,6 @@ jobs:
           }
 
       - name: Copy GTK Runtime Data Files
-        if: matrix.artifact_name != 'Proxy32'
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           $msysPrefix = "C:\msys64\${{ matrix.msys_gtk_arch }}"
@@ -229,7 +278,6 @@ jobs:
           }
 
       - name: Copy locale (.mo) files
-        if: matrix.artifact_name != 'Proxy32'
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/locale/zh_CN/LC_MESSAGES"
           New-Item -ItemType Directory -Force -Path $destDir | Out-Null
@@ -239,7 +287,6 @@ jobs:
           }
 
       - name: Cleanup Build Directory
-        if: matrix.artifact_name != 'Proxy32'
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           $unwantedExtensions = @(".a", ".la", ".def", ".sh", ".py", ".pl", ".exp")
