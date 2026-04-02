@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 project(sfd_tool LANGUAGES CXX)
 
-# ================= 版本号 =================
+# ================= 版本号（从 VERSION 文件生成） =================
 file(STRINGS "${CMAKE_SOURCE_DIR}/VERSION.txt" SFD_TOOL_VERSION_STR LIMIT_COUNT 1)
 string(STRIP "${SFD_TOOL_VERSION_STR}" SFD_TOOL_VERSION_STR)
 message(STATUS "SFD Tool version: ${SFD_TOOL_VERSION_STR}")
@@ -18,23 +18,27 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# 对标 Makefile: -Wall -Wextra -pedantic -Wno-unused
 if (MSVC)
-    # Windows 下使用 MSVC
+    # Windows 下使用 MSVC，保持告警级别，但不强行添加 GCC/Clang 专用选项
 else()
     add_compile_options(-Wall -Wextra -pedantic -Wno-unused)
 endif()
 
+# 对标 Makefile: LIBUSB / GTK 开关
 option(USE_LIBUSB "Enable libusb backend" ON)
 option(USE_GTK "Enable GTK3 UI" ON)
 
-# Windows x86 (Win32) 不支持 libusb
+# Windows x86 (Win32) 不支持 libusb：强制关闭，统一走 Channel9 封装
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4 AND USE_LIBUSB)
-    message(STATUS "USE_LIBUSB=ON is not supported on Win32 (x86); forcing USE_LIBUSB=OFF")
+    message(STATUS "USE_LIBUSB=ON is not supported on Win32 (x86); forcing USE_LIBUSB=OFF (Channel9 backend)")
     set(USE_LIBUSB OFF CACHE BOOL "Enable libusb backend" FORCE)
 endif()
 
+# Termux 支持：与 Makefile 的 termux 目标对应
 option(TERMUX "Enable Termux specific build options" OFF)
 
+# 编译类型对应 make debug/release
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
@@ -50,13 +54,17 @@ if (SFD_ENABLE_TESTS)
     add_subdirectory(tests)
 endif()
 
-# ================= 公共 UI 静态库 =================
+# ================= 公共 UI / CLI 静态库（主程序和测试共用） =================
 add_library(sfd_ui STATIC
     common.cpp
     ui/GtkWidgetHelper.cpp
     ui/ui_common.cpp
     ui/layout/bottom_bar.cpp
 )
+
+# 注意：不在此处直接链接 core_lib/pages_lib，
+# 由最终可执行文件和测试目标按需显式链接，
+# 以避免在某些平台上出现静态库重复/顺序相关的警告。
 
 target_include_directories(sfd_ui
     PUBLIC
@@ -66,6 +74,16 @@ target_include_directories(sfd_ui
         ${CMAKE_BINARY_DIR}/generated
 )
 
+# ================= Windows 特定：BMPlatform 和 Proxy32 =================
+if (WIN32)
+    if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+        target_sources(sfd_tool PRIVATE
+            BMPlatform.cpp
+            Wrapper.cpp
+        )
+    endif()
+endif()
+
 # ================= 主可执行程序 =================
 add_executable(sfd_tool
     main.cpp
@@ -74,11 +92,21 @@ add_executable(sfd_tool
 
 # ================= Windows 资源文件 (.rc) 支持 =================
 if (WIN32)
+    # 添加资源文件
     set(RESOURCE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/app.rc")
+    
     if (EXISTS ${RESOURCE_FILE})
+        # 方法1：使用 cmake 的 rc 编译（推荐）
         target_sources(sfd_tool PRIVATE ${RESOURCE_FILE})
-        set_source_files_properties(${RESOURCE_FILE} PROPERTIES LANGUAGE RC)
+        
+        # 设置资源文件的编译选项
+        set_source_files_properties(${RESOURCE_FILE} PROPERTIES
+            LANGUAGE RC
+        )
+        
         message(STATUS "Including Windows resource file: ${RESOURCE_FILE}")
+        
+        # 定义版本宏供资源文件使用
         target_compile_definitions(sfd_tool PRIVATE
             SFD_TOOL_VERSION="${SFD_TOOL_VERSION_STR}"
             SFD_TOOL_VERSION_COMMA=${SFD_TOOL_VERSION_STR}
@@ -90,25 +118,52 @@ endif()
 
 # 链接子模块和公共 UI 库
 if(APPLE OR WIN32)
-    set(SFD_TOOL_LIBS core_lib pages_lib sfd_ui)
+    set(SFD_TOOL_LIBS
+        core_lib
+        pages_lib
+        sfd_ui
+    )
 else()
-    set(SFD_TOOL_LIBS core_lib pages_lib sfd_ui core_lib pages_lib sfd_ui)
+    # Linux 等使用静态库时，重复一遍以解决循环依赖链接顺序问题
+    set(SFD_TOOL_LIBS
+        core_lib
+        pages_lib
+        sfd_ui
+        core_lib
+        pages_lib
+        sfd_ui
+    )
 endif()
 
-target_link_libraries(sfd_tool PRIVATE ${SFD_TOOL_LIBS})
+target_link_libraries(sfd_tool
+    PRIVATE
+        ${SFD_TOOL_LIBS}
+)
 
-# Windows: 添加 BMPlatform/Wrapper 源文件
-if (WIN32)
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT USE_LIBUSB)
-        target_sources(sfd_tool PRIVATE BMPlatform.cpp Wrapper.cpp)
-    elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
-        target_sources(sfd_tool PRIVATE BMPlatform.cpp Wrapper.cpp)
-    endif()
+# Windows: 直接包含 BMPlatform 相关源文件
+if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT USE_LIBUSB)
+    target_sources(sfd_tool PRIVATE
+        BMPlatform.cpp
+        BMPlatform_Proxy.cpp
+        Wrapper.cpp
+    )
+elseif (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
+    target_sources(sfd_tool PRIVATE
+        BMPlatform.cpp
+        Wrapper.cpp
+    )
 endif()
 
-# 公共目标列表
+# 链接子模块和公共 UI 库
+target_link_libraries(sfd_tool
+    PRIVATE
+        sfd_ui
+)
+
+# 公共目标列表，方便批量设置编译选项
 set(SFD_COMMON_TARGETS sfd_tool core_lib pages_lib sfd_ui ${SFD_TEST_TARGETS})
 
+# 头文件路径
 target_include_directories(sfd_tool
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
@@ -122,41 +177,92 @@ if (APPLE)
     foreach(tgt IN LISTS SFD_COMMON_TARGETS)
         target_compile_definitions(${tgt} PRIVATE MACOS)
     endforeach()
-    target_link_libraries(sfd_tool PRIVATE "-framework CoreFoundation" "-framework IOKit")
+
+    # 对标 Makefile 中的 CoreFoundation / IOKit
+    target_link_libraries(sfd_tool PRIVATE
+        "-framework CoreFoundation"
+        "-framework IOKit"
+    )
 elseif (WIN32)
     foreach(tgt IN LISTS SFD_COMMON_TARGETS)
         target_compile_definitions(${tgt} PRIVATE WINDOWS)
     endforeach()
+
+    # Windows 下不需要显式链接 libm，C 运行库已包含
 elseif (UNIX)
     foreach(tgt IN LISTS SFD_COMMON_TARGETS)
         target_compile_definitions(${tgt} PRIVATE LINUX)
     endforeach()
 endif()
 
+# Termux 额外链接选项（与 Makefile 的 termux 目标对应）
 if (TERMUX)
     target_compile_definitions(sfd_tool PRIVATE TERMUX)
     target_link_libraries(sfd_tool PRIVATE execinfo)
 endif()
 
+# 对标 LIBS = -lm -lpthread
 find_package(Threads REQUIRED)
+# m 库仅在类 Unix 平台需要；Windows 使用 MSVC 运行库
 if (NOT WIN32)
     target_link_libraries(sfd_tool PRIVATE Threads::Threads m)
 else()
     target_link_libraries(sfd_tool PRIVATE Threads::Threads)
 endif()
 
-# Windows: libintl (gettext) using vcpkg's CMake target
+# Windows: libintl (gettext) via vcpkg
 if (WIN32)
-    find_package(gettext CONFIG REQUIRED)
-    target_link_libraries(sfd_tool PRIVATE gettext::libintl)
+    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+        set(_vcpkg_triplet "x64-windows")
+    else()
+        # 32-bit (Win32) build
+        set(_vcpkg_triplet "x86-windows")
+    endif()
+
+    # Try to infer vcpkg root from toolchain file first, then env, then default C:/vcpkg
+    set(_vcpkg_root "")
+
+    if (DEFINED CMAKE_TOOLCHAIN_FILE)
+        get_filename_component(_tc_dir "${CMAKE_TOOLCHAIN_FILE}" DIRECTORY)
+        get_filename_component(_candidate_root "${_tc_dir}/../.." ABSOLUTE)
+        if (EXISTS "${_candidate_root}/installed")
+            set(_vcpkg_root "${_candidate_root}")
+        endif()
+    endif()
+
+    if (_vcpkg_root STREQUAL "" AND DEFINED ENV{VCPKG_ROOT})
+        set(_vcpkg_root "$ENV{VCPKG_ROOT}")
+    endif()
+
+    if (_vcpkg_root STREQUAL "")
+        set(_vcpkg_root "C:/vcpkg")
+    endif()
+
+    set(_vcpkg_include "${_vcpkg_root}/installed/${_vcpkg_triplet}/include")
+    set(_vcpkg_lib_dir "${_vcpkg_root}/installed/${_vcpkg_triplet}/lib")
+
     foreach(tgt IN LISTS SFD_COMMON_TARGETS)
-        target_link_libraries(${tgt} PRIVATE gettext::libintl)
+        target_include_directories(${tgt} PRIVATE "${_vcpkg_include}")
     endforeach()
+
+    find_library(INTL_LIBRARY NAMES intl PATHS "${_vcpkg_lib_dir}")
+    if (INTL_LIBRARY)
+        target_link_libraries(sfd_tool PRIVATE "${INTL_LIBRARY}")
+        foreach(tgt IN LISTS SFD_TEST_TARGETS)
+            target_link_libraries(${tgt} PRIVATE "${INTL_LIBRARY}")
+        endforeach()
+    else()
+        message(WARNING "intl library not found in ${_vcpkg_lib_dir}; gettext may fail to link")
+    endif()
 
     # Windows 平台：崩溃堆栈 (dbghelp) + 串口枚举 (setupapi)
     target_link_libraries(sfd_tool PRIVATE dbghelp setupapi)
+    
+    # 同样为测试目标添加
+    foreach(tgt IN LISTS SFD_TEST_TARGETS)
+        target_link_libraries(${tgt} PRIVATE dbghelp setupapi)
+    endforeach()
 endif()
-
 
 # ================= 依赖：GTK3 / libusb =================
 find_package(PkgConfig QUIET)
@@ -164,6 +270,8 @@ find_package(PkgConfig QUIET)
 # --- GTK3 ---
 if (USE_GTK)
     if (WIN32)
+        # Windows: headers/libraries are provided by MSYS2 GTK in the CI image.
+        # Use mingw64 for 64-bit builds and mingw32 for 32-bit (x86) builds.
         if (CMAKE_SIZEOF_VOID_P EQUAL 8)
             set(_gtk_root "C:/msys64/mingw64")
         else()
@@ -184,6 +292,7 @@ if (USE_GTK)
             )
         endforeach()
 
+        # Link against GTK/glib import libraries from MSYS2
         set(_gtk_win_libs
             "${_gtk_root}/lib/libgtk-3.dll.a"
             "${_gtk_root}/lib/libgdk-3.dll.a"
@@ -200,27 +309,40 @@ if (USE_GTK)
             target_link_libraries(${tgt} PRIVATE ${_gtk_win_libs})
         endforeach()
         
+        # BMPlatform 也需要链接 GTK（如果存在）
         if (TARGET BMPlatform)
             target_link_libraries(BMPlatform PRIVATE ${_gtk_win_libs})
         endif()
     else()
-        # Linux/macOS 使用 pkg-config
         if (NOT PKG_CONFIG_FOUND)
             message(FATAL_ERROR "PkgConfig is required when USE_GTK=ON")
         endif()
+
         pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
+
+        # Fedora 等发行版在 RPM 构建环境中会默认启用 GNU ld 的 --as-needed/
+        # --no-copy-dt-needed-entries，这在 GTK 这类有复杂依赖链的库上容易触发
+        # “DSO missing from command line” 报错。这里为主可执行文件放宽该限制，
+        # 确保所有被依赖的 DSO 都会被保留。
         if (UNIX AND NOT APPLE)
             target_link_options(sfd_tool PRIVATE "-Wl,--copy-dt-needed-entries")
         endif()
+
         foreach(tgt IN LISTS SFD_COMMON_TARGETS)
             target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
             target_include_directories(${tgt} PRIVATE ${GTK3_INCLUDE_DIRS})
             target_link_directories(${tgt} PRIVATE ${GTK3_LIBRARY_DIRS})
         endforeach()
+
+        # 在最终可执行文件和测试可执行文件上链接 GTK 库
         target_link_libraries(sfd_tool PRIVATE ${GTK3_LIBRARIES})
         foreach(tgt IN LISTS SFD_TEST_TARGETS)
             target_link_libraries(${tgt} PRIVATE ${GTK3_LIBRARIES})
         endforeach()
+
+        # Work around GNU ld "DSO missing from command line" on some distros
+        # by explicitly appending pango-1.0 at the end of the link line.
+        # This ensures -lpango-1.0 appears after all static archives.
         find_library(PANGO_LIB NAMES pango-1.0)
         if (PANGO_LIB)
             target_link_libraries(sfd_tool PRIVATE ${PANGO_LIB})
@@ -243,11 +365,16 @@ if (USE_LIBUSB)
             target_compile_definitions(${tgt} PRIVATE USE_LIBUSB=1)
             target_include_directories(${tgt} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Lib)
         endforeach()
+
+        # 链接本地提供的 libusb-1.0.lib
         set(_libusb_win_lib "${CMAKE_CURRENT_SOURCE_DIR}/third_party/Lib/libusb-1.0.lib")
+
         target_link_libraries(sfd_tool PRIVATE ${_libusb_win_lib})
         foreach(tgt IN LISTS SFD_TEST_TARGETS)
             target_link_libraries(${tgt} PRIVATE ${_libusb_win_lib})
         endforeach()
+        
+        # BMPlatform 也需要链接 libusb
         if (TARGET BMPlatform)
             target_link_libraries(BMPlatform PRIVATE ${_libusb_win_lib})
         endif()
@@ -255,12 +382,17 @@ if (USE_LIBUSB)
         if (NOT PKG_CONFIG_FOUND)
             message(FATAL_ERROR "PkgConfig is required when USE_LIBUSB=ON")
         endif()
+
         pkg_check_modules(LIBUSB REQUIRED libusb-1.0)
+
         foreach(tgt IN LISTS SFD_COMMON_TARGETS)
             target_compile_definitions(${tgt} PRIVATE USE_LIBUSB=1)
             target_include_directories(${tgt} PRIVATE ${LIBUSB_INCLUDE_DIRS})
             target_link_directories(${tgt} PRIVATE ${LIBUSB_LIBRARY_DIRS})
         endforeach()
+
+        # 由 core_lib 统一链接 libusb，其他可执行文件和测试通过依赖 core_lib
+        # 获得正确的链接顺序，避免在 GNU ld 下出现未解析的 libusb 符号。
         target_link_libraries(core_lib PUBLIC ${LIBUSB_LIBRARIES})
     endif()
 else()
@@ -270,6 +402,7 @@ else()
 endif()
 
 # ================= locales 生成 =================
+# 对标 Makefile: locale/zh_CN/LC_MESSAGES/sfd_tool.mo 由 .po 生成
 find_program(MSGFMT_EXECUTABLE msgfmt)
 if (NOT MSGFMT_EXECUTABLE)
     message(WARNING "msgfmt not found; locale .mo will not be built")
@@ -277,6 +410,7 @@ else()
     set(LOCALE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/locale/zh_CN/LC_MESSAGES)
     set(SFD_PO ${LOCALE_DIR}/sfd_tool.po)
     set(SFD_MO ${CMAKE_BINARY_DIR}/locale/zh_CN/LC_MESSAGES/sfd_tool.mo)
+
     add_custom_command(
         OUTPUT ${SFD_MO}
         COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/locale/zh_CN/LC_MESSAGES
@@ -285,16 +419,44 @@ else()
         COMMENT "Generating sfd_tool.mo from .po"
         VERBATIM
     )
-    add_custom_target(locales ALL DEPENDS ${SFD_MO})
+
+    add_custom_target(locales ALL
+        DEPENDS ${SFD_MO}
+    )
 endif()
 
 # ================= 安装规则 =================
 include(GNUInstallDirs)
+
+# 为运行时 About 页面提供已安装文档目录（用于查找 VERSION_LOG.md）
+# 使用 CMAKE_INSTALL_FULL_DATADIR，确保包含安装前缀（例如 /usr/share）
 add_compile_definitions(SFD_TOOL_DOC_DIR="${CMAKE_INSTALL_FULL_DATADIR}/doc/sfd-tool")
 
-install(TARGETS sfd_tool RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+# 对标 Makefile 中的变量
+# BINDIR -> CMAKE_INSTALL_BINDIR
+# DATADIR -> CMAKE_INSTALL_DATADIR
+# APPDIR -> share/applications
+# ICONDIR -> share/icons/hicolor
+# DOCDIR -> share/doc/sfd-tool
+# LOCALEDIR -> share/locale
+
+# 安装二进制
+install(TARGETS sfd_tool
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+# 安装 BMPlatform.dll（如果存在）
 if (TARGET BMPlatform)
-    install(TARGETS BMPlatform RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    install(TARGETS BMPlatform
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+endif()
+
+# 安装 Proxy32.exe（如果存在）
+if (TARGET Proxy32)
+    install(TARGETS Proxy32
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
 endif()
 
 # 安装文档
@@ -353,6 +515,7 @@ if (NOT WIN32)
         )
     endif()
 endif()
+
 # 安装 locale .mo（如果已成功生成）
 if (MSGFMT_EXECUTABLE)
     install(FILES ${CMAKE_BINARY_DIR}/locale/zh_CN/LC_MESSAGES/sfd_tool.mo
