@@ -123,7 +123,7 @@ jobs:
           Write-Host "移除可能冲突的 gettext 包..."
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -Rdd --noconfirm mingw-w64-i686-gettext-runtime mingw-w64-i686-gettext; true"
           $pkgCacheUnix = $pkgCache -replace '\\', '/' -replace '^C:', '/c'
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -U --noconfirm $pkgCacheUnix/mingw-w64-i686-*.pkg.tar.zst"
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -U --noconfirm --overwrite='*' $pkgCacheUnix/mingw-w64-i686-*.pkg.tar.zst"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           # 生成 MSVC 兼容的 libintl.lib
