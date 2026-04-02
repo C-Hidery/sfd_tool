@@ -102,14 +102,15 @@ jobs:
             exit $LASTEXITCODE
           }
           
-          if ( "${{ matrix.arch }}" -eq "x86") {
+          if ("${{ matrix.arch }}" -eq "x86") {
             Write-Host "检测到 x86 架构，使用手动安装方式..."
             
-            # 创建临时目录用于下载包
             $pkgCache = "$msysPath\var\cache\pacman\pkg"
             New-Item -ItemType Directory -Force -Path $pkgCache | Out-Null
             
-            # 定义需要下载的包列表（GTK3 及其核心依赖）
+            $mirrorBase = "http://mirrors.ustc.edu.cn/msys2/mingw/i686"
+            
+            # GTK3 及其核心依赖包列表
             $packages = @(
               "mingw-w64-i686-gtk3",
               "mingw-w64-i686-harfbuzz", 
@@ -128,43 +129,38 @@ jobs:
               "mingw-w64-i686-zlib"
             )
             
-            # 使用中科大镜像源下载包（包含旧版本 32 位包）
-            $mirrorBase = "http://mirrors.ustc.edu.cn/msys2/mingw/i686"
+            $tempDir = Join-Path $env:TEMP "msys2_pkgs"
+            New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
             
+            # 用 PowerShell 下载每个包（解析镜像站的目录列表）
             foreach ($pkg in $packages) {
-              Write-Host "正在下载: $pkg"
-              
-              # 先尝试获取最新版本号
-              $pkgSearch = & "$msysPath\usr\bin\bash.exe" -lc "pacman -Ss $pkg 2>/dev/null | grep '^mingw32/' | head -1"
-              
-              if ($pkgSearch -match "$pkg-([0-9\.]+)-any\.pkg\.tar\.zst") {
-                $version = $matches[1]
-                $pkgFile = "${pkg}-${version}-any.pkg.tar.zst"
-              } else {
-                # 如果无法获取版本，使用通配符方式下载（需要 curl）
-                Write-Host "尝试使用 curl 下载最新版本..."
-                $tempDir = "$env:TEMP\msys2_pkgs"
-                New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
-                
-                & "$msysPath\usr\bin\bash.exe" -lc "cd $tempDir && curl -O $mirrorBase/${pkg}-*.pkg.tar.zst"
-                
-                # 移动下载的文件到 pacman 缓存目录
-                Move-Item "$tempDir\*.pkg.tar.zst" $pkgCache -Force -ErrorAction SilentlyContinue
-                continue
-              }
-              
-              # 下载特定版本
-              $pkgUrl = "$mirrorBase/$pkgFile"
-              $pkgPath = "$pkgCache\$pkgFile"
-              
-              if (-not (Test-Path $pkgPath)) {
-                & "$msysPath\usr\bin\bash.exe" -lc "curl -L -o $pkgPath $pkgUrl"
+              Write-Host "正在查找 $pkg 的最新包..."
+              $listUrl = "$mirrorBase/?C=M&O=D"   # 按时间倒序排列
+              try {
+                $html = Invoke-WebRequest -Uri $listUrl -UseBasicParsing
+                # 从链接中提取匹配的 .pkg.tar.zst 文件名
+                $link = $html.Links | Where-Object { $_.href -match "^${pkg}-[\d\.]+-any\.pkg\.tar\.zst$" } | Select-Object -First 1
+                if (-not $link) {
+                  Write-Warning "未找到 $pkg，跳过"
+                  continue
+                }
+                $fileName = $link.href
+                $pkgUrl = "$mirrorBase/$fileName"
+                $localFile = Join-Path $tempDir $fileName
+                Write-Host "下载 $pkgUrl -> $localFile"
+                Invoke-WebRequest -Uri $pkgUrl -OutFile $localFile -UseBasicParsing
+              } catch {
+                Write-Warning "下载 $pkg 失败: $_"
               }
             }
             
+            Write-Host "移动包文件到 pacman 缓存目录..."
+            Move-Item "$tempDir\*.pkg.tar.zst" $pkgCache -Force -ErrorAction SilentlyContinue
+            
             Write-Host "开始安装 32 位 GTK3 及依赖包..."
-            # 使用 --overwrite 强制安装
-            & "$msysPath\usr\bin\bash.exe" -lc "pacman -U --noconfirm --needed $pkgCache\mingw-w64-i686-*.pkg.tar.zst"
+            # 转换 pacman 缓存目录为 MSYS2 可识别的路径
+            $pkgCacheUnix = $pkgCache -replace '\\', '/' -replace '^C:', '/c'
+            & "$msysPath\usr\bin\bash.exe" -lc "pacman -U --noconfirm $pkgCacheUnix/mingw-w64-i686-*.pkg.tar.zst"
             
           } else {
             Write-Host "安装 x64 GTK3 完整开发包..."
