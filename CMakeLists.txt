@@ -74,15 +74,6 @@ target_include_directories(sfd_ui
         ${CMAKE_BINARY_DIR}/generated
 )
 
-# ================= Windows 特定：BMPlatform 和 Proxy32 =================
-if (WIN32)
-    if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-        target_sources(sfd_tool PRIVATE
-            BMPlatform.cpp
-            Wrapper.cpp
-        )
-    endif()
-endif()
 
 # ================= 主可执行程序 =================
 add_executable(sfd_tool
@@ -141,18 +132,10 @@ target_link_libraries(sfd_tool
 )
 
 # Windows: 直接包含 BMPlatform 相关源文件
-if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT USE_LIBUSB)
-    target_sources(sfd_tool PRIVATE
-        BMPlatform.cpp
-        BMPlatform_Proxy.cpp
-        Wrapper.cpp
-    )
-elseif (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
-    target_sources(sfd_tool PRIVATE
-        BMPlatform.cpp
-        Wrapper.cpp
-    )
-endif()
+target_sources(sfd_tool PRIVATE
+    BMPlatform.cpp
+    Wrapper.cpp
+)
 
 # 链接子模块和公共 UI 库
 target_link_libraries(sfd_tool
