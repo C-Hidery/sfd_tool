@@ -132,7 +132,7 @@ target_link_libraries(sfd_tool
 )
 
 # Windows: 直接包含 BMPlatform 相关源文件
- (WIN32)
+if (WIN32)
     if (CMAKE_SIZEOF_VOID_P EQUAL 4)
         target_sources(sfd_tool PRIVATE
            BMPlatform.cpp
