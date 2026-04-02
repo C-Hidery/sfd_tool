@@ -1,6 +1,7 @@
 // Proxy32.cpp : 32-bit proxy process for Channel9.dll
 #include <windows.h>
 #include <stdio.h>
+#include <direct.h>
 #include <string>
 
 // 包含与主程序相同的接口定义（但不需要完整的类实现）
@@ -105,19 +106,20 @@ typedef void(*pfReleaseChannel)(ICommChannel*);
 
 // 命令码
 enum ProxyCommand {
-    CMD_CREATE_CHANNEL,
-    CMD_RELEASE_CHANNEL,
-    CMD_INIT_LOG,
-    CMD_SET_RECEIVER,
-    CMD_GET_RECEIVER,
-    CMD_OPEN,
-    CMD_CLOSE,
-    CMD_CLEAR,
-    CMD_READ,
-    CMD_WRITE,
-    CMD_FREE_MEM,
-    CMD_GET_PROPERTY,
-    CMD_SET_PROPERTY
+    CMD_CREATE_CHANNEL = 0,
+    CMD_RELEASE_CHANNEL = 1,
+    CMD_INIT_LOG = 2,
+    CMD_SET_RECEIVER = 3,
+    CMD_GET_RECEIVER = 4,
+    CMD_OPEN = 5,
+    CMD_CLOSE = 6,
+    CMD_CLEAR = 7,
+    CMD_READ = 8,
+    CMD_WRITE = 9,
+    CMD_FREE_MEM = 10,
+    CMD_GET_PROPERTY = 11,
+    CMD_SET_PROPERTY = 12,
+    CMD_SHUTDOWN = 13
 };
 
 // 参数结构体（用于序列化/反序列化）
@@ -193,7 +195,7 @@ struct SetPropertyParam {
 HMODULE g_hDll = NULL;
 pfCreateChannel g_pfCreateChannel = NULL;
 pfReleaseChannel g_pfReleaseChannel = NULL;
-
+volatile BOOL g_bShutdown = FALSE;
 // 加载 DLL
 BOOL LoadChannelDll() {
     // 获取当前进程目录
@@ -388,38 +390,46 @@ void ProcessCommand(HANDLE hPipe, ProxyCommand cmd, ICommChannel*& pChannel) {
         delete[] dataBuf;
         break;
     }
-
+    case CMD_SHUTDOWN: {
+        SendResponse(hPipe, TRUE);
+        g_bShutdown = TRUE;
+        break;
+    }
     default:
-        // 未知命令，忽略
         break;
     }
 }
 
-int wmain() {
+int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
+    char fn_log[260];
+    snprintf(fn_log, sizeof(fn_log), "Proxy_Log_%lld", (long long)time(nullptr));
+    _mkdir(fn_log);
+    char log_path[300];
+    snprintf(log_path, sizeof(log_path), "%s\\proxy.log", fn_log);
+    FILE *log_file = freopen(log_path, "w", stdout);
+
     if (!LoadChannelDll()) {
-        wprintf(L"Failed to load Channel9.dll\n");
+        // 写入日志或消息框
+        MessageBoxW(NULL, L"Failed to load Channel9.dll", L"Proxy32 Error", MB_OK);
         return 1;
     }
 
     HANDLE hPipe = CreateNamedPipeW(
-        PIPE_NAME,
+        L"\\\\.\\pipe\\BMProxyPipe",
         PIPE_ACCESS_DUPLEX,
         PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
-        PIPE_UNLIMITED_INSTANCES,  // 允许多个客户端
+        PIPE_UNLIMITED_INSTANCES,
         4096, 4096, 0, NULL
     );
 
     if (hPipe == INVALID_HANDLE_VALUE) {
-        wprintf(L"CreateNamedPipe failed: %d\n", GetLastError());
+        printf("CreateNamedPipe failed: %d\n", GetLastError());
         return 1;
     }
 
-    wprintf(L"Proxy32 started, waiting for client...\n");
-
-    while (TRUE) {
+    // 主循环
+    while (!g_bShutdown) {
         if (ConnectNamedPipe(hPipe, NULL) || GetLastError() == ERROR_PIPE_CONNECTED) {
-            wprintf(L"Client connected.\n");
-
             ICommChannel* pChannel = NULL;
             while (TRUE) {
                 DWORD cmd;
@@ -428,14 +438,12 @@ int wmain() {
                     break;
                 ProcessCommand(hPipe, (ProxyCommand)cmd, pChannel);
             }
-
             DisconnectNamedPipe(hPipe);
-            wprintf(L"Client disconnected.\n");
         }
-        // 等待下一个客户端
     }
 
     CloseHandle(hPipe);
     if (g_hDll) FreeLibrary(g_hDll);
+    fclose(log_file);
     return 0;
 }

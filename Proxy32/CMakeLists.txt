@@ -28,7 +28,7 @@ if(MSVC)
     
     # 链接选项
     set_target_properties(Proxy32 PROPERTIES
-        LINK_FLAGS "/MACHINE:X86 /SUBSYSTEM:CONSOLE"
+        LINK_FLAGS "/MACHINE:X86 /SUBSYSTEM:WINDOWS"
     )
 endif()
 
@@ -36,7 +36,7 @@ endif()
 target_compile_definitions(Proxy32 PRIVATE
     _CRT_SECURE_NO_WARNINGS
     _WIN32
-    _CONSOLE
+    _WINDOWS
     PROXY32_EXE
 )
 

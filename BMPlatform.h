@@ -37,19 +37,20 @@ typedef void(*pfReleaseChannel)(ICommChannel*);
 
 // 与代理进程通信的命令码
 enum ProxyCommand {
-    CMD_CREATE_CHANNEL,
-    CMD_RELEASE_CHANNEL,
-    CMD_INIT_LOG,
-    CMD_SET_RECEIVER,
-    CMD_GET_RECEIVER,
-    CMD_OPEN,
-    CMD_CLOSE,
-    CMD_CLEAR,
-    CMD_READ,
-    CMD_WRITE,
-    CMD_FREE_MEM,
-    CMD_GET_PROPERTY,
-    CMD_SET_PROPERTY
+    CMD_CREATE_CHANNEL = 0,
+    CMD_RELEASE_CHANNEL = 1,
+    CMD_INIT_LOG = 2,
+    CMD_SET_RECEIVER = 3,
+    CMD_GET_RECEIVER = 4,
+    CMD_OPEN = 5,
+    CMD_CLOSE = 6,
+    CMD_CLEAR = 7,
+    CMD_READ = 8,
+    CMD_WRITE = 9,
+    CMD_FREE_MEM = 10,
+    CMD_GET_PROPERTY = 11,
+    CMD_SET_PROPERTY = 12,
+    CMD_SHUTDOWN = 13
 };
 
 // 参数结构体（使用 ULONG_PTR 保存指针，避免 64 位截断）

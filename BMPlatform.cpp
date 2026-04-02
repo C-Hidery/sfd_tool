@@ -15,16 +15,58 @@ CBMPlatformApp::~CBMPlatformApp() {
 }
 
 BOOL CBMPlatformApp::InitInstance() {
-    m_hPipe = CreateFileW(
+    // 获取当前可执行文件目录
+    WCHAR exePath[MAX_PATH];
+    GetModuleFileNameW(NULL, exePath, MAX_PATH);
+    WCHAR* p = wcsrchr(exePath, L'\\');
+    if (p) *p = L'\0';
+
+    // 构建代理进程路径
+    WCHAR proxyPath[MAX_PATH];
+    wcscpy_s(proxyPath, exePath);
+    wcscat_s(proxyPath, L"\\Proxy32.exe");
+
+    // 检查代理是否已经运行（尝试打开管道）
+    HANDLE hTest = CreateFileW(
         L"\\\\.\\pipe\\BMProxyPipe",
         GENERIC_READ | GENERIC_WRITE,
         0, NULL, OPEN_EXISTING,
         FILE_FLAG_OVERLAPPED, NULL
     );
+    if (hTest != INVALID_HANDLE_VALUE) {
+        // 管道已存在，代理正在运行
+        CloseHandle(hTest);
+    } else {
+        // 启动代理进程
+        STARTUPINFOW si = { sizeof(si) };
+        PROCESS_INFORMATION pi;
+        if (!CreateProcessW(proxyPath, NULL, NULL, NULL, FALSE, 0, NULL, exePath, &si, &pi)) {
+            std::cout << "Failed to start proxy process. Error: " << GetLastError() << std::endl;
+            return FALSE;
+        }
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+
+        // 等待管道可用（最多 5 秒）
+        if (!WaitNamedPipeW(L"\\\\.\\pipe\\BMProxyPipe", 5000)) {
+            std::cout << "Proxy pipe not available after starting proxy." << std::endl;
+            return FALSE;
+        }
+    }
+
+    // 连接管道（同步模式，此时管道已可用）
+    m_hPipe = CreateFileW(
+        L"\\\\.\\pipe\\BMProxyPipe",
+        GENERIC_READ | GENERIC_WRITE,
+        0, NULL, OPEN_EXISTING,
+        0,  // 同步，因为 WaitNamedPipe 已经确保连接会立即成功
+        NULL
+    );
     if (m_hPipe == INVALID_HANDLE_VALUE) {
         std::cout << "Failed to connect to proxy pipe. Error: " << GetLastError() << std::endl;
         return FALSE;
     }
+
     DWORD mode = PIPE_READMODE_MESSAGE;
     SetNamedPipeHandleState(m_hPipe, &mode, NULL, NULL);
     m_bConnected = TRUE;
@@ -36,6 +78,7 @@ int CBMPlatformApp::ExitInstance() {
         CloseHandle(m_hPipe);
         m_hPipe = INVALID_HANDLE_VALUE;
         m_bConnected = FALSE;
+        g_theApp.SendCommand(CMD_SHUTDOWN, NULL, 0, NULL, 0, NULL);
     }
     return TRUE;
 }
