@@ -129,13 +129,24 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Write-Host "生成 MSVC 兼容的 libintl.lib..."
           $dllPath = "$msysPath\mingw32\bin\libintl-8.dll"
-          $defPath = "$msysPath\tmp\libintl.def"
+          $defPath = "$env:TEMP\libintl.def"
           $libPath = "$msysPath\mingw32\lib\libintl.lib"
           
-          # 运行 gendef 生成 .def 文件
-          & "$msysPath\usr\bin\bash.exe" -lc "gendef $dllPath > $defPath 2>/dev/null"
-          # 使用 dlltool 生成 .lib
-          & "$msysPath\usr\bin\bash.exe" -lc "dlltool -d $defPath -l $libPath -D $dllPath -k"
+          # 使用 gendef 生成 .def 文件（直接调用 exe）
+          $gendef = "$msysPath\usr\bin\gendef.exe"
+          & $gendef $dllPath > $defPath
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "gendef 失败"
+            exit 1
+          }
+          
+          # 使用 dlltool 生成 .lib（直接调用 exe）
+          $dlltool = "$msysPath\mingw32\bin\dlltool.exe"
+          & $dlltool -d $defPath -l $libPath -D $dllPath -k
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "dlltool 失败"
+            exit 1
+          }
           
           if (Test-Path $libPath) {
             Write-Host "成功生成 $libPath"
