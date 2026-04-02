@@ -86,10 +86,6 @@ jobs:
           & $libExe /def:$defPath /out:$libPath /machine:X64
           Write-Host "Generated $libPath"
 
-      # x86 安装部分保持不变（使用手动下载 + 生成 libintl.lib）
-      - name: Install MSYS2 and GTK3 (x86)
-        if: matrix.arch == 'x86'
-        # ... 你已有的 x86 安装代码（记得去掉 vcpkg 相关）
 
       # x86：安装 MSYS2 的 GTK3 和 gettext，并生成 MSVC 兼容的导入库
       - name: Install MSYS2 and GTK3 (x86)
