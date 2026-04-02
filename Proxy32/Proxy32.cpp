@@ -408,7 +408,7 @@ void ProcessCommand(HANDLE hPipe, ProxyCommand cmd, ICommChannel*& pChannel) {
     }
 }
 
-int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
+int wmain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
     HANDLE hPipe = CreateNamedPipeW(
         L"\\\\.\\pipe\\BMProxyPipe",
         PIPE_ACCESS_DUPLEX,
@@ -421,6 +421,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
         printf("CreateNamedPipe failed: %d\n", GetLastError());
         return 1;
     }
+/*
     char fn_log[260];
     snprintf(fn_log, sizeof(fn_log), "Proxy_Log_%lld", (long long)time(nullptr));
     _mkdir(fn_log);
@@ -436,6 +437,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
         MessageBoxW(NULL, L"Failed to create log files", L"Proxy32 Error", MB_OK);
         return 1;
     }
+*/
 
     if (!LoadChannelDll()) {
         // 写入日志或消息框
@@ -461,7 +463,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
     CloseHandle(hPipe);
     if (g_hDll) FreeLibrary(g_hDll);
+/*
     fclose(log_file_out);
     fclose(log_file_err);
+*/
     return 0;
 }
