@@ -145,32 +145,47 @@ else()
     target_link_libraries(sfd_tool PRIVATE Threads::Threads)
 endif()
 
-# Windows: libintl (gettext) - 直接链接 DLL（自动生成导入库）
+# Windows: libintl (gettext)
 if (WIN32)
+    # 使用 vcpkg 的 intl.lib
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        set(_gtk_root "C:/msys64/mingw64")
+        set(_vcpkg_triplet "x64-windows")
     else()
-        set(_gtk_root "C:/msys64/mingw32")
+        set(_vcpkg_triplet "x86-windows")
+    set(_vcpkg_root "")
+    if (DEFINED CMAKE_TOOLCHAIN_FILE)
+        get_filename_component(_tc_dir "${CMAKE_TOOLCHAIN_FILE}" DIRECTORY)
+        get_filename_component(_candidate_root "${_tc_dir}/../.." ABSOLUTE)
+        if (EXISTS "${_candidate_root}/installed")
+            set(_vcpkg_root "${_candidate_root}")
+        endif()
     endif()
-    set(INTL_DLL "${_gtk_root}/bin/libintl-8.dll")
-    if (NOT EXISTS ${INTL_DLL})
-        message(FATAL_ERROR "libintl-8.dll not found at ${INTL_DLL}")
+    if (_vcpkg_root STREQUAL "" AND DEFINED ENV{VCPKG_ROOT})
+        set(_vcpkg_root "$ENV{VCPKG_ROOT}")
     endif()
-    message(STATUS "Using intl DLL: ${INTL_DLL}")
-
-    # 直接链接 DLL 文件（MSVC 会自动处理导入）
-    target_link_libraries(sfd_tool PRIVATE "${INTL_DLL}")
+    if (_vcpkg_root STREQUAL "")
+        set(_vcpkg_root "C:/vcpkg")
+    endif()
+    set(_vcpkg_lib_dir "${_vcpkg_root}/installed/${_vcpkg_triplet}/lib")
+    find_library(INTL_LIBRARY NAMES intl libintl PATHS "${_vcpkg_lib_dir}" REQUIRED)
+    message(STATUS "Found intl library (vcpkg): ${INTL_LIBRARY}")
+    # 定义 libintl_snprintf 为 snprintf（绕过缺失符号）
+    target_compile_definitions(sfd_tool PRIVATE libintl_snprintf=snprintf)
     foreach(tgt IN LISTS SFD_TEST_TARGETS)
-        target_link_libraries(${tgt} PRIVATE "${INTL_DLL}")
+        target_compile_definitions(${tgt} PRIVATE libintl_snprintf=snprintf)
+    endforeach()
+   
+
+    target_link_libraries(sfd_tool PRIVATE "${INTL_LIBRARY}")
+    foreach(tgt IN LISTS SFD_TEST_TARGETS)
+        target_link_libraries(${tgt} PRIVATE "${INTL_LIBRARY}")
     endforeach()
 
-    # Windows 平台：崩溃堆栈 (dbghelp) + 串口枚举 (setupapi)
     target_link_libraries(sfd_tool PRIVATE dbghelp setupapi)
     foreach(tgt IN LISTS SFD_TEST_TARGETS)
         target_link_libraries(${tgt} PRIVATE dbghelp setupapi)
     endforeach()
 endif()
-
 # ================= 依赖：GTK3 / libusb =================
 find_package(PkgConfig QUIET)
 
