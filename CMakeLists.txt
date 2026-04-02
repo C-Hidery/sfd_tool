@@ -145,53 +145,13 @@ else()
     target_link_libraries(sfd_tool PRIVATE Threads::Threads)
 endif()
 
-# Windows: libintl (gettext) via vcpkg
+# Windows: libintl (gettext) using vcpkg's CMake target
 if (WIN32)
-    if (CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
-        set(_vcpkg_triplet "x64-windows")
-    else()
-        set(_vcpkg_triplet "x86-windows")
-    endif()
-
-    # Try to infer vcpkg root from toolchain file first, then env, then default C:/vcpkg
-    set(_vcpkg_root "")
-
-    if (DEFINED CMAKE_TOOLCHAIN_FILE)
-        get_filename_component(_tc_dir "${CMAKE_TOOLCHAIN_FILE}" DIRECTORY)
-        get_filename_component(_candidate_root "${_tc_dir}/../.." ABSOLUTE)
-        if (EXISTS "${_candidate_root}/installed")
-            set(_vcpkg_root "${_candidate_root}")
-        endif()
-    endif()
-
-    if (_vcpkg_root STREQUAL "" AND DEFINED ENV{VCPKG_ROOT})
-        set(_vcpkg_root "$ENV{VCPKG_ROOT}")
-    endif()
-
-    if (_vcpkg_root STREQUAL "")
-        set(_vcpkg_root "C:/vcpkg")
-    endif()
-
-    set(_vcpkg_include "${_vcpkg_root}/installed/${_vcpkg_triplet}/include")
-    set(_vcpkg_lib_dir "${_vcpkg_root}/installed/${_vcpkg_triplet}/lib")
-
+    find_package(gettext CONFIG REQUIRED)
+    target_link_libraries(sfd_tool PRIVATE gettext::libintl)
     foreach(tgt IN LISTS SFD_COMMON_TARGETS)
-        target_include_directories(${tgt} PRIVATE "${_vcpkg_include}")
+        target_link_libraries(${tgt} PRIVATE gettext::libintl)
     endforeach()
-
-    find_library(INTL_LIBRARY NAMES libintl intl PATHS "${_vcpkg_lib_dir}")
-    if (INTL_LIBRARY)
-        target_compile_definitions(sfd_tool PRIVATE LIBINTL_DLL)
-        foreach(tgt IN LISTS SFD_COMMON_TARGETS)
-            target_compile_definitions(${tgt} PRIVATE LIBINTL_DLL)
-        endforeach()
-        target_link_libraries(sfd_tool PRIVATE "${INTL_LIBRARY}")
-        foreach(tgt IN LISTS SFD_COMMON_TARGETS)
-            target_link_libraries(${tgt} PRIVATE "${INTL_LIBRARY}")
-        endforeach()
-    else()
-        message(WARNING "intl library not found in ${_vcpkg_lib_dir}; gettext may fail to link")
-    endif()
 
     # Windows 平台：崩溃堆栈 (dbghelp) + 串口枚举 (setupapi)
     target_link_libraries(sfd_tool PRIVATE dbghelp setupapi)
@@ -213,7 +173,6 @@ if (USE_GTK)
         foreach(tgt IN LISTS SFD_COMMON_TARGETS)
             target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
             target_include_directories(${tgt} PRIVATE
-                "${_gtk_root}/include"                     # 添加 gettext 头文件路径
                 "${_gtk_root}/include/gtk-3.0"
                 "${_gtk_root}/include/glib-2.0"
                 "${_gtk_root}/lib/glib-2.0/include"

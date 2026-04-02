@@ -138,11 +138,9 @@ jobs:
             "-DUSE_GTK=ON",
             "-DUSE_LIBUSB=${{ matrix.use_libusb }}",
             "-DSFD_ENABLE_TESTS=ON"
+            "-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
           )
-          if ("${{ matrix.arch }}" -eq "x64") {
-            # x64 使用 vcpkg toolchain
-            $commonArgs += "-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
-          }
+         
           cmake @commonArgs
 
       - name: Build (${{ matrix.artifact_name }} - ${{ matrix.config }})
