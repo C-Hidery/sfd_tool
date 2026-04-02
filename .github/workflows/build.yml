@@ -154,7 +154,7 @@ jobs:
             exit $LASTEXITCODE
           }
 
-          "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed gettext"
+           & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed gettext"
           if ($LASTEXITCODE -ne 0) {
               Write-Error "安装 gettext 失败"
               exit $LASTEXITCODE
