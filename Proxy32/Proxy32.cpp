@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <direct.h>
 #include <string>
+#include <time.h>
 
 // 包含与主程序相同的接口定义（但不需要完整的类实现）
 // 这里直接复制必要的定义，避免循环依赖
