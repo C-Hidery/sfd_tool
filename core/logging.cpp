@@ -1,17 +1,4 @@
 #include "logging.h"
-#include "../common.h"
-#include "../ui/ui_common.h"
-#include <stdarg.h>
-#include <time.h>
-#include <string.h>
-#include <thread>
-
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <unistd.h>
-#endif
-
 extern bool Err_Showed;
 extern bool isHelperInit;
 extern GtkWidgetHelper helper;
@@ -71,7 +58,7 @@ void ERR_EXIT(const char* format, ...) {
     	helper.disableWidget("abpart_b");
 		helper.disableWidget("pac_flash_start");
 	}
-	std::thread([](){
+	std::thread([&](){
 #ifdef _WIN32
 		call_DisconnectChannel(g_app_state.transport.io->handle);
 		if (g_app_state.transport.io->m_dwRecvThreadID) DestroyRecvThread(g_app_state.transport.io);
