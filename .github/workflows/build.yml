@@ -160,6 +160,27 @@ jobs:
               exit $LASTEXITCODE
             }
           }
+      - name: Generate MSVC import library for libintl (x86)
+        if: matrix.arch == 'x86'
+        shell: pwsh
+        run: |
+          $msysPath = "C:\msys64"
+          $dllPath = "$msysPath\mingw32\bin\libintl-8.dll"
+          $defPath = "$env:TEMP\libintl.def"
+          $libPath = "$msysPath\mingw32\lib\libintl.lib"  # 输出 MSVC 格式的 .lib
+          
+          # 使用 dumpbin 导出符号，生成 .def 文件
+          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x86\dumpbin.exe" /exports $dllPath | Select-String -Pattern "^\s+\d+\s+[0-9A-F]+\s+[0-9A-F]+\s+(\w+)" | ForEach-Object { $_.Matches.Groups[1].Value } | Sort-Object -Unique | ForEach-Object { "  $_" } | Set-Content $defPath -Encoding ascii
+          # 添加 EXPORTS 头部
+          $content = Get-Content $defPath
+          "EXPORTS" | Set-Content $defPath
+          $content | Add-Content $defPath
+          
+          # 使用 lib.exe 生成导入库
+          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x86\lib.exe" /def:$defPath /out:$libPath /machine:X86
+          
+          # 将生成的 libintl.lib 复制到 MSYS2 的 lib 目录，或者直接使用
+          Write-Host "Generated MSVC import library at $libPath"
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.artifact_name }}/${{ matrix.config }}/ | Out-Null
 

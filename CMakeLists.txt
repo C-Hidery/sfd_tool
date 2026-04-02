@@ -239,10 +239,13 @@ if (WIN32)
             message(STATUS "Found iconv library (vcpkg): ${ICONV_LIBRARY}")
         endif()
     else()
-        # x86: 使用 MSYS2 的 gettext (libintl.dll.a)
+        # x86: 使用 CI 生成的 MSVC 兼容导入库
         set(_gtk_root "C:/msys64/mingw32")
-        find_library(INTL_LIBRARY NAMES intl libintl PATHS "${_gtk_root}/lib" REQUIRED)
-        message(STATUS "Found intl library (MSYS2): ${INTL_LIBRARY}")
+        set(INTL_LIBRARY "${_gtk_root}/lib/libintl.lib")
+        if (NOT EXISTS ${INTL_LIBRARY})
+            message(FATAL_ERROR "Generated MSVC-compatible libintl.lib not found at ${INTL_LIBRARY}")
+        endif()
+        message(STATUS "Using MSVC-compatible intl library: ${INTL_LIBRARY}")
     endif()
 
     # 将 intl 库链接到所有相关目标（包括静态库，确保符号传递）
