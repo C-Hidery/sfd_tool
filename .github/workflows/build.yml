@@ -23,26 +23,23 @@ jobs:
     strategy:
       matrix:
         include:
-          # x64 架构：libusb 驱动版
+          # x64 架构：libusb 驱动版（vcpkg 只安装 gettext，libusb 使用项目自带）
           - arch: x64
             config: Release
             msys_gtk_arch: mingw64
-            msys_msystem: MINGW64
             cmake_platform: x64
             use_libusb: ON
             vcpkg_triplet: x64-windows
             artifact_name: LibUSB
           
-          # x86 架构：SPRD 原生驱动版（32位）
+          # x86 架构：SPRD 原生驱动版（不使用 vcpkg，从 MSYS2 手动获取 GTK+gettext）
           - arch: x86
             config: Release
             msys_gtk_arch: mingw32
-            msys_msystem: MINGW32
             cmake_platform: Win32
             use_libusb: OFF
             vcpkg_triplet: x86-windows
             artifact_name: SPRD
-          
 
     steps:
       - name: Checkout Repository
@@ -60,10 +57,11 @@ jobs:
             C:\vcpkg\installed
             C:\vcpkg\packages
             C:\vcpkg\downloads
-          key: vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-${{ matrix.use_libusb }}-v1
+          key: vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-gettext-v2
           restore-keys: |
             vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-
 
+      # x64：通过 vcpkg 安装 gettext（不安装 libusb）
       - name: Install gettext via vcpkg (x64)
         if: matrix.arch == 'x64'
         shell: pwsh
@@ -75,112 +73,90 @@ jobs:
           }
           Write-Host "Installing gettext:${{ matrix.vcpkg_triplet }}"
           & $vcpkgExe install "gettext:${{ matrix.vcpkg_triplet }}"
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "安装 gettext 失败"
-            exit $LASTEXITCODE
-          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Install MSYS2 and GTK3
+      # x86：安装 MSYS2 的 GTK3 和 gettext，并生成 MSVC 兼容的导入库
+      - name: Install MSYS2 and GTK3 (x86)
+        if: matrix.arch == 'x86'
         shell: pwsh
         run: |
           $msysPath = "C:\msys64"
 
           Write-Host "安装 GTK3 开发包..."
-
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "pacman -Sy 失败"
-            exit $LASTEXITCODE
-          }
-          
-          if ("${{ matrix.arch }}" -eq "x86") {
-            Write-Host "检测到 x86 架构，从清华镜像手动下载安装..."
-            
-            $pkgCache = "$msysPath\var\cache\pacman\pkg"
-            New-Item -ItemType Directory -Force -Path $pkgCache | Out-Null
-            
-            $mirrorBase = "https://mirrors.tuna.tsinghua.edu.cn/msys2/mingw/mingw32"
-            
-            # 32 位包列表（已包含 gettext-runtime，避免与 gettext 冲突）
-            $pkgFiles = @(
-              "mingw-w64-i686-glib2-2.82.4-1-any.pkg.tar.zst",
-              "mingw-w64-i686-cairo-1.18.2-2-any.pkg.tar.zst",
-              "mingw-w64-i686-pango-1.56.1-1-any.pkg.tar.zst",
-              "mingw-w64-i686-harfbuzz-10.1.0-1-any.pkg.tar.zst",
-              "mingw-w64-i686-gdk-pixbuf2-2.42.12-1-any.pkg.tar.zst",
-              "mingw-w64-i686-atk-2.52.0-1-any.pkg.tar.zst",
-              "mingw-w64-i686-freetype-2.13.2-1-any.pkg.tar.zst",
-              "mingw-w64-i686-fontconfig-2.15.0-2-any.pkg.tar.zst",
-              "mingw-w64-i686-libpng-1.6.43-1-any.pkg.tar.zst",
-              "mingw-w64-i686-libjpeg-turbo-3.0.3-1-any.pkg.tar.zst",
-              "mingw-w64-i686-libtiff-4.6.0-1-any.pkg.tar.zst",
-              "mingw-w64-i686-libxml2-2.12.10-1-any.pkg.tar.zst",
-              "mingw-w64-i686-gettext-runtime-0.22.5-2-any.pkg.tar.zst",
-              "mingw-w64-i686-zlib-1.3.1-1-any.pkg.tar.zst",
-              "mingw-w64-i686-adwaita-icon-theme-legacy-46.2-1-any.pkg.tar.zst",
-              "mingw-w64-i686-librsvg-2.58.0-1-any.pkg.tar.zst",
-              "mingw-w64-i686-adwaita-icon-theme-49.0-1-any.pkg.tar.zst",
-              "mingw-w64-i686-gtk-update-icon-cache-3.24.43-1-any.pkg.tar.zst",
-              "mingw-w64-i686-gtk3-3.24.48-2-any.pkg.tar.zst"
-            )
-            
-            $tempDir = Join-Path $env:TEMP "msys2_pkgs"
-            New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
-            
-            foreach ($pkgFile in $pkgFiles) {
-              $pkgUrl = "$mirrorBase/$pkgFile"
-              $localFile = Join-Path $tempDir $pkgFile
-              Write-Host "下载 $pkgUrl"
-              Invoke-WebRequest -Uri $pkgUrl -OutFile $localFile -UseBasicParsing
-              if ($LASTEXITCODE -ne 0) {
-                Write-Warning "下载 $pkgFile 失败"
-              }
-            }
-            
-            Write-Host "移动包文件到 pacman 缓存..."
-            Move-Item "$tempDir\*.pkg.tar.zst" $pkgCache -Force
-            
-            Write-Host "开始本地安装..."
-            $pkgCacheUnix = $pkgCache -replace '\\', '/' -replace '^C:', '/c'
-            & "$msysPath\usr\bin\bash.exe" -lc "pacman -U --noconfirm $pkgCacheUnix/mingw-w64-i686-*.pkg.tar.zst"
-            
-          } else {
-            Write-Host "安装 x64 GTK3 完整开发包..."
-            & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
-          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "GTK3/MSYS2 依赖安装失败"
-            exit $LASTEXITCODE
+          Write-Host "从清华镜像手动下载安装 GTK3 及依赖 (x86)..."
+          $pkgCache = "$msysPath\var\cache\pacman\pkg"
+          New-Item -ItemType Directory -Force -Path $pkgCache | Out-Null
+          $mirrorBase = "https://mirrors.tuna.tsinghua.edu.cn/msys2/mingw/mingw32"
+          $pkgFiles = @(
+            "mingw-w64-i686-glib2-2.82.4-1-any.pkg.tar.zst",
+            "mingw-w64-i686-cairo-1.18.2-2-any.pkg.tar.zst",
+            "mingw-w64-i686-pango-1.56.1-1-any.pkg.tar.zst",
+            "mingw-w64-i686-harfbuzz-10.1.0-1-any.pkg.tar.zst",
+            "mingw-w64-i686-gdk-pixbuf2-2.42.12-1-any.pkg.tar.zst",
+            "mingw-w64-i686-atk-2.52.0-1-any.pkg.tar.zst",
+            "mingw-w64-i686-freetype-2.13.2-1-any.pkg.tar.zst",
+            "mingw-w64-i686-fontconfig-2.15.0-2-any.pkg.tar.zst",
+            "mingw-w64-i686-libpng-1.6.43-1-any.pkg.tar.zst",
+            "mingw-w64-i686-libjpeg-turbo-3.0.3-1-any.pkg.tar.zst",
+            "mingw-w64-i686-libtiff-4.6.0-1-any.pkg.tar.zst",
+            "mingw-w64-i686-libxml2-2.12.10-1-any.pkg.tar.zst",
+            "mingw-w64-i686-gettext-0.22.5-2-any.pkg.tar.zst",   # 完整 gettext
+            "mingw-w64-i686-zlib-1.3.1-1-any.pkg.tar.zst",
+            "mingw-w64-i686-adwaita-icon-theme-legacy-46.2-1-any.pkg.tar.zst",
+            "mingw-w64-i686-librsvg-2.58.0-1-any.pkg.tar.zst",
+            "mingw-w64-i686-adwaita-icon-theme-49.0-1-any.pkg.tar.zst",
+            "mingw-w64-i686-gtk-update-icon-cache-3.24.43-1-any.pkg.tar.zst",
+            "mingw-w64-i686-gtk3-3.24.48-2-any.pkg.tar.zst"
+          )
+          $tempDir = Join-Path $env:TEMP "msys2_pkgs"
+          New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
+          foreach ($pkgFile in $pkgFiles) {
+            $pkgUrl = "$mirrorBase/$pkgFile"
+            $localFile = Join-Path $tempDir $pkgFile
+            Write-Host "下载 $pkgUrl"
+            Invoke-WebRequest -Uri $pkgUrl -OutFile $localFile -UseBasicParsing
           }
-          if ("${{ matrix.arch }}" -eq "x86") {
-           & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed gettext"
-            if ($LASTEXITCODE -ne 0) {
-              Write-Error "安装 gettext 失败"
-              exit $LASTEXITCODE
-            }
-          }
-      - name: Generate MSVC import library for libintl (x86)
-        if: matrix.arch == 'x86'
-        shell: pwsh
-        run: |
-          $msysPath = "C:\msys64"
+          Move-Item "$tempDir\*.pkg.tar.zst" $pkgCache -Force
+          $pkgCacheUnix = $pkgCache -replace '\\', '/' -replace '^C:', '/c'
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -U --noconfirm $pkgCacheUnix/mingw-w64-i686-*.pkg.tar.zst"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          # 生成 MSVC 兼容的 libintl.lib
+          Write-Host "为 x86 生成 MSVC 兼容的 libintl.lib..."
           $dllPath = "$msysPath\mingw32\bin\libintl-8.dll"
           $defPath = "$env:TEMP\libintl.def"
-          $libPath = "$msysPath\mingw32\lib\libintl.lib"  # 输出 MSVC 格式的 .lib
-          
-          # 使用 dumpbin 导出符号，生成 .def 文件
-          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x86\dumpbin.exe" /exports $dllPath | Select-String -Pattern "^\s+\d+\s+[0-9A-F]+\s+[0-9A-F]+\s+(\w+)" | ForEach-Object { $_.Matches.Groups[1].Value } | Sort-Object -Unique | ForEach-Object { "  $_" } | Set-Content $defPath -Encoding ascii
-          # 添加 EXPORTS 头部
+          $libPath = "$msysPath\mingw32\lib\libintl.lib"
+          # 查找 dumpbin 和 lib 工具路径（从 MSVC 环境）
+          $dumpbin = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x86\dumpbin.exe"
+          $libExe = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x86\lib.exe"
+          if (-not (Test-Path $dumpbin)) {
+            Write-Error "dumpbin.exe not found"
+            exit 1
+          }
+          # 导出符号列表，生成 .def 文件
+          & $dumpbin /exports $dllPath | Select-String -Pattern "^\s+\d+\s+[0-9A-F]+\s+[0-9A-F]+\s+(\w+)" | ForEach-Object { $_.Matches.Groups[1].Value } | Sort-Object -Unique | ForEach-Object { "  $_" } | Set-Content $defPath -Encoding ascii
           $content = Get-Content $defPath
           "EXPORTS" | Set-Content $defPath
           $content | Add-Content $defPath
-          
-          # 使用 lib.exe 生成导入库
-          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x86\lib.exe" /def:$defPath /out:$libPath /machine:X86
-          
-          # 将生成的 libintl.lib 复制到 MSYS2 的 lib 目录，或者直接使用
-          Write-Host "Generated MSVC import library at $libPath"
+          & $libExe /def:$defPath /out:$libPath /machine:X86
+          Write-Host "Generated $libPath"
+
+      # x64 安装 MSYS2 的 GTK3（不安装 gettext，因为已通过 vcpkg）
+      - name: Install MSYS2 and GTK3 (x64)
+        if: matrix.arch == 'x64'
+        shell: pwsh
+        run: |
+          $msysPath = "C:\msys64"
+          Write-Host "安装 x64 GTK3 开发包..."
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # 注意：不安装 gettext，因为 vcpkg 已提供
+
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.artifact_name }}/${{ matrix.config }}/ | Out-Null
 
@@ -188,67 +164,81 @@ jobs:
         shell: pwsh
         run: |
           $env:Path = "C:\msys64\usr\bin;" + $env:Path
-
-          cmake -S . -B build_cmake `
-              -G "Visual Studio 17 2022" `
-              -A ${{ matrix.cmake_platform }} `
-              -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" `
-              -DCMAKE_EXPORT_COMPILE_COMMANDS=ON `
-              -DUSE_GTK=ON `
-              -DUSE_LIBUSB=${{ matrix.use_libusb }} `
-              -DSFD_ENABLE_TESTS=ON
+          $commonArgs = @(
+            "-S", ".",
+            "-B", "build_cmake",
+            "-G", "Visual Studio 17 2022",
+            "-A", "${{ matrix.cmake_platform }}",
+            "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+            "-DUSE_GTK=ON",
+            "-DUSE_LIBUSB=${{ matrix.use_libusb }}",
+            "-DSFD_ENABLE_TESTS=ON"
+          )
+          if ("${{ matrix.arch }}" -eq "x64") {
+            # x64 使用 vcpkg toolchain
+            $commonArgs += "-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          }
+          cmake @commonArgs
 
       - name: Build (${{ matrix.artifact_name }} - ${{ matrix.config }})
         shell: pwsh
         run: |
-            $env:Path = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin;C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin;" + $env:Path
-            cmake --build build_cmake --config ${{ matrix.config }} -- /m
-            ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
-            Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
+          $env:Path = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin;" + $env:Path
+          if ("${{ matrix.arch }}" -eq "x64") {
+            $env:Path = "C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin;" + $env:Path
+          }
+          cmake --build build_cmake --config ${{ matrix.config }} -- /m
+          ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
+          Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
 
       - name: Copy DLLs from GTK3 bin directory
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           $gtkBinPath = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin"
-
-          Write-Host "复制所有 DLL 从: $gtkBinPath"
-          if (Test-Path $gtkBinPath) {
-            Get-ChildItem -Path $gtkBinPath -Filter "*.dll" | ForEach-Object {
-              Copy-Item $_.FullName -Destination $destDir -Force
-            }
-            Write-Host "已复制 GTK3 DLLs"
+          Get-ChildItem -Path $gtkBinPath -Filter "*.dll" | ForEach-Object {
+            Copy-Item $_.FullName -Destination $destDir -Force
           }
 
-      # 不再需要单独复制 gettext DLLs，因为它们已经包含在 GTK bin 目录中
-      # 只复制 libusb DLL（如果需要）
-      - name: Copy libusb DLL (libusb version only)
+      - name: Copy gettext runtime DLLs (x64 from vcpkg, x86 from MSYS2)
+        shell: pwsh
+        run: |
+          $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
+          if ("${{ matrix.arch }}" -eq "x64") {
+            $vcpkgBin = "C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin"
+            if (Test-Path $vcpkgBin) {
+              Get-ChildItem $vcpkgBin -Filter "*.dll" | ForEach-Object {
+                Copy-Item $_.FullName -Destination $destDir -Force
+              }
+            }
+          } else {
+            # x86 的 libintl-8.dll 已经在 GTK bin 目录中，无需额外复制
+            Write-Host "x86 gettext DLL already present from GTK bin"
+          }
+
+      - name: Copy libusb DLL from project (x64 only)
         if: matrix.use_libusb == 'ON'
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
-          $libusbPath = "C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin\libusb-1.0.dll"
+          $libusbPath = "third_party/Lib/libusb-1.0.dll"
           if (Test-Path $libusbPath) {
             Copy-Item $libusbPath -Destination $destDir -Force
-            Write-Host "Copied libusb-1.0.dll"
           }
 
-      - name: Copy SPRD Driver Files (SPRD version only)
+      - name: Copy SPRD Driver Files (x86 only)
         if: matrix.use_libusb == 'OFF'
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           if (Test-Path "third_party/Lib/Channel9.dll") {
             Copy-Item "third_party/Lib/Channel9.dll" -Destination $destDir -Force
-            Write-Host "Copied Channel9.dll"
           }
           if (Test-Path "third_party/Lib/Channel.ini") {
             Copy-Item "third_party/Lib/Channel.ini" -Destination $destDir -Force
-            Write-Host "Copied Channel.ini"
           }
 
       - name: Copy GTK Runtime Data Files
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           $msysPrefix = "C:\msys64\${{ matrix.msys_gtk_arch }}"
-
           $iconsSrc = "$msysPrefix\share\icons"
           if (Test-Path $iconsSrc) {
             $iconsDest = "$destDir\share\icons"
@@ -256,7 +246,6 @@ jobs:
             Copy-Item -Path "$iconsSrc\hicolor" -Destination $iconsDest -Recurse -Force -ErrorAction SilentlyContinue
             Copy-Item -Path "$iconsSrc\Adwaita" -Destination $iconsDest -Recurse -Force -ErrorAction SilentlyContinue
           }
-          
           $schemasSrc = "$msysPrefix\share\glib-2.0\schemas"
           if (Test-Path $schemasSrc) {
             $schemasDest = "$destDir\share\glib-2.0\schemas"
@@ -277,8 +266,7 @@ jobs:
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           $unwantedExtensions = @(".a", ".la", ".def", ".sh", ".py", ".pl", ".exp")
-          $keepFiles = @("sfd_tool.exe", "sfd_tool.pdb", "BMPlatform.dll", "Proxy32.exe", "Channel9.dll", "Channel.ini")
-          
+          $keepFiles = @("sfd_tool.exe", "sfd_tool.pdb", "BMPlatform.dll", "Channel9.dll", "Channel.ini", "libusb-1.0.dll")
           foreach ($ext in $unwantedExtensions) {
             Get-ChildItem -Path $destDir -Filter "*$ext" -Exclude $keepFiles -ErrorAction SilentlyContinue | 
               Remove-Item -Force -ErrorAction SilentlyContinue
