@@ -303,8 +303,15 @@ void ProcessCommand(HANDLE hPipe, ProxyCommand cmd, ICommChannel*& pChannel) {
         if (param.channelType == CHANNEL_TYPE_COM) {
             attr.Com.dwPortNum = param.comPort;
             attr.Com.dwBaudRate = param.baudRate;
+            wprintf(L"Opening COM%d, baud=%d\n", param.comPort, param.baudRate);
         }
         BOOL ret = pChannel->Open(&attr);
+        if (!ret) {
+            DWORD err = GetLastError();
+            wprintf(L"Open failed with error: %d\n", err);
+        } else {
+            wprintf(L"Open succeeded\n");
+        }
         SendResponse(hPipe, ret);
         break;
     }
