@@ -65,7 +65,6 @@ jobs:
             vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-
 
       - name: Install gettext (libintl) via vcpkg
-        if: matrix.arch != 'x86'  # Proxy32 不需要 gettext
         shell: pwsh
         run: |
           $vcpkgExe = "C:\vcpkg\vcpkg.exe"
