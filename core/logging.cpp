@@ -59,7 +59,7 @@ void ERR_EXIT(const char* format, ...) {
 		helper.disableWidget("pac_flash_start");
 	}
 	std::thread([&](){
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(USE_LIBUSB)
 		call_DisconnectChannel(g_app_state.transport.io->handle);
 		if (g_app_state.transport.io->m_dwRecvThreadID) DestroyRecvThread(g_app_state.transport.io);
 		call_Uninitialize(g_app_state.transport.io->handle);
