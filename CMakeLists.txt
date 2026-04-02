@@ -196,6 +196,16 @@ if (WIN32)
         target_link_libraries(${tgt} PRIVATE dbghelp setupapi)
     endforeach()
 endif()
+# 由于 x86 使用了 MinGW 编译的 libintl.a，MSVC 链接器需要禁用 SAFESEH
+if (MSVC)
+    target_link_options(sfd_tool PRIVATE /SAFESEH:NO)
+    # 如果启用了测试，也为所有测试目标添加该选项
+    if (SFD_ENABLE_TESTS)
+        foreach(tgt IN LISTS SFD_TEST_TARGETS)
+            target_link_options(${tgt} PRIVATE /SAFESEH:NO)
+        endforeach()
+    endif()
+endif()
 # ================= 依赖：GTK3 / libusb =================
 find_package(PkgConfig QUIET)
 
