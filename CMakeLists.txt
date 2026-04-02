@@ -74,6 +74,12 @@ target_include_directories(sfd_ui
         ${CMAKE_BINARY_DIR}/generated
 )
 
+# ================= 主可执行程序 =================
+add_executable(sfd_tool
+    main.cpp
+    main_console.cpp
+)
+
 # ================= Windows 特定：BMPlatform 和 Proxy32 =================
 if (WIN32)
     if (CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -84,11 +90,7 @@ if (WIN32)
     endif()
 endif()
 
-# ================= 主可执行程序 =================
-add_executable(sfd_tool
-    main.cpp
-    main_console.cpp
-)
+
 
 # ================= Windows 资源文件 (.rc) 支持 =================
 if (WIN32)
