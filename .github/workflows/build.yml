@@ -158,22 +158,17 @@ jobs:
             Copy-Item $_.FullName -Destination $destDir -Force
           }
 
-      - name: Copy gettext runtime DLLs (x64 from vcpkg, x86 from MSYS2)
+      - name: Copy gettext runtime DLLs
         shell: pwsh
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
-          if ("${{ matrix.arch }}" -eq "x64") {
-            $vcpkgBin = "C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin"
-            if (Test-Path $vcpkgBin) {
-              Get-ChildItem $vcpkgBin -Filter "*.dll" | ForEach-Object {
-                Copy-Item $_.FullName -Destination $destDir -Force
-              }
+          $vcpkgBin = "C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin"
+          if (Test-Path $vcpkgBin) {
+            Get-ChildItem $vcpkgBin -Filter "*.dll" | ForEach-Object {
+              Copy-Item $_.FullName -Destination $destDir -Force
             }
-          } else {
-            # x86 的 libintl-8.dll 已经在 GTK bin 目录中，无需额外复制
-            Write-Host "x86 gettext DLL already present from GTK bin"
           }
-
+         
       - name: Copy libusb DLL from project (x64 only)
         if: matrix.use_libusb == 'ON'
         run: |
