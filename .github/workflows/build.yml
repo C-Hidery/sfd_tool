@@ -53,17 +53,19 @@ jobs:
       - name: Install gettext (libintl) via vcpkg
         shell: pwsh
         run: |
-          # 优先使用 GitHub 镜像自带的经典 vcpkg 实例
           $vcpkgExe = "C:\vcpkg\vcpkg.exe"
           if (-not (Test-Path $vcpkgExe)) {
             Write-Error "vcpkg.exe not found at $vcpkgExe"
-            Get-ChildItem C:\ | Select-Object -First 20
             exit 1
           }
           Write-Host "Using vcpkg: $vcpkgExe"
-          # 安装 x86 / x64 的 gettext（包含 libintl）
-          & $vcpkgExe install gettext:x86-windows gettext:x64-windows
-
+          & $vcpkgExe install "gettext:${{ matrix.vcpkg_triplet }}"
+          
+          # 如果是 libusb 版，额外安装 libusb
+          if ("${{ matrix.use_libusb }}" -eq "ON") {
+            Write-Host "Installing libusb for libusb version..."
+            & $vcpkgExe install "libusb:${{ matrix.vcpkg_triplet }}"
+          }
       - name: Install MSYS2 and GTK3 (x64)
         if: matrix.arch == 'x64'
         shell: pwsh
@@ -72,7 +74,6 @@ jobs:
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
 
-      # x86：安装 MSYS2 的 GTK3 和 gettext，并生成 MSVC 兼容的导入库
       - name: Install MSYS2 and GTK3 (x86)
         if: matrix.arch == 'x86'
         shell: pwsh
@@ -129,19 +130,14 @@ jobs:
         shell: pwsh
         run: |
           $env:Path = "C:\msys64\usr\bin;" + $env:Path
-          $commonArgs = @(
-            "-S", ".",
-            "-B", "build_cmake",
-            "-G", "Visual Studio 17 2022",
-            "-A", "${{ matrix.cmake_platform }}",
-            "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
-            "-DUSE_GTK=ON",
-            "-DUSE_LIBUSB=${{ matrix.use_libusb }}",
-            "-DSFD_ENABLE_TESTS=ON"
-            "-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
-          )
-         
-          cmake @commonArgs
+          cmake -S . -B build_cmake `
+            -G "Visual Studio 17 2022" `
+            -A ${{ matrix.cmake_platform }} `
+            -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON `
+            -DUSE_GTK=ON `
+            -DUSE_LIBUSB=${{ matrix.use_libusb }} `
+            -DSFD_ENABLE_TESTS=ON
 
       - name: Build (${{ matrix.artifact_name }} - ${{ matrix.config }})
         shell: pwsh
