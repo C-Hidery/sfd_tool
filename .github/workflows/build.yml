@@ -159,19 +159,6 @@ jobs:
           & $libExe /def:$defPath /out:$libPath /machine:X86
           Write-Host "Generated $libPath"
 
-      # x64 安装 MSYS2 的 GTK3（不安装 gettext，因为已通过 vcpkg）
-      - name: Install MSYS2 and GTK3 (x64)
-        if: matrix.arch == 'x64'
-        shell: pwsh
-        run: |
-          $msysPath = "C:\msys64"
-          Write-Host "安装 x64 GTK3 开发包..."
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk3 mingw-w64-x86_64-harfbuzz mingw-w64-x86_64-pango mingw-w64-x86_64-cairo mingw-w64-x86_64-glib2"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          # 注意：不安装 gettext，因为 vcpkg 已提供
-
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.artifact_name }}/${{ matrix.config }}/ | Out-Null
 
