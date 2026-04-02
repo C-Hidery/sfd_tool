@@ -1498,8 +1498,18 @@ void load_nv_partition(spdio_t *io, const char *name,
 			break;
 		}
 	}
-	crc = crc16(crc, mem + 2, len - 2);
-	WRITE16_BE(mem, crc);
+	if (strstr(name, "factorynv")){
+		dump_partition(io, name, 0, 16, "nvcrc", 4096);
+		uint8_t *crc_mem = loadfile("nvcrc", nullptr, 0);
+		mem[0] = crc_mem[0];
+		mem[1] = crc_mem[1];
+		free(crc_mem);
+	}
+	else {
+		crc = crc16(crc, mem + 2, len - 2);
+		WRITE16_BE(mem, crc);
+	}	
+	
 	for (offset = 0; offset < len; offset++) cs += mem[offset];
 	DEG_LOG(I,"File size : 0x%zx", len);
 
@@ -1628,7 +1638,18 @@ uint64_t check_partition(spdio_t *io, const char *name, int need_size) {
 		if (dot != nullptr) *dot = '2';
 		name = name_tmp;
 	}
-
+	else if (strstr(name, "factorynv")){
+		if (selected_ab > 0) {
+			size_t namelen = strlen(name);
+			if ((strcmp(name + namelen - 2, "_a") == 0) || (strcmp(name + namelen - 2, "_b") == 0)) return 0;
+		}
+	}
+	else if (strstr(name, "downloadnv")){
+		if (selected_ab > 0) {
+			size_t namelen = strlen(name);
+			if (strcmp(name + namelen - 2, "_a") && strcmp(name + namelen - 2, "_b")) return 0;
+		}
+	}
 	if (selected_ab > 0) {
 		find_partition_size_new(io, name, &offset);
 		if (offset) {
@@ -2010,7 +2031,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			!strncmp(fn, "lk", 2) ||
 			!strncmp(fn, "0x", 2) ||
 			!strncmp(fn, "custom_exec", 11)) continue;
-
+		if (g_app_state.flash.isPacFlashing && !strncmp(fn, "factorynv", 4)) continue;
 		snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s", path, fn);
 		char *dot = strrchr(fn, '.');
 		if (dot != nullptr) *dot = '\0';
@@ -2260,11 +2281,21 @@ void w_mem_to_part_offset(spdio_t *io, const char *name, size_t offset, uint8_t 
 int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned step, int CMethod) {
 	char name0[36], name1[40];
 	unsigned size0, size1;
-	if (strstr(name, "fixnv1")) { load_nv_partition(io, name, fn, 4096); return 1; }
-	if (selected_ab > 0 ||
-		Da_Info.dwStorageType == 0x101 ||
+	if (strstr(name, "fixnv1") || 
+		strstr(name, "downloadnv") ||
+	    strstr(name, "factorynv"))
+		{
+			load_nv_partition(io, name, fn, 4096);
+			return 1;
+		}
+	if (Da_Info.dwStorageType == 0x101 ||
 		io->part_count == 0 ||
 		strncmp(name, "splloader", 9) == 0) {
+		load_partition(io, name, fn, step, CMethod);
+		return 1;
+	}
+	if (selected_ab > 0 && g_app_state.flash.g_w_force == 0)
+	{
 		load_partition(io, name, fn, step, CMethod);
 		return 1;
 	}

@@ -2,6 +2,18 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
+#include "../common.h"
+#include "../ui/ui_common.h"
+#include <stdarg.h>
+#include <time.h>
+#include <string.h>
+#include <thread>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
 // 日志等级（与 common.h 中 msg_type 的 I/W/E/OP/DE 一一对应）
 enum class LogLevel {

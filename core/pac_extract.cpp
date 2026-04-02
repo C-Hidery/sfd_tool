@@ -1206,6 +1206,7 @@ bool pac_flash(spdio_t* io, const char* floder)
 				fdl2_executed = 1;
 				g_app_state.device.device_stage = FDL2;
     DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
+    g_app_state.flash.isPacFlashing = true;
     load_partitions(io, "pac_unpack_output", blk_size, g_app_state.flash.selected_ab, 0);
     encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
     if (!send_and_check(io)) gui_idle_call_wait_drag([]() {

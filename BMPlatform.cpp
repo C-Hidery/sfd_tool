@@ -1,65 +1,43 @@
 #include "BMPlatform.h"
 #include <iostream>
-
-// 全局变量定义（保留，供外部使用）
-int m_bOpened = 0;
+int m_bOpened = 0;; 
 
 CBMPlatformApp::CBMPlatformApp() {
+	// TODO: add construction code here,
+	// Place all significant initialization in InitInstance
 	m_pfCreateChannel = NULL;
 	m_pfReleaseChannel = NULL;
 	m_hChannelLib = NULL;
-	m_bUseProxy = TRUE;
-	m_bInitialized = FALSE;
-}
-
-// 创建代理通道的包装函数
-static BOOL CreateChannelWithProxy(ICommChannel **ppChannel, CHANNEL_TYPE type) {
-	*ppChannel = new CProxyChannel();
-	return TRUE;
-}
-
-static void ReleaseChannelWithProxy(ICommChannel *pChannel) {
-	if (pChannel) {
-		delete pChannel;
-	}
 }
 
 BOOL CBMPlatformApp::InitInstance() {
-	if (m_bInitialized) return TRUE;
-
-#ifdef _WIN64
-	m_bUseProxy = TRUE;
-#else
 	m_hChannelLib = LoadLibrary(_T("Channel9.dll"));
-	if (m_hChannelLib) {
-		m_pfCreateChannel = (pfCreateChannel)GetProcAddress(m_hChannelLib, "CreateChannel");
-		m_pfReleaseChannel = (pfReleaseChannel)GetProcAddress(m_hChannelLib, "ReleaseChannel");
-		if (m_pfCreateChannel && m_pfReleaseChannel) {
-			m_bUseProxy = FALSE;
-			m_bInitialized = TRUE;
-			return TRUE;
-		}
-	}
-	m_bUseProxy = TRUE;
-#endif
 
-	if (m_bUseProxy) {
-		m_pfCreateChannel = CreateChannelWithProxy;
-		m_pfReleaseChannel = ReleaseChannelWithProxy;
-		m_bInitialized = TRUE;
-		return TRUE;
+	if (m_hChannelLib == NULL) {
+		std::cout << "Failed to load Channel9.dll. Error code: " << GetLastError() << std::endl;
+		return FALSE;
 	}
-	return FALSE;
+
+	m_pfCreateChannel = (pfCreateChannel)GetProcAddress(m_hChannelLib, "CreateChannel");
+	m_pfReleaseChannel = (pfReleaseChannel)GetProcAddress(m_hChannelLib, "ReleaseChannel");
+
+	if (m_pfCreateChannel == NULL || m_pfReleaseChannel == NULL) {
+		return FALSE;
+	}
+
+	return TRUE;
 }
 
 int CBMPlatformApp::ExitInstance() {
-	if (!m_bUseProxy && m_hChannelLib) {
+	// TODO: Add your specialized code here and/or call the base class
+	if (m_hChannelLib) {
 		FreeLibrary(m_hChannelLib);
 		m_hChannelLib = NULL;
+
+		//m_pfCreateChannel = NULL;
+		//m_pfReleaseChannel = NULL;
 	}
-	m_pfCreateChannel = NULL;
-	m_pfReleaseChannel = NULL;
-	m_bInitialized = FALSE;
+
 	return TRUE;
 }
 
@@ -67,7 +45,6 @@ CBMPlatformApp g_theApp;
 
 CBootModeOpr::CBootModeOpr() {
 	m_pChannel = NULL;
-	c_m_bOpened = FALSE;
 	g_theApp.InitInstance();
 }
 
@@ -86,14 +63,13 @@ BOOL CBootModeOpr::Initialize() {
 }
 
 void CBootModeOpr::Uninitialize() {
-	if (g_theApp.m_pfReleaseChannel && m_pChannel) {
-		g_theApp.m_pfReleaseChannel(m_pChannel);
-	}
+	if (g_theApp.m_pfReleaseChannel) g_theApp.m_pfReleaseChannel(m_pChannel);
 	m_pChannel = NULL;
 }
 
 int CBootModeOpr::Read(UCHAR *m_RecvData, int max_len, int dwTimeout) {
-	ULONGLONG tBegin, tCur;
+	ULONGLONG tBegin;
+	ULONGLONG tCur;
 	tBegin = GetTickCount64();
 	do {
 		tCur = GetTickCount64();
@@ -101,40 +77,12 @@ int CBootModeOpr::Read(UCHAR *m_RecvData, int max_len, int dwTimeout) {
 		if (dwRead) {
 			return dwRead;
 		}
-	} while ((tCur - tBegin) < (ULONGLONG)dwTimeout);
+	} while ((tCur - tBegin) < dwTimeout);
 	return 0;
 }
 
 int CBootModeOpr::Write(UCHAR *lpData, int iDataSize) {
 	return m_pChannel->Write(lpData, iDataSize);
-}
-
-BOOL CBootModeOpr::ConnectChannel(DWORD dwPort, ULONG ulMsgId, DWORD Receiver) {
-	if (!dwPort) return FALSE;
-	
-	// 如果已经连接，直接返回成功
-	if (c_m_bOpened) {
-		std::cout << "Channel already connected, skipping duplicate ConnectChannel" << std::endl;
-		return TRUE;
-	}
-	
-	if (Receiver) m_pChannel->SetReceiver(ulMsgId, TRUE, (LPVOID)Receiver);
-	CHANNEL_ATTRIBUTE ca;
-	ca.ChannelType = CHANNEL_TYPE_COM;
-	ca.Com.dwPortNum = dwPort;
-	ca.Com.dwBaudRate = 115200;
-	
-	c_m_bOpened = m_pChannel->Open(&ca);
-	m_bOpened = c_m_bOpened;
-	if (c_m_bOpened) std::cout << "Successfully connected to port: " << dwPort << std::endl;
-	return c_m_bOpened;
-}
-
-BOOL CBootModeOpr::DisconnectChannel() {
-	m_pChannel->Close();
-	c_m_bOpened = FALSE;
-	m_bOpened = FALSE;
-	return TRUE;
 }
 
 BOOL CBootModeOpr::GetProperty(LONG lFlags, DWORD dwPropertyID, LPVOID pValue) {
@@ -143,6 +91,26 @@ BOOL CBootModeOpr::GetProperty(LONG lFlags, DWORD dwPropertyID, LPVOID pValue) {
 
 BOOL CBootModeOpr::SetProperty(LONG lFlags, DWORD dwPropertyID, LPCVOID pValue) {
 	return m_pChannel->SetProperty(lFlags, dwPropertyID, pValue);
+}
+
+BOOL CBootModeOpr::ConnectChannel(DWORD dwPort, ULONG ulMsgId, DWORD Receiver) {
+	if (!dwPort) return FALSE;
+
+	if (Receiver) m_pChannel->SetReceiver(ulMsgId, TRUE, (LPVOID)Receiver);
+	CHANNEL_ATTRIBUTE ca;
+	ca.ChannelType = CHANNEL_TYPE_COM;
+	ca.Com.dwPortNum = dwPort;
+	ca.Com.dwBaudRate = 115200;
+
+	m_bOpened = m_pChannel->Open(&ca);
+	if (m_bOpened) std::cout << "Successfully connected to port: " << dwPort << std::endl;
+	return m_bOpened;
+}
+
+BOOL CBootModeOpr::DisconnectChannel() {
+	m_pChannel->Close();
+	m_bOpened = 0;
+	return TRUE;
 }
 
 void CBootModeOpr::Clear() {

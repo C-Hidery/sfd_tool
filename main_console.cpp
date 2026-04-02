@@ -149,6 +149,8 @@ void print_help() {
 		"\tGet partition table through scanning a partition xml file\n"
 		"\t37.pac [PAC FILE]\n"
 		"\t\tFlash PAC firmware to the device (BROM stage only)\n"
+		"\t38.g_w_force {0,1}\n"
+		"\t\tSet if enable force_write automatically, default is 1.\n"
 	    "Debug commands:\n"
 	    "\t38.skip_confirm {0,1}\n"
 	    "\t\tSkips all confirmation prompts(use with caution!)\n"
@@ -1745,7 +1747,22 @@ rloop:
 			erase_partition(io, "all", isCMethod);
 			argc -= 1;
 			argv += 1;
-
+		
+		} else if (!strcmp(str2[1], "g_w_force")) {
+			int mode = atoi(str2[2]);
+			if (mode < 0 || mode > 1) {
+				DEG_LOG(W, "g_w_force {0,1}");
+			}
+			else {
+				if (mode == 1 && Da_Info.dwStorageType == 0x101) {
+					DEG_LOG(E, "g_w_force is not allowed on NAND(UBI) devices");
+				} else {
+					g_app_state.flash.g_w_force = mode;
+					DEG_LOG(I, "g_w_force is %d", g_app_state.flash.g_w_force);
+				}
+			}
+			argc -= 2;
+			argv += 2;
 		} else if (!strcmp(str2[1], "cptable")) {
 			if (!io->part_count_c && !io->part_count) {
 				io->Cptable = partition_list_d(io);
