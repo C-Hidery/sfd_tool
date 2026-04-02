@@ -145,23 +145,23 @@ else()
     target_link_libraries(sfd_tool PRIVATE Threads::Threads)
 endif()
 
-# ================= Windows: libintl (gettext) =================
-# Windows: libintl (gettext) - 统一使用 MSYS2 生成的 MSVC 兼容导入库
+# Windows: libintl (gettext) - 直接链接 DLL（自动生成导入库）
 if (WIN32)
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         set(_gtk_root "C:/msys64/mingw64")
     else()
         set(_gtk_root "C:/msys64/mingw32")
     endif()
-    set(INTL_LIBRARY "${_gtk_root}/lib/libintl.lib")
-    if (NOT EXISTS ${INTL_LIBRARY})
-        message(FATAL_ERROR "MSVC-compatible libintl.lib not found at ${INTL_LIBRARY}")
+    set(INTL_DLL "${_gtk_root}/bin/libintl-8.dll")
+    if (NOT EXISTS ${INTL_DLL})
+        message(FATAL_ERROR "libintl-8.dll not found at ${INTL_DLL}")
     endif()
-    message(STATUS "Using intl library: ${INTL_LIBRARY}")
+    message(STATUS "Using intl DLL: ${INTL_DLL}")
 
-    target_link_libraries(sfd_tool PRIVATE "${INTL_LIBRARY}")
+    # 直接链接 DLL 文件（MSVC 会自动处理导入）
+    target_link_libraries(sfd_tool PRIVATE "${INTL_DLL}")
     foreach(tgt IN LISTS SFD_TEST_TARGETS)
-        target_link_libraries(${tgt} PRIVATE "${INTL_LIBRARY}")
+        target_link_libraries(${tgt} PRIVATE "${INTL_DLL}")
     endforeach()
 
     # Windows 平台：崩溃堆栈 (dbghelp) + 串口枚举 (setupapi)
