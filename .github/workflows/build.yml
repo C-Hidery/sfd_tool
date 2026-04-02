@@ -104,7 +104,6 @@ jobs:
             "mingw-w64-i686-libtiff-4.6.0-1-any.pkg.tar.zst",
             "mingw-w64-i686-libxml2-2.12.10-1-any.pkg.tar.zst",
             "mingw-w64-i686-gettext-runtime-0.22.5-2-any.pkg.tar.zst",
-            "mingw-w64-i686-gettext-0.22.4-3-any.pkg.tar.zst",
             "mingw-w64-i686-zlib-1.3.1-1-any.pkg.tar.zst",
             "mingw-w64-i686-adwaita-icon-theme-legacy-46.2-1-any.pkg.tar.zst",
             "mingw-w64-i686-librsvg-2.58.0-1-any.pkg.tar.zst",
@@ -124,6 +123,9 @@ jobs:
           $pkgCacheUnix = $pkgCache -replace '\\', '/' -replace '^C:', '/c'
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -U --noconfirm --overwrite='*' $pkgCacheUnix/mingw-w64-i686-*.pkg.tar.zst"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ("${{ matrix.arch }}" -eq "x86"){
+              & & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --overwrite='*' gettext"
+          }
 
           # 生成 MSVC 兼容的 libintl.lib
           Write-Host "为 x86 生成 MSVC 兼容的 libintl.lib..."
