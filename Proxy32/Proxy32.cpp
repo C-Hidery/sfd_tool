@@ -402,6 +402,18 @@ void ProcessCommand(HANDLE hPipe, ProxyCommand cmd, ICommChannel*& pChannel) {
 }
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
+    HANDLE hPipe = CreateNamedPipeW(
+        L"\\\\.\\pipe\\BMProxyPipe",
+        PIPE_ACCESS_DUPLEX,
+        PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
+        PIPE_UNLIMITED_INSTANCES,
+        4096, 4096, 0, NULL
+    );
+
+    if (hPipe == INVALID_HANDLE_VALUE) {
+        printf("CreateNamedPipe failed: %d\n", GetLastError());
+        return 1;
+    }
     char fn_log[260];
     snprintf(fn_log, sizeof(fn_log), "Proxy_Log_%lld", (long long)time(nullptr));
     _mkdir(fn_log);
@@ -422,18 +434,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
         return 1;
     }
 
-    HANDLE hPipe = CreateNamedPipeW(
-        L"\\\\.\\pipe\\BMProxyPipe",
-        PIPE_ACCESS_DUPLEX,
-        PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
-        PIPE_UNLIMITED_INSTANCES,
-        4096, 4096, 0, NULL
-    );
-
-    if (hPipe == INVALID_HANDLE_VALUE) {
-        printf("CreateNamedPipe failed: %d\n", GetLastError());
-        return 1;
-    }
 
     // 主循环
     while (!g_bShutdown) {
