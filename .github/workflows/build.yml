@@ -103,7 +103,7 @@ jobs:
             "mingw-w64-i686-libjpeg-turbo-3.0.3-1-any.pkg.tar.zst",
             "mingw-w64-i686-libtiff-4.6.0-1-any.pkg.tar.zst",
             "mingw-w64-i686-libxml2-2.12.10-1-any.pkg.tar.zst",
-            "mingw-w64-i686-gettext-0.22.4-3-any.pkg.tar.zst",   # 完整 gettext
+            "mingw-w64-i686-gettext-0.22.4-3-any.pkg.tar.zst",
             "mingw-w64-i686-zlib-1.3.1-1-any.pkg.tar.zst",
             "mingw-w64-i686-adwaita-icon-theme-legacy-46.2-1-any.pkg.tar.zst",
             "mingw-w64-i686-librsvg-2.58.0-1-any.pkg.tar.zst",
@@ -120,6 +120,8 @@ jobs:
             Invoke-WebRequest -Uri $pkgUrl -OutFile $localFile -UseBasicParsing
           }
           Move-Item "$tempDir\*.pkg.tar.zst" $pkgCache -Force
+          Write-Host "移除可能冲突的 gettext 包..."
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Rdd --noconfirm mingw-w64-i686-gettext-runtime mingw-w64-i686-gettext 2>/dev/null; true"
           $pkgCacheUnix = $pkgCache -replace '\\', '/' -replace '^C:', '/c'
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -U --noconfirm $pkgCacheUnix/mingw-w64-i686-*.pkg.tar.zst"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
