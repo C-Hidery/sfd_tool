@@ -430,6 +430,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     char log_path_err[300];
     snprintf(log_path_err, sizeof(log_path_err), "%s\\proxy_err.log", fn_log);
     FILE *log_file_err = freopen(log_path_err, "w", stderr);
+    setbuf(stdout, NULL);
+    setbuf(stderr, NULL);
     if (!log_file_out || !log_file_err) {
         MessageBoxW(NULL, L"Failed to create log files", L"Proxy32 Error", MB_OK);
         return 1;
