@@ -154,13 +154,13 @@ jobs:
             Write-Error "GTK3/MSYS2 依赖安装失败"
             exit $LASTEXITCODE
           }
-
+          if ("${{ matrix.arch }}" -eq "x86") {
            & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed gettext"
           if ($LASTEXITCODE -ne 0) {
               Write-Error "安装 gettext 失败"
               exit $LASTEXITCODE
           }
-
+        }
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.artifact_name }}/${{ matrix.config }}/ | Out-Null
 
