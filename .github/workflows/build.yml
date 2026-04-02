@@ -102,7 +102,7 @@ jobs:
             exit $LASTEXITCODE
           }
           
-          if (${{ matrix.arch }} == x86) {
+          if ( $matrix.arch == x86) {
             Write-Host "检测到 x86 架构，使用手动安装方式..."
             
             # 创建临时目录用于下载包
