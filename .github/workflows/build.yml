@@ -464,11 +464,6 @@ jobs:
             cp ../master/third_party/Lib/Channel9.dll sfd_tool_windows_x64_sprd/ 2>/dev/null || true
             cp ../master/third_party/Lib/Channel.ini sfd_tool_windows_x64_sprd/ 2>/dev/null || true
           fi
-          # 从 Proxy32 构建中复制 Proxy32.exe
-          if [ -d "sfd_tool_Proxy32_Release" ]; then
-            cp sfd_tool_Proxy32_Release/Proxy32.exe sfd_tool_windows_x64_sprd/ 2>/dev/null || true
-            echo "Proxy32.exe copied to SPRD folder"
-          fi
           # 复制文档
           cp ../master/*.md . 2>/dev/null || true
 
