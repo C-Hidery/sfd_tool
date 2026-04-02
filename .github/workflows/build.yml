@@ -33,7 +33,7 @@ jobs:
             vcpkg_triplet: x64-windows
             artifact_name: LibUSB
           
-          # x64 架构：SPRD 原生驱动版
+          # x86 架构：SPRD 原生驱动版（32位）
           - arch: x86
             config: Release
             msys_gtk_arch: mingw32
@@ -64,7 +64,9 @@ jobs:
           restore-keys: |
             vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-
 
-      - name: Install gettext (libintl) via vcpkg
+      # 只在需要 libusb 时安装 libusb（gettext 改用 MSYS2 提供）
+      - name: Install libusb via vcpkg (if needed)
+        if: matrix.use_libusb == 'ON'
         shell: pwsh
         run: |
           $vcpkgExe = "C:\vcpkg\vcpkg.exe"
@@ -72,21 +74,11 @@ jobs:
             Write-Error "vcpkg.exe not found at $vcpkgExe"
             exit 1
           }
-          Write-Host "Using vcpkg: $vcpkgExe"
-          & $vcpkgExe install "gettext:${{ matrix.vcpkg_triplet }}"
+          Write-Host "Installing libusb:${{ matrix.vcpkg_triplet }}"
+          & $vcpkgExe install "libusb:${{ matrix.vcpkg_triplet }}"
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "安装 gettext 失败"
+            Write-Error "安装 libusb 失败"
             exit $LASTEXITCODE
-          }
-          
-          # 如果是 libusb 版，额外安装 libusb
-          if ("${{ matrix.use_libusb }}" -eq "ON") {
-            Write-Host "Installing libusb for libusb version..."
-            & $vcpkgExe install "libusb:${{ matrix.vcpkg_triplet }}"
-            if ($LASTEXITCODE -ne 0) {
-              Write-Error "安装 libusb 失败"
-              exit $LASTEXITCODE
-            }
           }
 
       - name: Install MSYS2 and GTK3
@@ -108,10 +100,9 @@ jobs:
             $pkgCache = "$msysPath\var\cache\pacman\pkg"
             New-Item -ItemType Directory -Force -Path $pkgCache | Out-Null
             
-            # 清华镜像源（32位包目录）
             $mirrorBase = "https://mirrors.tuna.tsinghua.edu.cn/msys2/mingw/mingw32"
             
-            # 直接指定需要下载的包文件（基于截图中的最新版本）
+            # 32 位包列表（已包含 gettext-runtime，避免与 gettext 冲突）
             $pkgFiles = @(
               "mingw-w64-i686-glib2-2.82.4-1-any.pkg.tar.zst",
               "mingw-w64-i686-cairo-1.18.2-2-any.pkg.tar.zst",
@@ -131,7 +122,7 @@ jobs:
               "mingw-w64-i686-librsvg-2.58.0-1-any.pkg.tar.zst",
               "mingw-w64-i686-adwaita-icon-theme-49.0-1-any.pkg.tar.zst",
               "mingw-w64-i686-gtk-update-icon-cache-3.24.43-1-any.pkg.tar.zst",
-              "mingw-w64-i686-gtk3-3.24.48-2-any.pkg.tar.zst"   # 基于截图最新稳定版
+              "mingw-w64-i686-gtk3-3.24.48-2-any.pkg.tar.zst"
             )
             
             $tempDir = Join-Path $env:TEMP "msys2_pkgs"
@@ -164,11 +155,15 @@ jobs:
             exit $LASTEXITCODE
           }
 
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed gettext"
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "安装 gettext 失败"
-            exit $LASTEXITCODE
+          # 只有 x64 才需要额外安装 gettext（x86 已通过 gettext-runtime 提供）
+          if ("${{ matrix.arch }}" -ne "x86") {
+            & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed gettext"
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "安装 gettext 失败"
+              exit $LASTEXITCODE
+            }
           }
+
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.artifact_name }}/${{ matrix.config }}/ | Out-Null
 
@@ -185,7 +180,6 @@ jobs:
               -DUSE_GTK=ON `
               -DUSE_LIBUSB=${{ matrix.use_libusb }} `
               -DSFD_ENABLE_TESTS=ON
-          
 
       - name: Build (${{ matrix.artifact_name }} - ${{ matrix.config }})
         shell: pwsh
@@ -194,10 +188,7 @@ jobs:
             cmake --build build_cmake --config ${{ matrix.config }} -- /m
             ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
             Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
-            
-          
 
-      # Proxy32 不需要复制 GTK DLL 等
       - name: Copy DLLs from GTK3 bin directory
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
@@ -211,24 +202,13 @@ jobs:
             Write-Host "已复制 GTK3 DLLs"
           }
 
-      - name: Copy gettext runtime DLLs from vcpkg
-        shell: pwsh
-        run: |
-          $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
-          $vcpkgBin = "C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin"
-          
-          if (Test-Path $vcpkgBin) {
-            Get-ChildItem $vcpkgBin -Filter "*.dll" | ForEach-Object {
-              Copy-Item $_.FullName -Destination $destDir -Force
-            }
-            Write-Host "已复制 vcpkg DLLs"
-          }
-
+      # 不再需要单独复制 gettext DLLs，因为它们已经包含在 GTK bin 目录中
+      # 只复制 libusb DLL（如果需要）
       - name: Copy libusb DLL (libusb version only)
         if: matrix.use_libusb == 'ON'
         run: |
-          $destDir = "./build/LibUSB/Release/"
-          $libusbPath = "C:\vcpkg\installed\x64-windows\bin\libusb-1.0.dll"
+          $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
+          $libusbPath = "C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin\libusb-1.0.dll"
           if (Test-Path $libusbPath) {
             Copy-Item $libusbPath -Destination $destDir -Force
             Write-Host "Copied libusb-1.0.dll"
@@ -237,7 +217,7 @@ jobs:
       - name: Copy SPRD Driver Files (SPRD version only)
         if: matrix.use_libusb == 'OFF'
         run: |
-          $destDir = "./build/SPRD/Release/"
+          $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           if (Test-Path "third_party/Lib/Channel9.dll") {
             Copy-Item "third_party/Lib/Channel9.dll" -Destination $destDir -Force
             Write-Host "Copied Channel9.dll"
