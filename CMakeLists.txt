@@ -148,9 +148,8 @@ endif()
 # Windows: libintl (gettext) - 根据架构选择来源
 if (WIN32)
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        # x64：优先使用 vcpkg 安装的 gettext
+        # x64：使用 vcpkg 安装的 gettext
         set(_vcpkg_triplet "x64-windows")
-        # 推断 vcpkg 根目录
         set(_vcpkg_root "")
         if (DEFINED CMAKE_TOOLCHAIN_FILE)
             get_filename_component(_tc_dir "${CMAKE_TOOLCHAIN_FILE}" DIRECTORY)
@@ -167,30 +166,21 @@ if (WIN32)
         endif()
         set(_vcpkg_lib_dir "${_vcpkg_root}/installed/${_vcpkg_triplet}/lib")
         
-        find_library(INTL_LIBRARY NAMES intl PATHS "${_vcpkg_lib_dir}")
+        # 同时搜索 intl.lib 和 libintl.lib
+        find_library(INTL_LIBRARY NAMES intl libintl PATHS "${_vcpkg_lib_dir}" REQUIRED)
         if (INTL_LIBRARY)
-            target_link_libraries(sfd_tool PRIVATE "${INTL_LIBRARY}")
-            foreach(tgt IN LISTS SFD_TEST_TARGETS)
-                target_link_libraries(${tgt} PRIVATE "${INTL_LIBRARY}")
-            endforeach()
+            message(STATUS "Found intl library: ${INTL_LIBRARY}")
         else()
-            message(WARNING "intl library not found in vcpkg path (${_vcpkg_lib_dir}); gettext may fail to link")
+            message(FATAL_ERROR "intl library not found in vcpkg path (${_vcpkg_lib_dir})")
         endif()
     else()
-        # x86：使用 MSYS2 的 gettext-runtime
+        # x86：使用 MSYS2 的 gettext
         set(_gtk_root "C:/msys64/mingw32")
-        find_library(INTL_LIBRARY NAMES intl libintl PATHS "${_gtk_root}/lib")
-        if (INTL_LIBRARY)
-            target_link_libraries(sfd_tool PRIVATE "${INTL_LIBRARY}")
-            foreach(tgt IN LISTS SFD_TEST_TARGETS)
-                target_link_libraries(${tgt} PRIVATE "${INTL_LIBRARY}")
-            endforeach()
-        else()
-            message(WARNING "intl library not found in ${_gtk_root}/lib; gettext may fail to link")
-        endif()
+        find_library(INTL_LIBRARY NAMES intl libintl PATHS "${_gtk_root}/lib" REQUIRED)
+        message(STATUS "Found intl library for x86: ${INTL_LIBRARY}")
     endif()
 
-    # 公共 Windows 库
+    # Windows 平台：崩溃堆栈 (dbghelp) + 串口枚举 (setupapi)
     target_link_libraries(sfd_tool PRIVATE dbghelp setupapi)
     foreach(tgt IN LISTS SFD_TEST_TARGETS)
         target_link_libraries(${tgt} PRIVATE dbghelp setupapi)
@@ -315,7 +305,13 @@ else()
         target_compile_definitions(${tgt} PRIVATE USE_LIBUSB=0)
     endforeach()
 endif()
-
+# 最后链接 intl 库（必须放在所有使用它的库之后，例如 pages_lib）
+if (WIN32 AND INTL_LIBRARY)
+    target_link_libraries(sfd_tool PRIVATE "${INTL_LIBRARY}")
+    foreach(tgt IN LISTS SFD_TEST_TARGETS)
+        target_link_libraries(${tgt} PRIVATE "${INTL_LIBRARY}")
+    endforeach()
+endif()
 # ================= locales 生成 =================
 find_program(MSGFMT_EXECUTABLE msgfmt)
 if (NOT MSGFMT_EXECUTABLE)
