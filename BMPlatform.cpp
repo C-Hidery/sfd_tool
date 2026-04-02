@@ -2,7 +2,10 @@
 #include <iostream>
 
 int m_bOpened = 0;
-
+const int MAX_WAIT_MS = 5000;   // 最多等5秒
+const int SLEEP_MS = 100;       // 每次等待间隔
+DWORD startTime = GetTickCount();
+BOOL pipeReady = FALSE;
 // ---------- CBMPlatformApp 实现 ----------
 CBMPlatformApp::CBMPlatformApp() : m_hPipe(INVALID_HANDLE_VALUE), m_bConnected(FALSE) {
     InitializeCriticalSection(&m_cs);
@@ -47,13 +50,29 @@ BOOL CBMPlatformApp::InitInstance() {
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
 
+        while ((GetTickCount() - startTime) < MAX_WAIT_MS) {
+            // 尝试打开管道，看是否存在
+            HANDLE hTest = CreateFileW(L"\\\\.\\pipe\\BMProxyPipe", GENERIC_READ | GENERIC_WRITE, 
+                                        0, NULL, OPEN_EXISTING, 0, NULL);
+            if (hTest != INVALID_HANDLE_VALUE) {
+                CloseHandle(hTest);
+                pipeReady = TRUE;
+                break;
+            }
+            Sleep(SLEEP_MS);
+        }
+
+        if (!pipeReady) {
+            std::cout << "Proxy pipe not created after " << MAX_WAIT_MS << " ms." << std::endl;
+            return FALSE;
+        }
         // 等待管道可用（最多 5 秒）
         if (!WaitNamedPipeW(L"\\\\.\\pipe\\BMProxyPipe", 5000)) {
-            std::cout << "Proxy pipe not available after starting proxy." << std::endl;
+            std::cout << "Error: Proxy pipe not available!" << std::endl;
             return FALSE;
         }
     }
-
+    
     // 连接管道（同步模式，此时管道已可用）
     m_hPipe = CreateFileW(
         L"\\\\.\\pipe\\BMProxyPipe",

@@ -405,9 +405,16 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     char fn_log[260];
     snprintf(fn_log, sizeof(fn_log), "Proxy_Log_%lld", (long long)time(nullptr));
     _mkdir(fn_log);
-    char log_path[300];
-    snprintf(log_path, sizeof(log_path), "%s\\proxy.log", fn_log);
-    FILE *log_file = freopen(log_path, "w", stdout);
+    char log_path_out[300];
+    snprintf(log_path_out, sizeof(log_path_out), "%s\\proxy_out.log", fn_log);
+    FILE *log_file_out = freopen(log_path_out, "w", stdout);
+    char log_path_err[300];
+    snprintf(log_path_err, sizeof(log_path_err), "%s\\proxy_err.log", fn_log);
+    FILE *log_file_err = freopen(log_path_err, "w", stderr);
+    if (!log_file_out || !log_file_err) {
+        MessageBoxW(NULL, L"Failed to create log files", L"Proxy32 Error", MB_OK);
+        return 1;
+    }
 
     if (!LoadChannelDll()) {
         // 写入日志或消息框
@@ -445,6 +452,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
     CloseHandle(hPipe);
     if (g_hDll) FreeLibrary(g_hDll);
-    fclose(log_file);
+    fclose(log_file_out);
+    fclose(log_file_err);
     return 0;
 }

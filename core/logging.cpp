@@ -69,14 +69,19 @@ void ERR_EXIT(const char* format, ...) {
     	helper.disableWidget("abpart_auto");
     	helper.disableWidget("abpart_a");
     	helper.disableWidget("abpart_b");
-			helper.disableWidget("pac_flash_start");
+		helper.disableWidget("pac_flash_start");
 	}
 	std::thread([](){
 #ifdef _WIN32
+		call_DisconnectChannel(g_app_state.transport.io->handle);
+		if (g_app_state.transport.io->m_dwRecvThreadID) DestroyRecvThread(g_app_state.transport.io);
+		call_Uninitialize(g_app_state.transport.io->handle);
+		destroyClass(g_app_state.transport.io->handle);
 		system("pause");
 #else
 		sleep(5);
 #endif
+		
 		exit(EXIT_FAILURE);
 	}).detach();
 }
