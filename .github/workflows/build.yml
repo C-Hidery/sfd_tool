@@ -127,33 +127,29 @@ jobs:
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -U --noconfirm --overwrite='*' $pkgCacheUnix/mingw-w64-i686-*.pkg.tar.zst"
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-i686-tools"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # 生成 MSVC 兼容的 libintl.lib
           Write-Host "生成 MSVC 兼容的 libintl.lib..."
           $dllPath = "$msysPath\mingw32\bin\libintl-8.dll"
           $defPath = "$env:TEMP\libintl.def"
           $libPath = "$msysPath\mingw32\lib\libintl.lib"
           
-          # 使用 gendef 生成 .def 文件（直接调用 exe）
-          $gendef = "$msysPath\usr\bin\gendef.exe"
-          & $gendef $dllPath > $defPath
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "gendef 失败"
+          $gendef = "$msysPath\mingw32\bin\gendef.exe"
+          if (-not (Test-Path $gendef)) {
+            Write-Error "gendef.exe not found at $gendef"
             exit 1
           }
+          & $gendef $dllPath --output-def=$defPath
+          if ($LASTEXITCODE -ne 0) { exit 1 }
           
-          # 使用 dlltool 生成 .lib（直接调用 exe）
           $dlltool = "$msysPath\mingw32\bin\dlltool.exe"
+          if (-not (Test-Path $dlltool)) {
+            Write-Error "dlltool.exe not found at $dlltool"
+            exit 1
+          }
           & $dlltool -d $defPath -l $libPath -D $dllPath -k
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "dlltool 失败"
-            exit 1
-          }
+          if ($LASTEXITCODE -ne 0) { exit 1 }
           
-          if (Test-Path $libPath) {
-            Write-Host "成功生成 $libPath"
-          } else {
-            Write-Error "生成 libintl.lib 失败"
-            exit 1
-          }
+          Write-Host "成功生成 $libPath"
 
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.artifact_name }}/${{ matrix.config }}/ | Out-Null
