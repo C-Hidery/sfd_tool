@@ -62,18 +62,14 @@ jobs:
             vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-
 
             # 不再使用 vcpkg 安装 gettext（改为 pacman + 生成导入库）
-      - name: Install gettext via vcpkg (x64)
+      - name: Install vcpkg dependencies
         if: matrix.arch == 'x64'
         shell: pwsh
         run: |
           $vcpkgExe = "C:\vcpkg\vcpkg.exe"
           & $vcpkgExe install "gettext:x64-windows"
-      - name: Install gettext via vcpkg (x86)
-        if: matrix.arch == 'x86'
-        shell: pwsh
-        run: |
-          $vcpkgExe = "C:\vcpkg\vcpkg.exe"
-          & $vcpkgExe install "gettext:x64-windows"
+          # 不安装 libusb，因为使用项目自带的
+
       - name: Install MSYS2 and GTK3 (x64)
         if: matrix.arch == 'x64'
         shell: pwsh
@@ -129,8 +125,24 @@ jobs:
           Move-Item "$tempDir\*.pkg.tar.zst" $pkgCache -Force
           $pkgCacheUnix = $pkgCache -replace '\\', '/' -replace '^C:', '/c'
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -U --noconfirm --overwrite='*' $pkgCacheUnix/mingw-w64-i686-*.pkg.tar.zst"
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-i686-tools"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
+          Write-Host "生成 MSVC 兼容的 libintl.lib..."
+          $dllPath = "$msysPath\mingw32\bin\libintl-8.dll"
+          $defPath = "$msysPath\tmp\libintl.def"
+          $libPath = "$msysPath\mingw32\lib\libintl.lib"
+          
+          # 运行 gendef 生成 .def 文件
+          & "$msysPath\usr\bin\bash.exe" -lc "gendef $dllPath > $defPath 2>/dev/null"
+          # 使用 dlltool 生成 .lib
+          & "$msysPath\usr\bin\bash.exe" -lc "dlltool -d $defPath -l $libPath -D $dllPath -k"
+          
+          if (Test-Path $libPath) {
+            Write-Host "成功生成 $libPath"
+          } else {
+            Write-Error "生成 libintl.lib 失败"
+            exit 1
+          }
 
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.artifact_name }}/${{ matrix.config }}/ | Out-Null
