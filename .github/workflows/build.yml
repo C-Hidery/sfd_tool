@@ -37,7 +37,8 @@ jobs:
           - arch: x86
             config: Release
             msys_gtk_arch: mingw32
-            cmake_platform: x86
+            msys_msystem: MINGW32
+            cmake_platform: Win32
             use_libusb: OFF
             vcpkg_triplet: x86-windows
             artifact_name: SPRD
@@ -177,14 +178,7 @@ jobs:
         run: |
           $env:Path = "C:\msys64\usr\bin;" + $env:Path
 
-          # Proxy32 使用简化的 CMake 配置
-          if ("${{ matrix.artifact_name }}" -eq "Proxy32") {
-            cmake -S Proxy32 -B build_cmake `
-              -G "Visual Studio 17 2022" `
-              -A ${{ matrix.cmake_platform }} `
-              -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-          } else {
-            cmake -S . -B build_cmake `
+          cmake -S . -B build_cmake `
               -G "Visual Studio 17 2022" `
               -A ${{ matrix.cmake_platform }} `
               -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" `
@@ -192,7 +186,7 @@ jobs:
               -DUSE_GTK=ON `
               -DUSE_LIBUSB=${{ matrix.use_libusb }} `
               -DSFD_ENABLE_TESTS=ON
-          }
+          
 
       - name: Build (${{ matrix.artifact_name }} - ${{ matrix.config }})
         shell: pwsh
