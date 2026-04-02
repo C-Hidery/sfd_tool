@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 1.8.3.3 LTV Edition
+Version 1.8.3.4 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -189,6 +189,9 @@ UI Refactor, optimization code logic.
 
 ---v 1.8.3.3---
 修复：super 分区备份状态栏显示问题；优化：分区操作页按钮布局；新增：分区操作页新增“抹除所有分区”功能
+
+---v 1.8.3.4---
+完善：文件夹分区恢复并新增备份完整性检查；优化：修改分区导致线程阻塞
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool

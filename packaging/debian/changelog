@@ -1,3 +1,9 @@
+sfd-tool (1.8.3.4-1-ltv) unstable; urgency=medium
+
+  * 完善：文件夹分区恢复并新增备份完整性检查；优化：修改分区导致线程阻塞
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Wed, 01 Apr 2026 10:58:15 +0800
+
 sfd-tool (1.8.3.3-1-ltv) unstable; urgency=medium
 
   * 修复：super 分区备份状态栏显示问题；优化：分区操作页按钮布局；新增：分区操作页新增“抹除所有分区”功能

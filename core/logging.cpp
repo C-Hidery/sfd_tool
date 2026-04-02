@@ -33,6 +33,7 @@ void ERR_EXIT(const char* format, ...) {
     	helper.disableWidget("dmv_enable");
     	helper.disableWidget("dmv_disable");
     	helper.disableWidget("backup_all");
+		helper.disableWidget("check_backup_integrity");
     	helper.disableWidget("list_cancel");
     	helper.disableWidget("m_cancel");
     	helper.disableWidget("list_force_write");

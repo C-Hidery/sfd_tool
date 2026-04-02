@@ -1023,3 +1023,93 @@ msgstr "全部分区擦除完成！"
 
 msgid "ERASE ALL"
 msgstr "擦除全部分区"
+
+
+# ===== Auto-appended entries from sfd_tool.pot =====
+
+msgid "Device context not ready."
+msgstr "设备上下文尚未就绪。"
+
+msgid "No partition table loaded on the current device. Please read the partition list first, then try again."
+msgstr "当前设备尚未加载分区表，请先读取分区列表后再试。"
+
+msgid "Check Backup Integrity"
+msgstr "检查备份完整性"
+
+msgid "Backup Integrity Check"
+msgstr "备份完整性检查"
+
+msgid "Close"
+msgstr "关闭"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Note"
+msgstr "备注"
+
+msgid "Failed to open image file."
+msgstr "打开镜像文件失败。"
+
+msgid "Failed to read image file."
+msgstr "读取镜像文件失败。"
+
+msgid "Critical partition backup not found in folder."
+msgstr "文件夹中未找到关键分区的备份。"
+
+msgid "Image file is empty."
+msgstr "镜像文件为空。"
+
+msgid "Image size does not match the current partition size."
+msgstr "镜像大小与当前分区大小不一致。"
+
+msgid "All bytes are 0x00; this may be normal for an empty or erased partition."
+msgstr "镜像数据全部为 0x00；对于空分区或已擦除分区，这可能是正常现象。"
+
+msgid "No matching partition exists on the current device."
+msgstr "当前设备上不存在对应的匹配分区。"
+
+msgid "Missing Critical"
+msgstr "缺失关键分区"
+
+msgid "Unmatched"
+msgstr "未匹配"
+
+msgid "Empty"
+msgstr "空文件"
+
+msgid "Size Mismatch"
+msgstr "大小不匹配"
+
+msgid "Unchecked"
+msgstr "未检查"
+
+msgid "All Zero"
+msgstr "全 0 数据"
+
+msgid "OK"
+msgstr "正常"
+
+msgid "Items shown: "
+msgstr "显示项目："
+
+msgid ", OK: "
+msgstr "，正常："
+
+msgid ", Need attention: "
+msgstr "，需关注："
+
+msgid "Failed to reset metadata after flashing super: "
+msgstr "刷写 super 后重置 metadata 失败："
+
+msgid "Checking backup integrity..."
+msgstr "正在检查备份完整性..."
+
+
+# ===== Auto-appended entries from sfd_tool.pot =====
+
+msgid "Processing..."
+msgstr "进行中..."
+
+msgid "Memory allocation failed!"
+msgstr "内存申请失败!"

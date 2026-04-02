@@ -27,6 +27,7 @@ jobs:
           - arch: x64
             config: Release
             msys_gtk_arch: mingw64
+            msys_msystem: MINGW64
             cmake_platform: x64
             use_libusb: ON
             vcpkg_triplet: x64-windows
@@ -73,11 +74,19 @@ jobs:
           }
           Write-Host "Using vcpkg: $vcpkgExe"
           & $vcpkgExe install "gettext:${{ matrix.vcpkg_triplet }}"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "安装 gettext 失败"
+            exit $LASTEXITCODE
+          }
           
           # 如果是 libusb 版，额外安装 libusb
           if ("${{ matrix.use_libusb }}" -eq "ON") {
             Write-Host "Installing libusb for libusb version..."
             & $vcpkgExe install "libusb:${{ matrix.vcpkg_triplet }}"
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "安装 libusb 失败"
+              exit $LASTEXITCODE
+            }
           }
 
       - name: Install MSYS2 and GTK3

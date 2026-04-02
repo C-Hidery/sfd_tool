@@ -370,6 +370,22 @@ public:
                     names.push_back(pname);
                 }
             }
+
+            // 在“全盘备份”语义下，强制包含 splloader 段，即使其不在 GPT 中
+            // 依赖已有的 g_spl_size 探测结果，避免重复探测；仅在 size>0 时才认为有效
+            if (g_spl_size > 0) {
+                bool has_splloader = false;
+                for (const auto& n : names) {
+                    if (n == "splloader") {
+                        has_splloader = true;
+                        break;
+                    }
+                }
+                if (!has_splloader) {
+                    DEG_LOG(I, "backupPartitions: auto-include splloader into full backup");
+                    names.push_back("splloader");
+                }
+            }
         }
 
         auto& reader = partition_reader_;
