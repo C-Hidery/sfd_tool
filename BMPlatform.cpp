@@ -17,19 +17,18 @@ CBMPlatformApp::~CBMPlatformApp() {
     DeleteCriticalSection(&m_cs);
 }
 
+// 在 CBMPlatformApp::InitInstance 中，只启动代理，不等待管道
 BOOL CBMPlatformApp::InitInstance() {
-    // 获取当前可执行文件目录
     WCHAR exePath[MAX_PATH];
     GetModuleFileNameW(NULL, exePath, MAX_PATH);
     WCHAR* p = wcsrchr(exePath, L'\\');
     if (p) *p = L'\0';
 
-    // 构建代理进程路径
     WCHAR proxyPath[MAX_PATH];
     wcscpy_s(proxyPath, exePath);
     wcscat_s(proxyPath, L"\\Proxy32.exe");
 
-    // 检查代理是否已经运行（尝试打开管道）
+    // 快速检查管道是否存在，如果存在则说明代理已在运行
     HANDLE hTest = CreateFileW(
         L"\\\\.\\pipe\\BMProxyPipe",
         GENERIC_READ | GENERIC_WRITE,
@@ -37,62 +36,72 @@ BOOL CBMPlatformApp::InitInstance() {
         FILE_FLAG_OVERLAPPED, NULL
     );
     if (hTest != INVALID_HANDLE_VALUE) {
-        // 管道已存在，代理正在运行
         CloseHandle(hTest);
-    } else {
-        // 启动代理进程
-        STARTUPINFOW si = { sizeof(si) };
-        PROCESS_INFORMATION pi;
-        if (!CreateProcessW(proxyPath, NULL, NULL, NULL, FALSE, 0, NULL, exePath, &si, &pi)) {
-            std::cout << "Failed to start proxy process. Error: " << GetLastError() << std::endl;
-            return FALSE;
-        }
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
-
-        Sleep(500); // 等待代理进程初始化
-
-        // 等待管道可用（最多 5 秒）
-        if (!WaitNamedPipeW(L"\\\\.\\pipe\\BMProxyPipe", 5000)) {
-            std::cout << "Error: Proxy pipe not available!" << std::endl;
-            return FALSE;
-        }
+        return TRUE;  // 代理已运行
     }
-    
-    // 连接管道（同步模式，此时管道已可用）
-    m_hPipe = CreateFileW(
-        L"\\\\.\\pipe\\BMProxyPipe",
-        GENERIC_READ | GENERIC_WRITE,
-        0, NULL, OPEN_EXISTING,
-        0,  // 同步，因为 WaitNamedPipe 已经确保连接会立即成功
-        NULL
-    );
-    if (m_hPipe == INVALID_HANDLE_VALUE) {
-        std::cout << "Failed to connect to proxy pipe. Error: " << GetLastError() << std::endl;
+
+    // 启动代理进程
+    STARTUPINFOW si = { sizeof(si) };
+    PROCESS_INFORMATION pi;
+    if (!CreateProcessW(proxyPath, NULL, NULL, NULL, FALSE, 0, NULL, exePath, &si, &pi)) {
+        std::cout << "Failed to start proxy process. Error: " << GetLastError() << std::endl;
         return FALSE;
     }
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
 
-    DWORD mode = PIPE_READMODE_MESSAGE;
-    SetNamedPipeHandleState(m_hPipe, &mode, NULL, NULL);
-    m_bConnected = TRUE;
+    // 立即返回，不等待管道
     return TRUE;
 }
 
+// ExitInstance 只在连接存在时发送关闭命令
 int CBMPlatformApp::ExitInstance() {
+    if (m_bConnected && m_hPipe != INVALID_HANDLE_VALUE) {
+        SendCommand(CMD_SHUTDOWN, NULL, 0, NULL, 0, NULL);
+    }
     if (m_hPipe != INVALID_HANDLE_VALUE) {
         CloseHandle(m_hPipe);
         m_hPipe = INVALID_HANDLE_VALUE;
-        m_bConnected = FALSE;
-        g_theApp.SendCommand(CMD_SHUTDOWN, NULL, 0, NULL, 0, NULL);
     }
+    m_bConnected = FALSE;
     return TRUE;
 }
 
-BOOL CBMPlatformApp::SendCommand(DWORD cmd, const void* param, DWORD paramSize, void* replyBuf, DWORD replySize, DWORD* replyActual) {
-    if (!m_bConnected || m_hPipe == INVALID_HANDLE_VALUE) return FALSE;
-
+// SendCommand 负责延迟连接管道
+BOOL CBMPlatformApp::SendCommand(DWORD cmd, const void* param, DWORD paramSize,
+                                 void* replyBuf, DWORD replySize, DWORD* replyActual) {
     EnterCriticalSection(&m_cs);
 
+    // 如果尚未连接，尝试连接（带重试）
+    if (!m_bConnected || m_hPipe == INVALID_HANDLE_VALUE) {
+        const int MAX_WAIT_MS = 5000;
+        const int SLEEP_MS = 100;
+        DWORD start = GetTickCount();
+        BOOL connected = FALSE;
+        while (GetTickCount() - start < MAX_WAIT_MS) {
+            HANDLE hPipe = CreateFileW(
+                L"\\\\.\\pipe\\BMProxyPipe",
+                GENERIC_READ | GENERIC_WRITE,
+                0, NULL, OPEN_EXISTING,
+                0, NULL  // 同步方式
+            );
+            if (hPipe != INVALID_HANDLE_VALUE) {
+                DWORD mode = PIPE_READMODE_MESSAGE;
+                SetNamedPipeHandleState(hPipe, &mode, NULL, NULL);
+                m_hPipe = hPipe;
+                m_bConnected = TRUE;
+                connected = TRUE;
+                break;
+            }
+            Sleep(SLEEP_MS);
+        }
+        if (!connected) {
+            LeaveCriticalSection(&m_cs);
+            return FALSE;
+        }
+    }
+
+    // 发送命令码
     DWORD written;
     BOOL ok = WriteFile(m_hPipe, &cmd, sizeof(cmd), &written, NULL);
     if (ok && written == sizeof(cmd)) {
