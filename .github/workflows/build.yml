@@ -64,9 +64,8 @@ jobs:
           restore-keys: |
             vcpkg-${{ runner.os }}-${{ matrix.vcpkg_triplet }}-
 
-      # 只在需要 libusb 时安装 libusb（gettext 改用 MSYS2 提供）
-      - name: Install libusb via vcpkg (if needed)
-        if: matrix.use_libusb == 'ON'
+      - name: Install gettext via vcpkg (x64)
+        if: matrix.arch == 'x64'
         shell: pwsh
         run: |
           $vcpkgExe = "C:\vcpkg\vcpkg.exe"
@@ -74,10 +73,10 @@ jobs:
             Write-Error "vcpkg.exe not found at $vcpkgExe"
             exit 1
           }
-          Write-Host "Installing libusb:${{ matrix.vcpkg_triplet }}"
-          & $vcpkgExe install "libusb:${{ matrix.vcpkg_triplet }}"
+          Write-Host "Installing gettext:${{ matrix.vcpkg_triplet }}"
+          & $vcpkgExe install "gettext:${{ matrix.vcpkg_triplet }}"
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "安装 libusb 失败"
+            Write-Error "安装 gettext 失败"
             exit $LASTEXITCODE
           }
 
