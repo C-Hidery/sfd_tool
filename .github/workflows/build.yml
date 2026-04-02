@@ -398,10 +398,10 @@ jobs:
           fi
 
           if [ -d "sfd_tool_SPRD_Release" ]; then
-            mv sfd_tool_SPRD_Release sfd_tool_windows_x64_sprd
-            cp ../master/docs/VERSION_LOG.md sfd_tool_windows_x64_sprd/ 2>/dev/null || true
-            cp ../master/third_party/Lib/Channel9.dll sfd_tool_windows_x64_sprd/ 2>/dev/null || true
-            cp ../master/third_party/Lib/Channel.ini sfd_tool_windows_x64_sprd/ 2>/dev/null || true
+            mv sfd_tool_SPRD_Release sfd_tool_windows_x86_sprd
+            cp ../master/docs/VERSION_LOG.md sfd_tool_windows_x86_sprd/ 2>/dev/null || true
+            cp ../master/third_party/Lib/Channel9.dll sfd_tool_windows_x86_sprd/ 2>/dev/null || true
+            cp ../master/third_party/Lib/Channel.ini sfd_tool_windows_x86_sprd/ 2>/dev/null || true
           fi
           # 复制文档
           cp ../master/*.md . 2>/dev/null || true
@@ -417,8 +417,8 @@ jobs:
           done
 
           # 创建 Windows ZIP 包
-          if [ -d "sfd_tool_windows_x64_sprd" ]; then
-            zip -r sfd_tool_windows_x64_sprd_${{ env.RELEASE_TAG }}.zip sfd_tool_windows_x64_sprd
+          if [ -d "sfd_tool_windows_x86_sprd" ]; then
+            zip -r sfd_tool_windows_x86_sprd_${{ env.RELEASE_TAG }}.zip sfd_tool_windows_x86_sprd
           fi
 
           if [ -d "sfd_tool_windows_x64_libusb" ]; then
@@ -432,7 +432,7 @@ jobs:
           cp *.deb all_in_one/ 2>/dev/null || true
           cp *.rpm all_in_one/ 2>/dev/null || true
           cp sfd_tool_macos_${{ env.RELEASE_TAG }}.dmg all_in_one/ 2>/dev/null || true
-          cp sfd_tool_windows_x64_sprd_${{ env.RELEASE_TAG }}.zip all_in_one/ 2>/dev/null || true
+          cp sfd_tool_windows_x86_sprd_${{ env.RELEASE_TAG }}.zip all_in_one/ 2>/dev/null || true
           cp sfd_tool_windows_x64_libusb_${{ env.RELEASE_TAG }}.zip all_in_one/ 2>/dev/null || true
 
           cd all_in_one
@@ -452,7 +452,7 @@ jobs:
             ## sfd_tool Release ${{ env.RELEASE_TAG }}
             
             ### Windows 版本:
-            - **sfd_tool_windows_x64_sprd**: Windows x64 版本，使用 SPRD 原生驱动（兼容性最好，无需额外驱动）
+            - **sfd_tool_windows_x86_sprd**: Windows x86 版本，使用 SPRD 原生驱动（兼容性最好，无需额外驱动）
             - **sfd_tool_windows_x64_libusb**: Windows x64 版本，使用 libusb 驱动（支持热插拔，需安装驱动）
             
             ### 其他平台:
@@ -461,11 +461,11 @@ jobs:
             - **Linux RPM 包**: Fedora/RPM-Based 系统安装包
             
             ### 使用说明:
-            1. **Windows x64 (SPRD 版)**: 直接运行，使用系统自带的 SPRD 驱动
+            1. **Windows x86 (SPRD 版)**: 直接运行，使用系统自带的 SPRD 驱动
             2. **Windows x64 (libusb 版)**: 需要安装 libusb 驱动（可使用 Zadig 工具）
           files: |
             sfd_tool_all_${{ env.RELEASE_TAG }}.zip
-            output/sfd_tool_windows_x64_sprd_${{ env.RELEASE_TAG }}.zip
+            output/sfd_tool_windows_x86_sprd_${{ env.RELEASE_TAG }}.zip
             output/sfd_tool_windows_x64_libusb_${{ env.RELEASE_TAG }}.zip
             output/*.dmg
             output/*.deb
