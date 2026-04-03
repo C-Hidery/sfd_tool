@@ -141,6 +141,7 @@ void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("export_part_xml");
 	helper.enableWidget("force_flash_en");
 	helper.enableWidget("force_flash_dis");
+	helper.enableWidget("blk_reset");
 }
 
 void DisableWidgets(GtkWidgetHelper helper) {
