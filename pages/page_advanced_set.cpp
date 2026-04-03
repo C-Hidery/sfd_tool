@@ -118,6 +118,17 @@ static void on_button_clicked_abpart_b(GtkWidgetHelper helper) {
 	(void)helper;
 	g_app_state.flash.selected_ab = 2;
 }
+static void on_button_clicked_force_flash_en(GtkWidgetHelper helper) {
+	(void)helper;
+	g_app_state.flash.g_w_force = 1;
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Force flash enabled"));
+}
+static void on_button_clicked_force_flash_dis(GtkWidgetHelper helper) {
+	(void)helper;
+	g_app_state.flash.g_w_force = 0;
+	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Force flash disabled"));
+}
+
 
 GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* advSetPage = helper.createGrid("adv_set_page", 5, 5);
@@ -368,9 +379,32 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_box_pack_start(GTK_BOX(abpartBox), abpartButtonBox,FALSE,FALSE,0);
 	gtk_box_pack_start(GTK_BOX(mainBox), abpartFrame, FALSE, FALSE, 0);
 
+	// 8. 强制刷写设置部分
+	GtkWidget* forceFlashFrame = gtk_frame_new(NULL);
+	GtkWidget* forceFlashTitle = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(forceFlashTitle), (std::string("<b>") + _("Force flash Settings") + "</b>").c_str());
+	gtk_widget_set_halign(forceFlashTitle, GTK_ALIGN_CENTER);
+	gtk_frame_set_label_widget(GTK_FRAME(forceFlashFrame), forceFlashTitle);
+	gtk_frame_set_label_align(GTK_FRAME(forceFlashFrame), 0.5, 0.5);
+	helper.addWidget("force_flash_label", forceFlashTitle);
+
+	GtkWidget* forceFlashBox = makeCardBox(32, 16);
+	gtk_container_add(GTK_CONTAINER(forceFlashFrame), forceFlashBox);
+
+	GtkWidget* forceFlashEn = helper.createButton(_("Enable Force Flash"), "force_flash_en", nullptr, 0, 0, 210, 36);
+	GtkWidget* forceFlashDis = helper.createButton(_("Disable Force Flash"), "force_flash_dis", nullptr, 0, 0, 210, 36);
+	GtkWidget* forceFlashButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+	gtk_widget_set_halign(forceFlashButtonBox, GTK_ALIGN_CENTER);
+	gtk_box_pack_start(GTK_BOX(forceFlashButtonBox), forceFlashEn, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(forceFlashButtonBox), forceFlashDis, FALSE, FALSE, 0);
+
+	gtk_box_pack_start(GTK_BOX(forceFlashBox), forceFlashButtonBox, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(mainBox), forceFlashFrame, FALSE, FALSE, 0);
+
 	gtk_container_add(GTK_CONTAINER(advScroll), mainBox);
 	helper.addToGrid(advSetPage, advScroll, 0, 0, 4, 6);
 
+	
 	// 读取配置并设置界面语言下拉框当前值
 	auto cfgSvc = sfd::createConfigService();
 	if (cfgSvc) {
@@ -452,6 +486,12 @@ void AdvancedSetPage::bindSignals(GtkWidgetHelper& helper) {
 	});
 	helper.bindClick(helper.getWidget("abpart_b"),[&](){
 		on_button_clicked_abpart_b(helper);
+	});
+	helper.bindClick(helper.getWidget("force_flash_en"),[&](){
+		on_button_clicked_force_flash_en(helper);
+	});
+	helper.bindClick(helper.getWidget("force_flash_dis"),[&](){
+		on_button_clicked_force_flash_dis(helper);
 	});
 
 	// 语言应用按钮：保存 ui_language 并提示重启后生效

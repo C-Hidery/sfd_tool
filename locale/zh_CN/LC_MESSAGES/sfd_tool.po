@@ -684,6 +684,21 @@ msgstr "发送结束块数据"
 msgid "A/B Part read/flash manually set --- FDL2"
 msgstr "A/B分区刷写手工干预 --- FDL2"
 
+msgid "Force flash Settings"
+msgstr "强制刷写设置"
+
+msgid "Enable Force Flash"
+msgstr "启用强制刷写"
+
+msgid "Disable Force Flash"
+msgstr "禁用强制刷写"
+
+msgid "Force flash enabled"
+msgstr "强制刷写已启用"
+
+msgid "Force flash disabled"
+msgstr "强制刷写已禁用"
+
 # ===== 调试选项 页面 =====
 #: main.cpp:3180
 msgid "Debug Options"
