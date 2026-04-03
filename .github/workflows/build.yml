@@ -193,6 +193,8 @@ jobs:
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           $msysPrefix = "C:\msys64\${{ matrix.msys_gtk_arch }}"
+
+          # 复制图标主题
           $iconsSrc = "$msysPrefix\share\icons"
           if (Test-Path $iconsSrc) {
             $iconsDest = "$destDir\share\icons"
@@ -200,11 +202,29 @@ jobs:
             Copy-Item -Path "$iconsSrc\hicolor" -Destination $iconsDest -Recurse -Force -ErrorAction SilentlyContinue
             Copy-Item -Path "$iconsSrc\Adwaita" -Destination $iconsDest -Recurse -Force -ErrorAction SilentlyContinue
           }
+          
+          # 复制 GLib 编译模式
           $schemasSrc = "$msysPrefix\share\glib-2.0\schemas"
           if (Test-Path $schemasSrc) {
             $schemasDest = "$destDir\share\glib-2.0\schemas"
             New-Item -ItemType Directory -Force -Path $schemasDest | Out-Null
             Copy-Item -Path "$schemasSrc\*" -Destination $schemasDest -Recurse -Force
+          }
+
+          # 复制 gdk-pixbuf 加载器模块和缓存（修复图像加载错误）
+          $gdkPixbufSrc = "$msysPrefix\lib\gdk-pixbuf-2.0"
+          if (Test-Path $gdkPixbufSrc) {
+            $gdkPixbufDest = "$destDir\lib\gdk-pixbuf-2.0"
+            New-Item -ItemType Directory -Force -Path $gdkPixbufDest | Out-Null
+            Copy-Item -Path "$gdkPixbufSrc\*" -Destination $gdkPixbufDest -Recurse -Force
+          }
+          
+          # 可选：某些版本的 GTK 还需要 share/gdk-pixbuf-2.0
+          $gdkPixbufShareSrc = "$msysPrefix\share\gdk-pixbuf-2.0"
+          if (Test-Path $gdkPixbufShareSrc) {
+            $gdkPixbufShareDest = "$destDir\share\gdk-pixbuf-2.0"
+            New-Item -ItemType Directory -Force -Path $gdkPixbufShareDest | Out-Null
+            Copy-Item -Path "$gdkPixbufShareSrc\*" -Destination $gdkPixbufShareDest -Recurse -Force
           }
 
       - name: Copy locale (.mo) files
