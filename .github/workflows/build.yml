@@ -521,16 +521,16 @@ jobs:
             ## sfd_tool Release ${{ env.RELEASE_TAG }}
             
             ### Windows 版本:
-            - **sfd_tool_windows_x86_sprd**: Windows x86 版本，使用 SPRD 原生驱动（兼容性最好，无需额外驱动）
-            - **sfd_tool_windows_x64_libusb**: Windows x64 版本，使用 libusb 驱动（支持热插拔，需安装驱动）
-            
+            - **sfd_tool_windows_x86_sprd**: Windows x86 版本，使用 SPRD 原生驱动（兼容性最好，需SPRD额外驱动）
+            - **sfd_tool_windows_x64_libusb**: Windows x64 版本，使用 libusb 驱动（除arm外不支持热插拔，需安装驱动）
+
             ### 其他平台:
             - **sfd_tool_macos**: macOS 版本（DMG 包）
             - **Linux DEB 包**: Ubuntu/Debian 系统安装包
             - **Linux RPM 包**: Fedora/RPM-Based 系统安装包
-            
+
             ### 使用说明:
-            1. **Windows x86 (SPRD 版)**: 直接运行，使用系统自带的 SPRD 驱动
+            1. **Windows x86 (SPRD 版)**: 使用 SPRD 驱动
             2. **Windows x64 (libusb 版)**: 需要安装 libusb 驱动（可使用 Zadig 工具）
           files: |
             sfd_tool_all_${{ env.RELEASE_TAG }}.zip
