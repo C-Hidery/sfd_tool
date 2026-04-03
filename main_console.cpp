@@ -509,7 +509,7 @@ int main_console(int argc, char** argv) {
 						fdl2_executed = -1;
 					}
 				}
-				DBG_LOG("[INFO] Device mode version: ");
+				DBG_LOG("Device mode version: ");
 				print_string(stdout, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
 				print_to_string(mode_str, sizeof(mode_str), io->raw_buf + 4, READ16_BE(io->raw_buf + 2), 0);
 
@@ -1101,7 +1101,7 @@ int main_console(int argc, char** argv) {
 				}
 				DEG_LOG(I, "Check baud FDL1 done.");
 
-				printf("[INFO] Device REP_Version: ");
+				printf("Device REP_Version: ");
 				print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
 				if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
 				//special FDL1 MEM, DISABLED FOR STABILITY
