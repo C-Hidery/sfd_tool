@@ -274,6 +274,12 @@ jobs:
             New-Item -ItemType Directory -Force -Path $themesDest
             Copy-Item -Path "$themesSrc\Default" -Destination $themesDest -Recurse -Force -ErrorAction SilentlyContinue
           }
+          $gdkPixbufSrc = "$msysPrefix\lib\gdk-pixbuf-2.0"
+          if (Test-Path $gdkPixbufSrc) {
+            $gdkPixbufDest = "$destDir\lib\gdk-pixbuf-2.0"
+            New-Item -ItemType Directory -Force -Path $gdkPixbufDest | Out-Null
+            Copy-Item -Path "$gdkPixbufSrc\*" -Destination $gdkPixbufDest -Recurse -Force
+          }
       - name: Copy locale (.mo) files
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/locale/zh_CN/LC_MESSAGES"
