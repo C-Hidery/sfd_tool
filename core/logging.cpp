@@ -60,12 +60,6 @@ void ERR_EXIT(const char* format, ...) {
 		helper.disableWidget("pac_flash_start");
 	}
 	std::thread([&](){
-#if defined(_WIN32) && !defined(USE_LIBUSB)
-		call_DisconnectChannel(g_app_state.transport.io->handle);
-		if (g_app_state.transport.io->m_dwRecvThreadID) DestroyRecvThread(g_app_state.transport.io);
-		call_Uninitialize(g_app_state.transport.io->handle);
-		destroyClass(g_app_state.transport.io->handle);
-#endif
 #ifdef _WIN32
 		system("pause");
 #else
@@ -89,8 +83,8 @@ static void logMessageInternal(int type, const char* message) {
 		case W:  prefix = "[!] ";  break;
 		case E:  prefix = "[x] ";  break;
 		case OP: prefix = "[=] ";  break;
-		case DE: prefix = "[DE] "; break;
-		default: prefix = "[UN] "; break;
+		case DE: prefix = "[D] "; break;
+		default: prefix = "[?] "; break;
 	}
 
 	if (type == I || type == W || type == OP) {

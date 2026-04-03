@@ -309,7 +309,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 						fdl2_executed = -1;
 					}
 				}
-				DBG_LOG("[INFO] Device mode version: ");
+				DBG_LOG("Device mode version: ");
 				print_string(stdout, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
 				print_to_string(mode_str, sizeof(mode_str), io->raw_buf + 4, READ16_BE(io->raw_buf + 2), 0);
 

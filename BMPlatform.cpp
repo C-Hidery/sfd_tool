@@ -1,6 +1,6 @@
 #include "BMPlatform.h"
 #include <iostream>
-int m_bOpened = 0;; 
+int m_bOpened = 0;
 
 CBMPlatformApp::CBMPlatformApp() {
 	// TODO: add construction code here,

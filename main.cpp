@@ -248,7 +248,7 @@ std::string load_about_text() {
 
 const char* Version = SFD_TOOL_VERSION;
 AppState g_app_state; // 全局应用状态实例
-int& m_bOpened   = g_app_state.device.m_bOpened;
+int& m_bOpened = g_app_state.device.m_bOpened;
 int fdl1_loaded = 0;
 int fdl2_executed = 0;
 int isKickMode = 0;

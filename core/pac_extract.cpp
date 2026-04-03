@@ -839,88 +839,92 @@ bool pac_extract(const char* fn, const char* floder)
 			return false;
 		}
 	}
-	const std::vector<partition_t>& partitions = std::vector<partition_t>(pacptable, pacptable + pac_part_count);
-	// 获取列表视图
-	GtkWidget* part_list = helper.getWidget("pac_list");
-	if (!part_list || !GTK_IS_TREE_VIEW(part_list)) {
-		std::cerr << "pac_list not found or not a TreeView" << std::endl;
-		if(isHelperInit) gui_idle_call_wait_drag([](){
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Partition list view not found.\n未找到分区列表视图\n");
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		delete[] pacptable;
-		return false;
-	}
+    if (isHelperInit)
+    {
+        const std::vector<partition_t>& partitions = std::vector<partition_t>(pacptable, pacptable + pac_part_count);
+        // 获取列表视图
+        GtkWidget* part_list = helper.getWidget("pac_list");
+        if (!part_list || !GTK_IS_TREE_VIEW(part_list)) {
+            std::cerr << "pac_list not found or not a TreeView" << std::endl;
+            if(isHelperInit) gui_idle_call_wait_drag([](){
+                showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Partition list view not found.\n未找到分区列表视图\n");
+            },GTK_WINDOW(helper.getWidget("main_window")));
+            delete[] pacptable;
+            return false;
+        }
 
-	// 获取列表存储模型
-	GtkTreeModel* model = gtk_tree_view_get_model(GTK_TREE_VIEW(part_list));
-	if (!model) {
-		std::cerr << "TreeView model not found" << std::endl;
-		if(isHelperInit) gui_idle_call_wait_drag([](){
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Partition list model not found.\n未找到分区列表模型\n");
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		delete[] pacptable;
-		return false;
-	}
+        // 获取列表存储模型
+        GtkTreeModel* model = gtk_tree_view_get_model(GTK_TREE_VIEW(part_list));
+        if (!model) {
+            std::cerr << "TreeView model not found" << std::endl;
+            if(isHelperInit) gui_idle_call_wait_drag([](){
+                showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Partition list model not found.\n未找到分区列表模型\n");
+            },GTK_WINDOW(helper.getWidget("main_window")));
+            delete[] pacptable;
+            return false;
+        }
 
-	// 清空现有数据
-	GtkListStore* store = GTK_LIST_STORE(model);
-	gtk_list_store_clear(store);
+        // 清空现有数据
+        GtkListStore* store = GTK_LIST_STORE(model);
+        gtk_list_store_clear(store);
 
-	// 添加分区数据
-	int index = 1;
-	GtkTreeIter iter_spl;
-	gtk_list_store_append(store, &iter_spl);
-	long long spl_size = g_spl_size > 0 ? g_spl_size : 0;
-	std::string display_name = std::to_string(index) + ". splloader";
-	std::string size_str;
-	
-	size_str = "DEFAULT";
-	
-	gtk_list_store_set(store, &iter_spl,
-	                   0, display_name.c_str(),   // 显示名称（带序号）
-	                   1, size_str.c_str(),       // 格式化的大小
-	                   2, "splloader",            // 原始分区名
-	                   -1);
-
-	index++;  // 递增序号
-	for (const auto& partition : partitions) {
-		GtkTreeIter iter;
+        // 添加分区数据
+        int index = 1;
+        GtkTreeIter iter_spl;
+        gtk_list_store_append(store, &iter_spl);
+        long long spl_size = g_spl_size > 0 ? g_spl_size : 0;
+        std::string display_name = std::to_string(index) + ". splloader";
         std::string size_str;
-		gtk_list_store_append(store, &iter);
-		// 格式化显示文本
-		std::string display_name = std::to_string(index) + ". " + partition.name;
+        
+        size_str = "DEFAULT";
+        
+        gtk_list_store_set(store, &iter_spl,
+                        0, display_name.c_str(),   // 显示名称（带序号）
+                        1, size_str.c_str(),       // 格式化的大小
+                        2, "splloader",            // 原始分区名
+                        -1);
 
-        if (strcmp(partition.name, "userdata") != 0) 
-        {
-            // 格式化大小显示
-            if (partition.size < 1024) {
-                size_str = std::to_string(partition.size) + " B";
-            } else if (partition.size < 1024 * 1024) {
-                size_str = std::to_string(partition.size / 1024) + " KB";
-            } else if (partition.size < 1024 * 1024 * 1024) {
-                size_str = std::to_string(partition.size / (1024 * 1024)) + " MB";
-            } else {
-                size_str = std::to_string(partition.size / (1024 * 1024 * 1024.0)) + " GB";
+        index++;  // 递增序号
+        for (const auto& partition : partitions) {
+            GtkTreeIter iter;
+            std::string size_str;
+            gtk_list_store_append(store, &iter);
+            // 格式化显示文本
+            std::string display_name = std::to_string(index) + ". " + partition.name;
+
+            if (strcmp(partition.name, "userdata") != 0) 
+            {
+                // 格式化大小显示
+                if (partition.size < 1024) {
+                    size_str = std::to_string(partition.size) + " B";
+                } else if (partition.size < 1024 * 1024) {
+                    size_str = std::to_string(partition.size / 1024) + " KB";
+                } else if (partition.size < 1024 * 1024 * 1024) {
+                    size_str = std::to_string(partition.size / (1024 * 1024)) + " MB";
+                } else {
+                    size_str = std::to_string(partition.size / (1024 * 1024 * 1024.0)) + " GB";
+                }
             }
+            else
+            {
+                size_str = "DEFAULT";
+            }
+            
+
+            // 设置行数据
+            gtk_list_store_set(store, &iter,
+                            0, display_name.c_str(),  // 显示名称（带序号）
+                            1, size_str.c_str(),      // 格式化的大小
+                            2, partition.name,        // 原始分区名（隐藏列，可选）
+                            -1);
+
+            index++;
         }
-        else
-        {
-            size_str = "DEFAULT";
-        }
-		
 
-		// 设置行数据
-		gtk_list_store_set(store, &iter,
-		                   0, display_name.c_str(),  // 显示名称（带序号）
-		                   1, size_str.c_str(),      // 格式化的大小
-		                   2, partition.name,        // 原始分区名（隐藏列，可选）
-		                   -1);
-
-		index++;
-	}
-
-	// 更新显示
-	gtk_widget_queue_draw(part_list);
+        // 更新显示
+        gtk_widget_queue_draw(part_list);
+    }
+	
 	delete[] pacptable;
 
     return true;
@@ -1209,7 +1213,7 @@ bool pac_flash(spdio_t* io, const char* floder)
     g_app_state.flash.isPacFlashing = true;
     load_partitions(io, "pac_unpack_output", blk_size, g_app_state.flash.selected_ab, 0);
     encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
-    if (!send_and_check(io)) gui_idle_call_wait_drag([]() {
+    if (!send_and_check(io) && isHelperInit) gui_idle_call_wait_drag([]() {
 			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC flashed successfully."));
 		}, GTK_WINDOW(helper.getWidget("main_window")));
 #ifndef _WIN32
