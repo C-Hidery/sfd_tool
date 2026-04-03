@@ -106,7 +106,7 @@ jobs:
             "mingw-w64-i686-librsvg-2.58.0-1-any.pkg.tar.zst",
             "mingw-w64-i686-adwaita-icon-theme-49.0-1-any.pkg.tar.zst",
             "mingw-w64-i686-gtk-update-icon-cache-3.24.43-1-any.pkg.tar.zst",
-            "mingw-w64-i686-gtk3-3.24.48-2-any.pkg.tar.zst"
+            "mingw-w64-i686-gtk3-3.24.51-2-any.pkg.tar.zst"
           )
           $tempDir = Join-Path $env:TEMP "msys2_pkgs"
           New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
@@ -273,6 +273,13 @@ jobs:
             Write-Host "复制 GTK 主题..."
             New-Item -ItemType Directory -Force -Path $themesDest
             Copy-Item -Path "$themesSrc\Default" -Destination $themesDest -Recurse -Force -ErrorAction SilentlyContinue
+          }
+          $gdkPixbufSrc = "$msysPrefix\lib\gdk-pixbuf-2.0"
+          if (Test-Path $gdkPixbufSrc) {
+            Write-Host "复制 pixbuf"
+            $gdkPixbufDest = "$destDir\lib\gdk-pixbuf-2.0"
+            New-Item -ItemType Directory -Force -Path $gdkPixbufDest | Out-Null
+            Copy-Item -Path "$gdkPixbufSrc\*" -Destination $gdkPixbufDest -Recurse -Force
           }
       - name: Copy locale (.mo) files
         run: |
