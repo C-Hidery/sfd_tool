@@ -150,14 +150,6 @@ jobs:
           ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
           Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
 
-      - name: Copy DLLs from GTK3 bin directory
-        run: |
-          $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
-          $gtkBinPath = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin"
-          Get-ChildItem -Path $gtkBinPath -Filter "*.dll" | ForEach-Object {
-            Copy-Item $_.FullName -Destination $destDir -Force
-          }
-
       - name: Copy gettext runtime DLLs
         shell: pwsh
         run: |
@@ -189,44 +181,99 @@ jobs:
             Copy-Item "third_party/Lib/Channel.ini" -Destination $destDir -Force
           }
 
+      - name: Copy ALL DLLs from GTK3 bin directory
+        run: |
+          $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
+          
+          # 确定 GTK3 bin 目录
+          if ("${{ matrix.arch }}" -eq "x64") {
+            $gtkBinPath = "C:\msys64\mingw64\bin"
+          } else {
+            $gtkBinPath = "C:\msys64\mingw32\bin"
+          }
+          
+          Write-Host "复制所有 DLL 从: $gtkBinPath"
+          Write-Host "复制到: $destDir"
+          
+          # 检查源目录是否存在
+          if (-not (Test-Path $gtkBinPath)) {
+            Write-Error "GTK3 bin 目录不存在: $gtkBinPath"
+            exit 1
+          }
+          
+          # 复制所有 DLL 文件
+          $dllFiles = Get-ChildItem -Path $gtkBinPath -Filter "*.dll"
+          
+          if ($dllFiles.Count -eq 0) {
+            Write-Warning "没有找到 DLL 文件！"
+            Write-Host "目录内容:"
+            Get-ChildItem -Path $gtkBinPath | Select-Object -First 20
+          } else {
+            foreach ($dll in $dllFiles) {
+              Copy-Item $dll.FullName -Destination $destDir -Force
+            }
+            Write-Host "已复制 $($dllFiles.Count) 个 DLL 文件"
+            
+            # 显示前10个复制的文件
+            Write-Host "前10个 DLL 文件:"
+            $dllFiles | Select-Object -First 10 Name | ForEach-Object { Write-Host "  - $($_.Name)" }
+          }
       - name: Copy GTK Runtime Data Files
         run: |
-          $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
-          $msysPrefix = "C:\msys64\${{ matrix.msys_gtk_arch }}"
-
-          # 复制图标主题
+          $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
+          
+          # 确定 MSYS2 目录
+          if ("${{ matrix.arch }}" -eq "x64") {
+            $msysPrefix = "C:\msys64\mingw64"
+          } else {
+            $msysPrefix = "C:\msys64\mingw32"
+          }
+          
+          Write-Host "复制 GTK 运行时数据文件..."
+          
+          # 1. 复制图标主题
           $iconsSrc = "$msysPrefix\share\icons"
+          $iconsDest = "$destDir\share\icons"
+          
           if (Test-Path $iconsSrc) {
-            $iconsDest = "$destDir\share\icons"
-            New-Item -ItemType Directory -Force -Path $iconsDest | Out-Null
-            Copy-Item -Path "$iconsSrc\hicolor" -Destination $iconsDest -Recurse -Force -ErrorAction SilentlyContinue
-            Copy-Item -Path "$iconsSrc\Adwaita" -Destination $iconsDest -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Force -Path $iconsDest
+            
+            # 复制 hicolor 主题（必需）
+            if (Test-Path "$iconsSrc\hicolor") {
+              Write-Host "复制 hicolor 图标主题..."
+              Copy-Item -Path "$iconsSrc\hicolor" -Destination $iconsDest -Recurse -Force
+            }
+            
+            # 复制 Adwaita 主题（推荐）
+            if (Test-Path "$iconsSrc\Adwaita") {
+              Write-Host "复制 Adwaita 图标主题..."
+              Copy-Item -Path "$iconsSrc\Adwaita" -Destination $iconsDest -Recurse -Force
+            }
+          } else {
+            Write-Warning "图标主题目录不存在: $iconsSrc"
           }
           
-          # 复制 GLib 编译模式
+          # 2. 复制 GSettings schemas
           $schemasSrc = "$msysPrefix\share\glib-2.0\schemas"
+          $schemasDest = "$destDir\share\glib-2.0\schemas"
+          
           if (Test-Path $schemasSrc) {
-            $schemasDest = "$destDir\share\glib-2.0\schemas"
-            New-Item -ItemType Directory -Force -Path $schemasDest | Out-Null
+            Write-Host "复制 GSettings schemas..."
+            New-Item -ItemType Directory -Force -Path $schemasDest
             Copy-Item -Path "$schemasSrc\*" -Destination $schemasDest -Recurse -Force
-          }
-
-          # 复制 gdk-pixbuf 加载器模块和缓存（修复图像加载错误）
-          $gdkPixbufSrc = "$msysPrefix\lib\gdk-pixbuf-2.0"
-          if (Test-Path $gdkPixbufSrc) {
-            $gdkPixbufDest = "$destDir\lib\gdk-pixbuf-2.0"
-            New-Item -ItemType Directory -Force -Path $gdkPixbufDest | Out-Null
-            Copy-Item -Path "$gdkPixbufSrc\*" -Destination $gdkPixbufDest -Recurse -Force
+          } else {
+            Write-Error "GSettings schemas 目录不存在: $schemasSrc"
           }
           
-          # 可选：某些版本的 GTK 还需要 share/gdk-pixbuf-2.0
-          $gdkPixbufShareSrc = "$msysPrefix\share\gdk-pixbuf-2.0"
-          if (Test-Path $gdkPixbufShareSrc) {
-            $gdkPixbufShareDest = "$destDir\share\gdk-pixbuf-2.0"
-            New-Item -ItemType Directory -Force -Path $gdkPixbufShareDest | Out-Null
-            Copy-Item -Path "$gdkPixbufShareSrc\*" -Destination $gdkPixbufShareDest -Recurse -Force
+          # 3. 复制主题
+          $themesSrc = "$msysPrefix\share\themes"
+          $themesDest = "$destDir\share\themes"
+          
+          if (Test-Path $themesSrc) {
+            Write-Host "复制 GTK 主题..."
+            New-Item -ItemType Directory -Force -Path $themesDest
+            Copy-Item -Path "$themesSrc\Default" -Destination $themesDest -Recurse -Force -ErrorAction SilentlyContinue
           }
-
       - name: Copy locale (.mo) files
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/locale/zh_CN/LC_MESSAGES"
