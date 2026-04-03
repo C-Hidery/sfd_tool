@@ -131,7 +131,7 @@ static void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
 	helper.setLabelText(helper.getWidget("con"), "Patching trustos");
 	TosPatcher patcher;
-	bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Warning")))), _("This operation may break your device, and not all devices support this, if your device is broken, flash backup in backup_tos, continue?"));
+	bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Warning")))), _("This operation may break your device, and not all devices support this, if your device is broken, flash backup 'trustos.bin', continue?"));
 	if (i_is) {
 		LongTaskConfig cfg{
 			// worker：在后台线程中执行 trustos 读取/打补丁/回写
@@ -150,7 +150,7 @@ static void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
 					return;
 				}
 
-				int o = patcher.patcher("trustos.bin");
+				int o = patcher.AvbFxxker("trustos.bin", "tos-noavb.bin");
 				if (!o) {
 					sfd::PartitionIoOptions write_opts;
 					write_opts.partition_name = "trustos";
@@ -167,7 +167,7 @@ static void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
 
 				if (!o) {
 					gui_idle_call_wait_drag([helper]() {
-						showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Disabled AVB successfully, the backup trustos is tos_bak.bin"));
+						showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Disabled AVB successfully, the backup trustos is trustos.bin"));
 					},GTK_WINDOW(helper.getWidget("main_window")));
 				} else {
 					gui_idle_call_wait_drag([helper]() {
