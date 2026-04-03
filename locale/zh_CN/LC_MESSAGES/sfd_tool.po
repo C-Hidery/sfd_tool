@@ -250,12 +250,12 @@ msgstr "信息"
 #: main.cpp:1678
 msgid ""
 "This operation may break your device, and not all devices support this, if "
-"your device is broken, flash backup in backup_tos, continue?"
-msgstr "此操作可能会使你的设备损坏，并且不是所有设备都支持此操作，如果设备损坏，请刷回backup_tos里的备份，是否继续？"
+"your device is broken, flash backup 'trustos.bin', continue?"
+msgstr "此操作可能会使你的设备损坏，并且不是所有设备都支持此操作，如果设备损坏，请刷回备份(trustos.bin)，是否继续？"
 
 #: main.cpp:1691
-msgid "Disabled AVB successfully, the backup trustos is tos_bak.bin"
-msgstr "禁用AVB成功，原版trustos是tos_bak.bin"
+msgid "Disabled AVB successfully, the backup trustos is trustos.bin"
+msgstr "禁用AVB成功，原版trustos是trustos.bin"
 
 #: main.cpp:1695
 msgid "Disabled AVB failed, go to console window to see why"

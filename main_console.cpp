@@ -1997,10 +1997,10 @@ rloop:
 			if (check_confirm("Disable AVB by patching trustos")) {
 				TosPatcher patcher;
 				dump_partition(io, "trustos", 0, check_partition(io, "trustos", 1), "trustos-orig.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
-				int o = patcher.patcher("trustos-orig.bin");
+				int o = patcher.AvbFxxker("trustos-orig.bin", "tos-noavb.bin");
 				if (!o) {
 					load_partition_unify(io, "trustos", "tos-noavb.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-					DEG_LOG(I, "Done, backup trustos image is in backup_tos");
+					DEG_LOG(I, "Done, backup trustos image trustos-orig.bin");
 				} else {
 					DEG_LOG(E, "Failed.");
 				}
