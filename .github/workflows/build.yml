@@ -183,7 +183,7 @@ jobs:
 
       - name: Copy ALL DLLs from GTK3 bin directory
         run: |
-          $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
+          $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           
           # 确定 GTK3 bin 目录
           if ("${{ matrix.arch }}" -eq "x64") {
@@ -220,7 +220,7 @@ jobs:
           }
       - name: Copy GTK Runtime Data Files
         run: |
-          $destDir = "./build/${{ matrix.arch }}/${{ matrix.config }}/"
+          $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           
           # 确定 MSYS2 目录
           if ("${{ matrix.arch }}" -eq "x64") {
