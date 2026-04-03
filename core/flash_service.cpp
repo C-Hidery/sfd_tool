@@ -72,8 +72,7 @@ public:
 
         // 确保分区表存在
         if (!io->part_count && !io->part_count_c) {
-            DEG_LOG(E, "PartitionReadService::readOne: no partition table loaded");
-            return make_error(FlashErrorCode::PartitionTableNotLoaded, "no partition table loaded");
+            DEG_LOG(W, "PartitionReadService::readOne: no partition table loaded");
         }
 
         get_partition_info(io, info.name.c_str(), 1);
@@ -279,8 +278,7 @@ public:
 
         // 确保分区表存在
         if (!io_->part_count && !io_->part_count_c) {
-            DEG_LOG(E, "writePartitionFromFile: no partition table loaded");
-            return make_error(FlashErrorCode::PartitionTableNotLoaded, "no partition table loaded");
+            DEG_LOG(W, "writePartitionFromFile: no partition table loaded");
         }
 
         get_partition_info(io_, options.partition_name.c_str(), 0);
@@ -297,7 +295,7 @@ public:
 
         if (!options.force) {
             load_partition_unify(io_, gPartInfo.name, options.file_path.c_str(), step, app_->flash.isCMethod);
-        } else {
+        } else if(io_->part_count && io_->part_count_c) {
             // 强制写：需要找到分区索引，并避免 splloader
             int index = -1;
             if (!app_->flash.isCMethod && io_->part_count) {
@@ -328,6 +326,10 @@ public:
 
             load_partition_force(io_, index, options.file_path.c_str(), step,
                                  app_->flash.isCMethod ? 1 : 0);
+        }
+        else{
+            DEG_LOG(E, "writePartitionFromFile: no partition table loaded, cannot force write");
+            return make_error(FlashErrorCode::PartitionTableNotLoaded, "no partition table loaded");
         }
 
         return make_ok();
@@ -429,8 +431,7 @@ public:
 
         // 确保分区表存在
         if (!io_->part_count && !io_->part_count_c) {
-            DEG_LOG(E, "erasePartition: no partition table loaded");
-            return make_error(FlashErrorCode::PartitionTableNotLoaded, "no partition table loaded");
+            DEG_LOG(W, "erasePartition: no partition table loaded");
         }
 
         get_partition_info(io_, partition_name.c_str(), 0);
