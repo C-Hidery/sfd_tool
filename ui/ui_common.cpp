@@ -139,6 +139,8 @@ void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("abpart_b");
 	helper.disableWidget("pac_flash_start"); // PAC烧录功能仅支持BROM下进行操作
 	helper.enableWidget("export_part_xml");
+	helper.enableWidget("force_flash_en");
+	helper.enableWidget("force_flash_dis");
 }
 
 void DisableWidgets(GtkWidgetHelper helper) {
@@ -190,6 +192,8 @@ void DisableWidgets(GtkWidgetHelper helper) {
 	helper.disableWidget("abpart_b");
 	helper.disableWidget("pac_flash_start");
 	helper.disableWidget("export_part_xml");
+	helper.disableWidget("force_flash_en");
+	helper.disableWidget("force_flash_dis");
 }
 
 void ensure_device_attached_or_exit(GtkWidgetHelper helper) {
