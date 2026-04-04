@@ -159,6 +159,10 @@ Write file to partition at offset.
 Write value (max 0xFFFFFFFF) to partition at offset.
 
 .TP
+.B w_force \fIpart_name FILE\fR
+Force Flash a partition
+
+.TP
 .B e, erase_part \fIpart_name|part_id\fR
 Erase specified partition.
 
@@ -248,9 +252,6 @@ Flash pac to device
 .B g_w_force \fI{0,1}\fR
 Force Flash settings
 
-.TP
-.B w_force \fpart_name FILE\fR
-Force Flash a partition
 
 .SS "Debug Commands"
 .TP
