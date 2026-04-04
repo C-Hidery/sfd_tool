@@ -246,7 +246,7 @@ std::string load_about_text() {
 	return "SFD Tool GUI\n\nBy RyanCrepa\n\nAbout information file missing.\n";
 }
 
-const char* Version = SFD_TOOL_VERSION;
+const char *Version = "[1.2.3.0@_250726]";
 AppState g_app_state; // 全局应用状态实例
 int& m_bOpened = g_app_state.device.m_bOpened;
 int fdl1_loaded = 0;
