@@ -2,10 +2,11 @@
 
 #include <Windows.h>
 #include <tchar.h>
+
 #define INVALID_VALUE ((DWORD)-1)
 #define INFINITE_LOGFILE_SIZE ( 0 )
 
-extern int m_bOpened;
+extern int& m_bOpened;
 
 typedef enum {
 	SPLOGLV_NONE = 0,

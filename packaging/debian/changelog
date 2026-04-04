@@ -1,3 +1,9 @@
+sfd-tool (1.8.4.0-1-ltv) unstable; urgency=medium
+
+  * 修复已知bug, 工具进入长期状态
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sat, 04 Apr 2026 19:50:51 +0800
+
 sfd-tool (1.8.3.5-1-ltv) unstable; urgency=medium
 
   * 完善Trustos修补功能
