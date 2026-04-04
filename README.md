@@ -12,6 +12,8 @@ operations**, with first‑class support for modern 64‑bit platforms.
 
 ![License](https://img.shields.io/github/license/C-Hidery/sfd_tool)
 
+[中文文档](README_ZH.md)
+
 ## Introduction
 
 
@@ -240,3 +242,13 @@ operations can brick a device and may lead to data loss.
 
 SFD Tool is distributed under the terms of the GPL. See the repository for
 license details.
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=C-Hidery%2Fsfd_tool&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=C-Hidery/sfd_tool&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=C-Hidery/sfd_tool&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=C-Hidery/sfd_tool&type=date&legend=top-left" />
+ </picture>
+</a>
