@@ -262,3 +262,13 @@ SFD Tool 在不同平台上使用 per-user 配置文件保存用户偏好，
   「高级操作」相关内容。
 
 本项目遵循 GPL 等开源许可证发布，详细信息请参见仓库中的 LICENSE 及相关说明。
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=C-Hidery%2Fsfd_tool&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=C-Hidery/sfd_tool&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=C-Hidery/sfd_tool&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=C-Hidery/sfd_tool&type=date&legend=top-left" />
+ </picture>
+</a>
