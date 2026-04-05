@@ -318,7 +318,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 			} else if (ret == BSL_REP_VERIFY_ERROR) {
 				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
 				if (fdl1_loaded != 1) {
-					if (send_and_check(io)) ERR_EXIT("FDL connect failed");;
+					if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
 				} else {
 					i = -1;
 					continue;
@@ -468,7 +468,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 						if (result) {
 							DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
 							encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-							if (send_and_check(io)) ERR_EXIT("FDL exec failed");;
+							if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
 							return;
 						} else {
 							FILE *fi = oxfopen(fdl_path, "r");
@@ -738,7 +738,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 					delete[](execfile);
 				} else {
 					encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-					if (send_and_check(io)) ERR_EXIT("FDL exec failed");;
+					if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
 				}
 			} else {
 				if (g_app_state.device.device_mode == SPRD4 && isKickMode) {
@@ -792,7 +792,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 									delete[](execfile);
 								} else {
 									encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-									if (send_and_check(io)) ERR_EXIT("FDL exec failed");;
+									if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
 								}
 							}	
 						},
@@ -832,7 +832,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			DEG_LOG(I, "Device REP_Version: ");
 			print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
 			encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-			if (send_and_check(io)) ERR_EXIT("FDL connect failed");;
+			if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
 			DEG_LOG(I, "FDL1 connected.");
 #if !USE_LIBUSB
 			if (baudrate) {
