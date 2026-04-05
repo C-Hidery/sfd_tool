@@ -58,6 +58,9 @@ void ERR_EXIT(const char* format, ...) {
     	helper.disableWidget("abpart_a");
     	helper.disableWidget("abpart_b");
 		helper.disableWidget("pac_flash_start");
+		helper.disableWidget("export_part_xml");
+		helper.disableWidget("force_flash_en");
+		helper.disableWidget("force_flash_dis");
 	}
 	std::thread([&](){
 #ifdef _WIN32
