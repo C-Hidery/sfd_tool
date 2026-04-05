@@ -1071,7 +1071,7 @@ bool pac_flash(spdio_t* io, const char* floder)
 					
 				send_file(io, fdl1_path.c_str(), fdl1_base_addr, 0, 528, 0, 0);
 				encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-				if (send_and_check(io)) ERR_EXIT("FDL exec failed");;
+				if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
 				
 				DEG_LOG(OP, "Execute FDL1");
 				// Tiger 310(0x5500) and Tiger 616(0x65000800) need to change baudrate after FDL1
@@ -1102,7 +1102,7 @@ bool pac_flash(spdio_t* io, const char* floder)
 
 
 				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-				if (send_and_check(io)) ERR_EXIT("FDL connect failed");;
+				if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
 				DEG_LOG(I, "FDL1 connected.");
 #if !USE_LIBUSB
 				if (baudrate) {

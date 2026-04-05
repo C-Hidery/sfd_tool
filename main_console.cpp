@@ -516,11 +516,11 @@ int main_console(int argc, char** argv) {
 				print_to_string(mode_str, sizeof(mode_str), io->raw_buf + 4, READ16_BE(io->raw_buf + 2), 0);
 
 				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-				if (send_and_check(io)) ERR_EXIT("FDL connect failed");;
+				if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
 			} else if (ret == BSL_REP_VERIFY_ERROR) {
 				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
 				if (fdl1_loaded != 1) {
-					if (send_and_check(io)) ERR_EXIT("FDL connect failed");;
+					if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
 				} else {
 					i = -1;
 					continue;
@@ -886,7 +886,7 @@ int main_console(int argc, char** argv) {
 					}
 				} else {
 					encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-					if (send_and_check(io)) ERR_EXIT("FDL exec failed");;
+					if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
 				}
 				DEG_LOG(OP, "Execute FDL1");
 				// Tiger 310(0x5500) and Tiger 616(0x65000800) need to change baudrate after FDL1
@@ -947,7 +947,7 @@ int main_console(int argc, char** argv) {
 #endif
 
 				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-				if (send_and_check(io)) ERR_EXIT("FDL connect failed");;
+				if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
 				DEG_LOG(I, "FDL1 connected.");
 #if !USE_LIBUSB
 				if (baudrate) {
@@ -1078,7 +1078,7 @@ int main_console(int argc, char** argv) {
 				}
 				uint32_t addr = strtoul(str2[2], nullptr, 0);
 				encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-				if (send_and_check(io)) ERR_EXIT("FDL exec failed");;
+				if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
 				DEG_LOG(OP, "Execute FDL1");
 				// Tiger 310(0x5500) and Tiger 616(0x65000800) need to change baudrate after FDL1
 				if (addr == 0x5500 || addr == 0x65000800) {
@@ -1136,7 +1136,7 @@ int main_console(int argc, char** argv) {
 #endif
 
 				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-				if (send_and_check(io)) ERR_EXIT("FDL connect failed");;
+				if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
 				DEG_LOG(I, "FDL1 connected.");
 #if !USE_LIBUSB
 				if (baudrate) {
