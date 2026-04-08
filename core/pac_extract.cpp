@@ -879,9 +879,10 @@ bool pac_extract(const char* fn, const char* floder)
         size_str = "DEFAULT";
         
         gtk_list_store_set(store, &iter_spl,
-                        0, display_name.c_str(),   // 显示名称（带序号）
-                        1, size_str.c_str(),       // 格式化的大小
-                        2, "splloader",            // 原始分区名
+                        0, TRUE,
+                        1, display_name.c_str(),   // 显示名称（带序号）
+                        2, size_str.c_str(),       // 格式化的大小
+                        3, "splloader",            // 原始分区名
                         -1);
 
         index++;  // 递增序号
@@ -913,9 +914,10 @@ bool pac_extract(const char* fn, const char* floder)
 
             // 设置行数据
             gtk_list_store_set(store, &iter,
-                            0, display_name.c_str(),  // 显示名称（带序号）
-                            1, size_str.c_str(),      // 格式化的大小
-                            2, partition.name,        // 原始分区名（隐藏列，可选）
+                            0, TRUE,
+                            1, display_name.c_str(),  // 显示名称（带序号）
+                            2, size_str.c_str(),      // 格式化的大小
+                            3, partition.name,        // 原始分区名（隐藏列，可选）
                             -1);
 
             index++;
