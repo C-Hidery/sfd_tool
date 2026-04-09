@@ -13,3 +13,4 @@ public:
 // 保持原有接口
 GtkWidget* create_pac_flash_page(GtkWidgetHelper& helper, GtkWidget* notebook);
 void bind_pac_flash_signals(GtkWidgetHelper& helper);
+std::vector<std::string> getSelectedPartitions(GtkWidgetHelper helper);

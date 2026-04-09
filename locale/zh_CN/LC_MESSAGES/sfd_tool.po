@@ -879,7 +879,8 @@ msgstr "PAC烧录时间"
 msgid "PAC Time"
 msgstr "PAC烧录时间"
 
-
+msgid "Please check partitions to flash"
+msgstr "请选择要烧录的分区"
 
 
 

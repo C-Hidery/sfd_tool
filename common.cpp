@@ -1,5 +1,6 @@
 #include "common.h"
 #include "ui/layout/bottom_bar.h"
+#include "pages/page_pac_flash.h"
 #include <functional>
 #include <string>
 
@@ -1951,10 +1952,22 @@ void dump_partitions(spdio_t *io, const char *fn, int *nand_info, unsigned step)
 }
 
 int ab_compare_slots(const slot_metadata *a, const slot_metadata *b);
+bool hasPartition(const std::vector<std::string>& partitions, const std::string& partitionName)
+{
+    return std::find(partitions.begin(), partitions.end(), partitionName) != partitions.end();
+}
 void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab, int CMethod) {
 	DEG_LOG(OP,"Start to write partitions");
 	DEG_LOG(I,"Type CTRL + C to cancel...");
 	start_signal();
+	std::vector<std::string> pac_parts;
+	if (g_app_state.flash.isPacFlashing) {
+		pac_parts = getSelectedPartitions(helper);
+		if (pac_parts.empty()) {
+			DEG_LOG(E,"Failed to get partition list from pac file.\n");
+			return;
+		}
+	}
 	typedef struct {
 		char name[36];
 		char file_path[1024];
@@ -2083,19 +2096,27 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			!strcmp(fn, "uboot_b") ||
 			!strcmp(fn, "vbmeta_a") ||
 			!strcmp(fn, "vbmeta_b")) {
-			load_partition(io, fn, partitions[i].file_path, step, CMethod);
-			partitions[i].written_flag = 1;
+			if (g_app_state.flash.isPacFlashing && hasPartition(pac_parts, fn)) {
+				load_partition(io, fn, partitions[i].file_path, step, CMethod);
+				partitions[i].written_flag = 1;
+			}
 			continue;
 		}
 		if (strcmp(fn, "uboot") == 0 || strcmp(fn, "vbmeta") == 0) {
 			get_partition_info(io, fn, 0);
 			if (!gPartInfo.size) continue;
-
-			load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
-			partitions[i].written_flag = 1;
+			if (g_app_state.flash.isPacFlashing && hasPartition(pac_parts, fn)) {
+				load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
+				partitions[i].written_flag = 1;
+			}
 			continue;
 		}
 		if (strncmp(fn, "vbmeta_", 7) == 0) {
+			auto it = std::find_if(pac_parts.begin(), pac_parts.end(),
+			[](const std::string& part) {
+				return part.find("vbmeta_") == 0;
+			});
+			if (it == pac_parts.end()) continue;
 			get_partition_info(io, fn, 0);
 			if (!gPartInfo.size) continue;
 
@@ -2109,6 +2130,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		if (isCancel) { delete[](partitions); return; }
 		if (!partitions[i].written_flag) {
 			fn = partitions[i].name;
+			if (g_app_state.flash.isPacFlashing && !hasPartition(pac_parts, fn)) continue;
 			get_partition_info(io, fn, 0);
 			if (!gPartInfo.size) continue;
 			if (!strcmp(gPartInfo.name, "metadata")) { metadata_in_dump = 1; metadata_id = i; continue; }
