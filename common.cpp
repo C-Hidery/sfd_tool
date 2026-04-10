@@ -2096,7 +2096,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			!strcmp(fn, "uboot_b") ||
 			!strcmp(fn, "vbmeta_a") ||
 			!strcmp(fn, "vbmeta_b")) {
-			if (g_app_state.flash.isPacFlashing && hasPartition(pac_parts, fn)) {
+			if (!g_app_state.flash.isPacFlashing || hasPartition(pac_parts, fn)) {
 				load_partition(io, fn, partitions[i].file_path, step, CMethod);
 				partitions[i].written_flag = 1;
 			}
@@ -2105,18 +2105,21 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		if (strcmp(fn, "uboot") == 0 || strcmp(fn, "vbmeta") == 0) {
 			get_partition_info(io, fn, 0);
 			if (!gPartInfo.size) continue;
-			if (g_app_state.flash.isPacFlashing && hasPartition(pac_parts, fn)) {
+			if (!g_app_state.flash.isPacFlashing || hasPartition(pac_parts, fn)) {
 				load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
 				partitions[i].written_flag = 1;
 			}
 			continue;
 		}
 		if (strncmp(fn, "vbmeta_", 7) == 0) {
-			auto it = std::find_if(pac_parts.begin(), pac_parts.end(),
-			[](const std::string& part) {
-				return part.find("vbmeta_") == 0;
-			});
-			if (it == pac_parts.end()) continue;
+		    if(g_app_state.flash.isPacFlashing)
+		    {
+    			auto it = std::find_if(pac_parts.begin(), pac_parts.end(),
+    			[](const std::string& part) {
+    				return part.find("vbmeta_") == 0;
+    			});
+    			if (it == pac_parts.end()) continue;
+			}
 			get_partition_info(io, fn, 0);
 			if (!gPartInfo.size) continue;
 
