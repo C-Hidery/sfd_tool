@@ -2005,7 +2005,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			!strncmp(fn, "lk", 2) ||
 			!strncmp(fn, "0x", 2) ||
 			!strncmp(fn, "custom_exec", 11)) continue;
-
+        if (g_app_state.flash.isPacFlashing && !strncmp(fn, "factorynv", 4)) continue;
 		snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s", path, fn);
 		char *dot = strrchr(fn, '.');
 		if (dot != nullptr) *dot = '\0';
