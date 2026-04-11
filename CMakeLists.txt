@@ -432,20 +432,6 @@ install(TARGETS sfd_tool
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-# 安装 BMPlatform.dll（如果存在）
-if (TARGET BMPlatform)
-    install(TARGETS BMPlatform
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    )
-endif()
-
-# 安装 Proxy32.exe（如果存在）
-if (TARGET Proxy32)
-    install(TARGETS Proxy32
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    )
-endif()
-
 # 安装文档
 install(FILES
     LICENSE.txt
@@ -525,4 +511,9 @@ if (GTK_UPDATE_ICON_CACHE)
         COMMAND ${GTK_UPDATE_ICON_CACHE} -q -t -f ${CMAKE_INSTALL_DATADIR}/icons/hicolor
         COMMENT "Updating GTK icon cache"
     )
+endif()
+
+# utf-8支持
+if(MSVC OR WIN32)
+    target_compile_options(sfd_tool PRIVATE /utf-8)
 endif()
