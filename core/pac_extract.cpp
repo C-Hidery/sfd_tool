@@ -782,7 +782,7 @@ bool pac_extract(const char* fn, const char* floder)
 		DEG_LOG(E,"Failed to open PAC file.\n");
 		if(isHelperInit) {
 			gui_idle_call_wait_drag([](){
-				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Failed to open PAC file.\n无法打开PAC文件\n");
+				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Failed to open PAC file."));
 			},GTK_WINDOW(helper.getWidget("main_window")));
 		}
 		return false;
@@ -792,7 +792,7 @@ bool pac_extract(const char* fn, const char* floder)
 		DEG_LOG(E,"Failed to extract files from PAC file.\n");
 		if(isHelperInit) {
 			gui_idle_call_wait_drag([](){
-				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Failed to extract files from PAC file.\n无法从PAC文件中提取文件\n");
+				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Failed to extract files from PAC file."));
 			},GTK_WINDOW(helper.getWidget("main_window")));
 		}
 		return false;
@@ -802,7 +802,7 @@ bool pac_extract(const char* fn, const char* floder)
 	std::string xmlPath = FindFirstXMLFile(floder);
 	if(xmlPath.empty()) {
 		if(isHelperInit) gui_idle_call_wait_drag([](){
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "No XML file found in the extracted folder.\n在解压后的文件夹中未找到XML文件\n");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("No XML file found in the extracted folder."));
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		DEG_LOG(E, "No XML file found in the extracted folder.");
 		return false;
@@ -815,7 +815,7 @@ bool pac_extract(const char* fn, const char* floder)
     if (partxml.empty())
     {
         if(isHelperInit) gui_idle_call_wait_drag([](){
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "No partition info found in xml\n不能在xml中找到分区信息\n");
+			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("No partition info found in xml"));
 		},GTK_WINDOW(helper.getWidget("main_window")));
 		DEG_LOG(E, "No partition info found in xml");
 		return false;
@@ -827,7 +827,7 @@ bool pac_extract(const char* fn, const char* floder)
 	}
 	else {
 		DEG_LOG(E, "Failed to create temporary partitions XML file.");
-		ERR_EXIT("Failed to create temporary partitions XML file.\n无法创建临时分区XML文件\n");
+		ERR_EXIT("Failed to create temporary partitions XML file.");
 	}
 	partition_t* pacptable = NEWN partition_t[128];
 	pac_part_count = 0;
@@ -847,7 +847,7 @@ bool pac_extract(const char* fn, const char* floder)
         if (!part_list || !GTK_IS_TREE_VIEW(part_list)) {
             std::cerr << "pac_list not found or not a TreeView" << std::endl;
             if(isHelperInit) gui_idle_call_wait_drag([](){
-                showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Partition list view not found.\n未找到分区列表视图\n");
+                showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Partition list view not found."));
             },GTK_WINDOW(helper.getWidget("main_window")));
             delete[] pacptable;
             return false;
@@ -858,7 +858,7 @@ bool pac_extract(const char* fn, const char* floder)
         if (!model) {
             std::cerr << "TreeView model not found" << std::endl;
             if(isHelperInit) gui_idle_call_wait_drag([](){
-                showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "Partition list model not found.\n未找到分区列表模型\n");
+                showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Partition list model not found."));
             },GTK_WINDOW(helper.getWidget("main_window")));
             delete[] pacptable;
             return false;
@@ -1027,10 +1027,13 @@ std::string findBaseForID(const std::string& filename, const std::string& target
 }
 bool pac_flash(spdio_t* io, const char* floder)
 {
+    if (isHelperInit && !showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Are you sure you want to flash the device with the extracted files? Make sure you have the correct PAC file."))) {
+        return false;
+    }
     std::string xmlPath = FindFirstXMLFile(floder);
     if (xmlPath.empty()) {
         if(isHelperInit) gui_idle_call_wait_drag([](){
-            showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "No XML file found in the extracted folder.\n在解压后的文件夹中未找到XML文件\n");
+            showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("No XML file found in the extracted folder."));
         },GTK_WINDOW(helper.getWidget("main_window")));
         DEG_LOG(E, "No XML file found in the extracted folder.");
         return false;
@@ -1041,20 +1044,51 @@ bool pac_flash(spdio_t* io, const char* floder)
     std::string fdl2_base = findBaseForID(xmlPath, "fdl2");
     if (fdl1_path.empty() || fdl1_base.empty()) {
         if(isHelperInit) gui_idle_call_wait_drag([](){
-            showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "FDL1 file or base address not found.\n未找到FDL1文件或基地址\n");
+            showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("FDL1 file or base address not found."));
         },GTK_WINDOW(helper.getWidget("main_window")));
         DEG_LOG(E, "FDL1 file or base address not found.");
         return false;
     }
     if (fdl2_path.empty() || fdl2_base.empty()) {
         if(isHelperInit) gui_idle_call_wait_drag([](){
-            showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "FDL2 file or base address not found.\n未找到FDL2文件或基地址\n");
+            showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("FDL2 file or base address not found."));
         },GTK_WINDOW(helper.getWidget("main_window")));
         DEG_LOG(E, "FDL2 file or base address not found.");
         return false;
     }
-    gui_idle_call_wait_drag([](){
-        showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), "Info", "Start executing FDL1 and FDL2.\n开始执行FDL1和FDL2\n");
+    bool i_is = false;
+    if (isHelperInit)
+    {
+        i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Do you want to repartiton?"));
+    }
+    else
+    {
+        std::cout << "Do you want to repartition? (y/n): ";
+        char response;
+        std::cin >> response;
+        i_is = (response == 'y' || response == 'Y');
+    }
+    if (i_is)
+    {
+        partition_t* repartition_table = NEWN partition_t[128];
+        std::ifstream file(xmlPath);
+        std::string content((std::istreambuf_iterator<char>(file)),
+                        std::istreambuf_iterator<char>());
+
+        std::string partxml = ExtractPartitionsWithTags(content);
+        FILE* f1 = oxfopen("repartition_xml_temp.xml", "w");
+        if (!f1) ERR_EXIT("Failed to create temporary repartition XML file.\n");
+        if(f1) {
+		    fwrite(partxml.c_str(), 1, partxml.size(), f1);
+		    fclose(f1);
+	    }
+        uint8_t* buf = io->temp_buf;
+        int n = scan_xml_partitions(io, "repartition_xml_temp.xml", buf, 0xffff);
+        encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
+	    if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
+    }
+    if (isHelperInit) gui_idle_call_wait_drag([](){
+        showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Start executing FDL1 and FDL2."));
     },GTK_WINDOW(helper.getWidget("main_window")));
     uint32_t fdl1_base_addr = std::stoul(fdl1_base, nullptr, 0);
     uint32_t fdl2_base_addr = std::stoul(fdl2_base, nullptr, 0);
@@ -1062,12 +1096,13 @@ bool pac_flash(spdio_t* io, const char* floder)
     int highspeed = 0;
     uint32_t baudrate = 0;
     uint16_t blk_size = DEFAULT_BLK_SIZE;
-    std::thread([&]()
+    auto into_func = [&]() -> void
     {
+
                 fi = oxfopen(fdl1_path.c_str(), "r");
 				if (fi == nullptr) {
 					DEG_LOG(W, "File does not exist.\n");
-					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", "File does not exist.\n文件不存在\n");
+					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
                       return;
                 } else fclose(fi);
 					
@@ -1215,16 +1250,29 @@ bool pac_flash(spdio_t* io, const char* floder)
     g_app_state.flash.isPacFlashing = true;
     load_partitions(io, "pac_unpack_output", blk_size, g_app_state.flash.selected_ab, 0);
     encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
-    if (!send_and_check(io) && isHelperInit) gui_idle_call_wait_drag([]() {
-			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC flashed successfully."));
+    if (!send_and_check(io))
+    {
+        if (isHelperInit) gui_idle_call_wait_drag([]() {
+			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC flashed successfully, the program will be exited in 5 seconds..."));
 		}, GTK_WINDOW(helper.getWidget("main_window")));
+        DEG_LOG(I, "PAC flashed successfully, the program will be exited in 5 seconds...");
+    }
 #ifndef _WIN32
     sleep(5);
 #else
     Sleep(5000);
 #endif
 	exit(0);
-    }).detach();
+    };
+    if (isHelperInit)
+    {
+        std::thread flash_thread(into_func);
+        flash_thread.detach();
+    }
+    else
+    {
+        into_func();
+    }
     return true;
 }
 
