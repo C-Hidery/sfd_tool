@@ -1,3 +1,9 @@
+sfd-tool (1.8.5.0-1-ltv) unstable; urgency=medium
+
+  * 修复PAC刷写逻辑，lambda获取错误
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Tue, 14 Apr 2026 22:35:44 +0800
+
 sfd-tool (1.8.4.5-1-ltv) unstable; urgency=medium
 
   * 更新PAC刷写机制

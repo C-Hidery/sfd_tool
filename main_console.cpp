@@ -1589,6 +1589,7 @@ rloop:
 				argv += 2;
 				continue;
 			} else fclose(fi);
+			bool i_is = pac_extract(fn, "pac_unpack_output");
 			if(g_app_state.device.device_stage != BROM && GetStage() != BROM)
 			{
 				DEG_LOG(E, "Pac flashing is only supported in BROM stage.");
@@ -1598,21 +1599,10 @@ rloop:
 			}
 			if(check_confirm("flash pac"))
 			{
-				bool i_is = pac_extract(fn, "pac_unpack_output");
 				if (i_is)
 				{
 					pac_flash(io, "pac_unpack_output");
 				}
-
-#ifdef _WIN32
-				DEG_LOG(I, "Pac flashing completed, the program will exit in 5 seconds...");
-				Sleep(5000);
-#else
-				DEG_LOG(I, "Pac flashing completed, the program will exit in 5 seconds...");
-				sleep(5);
-#endif
-				spdio_free(io);
-				return 0;
 			}
 			argc -= 2;
 			argv += 2;

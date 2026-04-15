@@ -1499,6 +1499,8 @@ void load_nv_partition(spdio_t *io, const char *name,
 			break;
 		}
 	}
+	// factorynv partition flashing removed since it's not safe, and the crc check is not necessary for other nv partitions
+	/*
 	if (strstr(name, "factorynv")){
 		dump_partition(io, name, 0, 16, "nvcrc", 4096);
 		uint8_t *crc_mem = loadfile("nvcrc", nullptr, 0);
@@ -1510,7 +1512,9 @@ void load_nv_partition(spdio_t *io, const char *name,
 		crc = crc16(crc, mem + 2, len - 2);
 		WRITE16_BE(mem, crc);
 	}	
-	
+	*/
+	crc = crc16(crc, mem + 2, len - 2);
+	WRITE16_BE(mem, crc);
 	for (offset = 0; offset < len; offset++) cs += mem[offset];
 	DEG_LOG(I,"File size : 0x%zx", len);
 
@@ -1639,12 +1643,15 @@ uint64_t check_partition(spdio_t *io, const char *name, int need_size) {
 		if (dot != nullptr) *dot = '2';
 		name = name_tmp;
 	}
+	// factorynv has no vab partition, but not supported to flash.
+	/*
 	else if (strstr(name, "factorynv")){
 		if (selected_ab > 0) {
 			size_t namelen = strlen(name);
 			if ((strcmp(name + namelen - 2, "_a") == 0) || (strcmp(name + namelen - 2, "_b") == 0)) return 0;
 		}
 	}
+	*/
 	else if (strstr(name, "downloadnv")){
 		if (selected_ab > 0) {
 			size_t namelen = strlen(name);
@@ -2043,8 +2050,8 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			!strncmp(fn, "fdl", 3) ||
 			!strncmp(fn, "lk", 2) ||
 			!strncmp(fn, "0x", 2) ||
-			!strncmp(fn, "custom_exec", 11)) continue;
-		if (g_app_state.flash.isPacFlashing && !strncmp(fn, "factorynv", 9)) continue;
+			!strncmp(fn, "custom_exec", 11) ||
+		    !strncmp(fn, "factorynv", 9)) continue;
 		snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s", path, fn);
 		char *dot = strrchr(fn, '.');
 		if (dot != nullptr) *dot = '\0';
@@ -2307,11 +2314,15 @@ int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned
 	char name0[36], name1[40];
 	unsigned size0, size1;
 	if (strstr(name, "fixnv1") || 
-		strstr(name, "downloadnv") ||
-	    strstr(name, "factorynv"))
+		strstr(name, "downloadnv"))
 		{
 			load_nv_partition(io, name, fn, 4096);
 			return 1;
+		}
+	if (strstr(name, "factorynv"))
+		{
+			DEG_LOG(W,"factorynv is not supported to flash, skipped.");
+			return 0; // (tested) if factorynv flashed, downloadnv will be broken
 		}
 	if (Da_Info.dwStorageType == 0x101 ||
 		io->part_count == 0 ||

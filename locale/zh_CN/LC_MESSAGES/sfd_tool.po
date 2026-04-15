@@ -926,7 +926,41 @@ msgstr "确定开始从该文件夹批量刷入已选中的分区吗？"
 msgid "partition read incomplete"
 msgstr "分区读取不完整"
 
+msgid "Failed to open PAC file."
+msgstr "无法打开PAC文件"
 
+msgid "Failed to extract files from PAC file."
+msgstr "无法从PAC文件中提取文件"
+
+msgid "No XML file found in the extracted folder."
+msgstr "在解压后的文件夹中未找到XML文件"
+
+msgid "No partition info found in xml"
+msgstr "不能在xml中找到分区信息"
+
+msgid "Partition list view not found."
+msgstr "未找到分区列表视图"
+
+msgid "Partition list model not found."
+msgstr "未找到分区列表模型"
+
+msgid "Are you sure you want to flash the device with the extracted files? Make sure you have the correct PAC file."
+msgstr "你确定要使用提取的文件刷机吗？请确保PAC文件正确"
+
+msgid "FDL1 file or base address not found."
+msgstr "未找到FDL1文件或基地址"
+
+msgid "FDL2 file or base address not found."
+msgstr "未找到FDL2文件或基地址"
+
+msgid "Do you want to repartiton?"
+msgstr "是否重新分区？"
+
+msgid "Start executing FDL1 and FDL2."
+msgstr "开始执行FDL1和FDL2"
+
+msgid "No XML file found for repartition."
+msgstr "没有找到用于重新分区的XML"
 
 # ===== Auto-appended entries from sfd_tool.pot =====
 
@@ -1016,8 +1050,8 @@ msgstr "PAC文件解包成功。"
 msgid "Failed to unpack PAC."
 msgstr "PAC文件解包失败。"
 
-msgid "PAC flashed successfully."
-msgstr "PAC文件刷写成功。"
+msgid "PAC flashed successfully, the program will be exited in 5 seconds..."
+msgstr "PAC文件刷写成功，程序将在5秒内退出......"
 
 msgid "Failed to flash PAC."
 msgstr "PAC文件刷写失败。"
