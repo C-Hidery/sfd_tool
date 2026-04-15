@@ -947,9 +947,6 @@ msgstr "未找到分区列表模型"
 msgid "Are you sure you want to flash the device with the extracted files? Make sure you have the correct PAC file."
 msgstr "你确定要使用提取的文件刷机吗？请确保PAC文件正确"
 
-msgid "No XML file found in the extracted folder."
-msgstr "没有在提取的文件夹中找到XML"
-
 msgid "FDL1 file or base address not found."
 msgstr "未找到FDL1文件或基地址"
 
@@ -961,9 +958,6 @@ msgstr "是否重新分区？"
 
 msgid "Start executing FDL1 and FDL2."
 msgstr "开始执行FDL1和FDL2"
-
-msgid "File does not exist."
-msgstr "文件不存在"
 
 msgid "No XML file found for repartition."
 msgstr "没有找到用于重新分区的XML"
