@@ -1092,13 +1092,12 @@ bool pac_flash(spdio_t* io, const char* floder)
     },GTK_WINDOW(helper.getWidget("main_window")));
     uint32_t fdl1_base_addr = std::stoul(fdl1_base, nullptr, 0);
     uint32_t fdl2_base_addr = std::stoul(fdl2_base, nullptr, 0);
-    FILE* fi;
     int highspeed = 0;
     uint32_t baudrate = 0;
     uint16_t blk_size = DEFAULT_BLK_SIZE;
     auto into_func = [=]() mutable
     {
-
+                FILE* fi;
                 fi = oxfopen(fdl1_path.c_str(), "r");
 				if (fi == nullptr) {
 					DEG_LOG(W, "File does not exist.\n");
