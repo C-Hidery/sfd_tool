@@ -2043,8 +2043,8 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			!strncmp(fn, "fdl", 3) ||
 			!strncmp(fn, "lk", 2) ||
 			!strncmp(fn, "0x", 2) ||
-			!strncmp(fn, "custom_exec", 11)) continue;
-		if (g_app_state.flash.isPacFlashing && !strncmp(fn, "factorynv", 9)) continue;
+			!strncmp(fn, "custom_exec", 11) ||
+		    !strncmp(fn, "factorynv", 9)) continue;
 		snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s", path, fn);
 		char *dot = strrchr(fn, '.');
 		if (dot != nullptr) *dot = '\0';
@@ -2307,11 +2307,14 @@ int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned
 	char name0[36], name1[40];
 	unsigned size0, size1;
 	if (strstr(name, "fixnv1") || 
-		strstr(name, "downloadnv") ||
-	    strstr(name, "factorynv"))
+		strstr(name, "downloadnv"))
 		{
 			load_nv_partition(io, name, fn, 4096);
 			return 1;
+		}
+	if (strstr(name, "factorynv"))
+		{
+			return 0;
 		}
 	if (Da_Info.dwStorageType == 0x101 ||
 		io->part_count == 0 ||
