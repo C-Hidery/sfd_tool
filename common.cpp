@@ -1499,6 +1499,8 @@ void load_nv_partition(spdio_t *io, const char *name,
 			break;
 		}
 	}
+	// factorynv partition flashing removed since it's not safe, and the crc check is not necessary for other nv partitions
+	/*
 	if (strstr(name, "factorynv")){
 		dump_partition(io, name, 0, 16, "nvcrc", 4096);
 		uint8_t *crc_mem = loadfile("nvcrc", nullptr, 0);
@@ -1510,7 +1512,9 @@ void load_nv_partition(spdio_t *io, const char *name,
 		crc = crc16(crc, mem + 2, len - 2);
 		WRITE16_BE(mem, crc);
 	}	
-	
+	*/
+	crc = crc16(crc, mem + 2, len - 2);
+	WRITE16_BE(mem, crc);
 	for (offset = 0; offset < len; offset++) cs += mem[offset];
 	DEG_LOG(I,"File size : 0x%zx", len);
 
@@ -1639,12 +1643,15 @@ uint64_t check_partition(spdio_t *io, const char *name, int need_size) {
 		if (dot != nullptr) *dot = '2';
 		name = name_tmp;
 	}
+	// factorynv has no vab partition, but not supported to flash.
+	/*
 	else if (strstr(name, "factorynv")){
 		if (selected_ab > 0) {
 			size_t namelen = strlen(name);
 			if ((strcmp(name + namelen - 2, "_a") == 0) || (strcmp(name + namelen - 2, "_b") == 0)) return 0;
 		}
 	}
+	*/
 	else if (strstr(name, "downloadnv")){
 		if (selected_ab > 0) {
 			size_t namelen = strlen(name);
@@ -2314,6 +2321,7 @@ int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned
 		}
 	if (strstr(name, "factorynv"))
 		{
+			DEG_LOG(W,"factorynv is not supported to flash, skipped.");
 			return 0; // (tested) if factorynv flashed, downloadnv will be broken
 		}
 	if (Da_Info.dwStorageType == 0x101 ||
