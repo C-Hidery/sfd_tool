@@ -1096,7 +1096,7 @@ bool pac_flash(spdio_t* io, const char* floder)
     int highspeed = 0;
     uint32_t baudrate = 0;
     uint16_t blk_size = DEFAULT_BLK_SIZE;
-    auto into_func = [&]() -> void
+    auto into_func = [=]() mutable
     {
 
                 fi = oxfopen(fdl1_path.c_str(), "r");
@@ -1268,11 +1268,12 @@ bool pac_flash(spdio_t* io, const char* floder)
     {
         std::thread flash_thread(into_func);
         flash_thread.detach();
+        return true;
     }
     else
     {
         into_func();
+        return true;
     }
-    return true;
 }
 
