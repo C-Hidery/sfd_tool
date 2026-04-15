@@ -2314,7 +2314,7 @@ int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned
 		}
 	if (strstr(name, "factorynv"))
 		{
-			return 0;
+			return 0; // (tested) if factorynv flashed, downloadnv will be broken
 		}
 	if (Da_Info.dwStorageType == 0x101 ||
 		io->part_count == 0 ||
