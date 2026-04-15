@@ -1232,6 +1232,7 @@ void load_partition(spdio_t *io, const char *name,
 	double rtime = get_time();
 	if (strstr(name, "runtimenv")) { erase_partition(io, name, CMethod); return; }
 	if (!strcmp(name, "calinv")) { return; } //skip calinv
+	if (!strcmp(name, "factorynv")) { return; } //skip factorynv
 	DEG_LOG(OP, "Start to write partition %s", name);
 	DEG_LOG(I, "Type CTRL + C to cancel...");
 	start_signal();
@@ -1644,14 +1645,12 @@ uint64_t check_partition(spdio_t *io, const char *name, int need_size) {
 		name = name_tmp;
 	}
 	// factorynv has no vab partition, but not supported to flash.
-	/*
 	else if (strstr(name, "factorynv")){
 		if (selected_ab > 0) {
 			size_t namelen = strlen(name);
 			if ((strcmp(name + namelen - 2, "_a") == 0) || (strcmp(name + namelen - 2, "_b") == 0)) return 0;
 		}
 	}
-	*/
 	else if (strstr(name, "downloadnv")){
 		if (selected_ab > 0) {
 			size_t namelen = strlen(name);
