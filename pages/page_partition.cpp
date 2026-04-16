@@ -952,6 +952,13 @@ void on_button_clicked_xml_get(GtkWidgetHelper helper) {
 	uint8_t* buf = io->temp_buf;
 	int n = scan_xml_partitions(io, filename.c_str(), buf, 0xffff);
 	if(n <= 0) return;
+	for (int i = 0; i < io->part_count; i++)
+	{
+		if (strcmp(io->ptable[i].name, "userdata") == 0) {
+			io->ptable[i].size = check_partition(io, "userdata", 1);
+			break;
+		}
+	}
 	std::vector<sfd::DevicePartitionInfo> partitions;
 	partitions.reserve(io->part_count);
 

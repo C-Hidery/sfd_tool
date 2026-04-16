@@ -1644,14 +1644,12 @@ uint64_t check_partition(spdio_t *io, const char *name, int need_size) {
 		name = name_tmp;
 	}
 	// factorynv has no vab partition, but not supported to flash.
-	/*
 	else if (strstr(name, "factorynv")){
 		if (selected_ab > 0) {
 			size_t namelen = strlen(name);
 			if ((strcmp(name + namelen - 2, "_a") == 0) || (strcmp(name + namelen - 2, "_b") == 0)) return 0;
 		}
 	}
-	*/
 	else if (strstr(name, "downloadnv")){
 		if (selected_ab > 0) {
 			size_t namelen = strlen(name);

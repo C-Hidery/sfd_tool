@@ -2060,6 +2060,13 @@ rloop:
 			}
 			uint8_t *buf = io->temp_buf;
 			scan_xml_partitions(io, str2[2], buf, 0xffff);
+			for (int i = 0; i < io->part_count; i++)
+			{
+				if (strcmp(io->ptable[i].name, "userdata") == 0) {
+					io->ptable[i].size = check_partition(io, "userdata", 1);
+					break;
+				}
+			}
 			if(isCMethod){
 			    delete[] io->Cptable;
 			    io->Cptable = nullptr;
