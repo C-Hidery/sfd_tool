@@ -2,6 +2,9 @@
 #include "ui/layout/bottom_bar.h"
 #include "pages/page_pac_flash.h"
 #include <functional>
+#if defined(__linux__) || defined(__APPLE__)
+#include <sys/stat.h>
+#endif
 #include <string>
 
 int isCancel = 0;
@@ -1996,7 +1999,8 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		DEG_LOG(E,"Failed to open directory.\n");
 		return;
 	}
-	for (fn = findData.cFileName; FindNextFileA(hFind, &findData); fn = findData.cFileName) {
+	do {
+		fn = findData.cFileName;
 		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
 		namelen = strlen(fn);
 		if (namelen >= 4) {
@@ -2025,7 +2029,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		strcpy(partitions[partition_count].name, fn);
 		partitions[partition_count].written_flag = 0;
 		partition_count++;
-	}
+	} while (FindNextFileA(hFind, &findData));
 	FindClose(hFind);
 #else
 	DIR *dir;
@@ -2035,7 +2039,10 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		DEG_LOG(E,"Failed to open directory.\n");
 		return;
 	}
-	for (fn = entry->d_name; (entry = readdir(dir)); fn = entry->d_name) {
+	do {
+		fn = entry->d_name;
+		struct stat st;
+		if (stat(fn, &st) == 0 && S_ISDIR(st.st_mode)) continue;
 		if (entry->d_type == DT_DIR) continue;
 		namelen = strlen(fn);
 		if (namelen >= 4) {
@@ -2064,7 +2071,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		strcpy(partitions[partition_count].name, fn);
 		partitions[partition_count].written_flag = 0;
 		partition_count++;
-	}
+	} while ((entry = readdir(dir)));
 	closedir(dir);
 #endif
 	if (selected_ab < 0) select_ab(io);
