@@ -128,20 +128,18 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 
 SFD Tool is primarily tested and released for:
 
-- **Windows 10/11 x64**
+- **Windows 10/11 x64/x86**
 - **Linux x86_64** (e.g. Debian/Ubuntu, RPM‑based distros)
 - **macOS** (recent versions)
 - **Termux / Android** (CLI only, via `--no-gui`)
 
 Prebuilt binaries and packages are provided on GitHub Releases, typically including:
 
-- Windows x64 executables (LibUSB and/or SPRD driver builds).
+- Windows x64/x86 executables (LibUSB(x64) and/or SPRD(x86) driver builds).
 - `.deb` packages for popular Debian/Ubuntu versions.
 - `.rpm` packages for RPM‑based distributions.
 - macOS `.dmg` application bundles.
 
-> Windows x86 builds have been removed in recent versions. Only x64 is
-> supported going forward.
 
 For exact platforms and artifact names, refer to the latest release page and
 [.github/workflows/build.yml](.github/workflows/build.yml).
@@ -164,8 +162,6 @@ Makefiles. See:
 - [docs/cmake_EN.md](docs/cmake_EN.md) – English CMake/build guide.
 - [docs/cmake.md](docs/cmake.md) – Chinese CMake/build guide with more
   details, including per‑user config and `ui_language`.
-
-Warn: SPRD Driver version need Proxy32.exe, but it will not be built by cmake, you have to build it with x86 compiler.
 
 ## Running
 

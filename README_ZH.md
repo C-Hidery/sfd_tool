@@ -178,7 +178,6 @@ cmake --build build -j
 - [docs/cmake.md](docs/cmake.md) – CMake 使用说明（中文，包含 per-user 配置与 `ui_language`）；
 - [docs/cmake_EN.md](docs/cmake_EN.md) – CMake 使用说明（英文简版）。
 
-注意：SPRD驱动版本需要Proxy32.exe, 但它并不会被cmake编译，你需要使用x86编译器编译它！
 
 ---
 

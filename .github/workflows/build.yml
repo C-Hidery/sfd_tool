@@ -84,10 +84,10 @@ jobs:
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-          Write-Host "从清华镜像手动下载安装 GTK3 及依赖 (x86)..."
+          Write-Host "从Github源下载安装 GTK3 及依赖 (x86)..."
           $pkgCache = "$msysPath\var\cache\pacman\pkg"
           New-Item -ItemType Directory -Force -Path $pkgCache | Out-Null
-          $mirrorBase = "https://mirrors.tuna.tsinghua.edu.cn/msys2/mingw/mingw32"
+          $mirrorBase = "https://github.com/C-Hidery/mingw32_msys2_gtk3_3.24.51_backup/raw/refs/heads/master/"
           $pkgFiles = @(
             "mingw-w64-i686-glib2-2.82.4-1-any.pkg.tar.zst",
             "mingw-w64-i686-cairo-1.18.2-2-any.pkg.tar.zst",
