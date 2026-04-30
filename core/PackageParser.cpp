@@ -1,5 +1,4 @@
 #include "PackageParser.hpp"
-#include "../common.h"
 #include "../main.h"
 #include "../i18n.h"
 #include "../ui/ui_common.h"
@@ -337,16 +336,26 @@ PackageInfo PackageParser::parsePackage()
     try {
         json j;
         file >> j;
-        info.name = j.value("name", "");
-        info.author = j.value("author", "");
-        info.author_contact = j.value("author_contact", "");
-        info.version = j.value("version", "");
-        info.partition_list = j.value("partition_list", std::vector<std::string>{});
-        info.images = j.value("images", std::vector<std::string>{});
-        info.isUseCI = j.value("isUseCI", false);
-        info.isPac = j.value("isPac", false);
+        info.name = j["NAME"].get<std::string>();
+        info.author = j["AUTHOR"].get<std::string>();
+        info.author_contact = j["AUTHOR_CONTACT"].get<std::string>();
+        info.version = j["VERSION"].get<std::string>();
+        info.partition_list_path = j["PARTITION_LIST_PATH"].get<std::string>();
+        info.UseCustomPartitionList = j["USE_CUSTOM_PARTITION_LIST"].get<std::string>() == "TRUE";
+        info.device_info = j["DEVICE_INFO"].get<std::string>();
+        info.images = j["IMAGES"].get<std::vector<std::string>>();
+        info.isUseCI = j["USE_CI"].get<std::string>() == "TRUE";
+        info.isPac = j["IS_PAC"].get<std::string>() == "TRUE";
     } catch (const std::exception& e) {
         DEG_LOG(E, "Error parsing package JSON: %s", e.what());
+    }
+    if (info.isPac && (info.UseCustomPartitionList || info.isUseCI)) {
+        DEG_LOG(E, "Invalid package configuration: IS_PAC cannot be TRUE when USE_CUSTOM_PARTITION_LIST or USE_CI is set.");
+        isBadPackage = true;
+    }
+    if ((info.UseCustomPartitionList || info.isUseCI) && info.isPac) {
+        DEG_LOG(E, "Invalid package configuration: USE_CUSTOM_PARTITION_LIST and USE_CI cannot be set when IS_PAC is TRUE.");
+        isBadPackage = true;
     }
     return info;
 }

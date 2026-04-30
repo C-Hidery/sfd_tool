@@ -3,6 +3,7 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include "../common.h"
 #include "../third_party/nlohmann/json.hpp"
 // 命令枚举
 enum CICommands
@@ -35,10 +36,26 @@ struct PackageInfo {
     std::string author;
     std::string author_contact;
     std::string version;
-    std::vector<std::string> partition_list;
+    std::string partition_list_path; // 包内分区表文件路径
+    std::string device_info; // 设备信息
     std::vector<std::string> images;
+    bool UseCustomPartitionList = false; // 是否强制使用包内分区表文件
     bool isUseCI = false; // CI 工作流
     bool isPac = false; // 是否为 PAC 包
+    // JSON文件对应项（示例）：
+    // "NAME": "Package Name",
+    // "AUTHOR": "Author Name",
+    // "AUTHOR_CONTACT": "Author Contact",
+    // "VERSION": "1.0",
+    // "PARTITION_LIST_PATH": "partitions.txt",
+    // "DEVICE_INFO": "Device specific information",
+    // "IMAGES": ["image1.bin", "image2.bin"],
+    // "USE_CUSTOM_PARTITION_LIST": "TRUE",
+    // "USE_CI": "TRUE",
+    // "IS_PAC": "FALSE"
+    // IS_PAC为TRUE时解析PAC并烧录，此时USE_CI和USE_CUSTOM_PARTITION_LIST不能被设置，否则报错
+    // USE_CI和USE_CUSTOM_PARTITION_LIST被设置时IS_PAC必须为FALSE，否则报错
+    // 保存镜像的文件夹名必须是“Images”, 镜像名必须是分区名.img/.bin
 };
 struct CmdReturn {
     bool success;
@@ -51,6 +68,7 @@ class PackageParser
 public:
     PackageInfo getPackageInfo();
     CmdReturn CICmdExcecuter(CICommands cmd, std::vector<std::string> args = {});
+    bool isBadPackage = false;
 private:
     std::string package_path;
     PackageInfo info;
