@@ -80,6 +80,14 @@ add_executable(sfd_tool
     main.cpp
     main_console.cpp
 )
+set(MINIZ_FILE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/miniz/miniz.c")
+if (EXISTS ${MINIZ_FILE})
+    target_sources(sfd_tool PRIVATE ${MINIZ_FILE})
+    target_include_directories(sfd_tool PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/miniz)
+    message(STATUS "miniz.c added to sfd_tool (ZIP support)")
+else()
+    message(WARNING "miniz.c not found at: ${MINIZ_FILE}. ZIP extraction will not be available.")
+endif()
 
 # ================= Windows 资源文件 (.rc) 支持 =================
 if (WIN32)
