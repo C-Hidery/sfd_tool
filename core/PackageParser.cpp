@@ -59,6 +59,12 @@ extern libusb_device** ports;
 // 兼容旧逻辑：isCMethod 始终映射到 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
 
+bool isCVE = false;
+bool isCVEv2 = false;
+uint32_t cve_addr = 0;
+bool isNoFDLMode = false;
+
+
 using nlohmann::json;
 
 int PackageParser::CI_boot_device(int waitTime, bool isKick, bool isOnce) 
@@ -350,7 +356,10 @@ PackageParser::PackageParser(std::string path) : package_path(path)
     info = parsePackage();
 }
 
-PackageParser::~PackageParser() {}
+PackageParser::~PackageParser() 
+{
+    if (execfile) delete[] execfile;
+}
 
 PackageInfo PackageParser::getPackageInfo() 
 {
@@ -380,7 +389,483 @@ CmdReturn PackageParser::CICmdExcecuter(CICommands cmd, std::vector<std::string>
             result.success = CI_boot_device(waitTime, true, true) == 0;
             result.message = result.success ? "One-time kick boot successful" : "One-time kick boot failed";
             break;
+        case CMD_REBOOT:
+            encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
+            if (!send_and_check(io)) {
+                result.success = true;
+                result.message = "Reboot command sent successfully";
+            } else {
+                result.success = false;
+                result.message = "Reboot command failed";
+            }
+            break;
+        case CMD_POWER_OFF:
+            encode_msg_nocpy(io, BSL_CMD_POWER_OFF, 0);
+            if (!send_and_check(io)) {
+                result.success = true;
+                result.message = "Power off command sent successfully";
+            } else {
+                result.success = false;
+                result.message = "Power off command failed";
+            }
+            break;
+        case CMD_SEND_FILE:
+            if (args.size() < 2) {
+                result.success = false;
+                result.message = "SEND_FILE command requires 2 arguments: file path and address";
+            } else {
+                const std::string& filePath = args[0];
+                FILE* file = fopen(filePath.c_str(), "rb");
+                if (!file) {
+                    result.success = false;
+                    result.message = "Failed to open file: " + filePath;
+                    break;
+                }
+                fclose(file);
+                uint32_t address = std::stoul(args[1], nullptr, 0);
+                size_t sentSize = send_file(io, filePath.c_str(), address, 0, 528, 0, 0);
+                if (sentSize > 0) {
+                    result.success = true;
+                    result.message = "File sent successfully";
+                } else {
+                    result.success = false;
+                    result.message = "Failed to send file";
+                }
+            }
+            break;
+        case CMD_EXECUTE:
+            uint32_t execAddr = std::stoul(args[0], nullptr, 0);
+            if (!isNoFDLMode)
+            {
+                if (GetStage() == BROM)
+                {
+                    if (args.size() < 1) {
+                        result.success = false;
+                        result.message = "EXECUTE command requires 1 argument: address";
+                    }
+                    if (isCVE)
+                    {
+                        if (!execfile) {
+                            result.success = false;
+                            result.message = "CVE file path not set";
+                            break;
+                        }
+                        if (!cve_addr) {
+                            result.success = false;
+                            result.message = "CVE address not set";
+                            break;
+                        }
+                        if (isCVEv2)
+                        {
+                            DEG_LOG(I, "Using CVEv2 binary: %s at address: %s", execfile, cve_addr);
+                            
+                            size_t execsize = send_file(io, execfile, cve_addr, 0, 528, 0, 0);
+                            int n, gapsize = exec_addr - cve_addr - execsize;
+                            for (int i = 0; i < gapsize; i += n) {
+                                n = gapsize - i;
+                                if (n > 528) n = 528;
+                                encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
+                                if (send_and_check(io)) ERR_EXIT("CVE v2 failed");;
+                            }
+                            FILE* fi = oxfopen(execfile, "rb");
+                            if (fi) {
+                                fseek(fi, 0, SEEK_END);
+                                n = ftell(fi);
+                                fseek(fi, 0, SEEK_SET);
+                                execsize = fread(io->temp_buf, 1, n, fi);
+                                fclose(fi);
+                            }
+                            encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
+                            if (send_and_check(io)) ERR_EXIT("CVE v2 failed");;
+                            result.success = true;
+                            result.message = "CVE v2 sent successfully";
+                            break;
+                        }
+                        else
+                        {
+                            DEG_LOG(I, "Using CVE binary: %s at address: %s", execfile, cve_addr);
+                            size_t sentSize = send_file(io, execfile, cve_addr, 0, 528, 0, 0);
+                            if (sentSize == 0) {
+                                result.success = false;
+                                result.message = "Failed to send CVE file";
+                                break;
+                            }
+                            else
+                            {
+                                result.success = true;
+                                result.message = "CVE file sent successfully";
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+                        if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
+                    }
         
+                    
+                    if (execAddr == 0x5500 || execAddr == 0x65000800) {
+                        highspeed = 1;
+                        if (!baudrate) baudrate = 921600;
+                    }
+
+                    /* FDL1 (chk = sum) */
+                    io->flags &= ~FLAGS_CRC16;
+
+                    encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
+                    for (int i = 0; ; i++) {
+                        send_msg(io);
+                        recv_msg(io);
+                        if (recv_type(io) == BSL_REP_VER) break;
+                        DEG_LOG(W, "Failed to check baud, retry...");
+                        if (i == 4) {
+                            o_exception = "Failed to check baud FDL1";
+                            ERR_EXIT("Can not execute FDL: %s,please reboot your phone by pressing POWER and VOL_UP for 7-10 seconds.\n", o_exception);
+                        }
+                        usleep(500000);
+                    }
+                    DEG_LOG(I, "Check baud FDL1 done.");
+
+                    DEG_LOG(I, "Device REP_Version: ");
+                    print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+                    encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+                    if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
+                    DEG_LOG(I, "FDL1 connected.");
+#if !USE_LIBUSB
+                    if (baudrate) {
+                        uint8_t* data = io->temp_buf;
+                        WRITE32_BE(data, baudrate);
+                        encode_msg_nocpy(io, BSL_CMD_CHANGE_BAUD, 4);
+                        if (!send_and_check(io)) {
+                            DEG_LOG(OP, "Change baud FDL1 to %d", baudrate);
+                            call_SetProperty(io->handle, 0, 100, (LPCVOID)&baudrate);
+                        }
+                    }
+#endif
+                    if (keep_charge) {
+                        encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
+                        if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
+                    }
+                    result.success = true;
+                    result.message = "FDL1 executed successfully";
+                    fdl1_loaded = 1;
+                }
+                else if (GetStage() == FDL1)
+                {
+                    memset(&Da_Info, 0, sizeof(Da_Info));
+                    encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+                    send_msg(io);
+                    // Feature phones respond immediately,
+                    // but it may take a second for a smartphone to respond.
+                    ret = recv_msg_timeout(io, 15000);
+                    if (!ret) {
+                        ERR_EXIT("timeout reached\n");
+                    }
+                    ret = recv_type(io);
+                    // Is it always bullshit?
+                    if (ret == BSL_REP_INCOMPATIBLE_PARTITION)
+                        get_Da_Info(io);
+                    else if (ret != BSL_REP_ACK) {
+                        //ThrowExit();
+                        const char* name = get_bsl_enum_name(ret);
+                        ERR_EXIT("%s: excepted response (%s : 0x%04x)\n", name, o_exception, ret);
+                    }
+                    DEG_LOG(OP, "Execute FDL2");
+                    //remove 0d detection for nand device
+                    //This is not supported on certain devices.
+                    /*
+                    encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
+                    send_msg(io);
+                    ret = recv_msg(io);
+                    if (ret) {
+                        ret = recv_type(io);
+                        if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"excepted response (0x%04x)\n", ret);
+                        else Da_Info.dwStorageType = 0x101;
+                        // need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
+                        // for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
+                    }
+                    */
+                    if (Da_Info.bDisableHDLC) {
+                        encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
+                        if (!send_and_check(io)) {
+                            io->flags &= ~FLAGS_TRANSCODE;
+                            DEG_LOG(OP, "Try to disable transcode 0x7D.");
+                        }
+                    }
+                    int o = io->verbose;
+                    io->verbose = -1;
+                    g_spl_size = check_partition(io, "splloader", 1);
+                    io->verbose = o;
+                    if (Da_Info.bSupportRawData) {
+                        blk_size = 0xf800;
+                        g_default_blk_size = blk_size;
+                        io->ptable = partition_list(io, fn_partlist, &io->part_count);
+                        if (fdl2_executed) {
+                            Da_Info.bSupportRawData = 0;
+                            DEG_LOG(OP, "Raw data mode disabled for SPRD4.");
+                        } else {
+                            encode_msg_nocpy(io, BSL_CMD_ENABLE_RAW_DATA, 0);
+                            if (!send_and_check(io)) DEG_LOG(OP, "Raw data mode enabled.");
+                        }
+                    } else if (highspeed || Da_Info.dwStorageType == 0x103) { // ufs
+                        blk_size = 0xf800;
+                        g_default_blk_size = blk_size;
+                        io->ptable = partition_list(io, fn_partlist, &io->part_count);
+                    } else if (Da_Info.dwStorageType == 0x102) { // emmc
+                        io->ptable = partition_list(io, fn_partlist, &io->part_count);
+                    } else if (Da_Info.dwStorageType == 0x101) {
+                        DEG_LOG(I, "Device storage is nand.");
+                    }
+                    if (g_app_state.flash.gpt_failed != 1) {
+                        if (g_app_state.flash.selected_ab == 2) {
+
+                            DEG_LOG(I, "Device is using slot b\n");
+                            
+                        }
+                        else if (g_app_state.flash.selected_ab == 1) {
+
+                            DEG_LOG(I, "Device is using slot a\n");
+                            
+                        }
+                        else {
+                            DEG_LOG(I, "Device is not using VAB\n");
+                            
+                            if (Da_Info.bSupportRawData) {
+                                DEG_LOG(I, "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.", (unsigned)Da_Info.bSupportRawData);
+                                Da_Info.bSupportRawData = 0;
+                            }
+                        }
+                    }
+                    if (isUseCptable) {
+                        io->Cptable = partition_list_d(io);
+                        isCMethod = 1;
+                    }
+                    if (!io->part_count && !io->part_count_c) {
+                        DEG_LOG(W, "No partition table found on current device");
+                    }
+                    if (nand_id == DEFAULT_NAND_ID) {
+                        nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+                        nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+                        nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+                    }
+                    fdl2_executed = 1;
+                }
+            }
+            else
+            {
+                if (g_app_state.device.device_mode == SPRD3) { DEG_LOG(E, "Direct execute not supported in SPRD3 mode"); result.success = false; result.message = "Direct execute not supported in SPRD3 mode"; break; }
+                if (GetStage() == BROM)
+                {
+                    encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+                    if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
+        
+                    
+                    if (execAddr == 0x5500 || execAddr == 0x65000800) {
+                        highspeed = 1;
+                        if (!baudrate) baudrate = 921600;
+                    }
+
+                    /* FDL1 (chk = sum) */
+                    io->flags &= ~FLAGS_CRC16;
+
+                    encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
+                    for (int i = 0; ; i++) {
+                        send_msg(io);
+                        recv_msg(io);
+                        if (recv_type(io) == BSL_REP_VER) break;
+                        DEG_LOG(W, "Failed to check baud, retry...");
+                        if (i == 4) {
+                            o_exception = "Failed to check baud FDL1";
+                            ERR_EXIT("Can not execute FDL: %s,please reboot your phone by pressing POWER and VOL_UP for 7-10 seconds.\n", o_exception);
+                        }
+                        usleep(500000);
+                    }
+                    DEG_LOG(I, "Check baud FDL1 done.");
+
+                    DEG_LOG(I, "Device REP_Version: ");
+                    print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+                    encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+                    if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
+                    DEG_LOG(I, "FDL1 connected.");
+#if !USE_LIBUSB
+                    if (baudrate) {
+                        uint8_t* data = io->temp_buf;
+                        WRITE32_BE(data, baudrate);
+                        encode_msg_nocpy(io, BSL_CMD_CHANGE_BAUD, 4);
+                        if (!send_and_check(io)) {
+                            DEG_LOG(OP, "Change baud FDL1 to %d", baudrate);
+                            call_SetProperty(io->handle, 0, 100, (LPCVOID)&baudrate);
+                        }
+                    }
+#endif
+                    if (keep_charge) {
+                        encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
+                        if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
+                    }
+                    fdl1_loaded = 1;
+                }
+                    memset(&Da_Info, 0, sizeof(Da_Info));
+                    encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+                    send_msg(io);
+                    // Feature phones respond immediately,
+                    // but it may take a second for a smartphone to respond.
+                    ret = recv_msg_timeout(io, 15000);
+                    if (!ret) {
+                        ERR_EXIT("timeout reached\n");
+                    }
+                    ret = recv_type(io);
+                    // Is it always bullshit?
+                    if (ret == BSL_REP_INCOMPATIBLE_PARTITION)
+                        get_Da_Info(io);
+                    else if (ret != BSL_REP_ACK) {
+                        //ThrowExit();
+                        const char* name = get_bsl_enum_name(ret);
+                        ERR_EXIT("%s: excepted response (%s : 0x%04x)\n", name, o_exception, ret);
+                    }
+                    DEG_LOG(OP, "Execute FDL2");
+                    //remove 0d detection for nand device
+                    //This is not supported on certain devices.
+                    /*
+                    encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
+                    send_msg(io);
+                    ret = recv_msg(io);
+                    if (ret) {
+                        ret = recv_type(io);
+                        if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"excepted response (0x%04x)\n", ret);
+                        else Da_Info.dwStorageType = 0x101;
+                        // need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
+                        // for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
+                    }
+                    */
+                    if (Da_Info.bDisableHDLC) {
+                        encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
+                        if (!send_and_check(io)) {
+                            io->flags &= ~FLAGS_TRANSCODE;
+                            DEG_LOG(OP, "Try to disable transcode 0x7D.");
+                        }
+                    }
+                    int o = io->verbose;
+                    io->verbose = -1;
+                    g_spl_size = check_partition(io, "splloader", 1);
+                    io->verbose = o;
+                    if (Da_Info.bSupportRawData) {
+                        blk_size = 0xf800;
+                        g_default_blk_size = blk_size;
+                        io->ptable = partition_list(io, fn_partlist, &io->part_count);
+                        if (fdl2_executed) {
+                            Da_Info.bSupportRawData = 0;
+                            DEG_LOG(OP, "Raw data mode disabled for SPRD4.");
+                        } else {
+                            encode_msg_nocpy(io, BSL_CMD_ENABLE_RAW_DATA, 0);
+                            if (!send_and_check(io)) DEG_LOG(OP, "Raw data mode enabled.");
+                        }
+                    } else if (highspeed || Da_Info.dwStorageType == 0x103) { // ufs
+                        blk_size = 0xf800;
+                        g_default_blk_size = blk_size;
+                        io->ptable = partition_list(io, fn_partlist, &io->part_count);
+                    } else if (Da_Info.dwStorageType == 0x102) { // emmc
+                        io->ptable = partition_list(io, fn_partlist, &io->part_count);
+                    } else if (Da_Info.dwStorageType == 0x101) {
+                        DEG_LOG(I, "Device storage is nand.");
+                    }
+                    if (g_app_state.flash.gpt_failed != 1) {
+                        if (g_app_state.flash.selected_ab == 2) {
+
+                            DEG_LOG(I, "Device is using slot b\n");
+                            
+                        }
+                        else if (g_app_state.flash.selected_ab == 1) {
+
+                            DEG_LOG(I, "Device is using slot a\n");
+                            
+                        }
+                        else {
+                            DEG_LOG(I, "Device is not using VAB\n");
+                            
+                            if (Da_Info.bSupportRawData) {
+                                DEG_LOG(I, "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.", (unsigned)Da_Info.bSupportRawData);
+                                Da_Info.bSupportRawData = 0;
+                            }
+                        }
+                    }
+                    if (isUseCptable) {
+                        io->Cptable = partition_list_d(io);
+                        isCMethod = 1;
+                    }
+                    if (!io->part_count && !io->part_count_c) {
+                        DEG_LOG(W, "No partition table found on current device");
+                    }
+                    if (nand_id == DEFAULT_NAND_ID) {
+                        nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+                        nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+                        nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+                    }
+                    fdl2_executed = 1;
+            }
+            break;
+        case CMD_SET_BAUDRATE:
+            if (args.size() < 1) {
+                result.success = false;
+                result.message = "SET_BAUDRATE command requires 1 argument: baudrate";
+            } else {
+#if !USE_LIBUSB
+                if (std::stoul(args[0], nullptr, 0) == 0) {
+                    result.success = false;
+                    result.message = "Baudrate cannot be zero";
+                    break;
+                }
+                baudrate = std::stoul(args[0], nullptr, 0);
+				if (fdl2_executed) call_SetProperty(io->handle, 0, 100, (LPCVOID)&baudrate);
+			    DEG_LOG(I, "Baudrate is %u", baudrate);
+                result.success = true;
+                result.message = "Baudrate set successfully";
+#else
+                result.success = false;
+                result.message = "Changing baudrate is not supported in libusb mode";
+#endif
+            }
+            break;
+        case CMD_SET_EXEC_ADDR:
+            if (args.size() < 1) {
+                result.success = false;
+                result.message = "SET_EXEC_ADDR command requires 1 argument: address";
+            } else {
+                cve_addr = std::stoul(args[0], nullptr, 0);
+                isCVE = true;
+                result.success = true;
+                result.message = "Execution address set successfully";
+            }
+            break;
+        case CMD_SET_EXEC_ADDR_V2:
+            if (args.size() < 1) {
+                result.success = false;
+                result.message = "SET_EXEC_ADDR_V2 command requires 1 argument: address";
+            } else {
+                cve_addr = std::stoul(args[0], nullptr, 0);
+                isCVE = true;
+                isCVEv2 = true;
+                result.success = true;
+                result.message = "Execution address for CVEv2 set successfully";
+            }
+            break;
+        case CMD_REPARTITION:
+            if (args.size() < 1) {
+                result.success = false;
+                result.message = "REPARTITION command requires 1 argument: partition table path";
+            } else {
+                FILE *partFile = fopen(args[0].c_str(), "rb");
+                if (!partFile) {
+                    result.success = false;
+                    result.message = "Failed to open partition table file: " + args[0];
+                    break;
+                }
+                fclose(partFile);
+                repartition(io, args[0].c_str());
+                result.success = true;
+                result.message = "Repartition command executed successfully";
+            }
+            break;
         default:
             result.success = false;
             result.message = "Unknown command";

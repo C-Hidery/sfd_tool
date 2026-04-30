@@ -26,6 +26,8 @@ enum CICommands
     CMD_SET_HIGH_SPEED = 16,
     CMD_SET_NO_FDL_MODE = 17,
     CMD_SET_FBLK_SIZE = 18,
+    CMD_SET_EXEC_ADDR_V2 = 19,
+    CMD_SET_USE_CPTABLE = 20
 };
 // 刷机包信息
 struct PackageInfo {
@@ -54,4 +56,5 @@ private:
     PackageInfo info;
     PackageInfo parsePackage();
     int CI_boot_device(int waitTime, bool isKick, bool isOnce);
+    char* execfile = nullptr;
 };
