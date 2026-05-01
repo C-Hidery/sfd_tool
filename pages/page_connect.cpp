@@ -694,7 +694,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			GtkWidget* cveAddr = helper.getWidget("cve_addr");
 			GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
 			bool isCve = helper.getSwitchState(cveSwitch);
-			execfile = (char *)helper.getEntryText(cveAddr);
+			snprintf(execfile, ARGV_LEN, "%s", helper.getEntryText(cveAddr));
 			const char* cve_addr = helper.getEntryText(cveAddrC);
 
 			if (g_app_state.device.device_mode == SPRD3) {

@@ -14,53 +14,7 @@ void ERR_EXIT(const char* format, ...) {
 		gui_idle_call_wait_drag([]() {
 			showErrorDialog(helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr, "Error", "An error occurred. The application will now exit.\n监测到错误，应用程序将退出。");
 		}, helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr);
-		helper.disableWidget("fdl_exec");
-    	helper.disableWidget("poweroff");
-    	helper.disableWidget("reboot");
-    	helper.disableWidget("recovery");
-    	helper.disableWidget("fastboot");
-    	helper.disableWidget("list_read");
-    	helper.disableWidget("list_write");
-    	helper.disableWidget("list_erase");
-    	helper.disableWidget("m_write");
-    	helper.disableWidget("m_read");
-    	helper.disableWidget("m_erase");
-    	helper.disableWidget("set_active_a");
-    	helper.disableWidget("set_active_b");
-    	helper.disableWidget("start_repart");
-    	helper.disableWidget("blk_size");
-    	helper.disableWidget("read_xml");
-    	helper.disableWidget("dmv_enable");
-    	helper.disableWidget("dmv_disable");
-    	helper.disableWidget("backup_all");
-		helper.disableWidget("check_backup_integrity");
-    	helper.disableWidget("list_cancel");
-    	helper.disableWidget("m_cancel");
-    	helper.disableWidget("list_force_write");
-    	helper.disableWidget("check_nand");
-    	helper.disableWidget("pac_time");
-    	helper.disableWidget("chip_uid");
-    	helper.disableWidget("dis_avb");
-    	helper.disableWidget("transcode_en");
-    	helper.disableWidget("transcode_dis");
-    	helper.disableWidget("end_data_dis");
-    	helper.disableWidget("end_data_en");
-    	helper.disableWidget("charge_en");
-    	helper.disableWidget("charge_dis");
-    	helper.disableWidget("raw_data_en");
-    	helper.disableWidget("raw_data_dis");
-    	helper.disableWidget("modify_part");
-    	helper.disableWidget("modify_new_part");
-    	helper.disableWidget("modify_rm_part");
-    	helper.disableWidget("modify_ren_part");
-    	helper.disableWidget("xml_get");
-    	helper.disableWidget("abpart_auto");
-    	helper.disableWidget("abpart_a");
-    	helper.disableWidget("abpart_b");
-		helper.disableWidget("pac_flash_start");
-		helper.disableWidget("export_part_xml");
-		helper.disableWidget("force_flash_en");
-		helper.disableWidget("force_flash_dis");
+		DisableWidgets(helper);
 	}
 	std::thread([&](){
 #ifdef _WIN32
