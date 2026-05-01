@@ -1872,10 +1872,12 @@ rloop:
 				} else if (isdigit(str2[2][0])) load_partition_force(io, atoi(str2[2]) - 1, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
 				else {
 					for (i = 0; i < io->part_count; i++)
+					{
 						if (!strcmp(gPartInfo.name, (*(io->ptable + i)).name)) {
 							load_partition_force(io, i, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
 							break;
 						}
+					}
 				}
 			} else if (io->part_count_c) {
 				DEG_LOG(W, "compatibility-method mode detected,for security,recommanded not to force write!");

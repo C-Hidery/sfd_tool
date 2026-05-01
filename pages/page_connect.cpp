@@ -467,9 +467,6 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 					[helper, fdl_path, fdl_addr](bool result) {
 						if (result) {
 							DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
-							encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-							if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
-							return;
 						} else {
 							FILE *fi = oxfopen(fdl_path, "r");
 							if (fi == nullptr) {
@@ -697,7 +694,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			GtkWidget* cveAddr = helper.getWidget("cve_addr");
 			GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
 			bool isCve = helper.getSwitchState(cveSwitch);
-			const char* cve_path = helper.getEntryText(cveAddr);
+			snprintf(execfile, ARGV_LEN, "%s", helper.getEntryText(cveAddr));
 			const char* cve_addr = helper.getEntryText(cveAddrC);
 
 			if (g_app_state.device.device_mode == SPRD3) {
@@ -709,14 +706,14 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				if (cve_addr && strlen(cve_addr) > 0 && isCve) {
 					bool isCVEv2 = helper.getSwitchState(helper.getWidget("cve_v2"));
 					if(!isCVEv2){
-						DEG_LOG(I, "Using CVE binary: %s at address: %s", cve_path, cve_addr);
+						DEG_LOG(I, "Using CVE binary: %s at address: %s", execfile, cve_addr);
 						uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
-						send_file(io, cve_path, cve_addr_val, 0, 528, 0, 0);
+						send_file(io, execfile, cve_addr_val, 0, 528, 0, 0);
 					}
 					else{
-						DEG_LOG(I, "Using CVEv2 binary: %s at address: %s", cve_path, cve_addr);
+						DEG_LOG(I, "Using CVEv2 binary: %s at address: %s", execfile, cve_addr);
 						uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
-						size_t execsize = send_file(io, cve_path, cve_addr_val, 0, 528, 0, 0);
+						size_t execsize = send_file(io, execfile, cve_addr_val, 0, 528, 0, 0);
 						int n, gapsize = exec_addr - cve_addr_val - execsize;
 						for (int i = 0; i < gapsize; i += n) {
 							n = gapsize - i;
@@ -746,7 +743,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 						[helper]() -> bool {
 							return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Device can be booted without FDL in SPRD4 mode, continue?"));
 						},
-						[execfile,fdl_path,fdl_addr,isCve,cve_addr,cve_path,fi, helper](bool result) {
+						[execfile,fdl_path,fdl_addr,isCve,cve_addr,fi, helper](bool result) {
 							if (result) {
 								DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
 								fclose(fi);
@@ -763,14 +760,14 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 								if (cve_addr && strlen(cve_addr) > 0 && isCve) {
 									bool isCVEv2 = helper.getSwitchState(helper.getWidget("cve_v2"));
 									if(!isCVEv2){
-										DEG_LOG(I, "Using CVE binary: %s at address: %s", cve_path, cve_addr);
+										DEG_LOG(I, "Using CVE binary: %s at address: %s", execfile, cve_addr);
 										uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
-										send_file(io, cve_path, cve_addr_val, 0, 528, 0, 0);
+										send_file(io, execfile, cve_addr_val, 0, 528, 0, 0);
 									}
 									else{
-										DEG_LOG(I, "Using CVEv2 binary: %s at address: %s", cve_path, cve_addr);
+										DEG_LOG(I, "Using CVEv2 binary: %s at address: %s", execfile, cve_addr);
 										uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
-										size_t execsize = send_file(io, cve_path, cve_addr_val, 0, 528, 0, 0);
+										size_t execsize = send_file(io, execfile, cve_addr_val, 0, 528, 0, 0);
 										int n, gapsize = exec_addr - cve_addr_val - execsize;
 										for (int i = 0; i < gapsize; i += n) {
 											n = gapsize - i;
