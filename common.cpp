@@ -1989,11 +1989,15 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 	if (partitions == nullptr) return;
 	char *fn;
 #if _WIN32
-	char searchPath[ARGV_LEN];
-	snprintf(searchPath, ARGV_LEN, "%s\\*", path);
-
-	WIN32_FIND_DATAA findData;
-	HANDLE hFind = FindFirstFileA(searchPath, &findData);
+	// 将 path (UTF-8) 转为 UTF-16
+    wchar_t wpath[ARGV_LEN * 2];
+    MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, ARGV_LEN * 2);
+    
+    wchar_t wsearchPath[ARGV_LEN * 2];
+    swprintf(wsearchPath, ARGV_LEN * 2, L"%s\\*", wpath);
+    
+    WIN32_FIND_DATAW findData;
+    HANDLE hFind = FindFirstFileW(wsearchPath, &findData);
 
 	if (hFind == INVALID_HANDLE_VALUE) {
 		DEG_LOG(E,"Failed to open directory.\n");
@@ -2002,6 +2006,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 	do {
 		fn = findData.cFileName;
 		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+        WideCharToMultiByte(CP_UTF8, 0, findData.cFileName, -1, fn, PATH_MAX, NULL, NULL);
 		namelen = strlen(fn);
 		if (namelen >= 4) {
 			if (!strcmp(fn + namelen - 4, ".xml") ||
@@ -2029,7 +2034,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		strcpy(partitions[partition_count].name, fn);
 		partitions[partition_count].written_flag = 0;
 		partition_count++;
-	} while (FindNextFileA(hFind, &findData));
+	} while (FindNextFileW(hFind, &findData));
 	FindClose(hFind);
 #else
 	DIR *dir;
