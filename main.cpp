@@ -100,7 +100,7 @@ static std::string get_executable_dir() {
         return std::string();
     }
     
-    char utf8_path[PATH_MAX] = {0};
+    char utf8_path[MAX_PATH] = {0};
     int utf8_len = WideCharToMultiByte(CP_UTF8, 0, path, len, 
                                         utf8_path, sizeof(utf8_path) - 1, 
                                         NULL, NULL);
