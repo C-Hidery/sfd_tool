@@ -1990,6 +1990,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 	char *fn;
 #if _WIN32
 	// 将 path (UTF-8) 转为 UTF-16
+	char fn_buffer[MAX_PATH];
     wchar_t wpath[ARGV_LEN * 2];
     MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, ARGV_LEN * 2);
     
@@ -2004,9 +2005,9 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		return;
 	}
 	do {
-		fn = findData.cFileName;
 		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
-        WideCharToMultiByte(CP_UTF8, 0, findData.cFileName, -1, fn, PATH_MAX, NULL, NULL);
+        WideCharToMultiByte(CP_UTF8, 0, findData.cFileName, -1, fn_buffer, MAX_PATH, NULL, NULL);
+		fn = fn_buffer;
 		namelen = strlen(fn);
 		if (namelen >= 4) {
 			if (!strcmp(fn + namelen - 4, ".xml") ||
