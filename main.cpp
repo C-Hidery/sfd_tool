@@ -94,17 +94,29 @@ static std::string get_executable_dir() {
     }
     return p.substr(0, pos);
 #elif defined(_WIN32)
-    char path[MAX_PATH] = {0};
-    DWORD len = GetModuleFileNameA(NULL, path, MAX_PATH);
+    wchar_t path[MAX_PATH] = {0};
+    DWORD len = GetModuleFileNameW(NULL, path, MAX_PATH);
     if (len == 0 || len == MAX_PATH) {
         return std::string();
     }
-    std::string p(path);
-    // Windows 路径用反斜杠分隔
-    auto pos = p.find_last_of('\\');
+    
+    char utf8_path[PATH_MAX] = {0};
+    int utf8_len = WideCharToMultiByte(CP_UTF8, 0, path, len, 
+                                        utf8_path, sizeof(utf8_path) - 1, 
+                                        NULL, NULL);
+    if (utf8_len <= 0) {
+        return std::string();
+    }
+    utf8_path[utf8_len] = '\0';  // 确保终止
+    
+    std::string p(utf8_path);
+    
+    // 支持 \ 和 / 两种分隔符
+    size_t pos = p.find_last_of("\\/");
     if (pos == std::string::npos) {
         return std::string();
     }
+    
     return p.substr(0, pos);
 #else
     return std::string();
