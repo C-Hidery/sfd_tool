@@ -460,24 +460,23 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			else send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
 		} else {
 			if (g_app_state.device.device_mode == SPRD4 && isKickMode) {
-				gui_idle_call_with_callback(
-					[helper]() -> bool {
-						return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Device can be booted without FDL in SPRD4 mode, continue?"));
-					},
-					[helper, fdl_path, fdl_addr](bool result) {
-						if (result) {
-							DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
-						} else {
-							FILE *fi = oxfopen(fdl_path, "r");
-							if (fi == nullptr) {
-								DEG_LOG(W, "File does not exist.");
-								return;
-							} else fclose(fi);
-							send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
-						}
-					},
-					GTK_WINDOW(helper.getWidget("main_window"))
-				);
+				std::promise<bool> promise;
+				auto future = promise.get_future();
+				gui_idle_call_wait_drag([&promise, helper]() {
+					bool result = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Device can be booted without FDL in SPRD4 mode, continue?"));
+					promise.set_value(result);
+				}, GTK_WINDOW(helper.getWidget("main_window")));
+				bool result = future.get();
+				if (result) {
+					DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
+				} else {
+					FILE *fi = oxfopen(fdl_path, "r");
+					if (fi == nullptr) {
+						DEG_LOG(W, "File does not exist.");
+						return;
+					} else fclose(fi);
+					send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
+				}
 				
 			}
 		}
@@ -739,62 +738,62 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				}
 			} else {
 				if (g_app_state.device.device_mode == SPRD4 && isKickMode) {
-					gui_idle_call_with_callback(
-						[helper]() -> bool {
-							return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Device can be booted without FDL in SPRD4 mode, continue?"));
-						},
-						[execfile,fdl_path,fdl_addr,isCve,cve_addr,fi, helper](bool result) {
-							if (result) {
-								DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
-								fclose(fi);
-								encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-								if (send_and_check(io)) ERR_EXIT("FDL exec failed");
-								delete[](execfile);
-								return;
-							} else {
-								if (fi == nullptr) {
-									DEG_LOG(W, "File does not exist.\n");
-									return;
-								} else fclose(fi);
-								send_file(io, fdl_path, fdl_addr, end_data, 528, 0, 0);
-								if (cve_addr && strlen(cve_addr) > 0 && isCve) {
-									bool isCVEv2 = helper.getSwitchState(helper.getWidget("cve_v2"));
-									if(!isCVEv2){
-										DEG_LOG(I, "Using CVE binary: %s at address: %s", execfile, cve_addr);
-										uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
-										send_file(io, execfile, cve_addr_val, 0, 528, 0, 0);
-									}
-									else{
-										DEG_LOG(I, "Using CVEv2 binary: %s at address: %s", execfile, cve_addr);
-										uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
-										size_t execsize = send_file(io, execfile, cve_addr_val, 0, 528, 0, 0);
-										int n, gapsize = exec_addr - cve_addr_val - execsize;
-										for (int i = 0; i < gapsize; i += n) {
-											n = gapsize - i;
-											if (n > 528) n = 528;
-											encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
-											if (send_and_check(io)) ERR_EXIT("CVE V2 failed");
-										}
-										FILE* fi = oxfopen(execfile, "rb");
-										if (fi) {
-											fseek(fi, 0, SEEK_END);
-											n = ftell(fi);
-											fseek(fi, 0, SEEK_SET);
-											execsize = fread(io->temp_buf, 1, n, fi);
-											fclose(fi);
-										}
-										encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
-										if (send_and_check(io)) ERR_EXIT("CVE V2 failed");;
-									}
-									delete[](execfile);
-								} else {
-									encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-									if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
+					std::promise<bool> promise;
+					auto future = promise.get_future();
+					gui_idle_call_wait_drag([&promise, helper]() {
+						bool result = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Device can be booted without FDL in SPRD4 mode, continue?"));
+						promise.set_value(result);
+					}, GTK_WINDOW(helper.getWidget("main_window")));
+					bool result = future.get();
+					if (result) {
+						DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
+						fclose(fi);
+						encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+						if (send_and_check(io)) ERR_EXIT("FDL exec failed");
+						delete[](execfile);
+						return;
+					} else {
+						if (fi == nullptr) {
+							DEG_LOG(W, "File does not exist.\n");
+							return;
+						} else fclose(fi);
+						send_file(io, fdl_path, fdl_addr, end_data, 528, 0, 0);
+						if (cve_addr && strlen(cve_addr) > 0 && isCve) {
+							bool isCVEv2 = helper.getSwitchState(helper.getWidget("cve_v2"));
+							if(!isCVEv2){
+								DEG_LOG(I, "Using CVE binary: %s at address: %s", execfile, cve_addr);
+								uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
+								send_file(io, execfile, cve_addr_val, 0, 528, 0, 0);
+							}
+							else{
+								DEG_LOG(I, "Using CVEv2 binary: %s at address: %s", execfile, cve_addr);
+								uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
+								size_t execsize = send_file(io, execfile, cve_addr_val, 0, 528, 0, 0);
+								int n, gapsize = exec_addr - cve_addr_val - execsize;
+								for (int i = 0; i < gapsize; i += n) {
+									n = gapsize - i;
+									if (n > 528) n = 528;
+									encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
+									if (send_and_check(io)) ERR_EXIT("CVE V2 failed");
 								}
-							}	
-						},
-						GTK_WINDOW(helper.getWidget("main_window"))
-					);
+								FILE* fi = oxfopen(execfile, "rb");
+								if (fi) {
+									fseek(fi, 0, SEEK_END);
+									n = ftell(fi);
+									fseek(fi, 0, SEEK_SET);
+									execsize = fread(io->temp_buf, 1, n, fi);
+									fclose(fi);
+								}
+								encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
+								if (send_and_check(io)) ERR_EXIT("CVE V2 failed");;
+							}
+							delete[](execfile);
+						} else {
+							encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+							if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
+						}
+					}	
+					
 					
 				}
 			}

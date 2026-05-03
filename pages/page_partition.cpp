@@ -1588,32 +1588,32 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 
 void confirm_partition_c(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
-	gui_idle_call_with_callback(
-		[helper]() -> bool {
-			return showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("No partition table found on current device, read partition list through compatibility method?\nWarn: This mode may not find all partitions on your device, use caution with force write or editing partition table!"));
-		},
-			[helper](bool result) mutable {
-			if (result) {
-				isUseCptable = 1;
-				io->Cptable = partition_list_d(io);
-				isCMethod = 1;
-				std::vector<sfd::DevicePartitionInfo> partitions;
-				partitions.reserve(io->part_count_c);
-				for (int i = 0; i < io->part_count_c; i++) {
-					sfd::DevicePartitionInfo info{};
-					info.name = io->Cptable[i].name;
-					info.size = (std::uint64_t)io->Cptable[i].size;
-					info.readable = true;
-					info.writable = true;
-					partitions.push_back(info);
-				}
-				populatePartitionList(helper, partitions);
-			} else {
-				DEG_LOG(W, "Partition table not read.");
-			}
-		},
-		GTK_WINDOW(helper.getWidget("main_window"))
-	);
+	std::promise<bool> promise;
+	auto future = promise.get_future();
+	gui_idle_call_wait_drag([&promise, helper]() mutable {
+		bool result = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("No partition table found on current device, read partition list through compatibility method?\nWarn: This mode may not find all partitions on your device, use caution with force write or editing partition table!"));
+		promise.set_value(result);
+	}, GTK_WINDOW(helper.getWidget("main_window")));
+	bool result = future.get();
+	if (result) {
+		isUseCptable = 1;
+		io->Cptable = partition_list_d(io);
+		isCMethod = 1;
+		std::vector<sfd::DevicePartitionInfo> partitions;
+		partitions.reserve(io->part_count_c);
+		for (int i = 0; i < io->part_count_c; i++) {
+			sfd::DevicePartitionInfo info{};
+			info.name = io->Cptable[i].name;
+			info.size = (std::uint64_t)io->Cptable[i].size;
+			info.readable = true;
+			info.writable = true;
+			partitions.push_back(info);
+		}
+		populatePartitionList(helper, partitions);
+	} else {
+		DEG_LOG(W, "Partition table not read.");
+	}
+	
 }
 
 GtkWidget* PartitionPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {

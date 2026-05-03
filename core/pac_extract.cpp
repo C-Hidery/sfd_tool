@@ -12,6 +12,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <filesystem>  // C++17 filesystem
+#include <sstream>
 #include "XmlParser.hpp"
 #ifdef _WIN32
     #include <io.h>
@@ -1141,7 +1142,15 @@ bool pac_flash(spdio_t* io, const char* floder)
     bool i_is = false;
     if (isHelperInit)
     {
-        i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Do you want to repartiton?"));
+        std::promise<bool> promise;
+        auto future = promise.get_future();
+        auto* promise_ptr = new std::promise<bool>(std::move(promise));
+        gui_idle_call_wait_drag([promise_ptr]() {
+            bool result = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Do you want to repartition?"));
+            promise_ptr->set_value(result);
+            delete promise_ptr;
+        }, GTK_WINDOW(helper.getWidget("main_window")));
+        i_is = future.get();
     }
     else
     {
