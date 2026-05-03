@@ -60,7 +60,6 @@ jobs:
           }
           Write-Host "Using vcpkg: $vcpkgExe"
           & $vcpkgExe install "gettext:${{ matrix.vcpkg_triplet }}"
-          }
       - name: Install MSYS2 and GTK3 (x64)
         if: matrix.arch == 'x64'
         shell: pwsh
