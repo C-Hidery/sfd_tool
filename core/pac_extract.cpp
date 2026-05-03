@@ -3,7 +3,7 @@
 #include "logging.h"  // 使用统一的 ERR_EXIT
 #include "app_state.h"
 #include "../common.h"
-#include "main.h"
+#include "../main.h"
 #define _GNU_SOURCE 1
 #define _FILE_OFFSET_BITS 64
 

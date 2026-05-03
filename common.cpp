@@ -2393,7 +2393,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 					free(io->nvid_list);
 					io->nvid_list = NULL;
 					get_partition_info(io, "nr_fixnv1", 1);
-					load_nv_partition(io, gPartInfo.name, "nvmerged", step);
+					load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
 				}
 			}
 			else if (strstr("l_fixnv1", fn))
@@ -2416,7 +2416,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 					free(io->nvid_list);
 					io->nvid_list = NULL;
 					get_partition_info(io, "l_fixnv1", 1);
-					load_nv_partition(io, gPartInfo.name, "nvmerged", step);
+					load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
 				}
 			}
 			else if (strstr("downloadnv", fn))
@@ -2439,7 +2439,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 					free(io->nvid_list);
 					io->nvid_list = NULL;
 					get_partition_info(io, "downloadnv", 1);
-					load_nv_partition(io, gPartInfo.name, "nvmerged", step);
+					load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
 				}
 			}
 			partitions[i].written_flag = 1;

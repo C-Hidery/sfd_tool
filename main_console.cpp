@@ -1990,9 +1990,7 @@ rloop:
 				if (fseek(fi, 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
 				if (fwrite(c, 1, c_size, fi) != c_size) ERR_EXIT("fwrite failed\n");
 				fclose(fi);
-				fi = oxfopen("nvmerged", "rb");
-				load_nv_partition(io, gPartInfo.name, fi, 4096);
-				fclose(fi);
+				load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
 				free(a); free(b); free(c);
 			}
 			free(io->nvid_list);
@@ -2004,7 +2002,7 @@ rloop:
 			if (argcount <= 4) { DEG_LOG(W,"mergenv-xml-ex xml old_nv new_nv\n"); argc = 1; continue; }
 			if (get_nvlist_xml(io, str2[2])) {
 				size_t a_size = 0, b_size = 0, c_size = 0;
-				uint8_t *a = loadfile(str[3], &a_size, 0);
+				uint8_t *a = loadfile(str2[3], &a_size, 0);
 				uint8_t *b = loadfile(str2[4], &b_size, 0);
 				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 				merge_nv(io, a, a_size, b, b_size, c, &c_size);
@@ -2039,9 +2037,7 @@ rloop:
 				if (fseek(fi, 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
 				if (fwrite(c, 1, c_size, fi) != c_size) ERR_EXIT("fwrite failed\n");
 				fclose(fi);
-				fi = oxfopen("nvmerged", "rb");
-				load_nv_partition(io, gPartInfo.name, fi, 4096);
-				fclose(fi);
+				load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
 				free(a); free(b); free(c);
 			}
 			free(io->nvid_list);
