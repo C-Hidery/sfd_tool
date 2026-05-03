@@ -10,3 +10,4 @@ dist/
 # Ignore gettext templates
 *.pot
 
+version.h
