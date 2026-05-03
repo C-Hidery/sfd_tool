@@ -79,6 +79,38 @@ void gui_idle_call_wait_drag(Func&& func, GtkWindow* window) {
     // 不在拖动中，正常执行
     gui_idle_call(std::forward<Func>(func));
 }
+template<typename Func>
+void wait_drag_sync(Func&& func, GtkWindow* window) {
+    using FuncType = typename std::decay<Func>::type;
+    
+    // 如果窗口在拖动中，使用循环检测机制
+    while (g_window_is_dragging) {
+        g_window_is_dragging = isWindowDragging(window);
+        g_usleep(50000); // 50ms
+    }
+    
+    // 拖动结束，执行函数
+    FuncType func_copy(std::forward<Func>(func));
+    func_copy();
+}
+template<typename Func, typename Callback>
+void wait_drag_sync_with_callback(Func&& func, Callback&& callback, GtkWindow* window) {
+    using FuncType = typename std::decay<Func>::type;
+    using CallbackType = typename std::decay<Callback>::type;
+
+    // 如果窗口在拖动中，使用循环检测机制
+    while (g_window_is_dragging) {
+        g_window_is_dragging = isWindowDragging(window);
+        g_usleep(50000); // 50ms
+    }
+    
+    // 拖动结束，执行函数并调用回调
+    FuncType func_copy(std::forward<Func>(func));
+    CallbackType callback_copy(std::forward<Callback>(callback));
+    
+    bool result = func_copy();
+    callback_copy(result);
+}
 // 改进的 idle call with callback，自动等待拖动结束
 template<typename Func, typename Callback>
 void gui_idle_call_with_callback(Func&& func, Callback&& callback, GtkWindow* window) {
