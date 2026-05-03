@@ -2211,6 +2211,10 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		return;
 	}
 	do {
+		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+        WideCharToMultiByte(CP_UTF8, 0, findData.cFileName, -1, fn_buffer, MAX_PATH, NULL, NULL);
+		fn = fn_buffer;
+		namelen = strlen(fn);
 		if (!strncmp(fn, primary_id, strlen(primary_id)))
 		{
 			primary_index = partition_count;
@@ -2219,10 +2223,6 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		{
 			fallback_index = partition_count;
 		}
-		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
-        WideCharToMultiByte(CP_UTF8, 0, findData.cFileName, -1, fn_buffer, MAX_PATH, NULL, NULL);
-		fn = fn_buffer;
-		namelen = strlen(fn);
 		if (namelen >= 4) {
 			if (!strcmp(fn + namelen - 4, ".xml") ||
 				!strcmp(fn + namelen - 4, ".exe") ||
