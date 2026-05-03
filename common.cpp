@@ -7,6 +7,9 @@
 #endif
 #include <string>
 #include "main.h"
+#include "core/logging.h"
+#include "core/app_state.h"
+#include "core/XmlParser.hpp"
 int isCancel = 0;
 bool isHelperInit = false;
 GtkWidgetHelper helper;
@@ -572,65 +575,110 @@ uint64_t read_pactime(spdio_t *io) {
 	return time;
 }
 
+
+
 int scan_xml_partitions(spdio_t *io, const char *fn, uint8_t *buf, size_t buf_size) {
-	const char *part1 = "Partitions>";
-	char *src, *p; size_t fsize = 0;
-	int part1_len = strlen(part1), found = 0, stage = 0;
-	if (io->ptable == nullptr) io->ptable = NEWN partition_t[128 * sizeof(partition_t)];
-	src = (char *)loadfile(fn, &fsize, 1);
-	if (!src) ERR_EXIT("loadfile failed\n");
-	src[fsize] = 0;
-	p = src;
-	for (;;) {
-		int i, a = *p++, n; char c; long long size;
-		if (a == ' ' || a == '\t' || a == '\n' || a == '\r') continue;
-		if (a != '<') {
-			if (!a) break;
-			if (stage != 1) continue;
-			ERR_EXIT("xml: unexpected symbol\n");
-		}
-		if (!memcmp(p, "!--", 3)) {
-			p = strstr(p + 3, "--");
-			if (!p || !((p[-1] - '!') | (p[-2] - '<')) || p[2] != '>')
-				ERR_EXIT("xml: unexpected syntax\n");
-			p += 3;
-			continue;
-		}
-		if (stage != 1) {
-			stage += !memcmp(p, part1, part1_len);
-			if (stage > 2)
-				ERR_EXIT("xml: more than one partition lists\n");
-			p = strchr(p, '>');
-			if (!p) ERR_EXIT("xml: unexpected syntax\n");
-			p++;
-			continue;
-		}
-		if (*p == '/' && !memcmp(p + 1, part1, part1_len)) {
-			p = p + 1 + part1_len;
-			stage++;
-			continue;
-		}
-		i = sscanf(p, "Partition id=\"%35[^\"]\" size=\"%lli\"/%n%c", (*(io->ptable + found)).name, &size, &n, &c);
-		if (i != 3 || c != '>')
-			ERR_EXIT("xml: unexpected syntax\n");
-		p += n + 1;
-		if (buf_size < 0x4c)
-			ERR_EXIT("xml: too many partitions\n");
-		buf_size -= 0x4c;
-		memset(buf, 0, 36 * 2);
-		for (i = 0; (a = (*(io->ptable + found)).name[i]); i++) buf[i * 2] = a;
-		if (!i) ERR_EXIT("empty partition name\n");
-		WRITE32_LE(buf + 0x48, size);
-		buf += 0x4c;
-		DBG_LOG("[%d] %s, %d\n", found + 1, (*(io->ptable + found)).name, (int)size);
-		(*(io->ptable + found)).size = size << 20;
-		found++;
-	}
-	io->part_count = found;
-	if (p - 1 != src + fsize) ERR_EXIT("xml: zero byte");
-	if (stage != 2) ERR_EXIT("xml: unexpected syntax\n");
-	delete[] src;
-	return found;
+    // 1. 读取文件内容
+    size_t fsize = 0;
+    char *src = (char *)loadfile(fn, &fsize, 1);
+    if (!src) ERR_EXIT("loadfile failed\n");
+    src[fsize] = 0;
+
+    // 2. 解析 XML
+    XmlParser parser;
+    auto root = parser.parseString(src);
+    if (!root) {
+        delete[] src;
+        ERR_EXIT("Failed to parse XML\n");
+    }
+
+    // 3. 查找 <Partitions> 节点（唯一）
+    auto partitionsNodes = root->getDescendants("Partitions");
+    if (partitionsNodes.empty()) {
+        delete[] src;
+        ERR_EXIT("No <Partitions> element\n");
+    }
+    if (partitionsNodes.size() > 1) {
+        delete[] src;
+        ERR_EXIT("xml: more than one partition lists\n");
+    }
+    auto partitions = partitionsNodes[0];
+
+    // 4. 获取所有 <Partition> 子节点
+    auto partitionNodes = partitions->getChildren("Partition");
+
+    // 5. 分配 ptable 如果需要
+    if (io->ptable == nullptr)
+        io->ptable = NEWN partition_t[128 * sizeof(partition_t)];
+
+    // 6. 遍历分区，填充 buf 和 ptable
+    uint8_t *buf_ptr = buf;
+    size_t remaining = buf_size;
+    int found = 0;
+
+    for (auto& partNode : partitionNodes) {
+        // 提取 id 属性
+        std::string id;
+        auto it_id = partNode->attributes.find("id");
+        if (it_id != partNode->attributes.end())
+            id = it_id->second;
+        if (id.empty()) {
+            delete[] src;
+            ERR_EXIT("Partition missing id attribute\n");
+        }
+
+        // 提取 size 属性（支持十进制和十六进制）
+        std::string sizeStr;
+        auto it_size = partNode->attributes.find("size");
+        if (it_size != partNode->attributes.end())
+            sizeStr = it_size->second;
+        if (sizeStr.empty()) {
+            delete[] src;
+            ERR_EXIT("Partition missing size attribute\n");
+        }
+        char *endptr;
+        long long size = strtoll(sizeStr.c_str(), &endptr, 0);  // 自动识别 0x 前缀
+        if (*endptr != '\0') {
+            delete[] src;
+            ERR_EXIT("Invalid size value\n");
+        }
+
+        // 检查缓冲区剩余空间
+        if (remaining < 0x4c) {
+            delete[] src;
+            ERR_EXIT("xml: too many partitions\n");
+        }
+        remaining -= 0x4c;
+
+        // 清空名称区域（36个16位字符，即72字节）
+        memset(buf_ptr, 0, 36 * 2);
+
+        // 交错写入名称 ASCII（每个字符占用低字节）
+        for (size_t i = 0; i < id.size() && i < 36; ++i)
+            buf_ptr[i * 2] = static_cast<uint8_t>(id[i]);
+
+        if (id.empty()) {
+            delete[] src;
+            ERR_EXIT("empty partition name\n");
+        }
+
+        // 写入原始 size（小端，偏移 0x48）
+        WRITE32_LE(buf_ptr + 0x48, static_cast<uint32_t>(size));
+
+        // 记录到 ptable
+        strncpy(io->ptable[found].name, id.c_str(), sizeof(io->ptable[found].name) - 1);
+        io->ptable[found].name[sizeof(io->ptable[found].name) - 1] = '\0';
+        io->ptable[found].size = size << 20;   // 左移 20 位（与原函数一致）
+
+        DBG_LOG("[%d] %s, %d\n", found + 1, io->ptable[found].name, (int)size);
+
+        buf_ptr += 0x4c;
+        ++found;
+    }
+
+    io->part_count = found;
+    delete[] src;
+    return found;
 }
 
 #define SECTOR_SIZE 512
@@ -1867,96 +1915,101 @@ void start_signal() {
 	isCancel = 0;
 }
 void dump_partitions(spdio_t *io, const char *fn, int *nand_info, unsigned step) {
-	const char *part1 = "Partitions>";
-	char *src, *p;
-	int part1_len = strlen(part1), found = 0, stage = 0, ubi = 0;
-	size_t size = 0;
-	partition_t *partitions = NEWN partition_t[128 * sizeof(partition_t)];
-	if (partitions == nullptr) return;
-	DEG_LOG(OP, "Start to read partitions");
-	DEG_LOG(I, "Type CTRL + C to cancel...");
-	start_signal();
-	if (!strncmp(fn, "ubi", 3)) ubi = 1;
-	src = (char *)loadfile(fn, &size, 1);
-	if (!src) ERR_EXIT("Load file failed\n");
-	src[size] = 0;
-	p = src;
+    // 1. 解析 XML 文件
+    XmlParser parser;
+    auto root = parser.parseFile(fn);
+    if (!root) {
+        ERR_EXIT("Failed to parse XML file\n");
+    }
 
-	for (;;) {
-		int i, a = *p++, n;
-		char c;
+    auto partitionsNodes = root->getDescendants("Partitions");
+    if (partitionsNodes.empty()) {
+        ERR_EXIT("No <Partitions> element found\n");
+    }
+    if (partitionsNodes.size() > 1) {
+        ERR_EXIT("xml: more than one partition lists\n");
+    }
 
-		if (a == ' ' || a == '\t' || a == '\n' || a == '\r') continue;
+    auto partitions = partitionsNodes[0];
+    auto partitionNodes = partitions->getChildren("Partition");
 
-		if (a != '<') {
-			if (!a) break;
-			if (stage != 1) continue;
-			ERR_EXIT("xml: unexpected symbol\n");
-		}
+    // 2. 动态分配分区数组（与原函数一致）
+    partition_t* partitionsArr = NEWN partition_t[128 * sizeof(partition_t)];  
+    int found = 0;
 
-		if (!memcmp(p, "!--", 3)) {
-			p = strstr(p + 3, "--");
-			if (!p || !((p[-1] - '!') | (p[-2] - '<')) || p[2] != '>')
-				ERR_EXIT("xml: unexpected syntax\n");
-			p += 3;
-			continue;
-		}
+    for (auto& partNode : partitionNodes) {
+        if (found >= 128) break;
+        std::string id = partNode->getAttribute("id");
+        if (id.empty()) {
+            ERR_EXIT("Partition missing id attribute\n");
+        }
+        std::string sizeStr = partNode->getAttribute("size");
+        if (sizeStr.empty()) {
+            ERR_EXIT("Partition missing size attribute\n");
+        }
+        char* endptr;
+        long long size = strtoll(sizeStr.c_str(), &endptr, 0);
+        if (*endptr != '\0' && !isspace(*endptr)) {
+            ERR_EXIT("Invalid size value\n");
+        }
+        strncpy(partitionsArr[found].name, id.c_str(), sizeof(partitionsArr[found].name) - 1);
+        partitionsArr[found].name[sizeof(partitionsArr[found].name) - 1] = '\0';
+        partitionsArr[found].size = size;   // 原代码直接赋值 size，后面再根据情况左移
+        found++;
+    }
 
-		if (stage != 1) {
-			stage += !memcmp(p, part1, part1_len);
-			if (stage > 2)
-				ERR_EXIT("xml: more than one partition lists\n");
-			p = strchr(p, '>');
-			if (!p) ERR_EXIT("xml: unexpected syntax\n");
-			p++;
-			continue;
-		}
+    int ubi = 0;
+    if (!strncmp(fn, "ubi", 3)) ubi = 1;
 
-		if (*p == '/' && !memcmp(p + 1, part1, part1_len)) {
-			p = p + 1 + part1_len;
-			stage++;
-			continue;
-		}
+    for (int i = 0; i < found; i++) {
+        if (isCancel) { return; }
+        DBG_LOG("Partition %d: name=%s, size=%llim\n", i + 1, partitionsArr[i].name, partitionsArr[i].size);
+        if (!strncmp(partitionsArr[i].name, "userdata", 8)) continue;
 
-		i = sscanf(p, "Partition id=\"%35[^\"]\" size=\"%lli\"/%n%c", partitions[found].name, &partitions[found].size, &n, &c);
-		if (i != 3 || c != '>')
-			ERR_EXIT("xml: unexpected syntax\n");
-		p += n + 1;
-		found++;
-		if (found >= 128) break;
-	}
-	if (p - 1 != src + size) ERR_EXIT("xml: zero byte");
-	if (stage != 2) ERR_EXIT("xml: unexpected syntax\n");
+        get_partition_info(io, partitionsArr[i].name, 0);
+        if (!gPartInfo.size) continue;
 
-	for (int i = 0; i < found; i++) {
-		if (isCancel) { delete[](src);delete[](partitions); return; }
-		DBG_LOG("Partition %d: name=%s, size=%llim\n", i + 1, partitions[i].name, partitions[i].size);
-		if (!strncmp(partitions[i].name, "userdata", 8)) continue;
+        long long finalSize = 0;
+        if (!strncmp(partitionsArr[i].name, "splloader", 9)) {
+            finalSize = (long long)g_spl_size;
+        } else if (0xffffffff == partitionsArr[i].size) {
+            finalSize = check_partition(io, gPartInfo.name, 1);
+        } else if (ubi) {
+            int block = (int)(partitionsArr[i].size * (1024 / nand_info[2]) + partitionsArr[i].size * (1024 / nand_info[2]) / (512 / nand_info[1]) + 1);
+            finalSize = 1024 * (nand_info[2] - 2 * nand_info[0]) * block;
+        } else {
+            finalSize = partitionsArr[i].size << 20;
+        }
+        gPartInfo.size = finalSize;
 
-		get_partition_info(io, partitions[i].name, 0);
-		if (!gPartInfo.size) continue;
-		if (!strncmp(partitions[i].name, "splloader", 9)) gPartInfo.size = (long long)g_spl_size;
-		else if (0xffffffff == partitions[i].size) gPartInfo.size = check_partition(io, gPartInfo.name, 1);
-		else if (ubi) {
-			int block = (int)(partitions[i].size * (1024 / nand_info[2]) + partitions[i].size * (1024 / nand_info[2]) / (512 / nand_info[1]) + 1);
-			gPartInfo.size = 1024 * (nand_info[2] - 2 * nand_info[0]) * block;
-		}
-		else gPartInfo.size = partitions[i].size << 20;
+        char dfile[40];
+        snprintf(dfile, sizeof(dfile), "%s.bin", partitionsArr[i].name);
+        dump_partition(io, gPartInfo.name, 0, gPartInfo.size, dfile, step);
+    }
 
-		char dfile[40];
-		snprintf(dfile, sizeof(dfile), "%s.bin", partitions[i].name);
-		dump_partition(io, gPartInfo.name, 0, gPartInfo.size, dfile, step);
-	}
-	if (selected_ab > 0) { DBG_LOG("saving slot info\n"); dump_partition(io, "misc", 0, 1048576, "misc.bin", step); }
+    if (selected_ab > 0) {
+        DBG_LOG("saving slot info\n");
+        dump_partition(io, "misc", 0, 1048576, "misc.bin", step);
+    }
 
-	if (savepath[0]) {
-		DEG_LOG(OP,"Saving dump list");
-		FILE *fo = my_oxfopen(fn, "wb");
-		if (fo) { fwrite(src, 1, size, fo); fclose(fo); }
-		else DEG_LOG(W,"Create dump list failed, skipped.");
-	}
-	delete[](src);
-	delete[](partitions);
+    if (savepath[0]) {
+        DEG_LOG(OP,"Saving dump list");
+        size_t size = 0;
+        char* src = (char*)loadfile(fn, &size, 1);
+        if (src) {
+            FILE* fo = my_oxfopen(savepath, "wb");
+            if (fo) {
+                fwrite(src, 1, size, fo);
+                fclose(fo);
+            } else {
+                DEG_LOG(W,"Create dump list failed, skipped.");
+            }
+			delete[] src;
+        } else {
+            DEG_LOG(W,"Failed to reload original XML for saving.");
+        }
+    }
+	delete[] partitionsArr;
 }
 
 int ab_compare_slots(const slot_metadata *a, const slot_metadata *b);
@@ -1964,153 +2017,55 @@ bool hasPartition(const std::vector<std::string>& partitions, const std::string&
 {
     return std::find(partitions.begin(), partitions.end(), partitionName) != partitions.end();
 }
-// 辅助：跳过空白字符（空格、制表符、换行）
-static const char* skip_whitespace(const char *p) {
-    while (*p && isspace((unsigned char)*p)) p++;
-    return p;
-}
-
-// 辅助：从字符串中提取十六进制/十进制数，返回转换后的值，并移动指针到数字后
-static long parse_number(const char **str) {
-    const char *p = *str;
-    long val = strtol(p, (char**)&p, 0);  // 自动识别 0x 前缀
-    *str = p;
-    return val;
-}
-
-// 辅助：查找子串（不区分大小写，这里保持大小写敏感，因为 XML 标签名大小写固定）
-static const char* str_find(const char *haystack, const char *needle) {
-    size_t nlen = strlen(needle);
-    for (; *haystack; haystack++) {
-        if (strncmp(haystack, needle, nlen) == 0)
-            return haystack;
-    }
-    return NULL;
-}
-
-// 辅助：查找标签开始，如 "<NVItem"
-static const char* find_tag(const char *text, const char *tag_name) {
-    char search_str[64];
-    snprintf(search_str, sizeof(search_str), "<%s", tag_name);
-    const char *p = text;
-    while ((p = str_find(p, search_str)) != NULL) {
-        // 确保标签名之后是空白或 '>' 或 '/'，避免误匹配（如 "<NVItem_xxx"）
-        const char *after_name = p + strlen(search_str);
-        if (*after_name == '>' || isspace((unsigned char)*after_name) || *after_name == '/')
-            return p;
-        p += 1; // 继续搜索
-    }
-    return NULL;
-}
-
-// 辅助：查找闭合标签 "</xxx>" 或自闭合标签 "/>"
-static const char* find_tag_end(const char *tag_start) 
-{
-    const char *p = tag_start;
-    int in_quote = 0;          // 0=不在引号内, 1=单引号, 2=双引号
-    char quote_char = 0;
-
-    while (*p) {
-        // 处理字符串引号
-        if (*p == '"' && !in_quote) {
-            in_quote = 2;
-            quote_char = '"';
-        } else if (*p == '\'' && !in_quote) {
-            in_quote = 1;
-            quote_char = '\'';
-        } else if (in_quote && *p == quote_char) {
-            in_quote = 0;
-        } else if (!in_quote && *p == '>') {
-            return p;   // 找到标签结束
-        }
-        p++;
-    }
-    return NULL;
-}
-
-// 扫描 XML 文本文件，提取所有 NVItem/ID
-int get_nvlist_xml(spdio_t *io, const char *fn) 
-{
-    FILE *fp = oxfopen(fn, "rb");
-    if (!fp) return 0;
-
-    // 获取文件大小
-    fseek(fp, 0, SEEK_END);
-    long fsize = ftell(fp);
-    fseek(fp, 0, SEEK_SET);
-    if (fsize <= 0) {
-        fclose(fp);
+int get_nvlist_xml(spdio_t *io, const char *fn) {
+    // 1. 解析 XML 文件
+    XmlParser parser;
+    auto root = parser.parseFile(fn);
+    if (!root) {
+        if (io->verbose) DEG_LOG(E, "Error: parse XML file %s failed", fn);
         return 0;
     }
 
-    // 读取整个文件到内存
-    char *buffer = (char*)malloc(fsize + 1);
-    if (!buffer) {
-        fclose(fp);
-        return 0;
-    }
-    size_t nread = fread(buffer, 1, fsize, fp);
-    buffer[nread] = '\0';
-    fclose(fp);
-
-    // 分配并清零 nvid_list（假设大小为 0x10000）
+    // 2. 分配并清零 nvid_list
     io->nvid_list = NEWN int[0x10000, sizeof(int)];
     if (!io->nvid_list) {
-        free(buffer);
+        DEG_LOG(E,"malloc failed");
         return 0;
     }
 
-    const char *p = buffer;
-    while (1) {
-        // 查找下一个 <NVItem 标签
-        const char *nvitem_start = find_tag(p, "NVItem");
-        if (!nvitem_start) break;
-
-        // 找到 NVItem 标签的结束位置 '>'
-        const char *nvitem_end = find_tag_end(nvitem_start);
-        if (!nvitem_end) break;
-
-        // 在 NVItem 标签内部（从 nvitem_start 到 nvitem_end）寻找 <ID>...</ID>
-        const char *id_start = find_tag(nvitem_start, "ID");
-        if (id_start && id_start < nvitem_end) {
-            // 找到 ID 标签的文本内容位置
-            const char *gt = strchr(id_start, '>');
-            if (gt) {
-                const char *content_start = gt + 1;
-                const char *content_end = strstr(content_start, "</ID>");
-                if (content_end) {
-                    // 提取内容并转换为数字
-                    char id_text[32];
-                    size_t len = content_end - content_start;
-                    if (len < sizeof(id_text)) {
-                        memcpy(id_text, content_start, len);
-                        id_text[len] = '\0';
-                        // 去除可能的空白
-                        const char *num_start = skip_whitespace(id_text);
-                        long id = strtol(num_start, NULL, 0);
-                        if (id >= 0 && id < 0x10000) {
-                            io->nvid_list[id] = 1;
-                            if (io->verbose) printf("saved id 0x%lX\n", id);
-                        }
-                    }
-                }
-            }
-        }
-        // 移动到当前 NVItem 之后继续搜索
-        p = nvitem_end + 1;
+    // 3. 查找所有 NVItem 节点（通用 XML 支持任意嵌套）
+    auto nvItems = root->getDescendants("NVItem");
+    if (nvItems.empty()) {
+        if (io->verbose) DEG_LOG(W,"can't find NVItem from input");
     }
 
-    free(buffer);
+    // 遍历每个 NVItem，提取其子节点 <ID> 的值
+    for (auto& nvItem : nvItems) {
+        auto idNode = nvItem->getFirstChild("ID");
+        if (idNode) {
+            std::string idText = idNode->getTextContent();
+            // 去除首尾空白
+            size_t start = idText.find_first_not_of(" \t\r\n");
+            if (start == std::string::npos) continue;
+            size_t end = idText.find_last_not_of(" \t\r\n");
+            std::string trimmed = idText.substr(start, end - start + 1);
+            long id = strtol(trimmed.c_str(), nullptr, 0);
+            if (id >= 0 && id < 0x10000) {
+                io->nvid_list[id] = 1;
+                if (io->verbose) printf("saved id 0x%lX to list\n", id);
+            }
+        }
+    }
 
-    // 添加固定 ID
+    // 4. 强制添加固定 ID（与原函数完全一致）
     io->nvid_list[5] = 1;
     io->nvid_list[0x179] = 1;
     io->nvid_list[0x186] = 1;
-    io->nvid_list[0x1E4] = 1;
+    io->nvid_list[0x1e4] = 1;
     io->nvid_list[2] = 1;
     io->nvid_list[0x516] = 1;
-    io->nvid_list[0x12D] = 1;
-    io->nvid_list[0x9C4] = 1;
+    io->nvid_list[0x12d] = 1;
+    io->nvid_list[0x9c4] = 1;
 
     return 1;
 }

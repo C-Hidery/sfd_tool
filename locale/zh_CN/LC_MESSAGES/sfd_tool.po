@@ -962,6 +962,35 @@ msgstr "开始执行FDL1和FDL2"
 msgid "No XML file found for repartition."
 msgstr "没有找到用于重新分区的XML"
 
+msgid "Failed to parse XML file."
+msgstr "XML文件解析失败"
+
+msgid "No <Partitions> element in XML."
+msgstr "没有在XML中找到<Partitions>元素"
+
+msgid "More than one partition list found in XML file."
+msgstr "XML文件中找到多个分区列表"
+
+msgid "No <Partition> elements inside <Partitions>."
+msgstr "<Partitions>中没有<Partition>元素"
+
+msgid "Partition element missing 'id' attribute."
+msgstr "Partition元素中缺少id字段"
+
+msgid "Partition element missing 'size' attribute."
+msgstr "Partition元素中缺少size字段"
+
+msgid "Invalid size value in Partition."
+msgstr "无效的Partition大小，于Partiton中"
+
+msgid "Too many partitions in XML file."
+msgstr "XML文件中的分区太多"
+
+msgid "Empty partition name found in XML file."
+msgstr "在XML文件中发现空的分区名"
+
+
+
 # ===== Auto-appended entries from sfd_tool.pot =====
 
 msgid "UI language"
