@@ -2442,7 +2442,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			!strcmp(fn, "uboot_b") ||
 			!strcmp(fn, "vbmeta_a") ||
 			!strcmp(fn, "vbmeta_b")) {
-			if (!g_app_state.flash.isPacFlashing || hasPartition(pac_parts, fn) && partitions[i].written_flag == 0) {
+			if ((!g_app_state.flash.isPacFlashing || hasPartition(pac_parts, fn)) && partitions[i].written_flag == 0) {
 				load_partition(io, fn, partitions[i].file_path, step, CMethod);
 				partitions[i].written_flag = 1;
 			}
