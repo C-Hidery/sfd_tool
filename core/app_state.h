@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <string>
 
 struct spdio_t; // 前向声明，避免头文件循环依赖
 
