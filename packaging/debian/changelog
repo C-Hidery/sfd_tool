@@ -1,3 +1,9 @@
+sfd-tool (1.8.5.5-1-ltv) unstable; urgency=medium
+
+  * PAC nvmerge issue(f50300bc)
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sun, 03 May 2026 12:01:17 +0800
+
 sfd-tool (1.8.5.0-1-ltv) unstable; urgency=medium
 
   * 修复PAC刷写逻辑，lambda获取错误
