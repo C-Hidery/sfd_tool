@@ -157,6 +157,12 @@ typedef struct {
 	long long size;
 } partition_t;
 
+typedef struct {
+    uint16_t length;
+    size_t offset;
+    int saved;
+} NVEntry;
+
 typedef struct spdio_t {
 	uint8_t *raw_buf, *enc_buf, *recv_buf, *temp_buf, *untranscode_buf, *send_buf;
 #if USE_LIBUSB
@@ -182,6 +188,7 @@ typedef struct spdio_t {
 	int part_count_c;
 	int nor_bar;
 	int part_count;
+	int *nvid_list;
 	IUsbTransport *transport; // 传输实现指针，用于承载 IUsbTransport 适配器
 } spdio_t;
 
@@ -316,3 +323,7 @@ void select_partition(spdio_t *io, const char *name,
 	uint64_t size, int mode64, int cmd);
 
 int scan_xml_partitions(spdio_t *io, const char *fn, uint8_t *buf, size_t buf_size);
+int get_nvlist_xml(spdio_t *io, const char *fn);
+int get_nvlist_cfg(spdio_t *io, char *fn);
+void merge_nv(spdio_t *io, const uint8_t *a, size_t a_size, const uint8_t *b, 
+			size_t b_size, uint8_t *c, size_t *c_size);

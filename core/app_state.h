@@ -17,6 +17,7 @@ struct FlashState {
     int selected_ab = -1;   // 当前使用的 slot（0=无，1=a，2=b）
     int g_w_force = 1;     // 是否自动启用强制写入（针对部分特殊分区）
     bool isPacFlashing = false; // 是否正在进行 PAC 刷机（影响分区选择和写入策略）
+    std::string pac_xmlPath; // PAC 刷机时解析出的 XML 路径，供后续分区信息查询使用
 };
 
 // 与具体传输实现相关的状态（平台/IO 细节），暂时仍放在这里，后续可进一步下沉到传输层

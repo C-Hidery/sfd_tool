@@ -3,6 +3,7 @@
 #include "logging.h"  // 使用统一的 ERR_EXIT
 #include "app_state.h"
 #include "../common.h"
+#include "main.h"
 #define _GNU_SOURCE 1
 #define _FILE_OFFSET_BITS 64
 
@@ -1027,9 +1028,6 @@ std::string findBaseForID(const std::string& filename, const std::string& target
 }
 bool pac_flash(spdio_t* io, const char* floder)
 {
-    if (isHelperInit && !showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Are you sure you want to flash the device with the extracted files? Make sure you have the correct PAC file."))) {
-        return false;
-    }
     std::string xmlPath = FindFirstXMLFile(floder);
     if (xmlPath.empty()) {
         if(isHelperInit) gui_idle_call_wait_drag([](){
@@ -1038,6 +1036,7 @@ bool pac_flash(spdio_t* io, const char* floder)
         DEG_LOG(E, "No XML file found in the extracted folder.");
         return false;
     }
+    g_app_state.flash.pac_xmlPath = xmlPath;
     std::string fdl1_path = FindFDLInExtFloder(floder, FDL1);
     std::string fdl2_path = FindFDLInExtFloder(floder, FDL2);
     std::string fdl1_base = findBaseForID(xmlPath, "fdl1");
@@ -1056,37 +1055,11 @@ bool pac_flash(spdio_t* io, const char* floder)
         DEG_LOG(E, "FDL2 file or base address not found.");
         return false;
     }
-    bool i_is = false;
-    if (isHelperInit)
-    {
-        i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Do you want to repartiton?"));
+    if (isHelperInit && !showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Are you sure you want to flash the device with the extracted files? Make sure you have the correct PAC file."))) {
+        return false;
     }
-    else
-    {
-        std::cout << "Do you want to repartition? (y/n): ";
-        char response;
-        std::cin >> response;
-        i_is = (response == 'y' || response == 'Y');
-    }
-    if (i_is)
-    {
-        partition_t* repartition_table = NEWN partition_t[128];
-        std::ifstream file(xmlPath);
-        std::string content((std::istreambuf_iterator<char>(file)),
-                        std::istreambuf_iterator<char>());
-
-        std::string partxml = ExtractPartitionsWithTags(content);
-        FILE* f1 = oxfopen("repartition_xml_temp.xml", "w");
-        if (!f1) ERR_EXIT("Failed to create temporary repartition XML file.\n");
-        if(f1) {
-		    fwrite(partxml.c_str(), 1, partxml.size(), f1);
-		    fclose(f1);
-	    }
-        uint8_t* buf = io->temp_buf;
-        int n = scan_xml_partitions(io, "repartition_xml_temp.xml", buf, 0xffff);
-        encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-	    if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
-    }
+    ensure_device_attached_or_exit(helper);
+    
     if (isHelperInit) gui_idle_call_wait_drag([](){
         showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Start executing FDL1 and FDL2."));
     },GTK_WINDOW(helper.getWidget("main_window")));
@@ -1246,7 +1219,55 @@ bool pac_flash(spdio_t* io, const char* floder)
 				fdl2_executed = 1;
 				g_app_state.device.device_stage = FDL2;
     DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
+    get_partition_info(io, "nr_fixnv1", 1);
+    if (gPartInfo.size)
+    {
+        dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "old_nv_nr_fixnv1.bin",g_default_blk_size ? g_default_blk_size : DEFAULT_BLK_SIZE);
+    }
+    get_partition_info(io, "l_fixnv1", 1);
+    if (gPartInfo.size)
+    {
+        dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "old_nv_l_fixnv1.bin",g_default_blk_size ? g_default_blk_size : DEFAULT_BLK_SIZE);
+    }
+    get_partition_info(io, "downloadnv", 1);
+    if (gPartInfo.size)
+    {
+        dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "old_nv_downloadnv.bin",g_default_blk_size ? g_default_blk_size : DEFAULT_BLK_SIZE);
+    }
+    bool i_is = false;
+    if (isHelperInit)
+    {
+        i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Do you want to repartiton?"));
+    }
+    else
+    {
+        std::cout << "Do you want to repartition? (y/n): ";
+        char response;
+        std::cin >> response;
+        i_is = (response == 'y' || response == 'Y');
+    }
+    if (i_is)
+    {
+        partition_t* repartition_table = NEWN partition_t[128];
+        std::ifstream file(xmlPath);
+        std::string content((std::istreambuf_iterator<char>(file)),
+                        std::istreambuf_iterator<char>());
+
+        std::string partxml = ExtractPartitionsWithTags(content);
+        FILE* f1 = oxfopen("repartition_xml_temp.xml", "w");
+        if (!f1) ERR_EXIT("Failed to create temporary repartition XML file.\n");
+        if(f1) {
+		    fwrite(partxml.c_str(), 1, partxml.size(), f1);
+		    fclose(f1);
+	    }
+        uint8_t* buf = io->temp_buf;
+        int n = scan_xml_partitions(io, "repartition_xml_temp.xml", buf, 0xffff);
+        encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
+	    if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
+    }
     g_app_state.flash.isPacFlashing = true;
+    
+        
     load_partitions(io, "pac_unpack_output", blk_size, g_app_state.flash.selected_ab, 0);
     encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
     if (!send_and_check(io))

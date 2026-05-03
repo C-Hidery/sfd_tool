@@ -153,38 +153,46 @@ void print_help() {
 		"\t\tSet if enable force_write automatically, default is 1.\n"
 		"\t39.w_force [PARTITION NAME] [FILE]\n"
 		"\t\tForce write a file to a partition, use with caution!\n"
+		"\t40.mergenv-xml [XML] new_nv\n"
+		"\t\tMerge NV partition with an XML config file, and write back to device.\n"
+		"\t41.mergenv-cfg [CONFIG] new_nv\n"
+		"\t\tMerge NV partition with a special config file, and write back to device.\n"
+		"\t42.mergenv-xml-ex [XML] old_nv new_nv\n"
+		"\t\tMerge NV partition with an XML config file, Old nvimage needed.\n"
+		"\t43.mergenv-cfg-ex [CONFIG] old_nv new_nv\n"
+		"\t\tMerge NV partition with a special config file, Old nvimage needed.\n"
 	    "Debug commands:\n"
-	    "\t40.skip_confirm {0,1}\n"
+	    "\t44.skip_confirm {0,1}\n"
 	    "\t\tSkips all confirmation prompts(use with caution!)\n"
-	    "\t41.keep_charge\n"
+	    "\t45.keep_charge\n"
 	    "\t\tKeep charge in FDL1/FDL2 stage.\n"
-	    "\t42.send_end_data {0,1}\n"
+	    "\t46.send_end_data {0,1}\n"
 	    "\t\tSends end data after file transfer.\n"
-	    "\t43.rawdata {0,1,2}\n"
+	    "\t47.rawdata {0,1,2}\n"
 	    "\t\tEnable raw_data mode for file sending to get better speed.\n"
 	    "\t\t(Not all FDL2 support.)\n"
-	    "\t44.slot {0,1,2}\n"
+	    "\t48.slot {0,1,2}\n"
 	    "\t\tSelect slot auto|a|b on VAB devices.\n"
-	    "\t45.chip_uid\n"
+	    "\t49.chip_uid\n"
 	    "\t\tReads the chip UID (FDL2 stage only).\n"
-	    "\t46.transcode {0,1}\n"
+	    "\t50.transcode {0,1}\n"
 	    "\t\tEnable or disable transcode mode (FDL2 stage only).\n"
-	    "\t47.sendloop [ADDR]\n"
+	    "\t51.sendloop [ADDR]\n"
 	    "\t\tSend [0, 0, 0, 0] packet to a specified address, then send addresses in a loop of [0, 0, 0, 0] packet to sequentially decrease by 8\n"
-	    "\t48.write_word\n"
+	    "\t52.write_word\n"
 	    "\t\tWrite a HEX number word to a specified address.\n"
-	    "\t49.read_nand\n"
+	    "\t53.read_nand\n"
 	    "\t\tDetermine whether the current device is a NAND model; not all devices are supported.(through 0x0D)\n"
-	    "\t50.sendcmd [TYPE] <FILE>\n"
+	    "\t54.sendcmd [TYPE] <FILE>\n"
 	    "\t\tSend a specified command (with a file)\n"
-	    "\t51.pactime\n"
+	    "\t55.pactime\n"
 	    "\t\tRead the last time the PAC firmware was flashed.\n"
-		"\t52.read_flash [ADDR] [OFFSET] [SIZE] [FILE]\n"
+		"\t56.read_flash [ADDR] [OFFSET] [SIZE] [FILE]\n"
 		"\t\tRead flash content to a file\n"
 		"\t\t`read_flash_dhtb` for reading DHTB Signature for ums9117\n"
-		"\t53.read_mem [ADDR] [SIZE] [FILE]\n"
+		"\t57.read_mem [ADDR] [SIZE] [FILE]\n"
 		"\t\tRead memory content to a file\n"
-		"\t54.erase_flash [ADDR] [SIZE]\n"
+		"\t58.erase_flash [ADDR] [SIZE]\n"
 		"\t\tErase flash content\n"
 	    "Notice:\n"
 	    "\t1.The compatibility method to get part table sometimes can not get all partitions on your device\n"
@@ -193,10 +201,10 @@ void print_help() {
 	);
 	DBG_LOG(
 	    "\nExit Commands\n"
-	    "\t55.reboot-recovery\n\t\tFDL2 only\n"
-	    "\t56.reboot-fastboot\n\t\tFDL2 only\n"
-	    "\t57.reset\n\t\tFDL2 and new FDL1\n"
-	    "\t58.poweroff\n,\t\tFDL2 and new FDL1\n"
+	    "\t59.reboot-recovery\n\t\tFDL2 only\n"
+	    "\t60.reboot-fastboot\n\t\tFDL2 only\n"
+	    "\t61.reset\n\t\tFDL2 and new FDL1\n"
+	    "\t62.poweroff\n,\t\tFDL2 and new FDL1\n"
 	);
 }
 void ThrowExit() {
@@ -1964,7 +1972,104 @@ rloop:
 			argc -= 4;
 			argv += 4;
 
-		} else if (!strcmp(str2[1], "blk_size") || !strcmp(str2[1], "bs")) {
+		}
+		else if (!strcmp(str2[1], "mergenv-xml")) {
+			if (argcount <= 3) { DEG_LOG(W,"mergenv-xml xml new_nv\n"); argc = 1; continue; }
+			get_partition_info(io, "nr_fixnv1", 1);
+			if (!gPartInfo.size) get_partition_info(io, "l_fixnv1", 1);
+			if (!gPartInfo.size) { DEG_LOG(E, "part not exist\n");  argc -= 3; argv += 3; continue; }
+			dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "nvbak", blk_size ? blk_size : DEFAULT_BLK_SIZE);
+			if (get_nvlist_xml(io, str2[2])) {
+				size_t a_size = 0, b_size = 0, c_size = 0;
+				uint8_t *a = loadfile("nvbak", &a_size, 0);
+				uint8_t *b = loadfile(str2[3], &b_size, 0);
+				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
+				merge_nv(io, a, a_size, b, b_size, c, &c_size);
+				FILE *fi = oxfopen("nvmerged", "wb");
+				if (!fi) ERR_EXIT("fopen failed\n");
+				if (fseek(fi, 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+				if (fwrite(c, 1, c_size, fi) != c_size) ERR_EXIT("fwrite failed\n");
+				fclose(fi);
+				fi = oxfopen("nvmerged", "rb");
+				load_nv_partition(io, gPartInfo.name, fi, 4096);
+				fclose(fi);
+				free(a); free(b); free(c);
+			}
+			free(io->nvid_list);
+			io->nvid_list = NULL;
+			argc -= 3; argv += 3;
+
+		}
+		else if (!strcmp(str2[1], "mergenv-xml-ex")) {
+			if (argcount <= 4) { DEG_LOG(W,"mergenv-xml-ex xml old_nv new_nv\n"); argc = 1; continue; }
+			if (get_nvlist_xml(io, str2[2])) {
+				size_t a_size = 0, b_size = 0, c_size = 0;
+				uint8_t *a = loadfile(str[3], &a_size, 0);
+				uint8_t *b = loadfile(str2[4], &b_size, 0);
+				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
+				merge_nv(io, a, a_size, b, b_size, c, &c_size);
+				FILE *fi = oxfopen("nvmerged", "wb");
+				if (!fi) ERR_EXIT("fopen failed\n");
+				if (fseek(fi, 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+				if (fwrite(c, 1, c_size, fi) != c_size) ERR_EXIT("fwrite failed\n");
+				fclose(fi);
+				fi = oxfopen("nvmerged", "rb");
+				fclose(fi);
+				free(a); free(b); free(c);
+			}
+			free(io->nvid_list);
+			io->nvid_list = NULL;
+			argc -= 4; argv += 4;
+
+		}
+		else if (!strcmp(str2[1], "mergenv-cfg")) {
+			if (argcount <= 3) { DEG_LOG(W, "mergenv-cfg cfg new_nv\n"); argc = 1; continue; }
+			get_partition_info(io, "nr_fixnv1", 1);
+			if (!gPartInfo.size) get_partition_info(io, "l_fixnv1", 1);
+			if (!gPartInfo.size) { DEG_LOG(E, "part not exist\n");  argc -= 3; argv += 3; continue; }
+			dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "nvbak", blk_size ? blk_size : DEFAULT_BLK_SIZE);
+			if (get_nvlist_cfg(io, str2[2])) {
+				size_t a_size = 0, b_size = 0, c_size = 0;
+				uint8_t *a = loadfile("nvbak", &a_size, 0);
+				uint8_t *b = loadfile(str2[3], &b_size, 0);
+				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
+				merge_nv(io, a, a_size, b, b_size, c, &c_size);
+				FILE *fi = oxfopen("nvmerged", "wb");
+				if (!fi) ERR_EXIT("fopen failed\n");
+				if (fseek(fi, 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+				if (fwrite(c, 1, c_size, fi) != c_size) ERR_EXIT("fwrite failed\n");
+				fclose(fi);
+				fi = oxfopen("nvmerged", "rb");
+				load_nv_partition(io, gPartInfo.name, fi, 4096);
+				fclose(fi);
+				free(a); free(b); free(c);
+			}
+			free(io->nvid_list);
+			io->nvid_list = NULL;
+			argc -= 3; argv += 3;
+		} 
+		else if (!strcmp(str2[1], "mergenv-cfg-ex")) {
+			if (argcount <= 4) { DEG_LOG(W, "mergenv-cfg-ex cfg old_nv new_nv\n"); argc = 1; continue; }
+			if (get_nvlist_cfg(io, str2[2])) {
+				size_t a_size = 0, b_size = 0, c_size = 0;
+				uint8_t *a = loadfile(str2[3], &a_size, 0);
+				uint8_t *b = loadfile(str2[4], &b_size, 0);
+				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
+				merge_nv(io, a, a_size, b, b_size, c, &c_size);
+				FILE *fi = oxfopen("nvmerged", "wb");
+				if (!fi) ERR_EXIT("fopen failed\n");
+				if (fseek(fi, 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+				if (fwrite(c, 1, c_size, fi) != c_size) ERR_EXIT("fwrite failed\n");
+				fclose(fi);
+				fi = oxfopen("nvmerged", "rb");
+				fclose(fi);
+				free(a); free(b); free(c);
+			}
+			free(io->nvid_list);
+			io->nvid_list = NULL;
+			argc -= 4; argv += 4;
+		} 
+		else if (!strcmp(str2[1], "blk_size") || !strcmp(str2[1], "bs")) {
 			if (argcount <= 2) {
 				DEG_LOG(E, "blk_size byte\n\tmax is 65535");
 				argc = 1;

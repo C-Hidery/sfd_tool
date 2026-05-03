@@ -6,7 +6,7 @@
 #include <sys/stat.h>
 #endif
 #include <string>
-
+#include "main.h"
 int isCancel = 0;
 bool isHelperInit = false;
 GtkWidgetHelper helper;
@@ -1964,6 +1964,252 @@ bool hasPartition(const std::vector<std::string>& partitions, const std::string&
 {
     return std::find(partitions.begin(), partitions.end(), partitionName) != partitions.end();
 }
+// 辅助：跳过空白字符（空格、制表符、换行）
+static const char* skip_whitespace(const char *p) {
+    while (*p && isspace((unsigned char)*p)) p++;
+    return p;
+}
+
+// 辅助：从字符串中提取十六进制/十进制数，返回转换后的值，并移动指针到数字后
+static long parse_number(const char **str) {
+    const char *p = *str;
+    long val = strtol(p, (char**)&p, 0);  // 自动识别 0x 前缀
+    *str = p;
+    return val;
+}
+
+// 辅助：查找子串（不区分大小写，这里保持大小写敏感，因为 XML 标签名大小写固定）
+static const char* str_find(const char *haystack, const char *needle) {
+    size_t nlen = strlen(needle);
+    for (; *haystack; haystack++) {
+        if (strncmp(haystack, needle, nlen) == 0)
+            return haystack;
+    }
+    return NULL;
+}
+
+// 辅助：查找标签开始，如 "<NVItem"
+static const char* find_tag(const char *text, const char *tag_name) {
+    char search_str[64];
+    snprintf(search_str, sizeof(search_str), "<%s", tag_name);
+    const char *p = text;
+    while ((p = str_find(p, search_str)) != NULL) {
+        // 确保标签名之后是空白或 '>' 或 '/'，避免误匹配（如 "<NVItem_xxx"）
+        const char *after_name = p + strlen(search_str);
+        if (*after_name == '>' || isspace((unsigned char)*after_name) || *after_name == '/')
+            return p;
+        p += 1; // 继续搜索
+    }
+    return NULL;
+}
+
+// 辅助：查找闭合标签 "</xxx>" 或自闭合标签 "/>"
+static const char* find_tag_end(const char *tag_start) 
+{
+    const char *p = tag_start;
+    int in_quote = 0;          // 0=不在引号内, 1=单引号, 2=双引号
+    char quote_char = 0;
+
+    while (*p) {
+        // 处理字符串引号
+        if (*p == '"' && !in_quote) {
+            in_quote = 2;
+            quote_char = '"';
+        } else if (*p == '\'' && !in_quote) {
+            in_quote = 1;
+            quote_char = '\'';
+        } else if (in_quote && *p == quote_char) {
+            in_quote = 0;
+        } else if (!in_quote && *p == '>') {
+            return p;   // 找到标签结束
+        }
+        p++;
+    }
+    return NULL;
+}
+
+// 扫描 XML 文本文件，提取所有 NVItem/ID
+int get_nvlist_xml(spdio_t *io, const char *fn) 
+{
+    FILE *fp = oxfopen(fn, "rb");
+    if (!fp) return 0;
+
+    // 获取文件大小
+    fseek(fp, 0, SEEK_END);
+    long fsize = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    if (fsize <= 0) {
+        fclose(fp);
+        return 0;
+    }
+
+    // 读取整个文件到内存
+    char *buffer = (char*)malloc(fsize + 1);
+    if (!buffer) {
+        fclose(fp);
+        return 0;
+    }
+    size_t nread = fread(buffer, 1, fsize, fp);
+    buffer[nread] = '\0';
+    fclose(fp);
+
+    // 分配并清零 nvid_list（假设大小为 0x10000）
+    io->nvid_list = NEWN int[0x10000, sizeof(int)];
+    if (!io->nvid_list) {
+        free(buffer);
+        return 0;
+    }
+
+    const char *p = buffer;
+    while (1) {
+        // 查找下一个 <NVItem 标签
+        const char *nvitem_start = find_tag(p, "NVItem");
+        if (!nvitem_start) break;
+
+        // 找到 NVItem 标签的结束位置 '>'
+        const char *nvitem_end = find_tag_end(nvitem_start);
+        if (!nvitem_end) break;
+
+        // 在 NVItem 标签内部（从 nvitem_start 到 nvitem_end）寻找 <ID>...</ID>
+        const char *id_start = find_tag(nvitem_start, "ID");
+        if (id_start && id_start < nvitem_end) {
+            // 找到 ID 标签的文本内容位置
+            const char *gt = strchr(id_start, '>');
+            if (gt) {
+                const char *content_start = gt + 1;
+                const char *content_end = strstr(content_start, "</ID>");
+                if (content_end) {
+                    // 提取内容并转换为数字
+                    char id_text[32];
+                    size_t len = content_end - content_start;
+                    if (len < sizeof(id_text)) {
+                        memcpy(id_text, content_start, len);
+                        id_text[len] = '\0';
+                        // 去除可能的空白
+                        const char *num_start = skip_whitespace(id_text);
+                        long id = strtol(num_start, NULL, 0);
+                        if (id >= 0 && id < 0x10000) {
+                            io->nvid_list[id] = 1;
+                            if (io->verbose) printf("saved id 0x%lX\n", id);
+                        }
+                    }
+                }
+            }
+        }
+        // 移动到当前 NVItem 之后继续搜索
+        p = nvitem_end + 1;
+    }
+
+    free(buffer);
+
+    // 添加固定 ID
+    io->nvid_list[5] = 1;
+    io->nvid_list[0x179] = 1;
+    io->nvid_list[0x186] = 1;
+    io->nvid_list[0x1E4] = 1;
+    io->nvid_list[2] = 1;
+    io->nvid_list[0x516] = 1;
+    io->nvid_list[0x12D] = 1;
+    io->nvid_list[0x9C4] = 1;
+
+    return 1;
+}
+
+int get_nvlist_cfg(spdio_t *io, char *fn) 
+{
+	char line[512];
+	unsigned int id = 0;
+	FILE *cfg_fd;
+
+	if (!(cfg_fd = oxfopen(fn, "rb"))) return 0;
+	io->nvid_list = NEWN int[0x10000 * sizeof(int)];
+	if (!io->nvid_list) ERR_EXIT("malloc failed\n");
+	memset(io->nvid_list, 0, 0x10000 * sizeof(int));
+	while (fgets(line, sizeof(line), cfg_fd)) {
+		if (line[0] == '#' || line[0] == '\0') continue;
+		if (-1 == sscanf(line, "%*s %x", &id)) continue;
+		io->nvid_list[id] = 1;
+		if (io->verbose) DBG_LOG("saved id 0x%X to list\n", id);
+	}
+	fclose(cfg_fd);
+	io->nvid_list[5] = 1;
+	io->nvid_list[0x179] = 1;
+	io->nvid_list[0x186] = 1;
+	io->nvid_list[0x1e4] = 1;
+	io->nvid_list[2] = 1;
+	io->nvid_list[0x516] = 1;
+	io->nvid_list[0x12d] = 1;
+	io->nvid_list[0x9c4] = 1;
+	return 1;
+}
+
+void merge_nv(spdio_t *io, const uint8_t *a, size_t a_size, const uint8_t *b, 
+			size_t b_size, uint8_t *c, size_t *c_size) 
+{
+	NVEntry *nvid_list_offset = NEWN NVEntry[0x10000 * sizeof(NVEntry)];
+	if (!nvid_list_offset) ERR_EXIT("malloc failed\n");
+	memset(nvid_list_offset, 0, 0x10000 * sizeof(NVEntry));
+	size_t pos = 4;
+	int nv_broken = 0;
+	if (*(uint32_t *)a == 0x4e56) pos += 0x200;
+	while (pos + 4 <= a_size) {
+		uint16_t type = *(uint16_t *)(a + pos);
+		uint16_t length = *(uint16_t *)(a + pos + 2);
+		pos += 4;
+		if (length == 0 || pos + length > a_size) { nv_broken++; break; }
+		nvid_list_offset[type].length = length;
+		nvid_list_offset[type].offset = pos;
+		pos += length;
+
+		uint32_t doffset = ((pos + 3) & 0xFFFFFFFC) - pos;
+		pos += doffset;
+		if (*(uint16_t *)(a + pos) == 0xffff) break;
+	}
+	if (nv_broken) memset(nvid_list_offset, 0, 0x10000 * sizeof(NVEntry));
+
+	uint8_t *c_ptr = c;
+	pos = 4;
+	if (*(uint32_t *)b == 0x4e56) pos += 0x200;
+	memcpy(c_ptr, b + pos - 4, 4);
+	c_ptr += 4;
+	while (pos + 4 <= b_size) {
+		uint16_t type = *(uint16_t *)(b + pos);
+		uint16_t length = *(uint16_t *)(b + pos + 2);
+		pos += 4;
+		if (pos + length > b_size) break;
+		if (nv_broken == 0 && io->nvid_list[type]) {
+			*(uint16_t *)c_ptr = type;
+			*(uint16_t *)(c_ptr + 2) = nvid_list_offset[type].length;
+			memcpy(c_ptr + 4, a + nvid_list_offset[type].offset, nvid_list_offset[type].length);
+			c_ptr += 4 + nvid_list_offset[type].length;
+		}
+		else {
+			memcpy(c_ptr, b + pos - 4, 4 + length);
+			c_ptr += 4 + length;
+		}
+		nvid_list_offset[type].saved = 1;
+		pos += length;
+
+		uint32_t doffset = ((pos + 3) & 0xFFFFFFFC) - pos;
+		memcpy(c_ptr, b + pos, doffset);
+		pos += doffset;
+		c_ptr += doffset;
+		if (*(uint16_t *)(b + pos) == 0xffff) break;
+	}
+	if (!nv_broken)
+		for (int i = 0; i < 0x10000; i++) {
+			if (nvid_list_offset[i].length && nvid_list_offset[i].saved == 0) {
+				*(uint16_t *)c_ptr = i;
+				*(uint16_t *)(c_ptr + 2) = nvid_list_offset[i].length;
+				memcpy(c_ptr + 4, a + nvid_list_offset[i].offset, nvid_list_offset[i].length);
+				c_ptr += 4 + nvid_list_offset[i].length;
+			}
+		}
+	uint8_t endbuf[] = { 0xff,0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+	memcpy(c_ptr, endbuf, 8);
+	*c_size = c_ptr - c + 8;
+	delete[] (nvid_list_offset);
+}
 void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab, int CMethod) {
 	DEG_LOG(OP,"Start to write partitions");
 	DEG_LOG(I,"Type CTRL + C to cancel...");
@@ -1972,7 +2218,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 	if (g_app_state.flash.isPacFlashing) {
 		pac_parts = getSelectedPartitions(helper);
 		if (pac_parts.empty()) {
-			DEG_LOG(E,"Failed to get partition list from pac file.\n");
+			DEG_LOG(E,"Failed to get partition list from partition list.");
 			return;
 		}
 	}
@@ -2109,6 +2355,96 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		namelen = strlen(fn);
 		if (selected_ab == 1 && namelen > 2 && 0 == strcmp(fn + namelen - 2, "_b")) { partitions[i].written_flag = 1; continue; }
 		else if (selected_ab == 2 && namelen > 2 && 0 == strcmp(fn + namelen - 2, "_a")) { partitions[i].written_flag = 1; continue; }
+		if (!strcmp(fn, "miscdata") && g_app_state.flash.isPacFlashing)
+		{
+			partitions[i].written_flag = 1;
+			continue;
+		}
+		if (!strcmp(fn, "prodnv") && g_app_state.flash.isPacFlashing)
+		{
+			partitions[i].written_flag = 1;
+			continue;
+		}
+		if (!strcmp(fn, "userdata") && g_app_state.flash.isPacFlashing)
+		{
+			partitions[i].written_flag = 1;
+			continue;
+		}
+		// NV Merge process for PAC flashing
+		if ((strstr(fn, "fixnv1") || strstr(fn, "downloadnv")) && g_app_state.flash.isPacFlashing)
+		{
+			if (strstr("nr_fixnv1", fn))
+			{
+				if (hasPartition(pac_parts, "nr_fixnv1")) 
+				{
+					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
+						size_t a_size = 0, b_size = 0, c_size = 0;
+						uint8_t *a = loadfile("old_nv_nr_fixnv1.bin", &a_size, 0);
+						uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
+						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
+						merge_nv(io, a, a_size, b, b_size, c, &c_size);
+						FILE *fi = oxfopen("nvmerged", "wb");
+						if (!fi) ERR_EXIT("fopen failed\n");
+						if (fseek(fi, 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+						if (fwrite(c, 1, c_size, fi) != c_size) ERR_EXIT("fwrite failed\n");
+						fclose(fi);
+						free(a); free(b); free(c);
+					}
+					free(io->nvid_list);
+					io->nvid_list = NULL;
+					get_partition_info(io, "nr_fixnv1", 1);
+					load_nv_partition(io, gPartInfo.name, "nvmerged", step);
+				}
+			}
+			else if (strstr("l_fixnv1", fn))
+			{
+				if (hasPartition(pac_parts, "l_fixnv1")) 
+				{
+					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
+						size_t a_size = 0, b_size = 0, c_size = 0;
+						uint8_t *a = loadfile("old_nv_l_fixnv1.bin", &a_size, 0);
+						uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
+						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
+						merge_nv(io, a, a_size, b, b_size, c, &c_size);
+						FILE *fi = oxfopen("nvmerged", "wb");
+						if (!fi) ERR_EXIT("fopen failed\n");
+						if (fseek(fi, 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+						if (fwrite(c, 1, c_size, fi) != c_size) ERR_EXIT("fwrite failed\n");
+						fclose(fi);
+						free(a); free(b); free(c);
+					}
+					free(io->nvid_list);
+					io->nvid_list = NULL;
+					get_partition_info(io, "l_fixnv1", 1);
+					load_nv_partition(io, gPartInfo.name, "nvmerged", step);
+				}
+			}
+			else if (strstr("downloadnv", fn))
+			{
+				if (hasPartition(pac_parts, "downloadnv"))
+				{
+					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
+						size_t a_size = 0, b_size = 0, c_size = 0;
+						uint8_t *a = loadfile("old_nv_downloadnv.bin", &a_size, 0);
+						uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
+						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
+						merge_nv(io, a, a_size, b, b_size, c, &c_size);
+						FILE *fi = oxfopen("nvmerged", "wb");
+						if (!fi) ERR_EXIT("fopen failed\n");
+						if (fseek(fi, 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+						if (fwrite(c, 1, c_size, fi) != c_size) ERR_EXIT("fwrite failed\n");
+						fclose(fi);
+						free(a); free(b); free(c);
+					}
+					free(io->nvid_list);
+					io->nvid_list = NULL;
+					get_partition_info(io, "downloadnv", 1);
+					load_nv_partition(io, gPartInfo.name, "nvmerged", step);
+				}
+			}
+			partitions[i].written_flag = 1;
+			continue;
+		}
 		if (!strcmp(fn, "splloader") ||
 			!strcmp(fn, "uboot_a") ||
 			!strcmp(fn, "uboot_b") ||
@@ -2415,6 +2751,7 @@ void set_active(spdio_t *io, const char *arg, int CMethod) {
     w_mem_to_part_offset(io, "misc", 0x800,
                          (uint8_t*)&abc, sizeof(abc), 0x1000, CMethod);
 }
+
 
 
 
