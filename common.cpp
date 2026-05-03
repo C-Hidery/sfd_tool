@@ -2177,6 +2177,11 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			return;
 		}
 	}
+	const char* primary_id = nullptr;
+	const char* fallback_id = "SPLLoader";
+	if (Da_Info.dwStorageType != 0x103) primary_id = "SPLLoaderEMMC";
+	else primary_id = "SPLLoaderUFS";
+	int primary_index = -1, fallback_index = -1;
 	typedef struct {
 		char name[36];
 		char file_path[1024];
@@ -2206,6 +2211,14 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		return;
 	}
 	do {
+		if (!strncmp(fn, primary_id, strlen(primary_id)))
+		{
+			primary_index = partition_count;
+		}
+		else if (!strncmp(fn, fallback_id, strlen(fallback_id)))
+		{
+			fallback_index = partition_count;
+		}
 		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
         WideCharToMultiByte(CP_UTF8, 0, findData.cFileName, -1, fn_buffer, MAX_PATH, NULL, NULL);
 		fn = fn_buffer;
@@ -2252,6 +2265,14 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		if (stat(fn, &st) == 0 && S_ISDIR(st.st_mode)) continue;
 		if (entry->d_type == DT_DIR) continue;
 		namelen = strlen(fn);
+		if (!strncmp(fn, primary_id, strlen(primary_id)))
+		{
+			primary_index = partition_count;
+		}
+		else if (!strncmp(fn, fallback_id, strlen(fallback_id)))
+		{
+			fallback_index = partition_count;
+		}
 		if (namelen >= 4) {
 			if (!strcmp(fn + namelen - 4, ".xml") ||
 				!strcmp(fn + namelen - 4, ".exe") ||
@@ -2400,12 +2421,28 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			partitions[i].written_flag = 1;
 			continue;
 		}
+		int spl_index = primary_index > -1 ? primary_index : fallback_index;
+		if (spl_index > -1) 
+		{
+			load_partition(io, "splloader", partitions[spl_index].file_path, step, CMethod);
+			partitions[spl_index].written_flag = 1;
+			for (int j = 0; j < partition_count; j++) {
+				if (strncmp(partitions[j].name, "splloader", strlen("splloader")) == 0) {
+					partitions[j].written_flag = 1;
+					break;
+				}
+			}
+		}
+		else
+		{
+			// Try "splloader" (following)
+		}
 		if (!strcmp(fn, "splloader") ||
 			!strcmp(fn, "uboot_a") ||
 			!strcmp(fn, "uboot_b") ||
 			!strcmp(fn, "vbmeta_a") ||
 			!strcmp(fn, "vbmeta_b")) {
-			if (!g_app_state.flash.isPacFlashing || hasPartition(pac_parts, fn)) {
+			if (!g_app_state.flash.isPacFlashing || hasPartition(pac_parts, fn) && partitions[i].written_flag == 0) {
 				load_partition(io, fn, partitions[i].file_path, step, CMethod);
 				partitions[i].written_flag = 1;
 			}
