@@ -898,7 +898,7 @@ std::string findBaseForID(const std::string& filename, const std::string& target
     }
     std::stringstream buffer;
     buffer << file.rdbuf();
-    file.close();
+    (file.close)(); // _close宏定义阻止
     
     XmlParser parser;
     auto root = parser.parseString(buffer.str());
