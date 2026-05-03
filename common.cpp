@@ -6,7 +6,10 @@
 #include <sys/stat.h>
 #endif
 #include <string>
-
+#include "main.h"
+#include "core/logging.h"
+#include "core/app_state.h"
+#include "core/XmlParser.hpp"
 int isCancel = 0;
 bool isHelperInit = false;
 GtkWidgetHelper helper;
@@ -572,65 +575,110 @@ uint64_t read_pactime(spdio_t *io) {
 	return time;
 }
 
+
+
 int scan_xml_partitions(spdio_t *io, const char *fn, uint8_t *buf, size_t buf_size) {
-	const char *part1 = "Partitions>";
-	char *src, *p; size_t fsize = 0;
-	int part1_len = strlen(part1), found = 0, stage = 0;
-	if (io->ptable == nullptr) io->ptable = NEWN partition_t[128 * sizeof(partition_t)];
-	src = (char *)loadfile(fn, &fsize, 1);
-	if (!src) ERR_EXIT("loadfile failed\n");
-	src[fsize] = 0;
-	p = src;
-	for (;;) {
-		int i, a = *p++, n; char c; long long size;
-		if (a == ' ' || a == '\t' || a == '\n' || a == '\r') continue;
-		if (a != '<') {
-			if (!a) break;
-			if (stage != 1) continue;
-			ERR_EXIT("xml: unexpected symbol\n");
-		}
-		if (!memcmp(p, "!--", 3)) {
-			p = strstr(p + 3, "--");
-			if (!p || !((p[-1] - '!') | (p[-2] - '<')) || p[2] != '>')
-				ERR_EXIT("xml: unexpected syntax\n");
-			p += 3;
-			continue;
-		}
-		if (stage != 1) {
-			stage += !memcmp(p, part1, part1_len);
-			if (stage > 2)
-				ERR_EXIT("xml: more than one partition lists\n");
-			p = strchr(p, '>');
-			if (!p) ERR_EXIT("xml: unexpected syntax\n");
-			p++;
-			continue;
-		}
-		if (*p == '/' && !memcmp(p + 1, part1, part1_len)) {
-			p = p + 1 + part1_len;
-			stage++;
-			continue;
-		}
-		i = sscanf(p, "Partition id=\"%35[^\"]\" size=\"%lli\"/%n%c", (*(io->ptable + found)).name, &size, &n, &c);
-		if (i != 3 || c != '>')
-			ERR_EXIT("xml: unexpected syntax\n");
-		p += n + 1;
-		if (buf_size < 0x4c)
-			ERR_EXIT("xml: too many partitions\n");
-		buf_size -= 0x4c;
-		memset(buf, 0, 36 * 2);
-		for (i = 0; (a = (*(io->ptable + found)).name[i]); i++) buf[i * 2] = a;
-		if (!i) ERR_EXIT("empty partition name\n");
-		WRITE32_LE(buf + 0x48, size);
-		buf += 0x4c;
-		DBG_LOG("[%d] %s, %d\n", found + 1, (*(io->ptable + found)).name, (int)size);
-		(*(io->ptable + found)).size = size << 20;
-		found++;
-	}
-	io->part_count = found;
-	if (p - 1 != src + fsize) ERR_EXIT("xml: zero byte");
-	if (stage != 2) ERR_EXIT("xml: unexpected syntax\n");
-	delete[] src;
-	return found;
+    // 1. 读取文件内容
+    size_t fsize = 0;
+    char *src = (char *)loadfile(fn, &fsize, 1);
+    if (!src) ERR_EXIT("loadfile failed\n");
+    src[fsize] = 0;
+
+    // 2. 解析 XML
+    XmlParser parser;
+    auto root = parser.parseString(src);
+    if (!root) {
+        delete[] src;
+        ERR_EXIT("Failed to parse XML\n");
+    }
+
+    // 3. 查找 <Partitions> 节点（唯一）
+    auto partitionsNodes = root->getDescendants("Partitions");
+    if (partitionsNodes.empty()) {
+        delete[] src;
+        ERR_EXIT("No <Partitions> element\n");
+    }
+    if (partitionsNodes.size() > 1) {
+        delete[] src;
+        ERR_EXIT("xml: more than one partition lists\n");
+    }
+    auto partitions = partitionsNodes[0];
+
+    // 4. 获取所有 <Partition> 子节点
+    auto partitionNodes = partitions->getChildren("Partition");
+
+    // 5. 分配 ptable 如果需要
+    if (io->ptable == nullptr)
+        io->ptable = NEWN partition_t[128 * sizeof(partition_t)];
+
+    // 6. 遍历分区，填充 buf 和 ptable
+    uint8_t *buf_ptr = buf;
+    size_t remaining = buf_size;
+    int found = 0;
+
+    for (auto& partNode : partitionNodes) {
+        // 提取 id 属性
+        std::string id;
+        auto it_id = partNode->attributes.find("id");
+        if (it_id != partNode->attributes.end())
+            id = it_id->second;
+        if (id.empty()) {
+            delete[] src;
+            ERR_EXIT("Partition missing id attribute\n");
+        }
+
+        // 提取 size 属性（支持十进制和十六进制）
+        std::string sizeStr;
+        auto it_size = partNode->attributes.find("size");
+        if (it_size != partNode->attributes.end())
+            sizeStr = it_size->second;
+        if (sizeStr.empty()) {
+            delete[] src;
+            ERR_EXIT("Partition missing size attribute\n");
+        }
+        char *endptr;
+        long long size = strtoll(sizeStr.c_str(), &endptr, 0);  // 自动识别 0x 前缀
+        if (*endptr != '\0') {
+            delete[] src;
+            ERR_EXIT("Invalid size value\n");
+        }
+
+        // 检查缓冲区剩余空间
+        if (remaining < 0x4c) {
+            delete[] src;
+            ERR_EXIT("xml: too many partitions\n");
+        }
+        remaining -= 0x4c;
+
+        // 清空名称区域（36个16位字符，即72字节）
+        memset(buf_ptr, 0, 36 * 2);
+
+        // 交错写入名称 ASCII（每个字符占用低字节）
+        for (size_t i = 0; i < id.size() && i < 36; ++i)
+            buf_ptr[i * 2] = static_cast<uint8_t>(id[i]);
+
+        if (id.empty()) {
+            delete[] src;
+            ERR_EXIT("empty partition name\n");
+        }
+
+        // 写入原始 size（小端，偏移 0x48）
+        WRITE32_LE(buf_ptr + 0x48, static_cast<uint32_t>(size));
+
+        // 记录到 ptable
+        strncpy(io->ptable[found].name, id.c_str(), sizeof(io->ptable[found].name) - 1);
+        io->ptable[found].name[sizeof(io->ptable[found].name) - 1] = '\0';
+        io->ptable[found].size = size << 20;   // 左移 20 位（与原函数一致）
+
+        DBG_LOG("[%d] %s, %d\n", found + 1, io->ptable[found].name, (int)size);
+
+        buf_ptr += 0x4c;
+        ++found;
+    }
+
+    io->part_count = found;
+    delete[] src;
+    return found;
 }
 
 #define SECTOR_SIZE 512
@@ -1867,102 +1915,255 @@ void start_signal() {
 	isCancel = 0;
 }
 void dump_partitions(spdio_t *io, const char *fn, int *nand_info, unsigned step) {
-	const char *part1 = "Partitions>";
-	char *src, *p;
-	int part1_len = strlen(part1), found = 0, stage = 0, ubi = 0;
-	size_t size = 0;
-	partition_t *partitions = NEWN partition_t[128 * sizeof(partition_t)];
-	if (partitions == nullptr) return;
-	DEG_LOG(OP, "Start to read partitions");
-	DEG_LOG(I, "Type CTRL + C to cancel...");
-	start_signal();
-	if (!strncmp(fn, "ubi", 3)) ubi = 1;
-	src = (char *)loadfile(fn, &size, 1);
-	if (!src) ERR_EXIT("Load file failed\n");
-	src[size] = 0;
-	p = src;
+    // 1. 解析 XML 文件
+    XmlParser parser;
+    auto root = parser.parseFile(fn);
+    if (!root) {
+        ERR_EXIT("Failed to parse XML file\n");
+    }
 
-	for (;;) {
-		int i, a = *p++, n;
-		char c;
+    auto partitionsNodes = root->getDescendants("Partitions");
+    if (partitionsNodes.empty()) {
+        ERR_EXIT("No <Partitions> element found\n");
+    }
+    if (partitionsNodes.size() > 1) {
+        ERR_EXIT("xml: more than one partition lists\n");
+    }
 
-		if (a == ' ' || a == '\t' || a == '\n' || a == '\r') continue;
+    auto partitions = partitionsNodes[0];
+    auto partitionNodes = partitions->getChildren("Partition");
 
-		if (a != '<') {
-			if (!a) break;
-			if (stage != 1) continue;
-			ERR_EXIT("xml: unexpected symbol\n");
-		}
+    // 2. 动态分配分区数组（与原函数一致）
+    partition_t* partitionsArr = NEWN partition_t[128 * sizeof(partition_t)];  
+    int found = 0;
 
-		if (!memcmp(p, "!--", 3)) {
-			p = strstr(p + 3, "--");
-			if (!p || !((p[-1] - '!') | (p[-2] - '<')) || p[2] != '>')
-				ERR_EXIT("xml: unexpected syntax\n");
-			p += 3;
-			continue;
-		}
+    for (auto& partNode : partitionNodes) {
+        if (found >= 128) break;
+        std::string id = partNode->getAttribute("id");
+        if (id.empty()) {
+            ERR_EXIT("Partition missing id attribute\n");
+        }
+        std::string sizeStr = partNode->getAttribute("size");
+        if (sizeStr.empty()) {
+            ERR_EXIT("Partition missing size attribute\n");
+        }
+        char* endptr;
+        long long size = strtoll(sizeStr.c_str(), &endptr, 0);
+        if (*endptr != '\0' && !isspace(*endptr)) {
+            ERR_EXIT("Invalid size value\n");
+        }
+        strncpy(partitionsArr[found].name, id.c_str(), sizeof(partitionsArr[found].name) - 1);
+        partitionsArr[found].name[sizeof(partitionsArr[found].name) - 1] = '\0';
+        partitionsArr[found].size = size;   // 原代码直接赋值 size，后面再根据情况左移
+        found++;
+    }
 
-		if (stage != 1) {
-			stage += !memcmp(p, part1, part1_len);
-			if (stage > 2)
-				ERR_EXIT("xml: more than one partition lists\n");
-			p = strchr(p, '>');
-			if (!p) ERR_EXIT("xml: unexpected syntax\n");
-			p++;
-			continue;
-		}
+    int ubi = 0;
+    if (!strncmp(fn, "ubi", 3)) ubi = 1;
 
-		if (*p == '/' && !memcmp(p + 1, part1, part1_len)) {
-			p = p + 1 + part1_len;
-			stage++;
-			continue;
-		}
+    for (int i = 0; i < found; i++) {
+        if (isCancel) { return; }
+        DBG_LOG("Partition %d: name=%s, size=%llim\n", i + 1, partitionsArr[i].name, partitionsArr[i].size);
+        if (!strncmp(partitionsArr[i].name, "userdata", 8)) continue;
 
-		i = sscanf(p, "Partition id=\"%35[^\"]\" size=\"%lli\"/%n%c", partitions[found].name, &partitions[found].size, &n, &c);
-		if (i != 3 || c != '>')
-			ERR_EXIT("xml: unexpected syntax\n");
-		p += n + 1;
-		found++;
-		if (found >= 128) break;
-	}
-	if (p - 1 != src + size) ERR_EXIT("xml: zero byte");
-	if (stage != 2) ERR_EXIT("xml: unexpected syntax\n");
+        get_partition_info(io, partitionsArr[i].name, 0);
+        if (!gPartInfo.size) continue;
 
-	for (int i = 0; i < found; i++) {
-		if (isCancel) { delete[](src);delete[](partitions); return; }
-		DBG_LOG("Partition %d: name=%s, size=%llim\n", i + 1, partitions[i].name, partitions[i].size);
-		if (!strncmp(partitions[i].name, "userdata", 8)) continue;
+        long long finalSize = 0;
+        if (!strncmp(partitionsArr[i].name, "splloader", 9)) {
+            finalSize = (long long)g_spl_size;
+        } else if (0xffffffff == partitionsArr[i].size) {
+            finalSize = check_partition(io, gPartInfo.name, 1);
+        } else if (ubi) {
+            int block = (int)(partitionsArr[i].size * (1024 / nand_info[2]) + partitionsArr[i].size * (1024 / nand_info[2]) / (512 / nand_info[1]) + 1);
+            finalSize = 1024 * (nand_info[2] - 2 * nand_info[0]) * block;
+        } else {
+            finalSize = partitionsArr[i].size << 20;
+        }
+        gPartInfo.size = finalSize;
 
-		get_partition_info(io, partitions[i].name, 0);
-		if (!gPartInfo.size) continue;
-		if (!strncmp(partitions[i].name, "splloader", 9)) gPartInfo.size = (long long)g_spl_size;
-		else if (0xffffffff == partitions[i].size) gPartInfo.size = check_partition(io, gPartInfo.name, 1);
-		else if (ubi) {
-			int block = (int)(partitions[i].size * (1024 / nand_info[2]) + partitions[i].size * (1024 / nand_info[2]) / (512 / nand_info[1]) + 1);
-			gPartInfo.size = 1024 * (nand_info[2] - 2 * nand_info[0]) * block;
-		}
-		else gPartInfo.size = partitions[i].size << 20;
+        char dfile[40];
+        snprintf(dfile, sizeof(dfile), "%s.bin", partitionsArr[i].name);
+        dump_partition(io, gPartInfo.name, 0, gPartInfo.size, dfile, step);
+    }
 
-		char dfile[40];
-		snprintf(dfile, sizeof(dfile), "%s.bin", partitions[i].name);
-		dump_partition(io, gPartInfo.name, 0, gPartInfo.size, dfile, step);
-	}
-	if (selected_ab > 0) { DBG_LOG("saving slot info\n"); dump_partition(io, "misc", 0, 1048576, "misc.bin", step); }
+    if (selected_ab > 0) {
+        DBG_LOG("saving slot info\n");
+        dump_partition(io, "misc", 0, 1048576, "misc.bin", step);
+    }
 
-	if (savepath[0]) {
-		DEG_LOG(OP,"Saving dump list");
-		FILE *fo = my_oxfopen(fn, "wb");
-		if (fo) { fwrite(src, 1, size, fo); fclose(fo); }
-		else DEG_LOG(W,"Create dump list failed, skipped.");
-	}
-	delete[](src);
-	delete[](partitions);
+    if (savepath[0]) {
+        DEG_LOG(OP,"Saving dump list");
+        size_t size = 0;
+        char* src = (char*)loadfile(fn, &size, 1);
+        if (src) {
+            FILE* fo = my_oxfopen(savepath, "wb");
+            if (fo) {
+                fwrite(src, 1, size, fo);
+                fclose(fo);
+            } else {
+                DEG_LOG(W,"Create dump list failed, skipped.");
+            }
+			delete[] src;
+        } else {
+            DEG_LOG(W,"Failed to reload original XML for saving.");
+        }
+    }
+	delete[] partitionsArr;
 }
 
 int ab_compare_slots(const slot_metadata *a, const slot_metadata *b);
 bool hasPartition(const std::vector<std::string>& partitions, const std::string& partitionName)
 {
     return std::find(partitions.begin(), partitions.end(), partitionName) != partitions.end();
+}
+int get_nvlist_xml(spdio_t *io, const char *fn) {
+    // 1. 解析 XML 文件
+    XmlParser parser;
+    auto root = parser.parseFile(fn);
+    if (!root) {
+        if (io->verbose) DEG_LOG(E, "Error: parse XML file %s failed", fn);
+        return 0;
+    }
+
+    // 2. 分配并清零 nvid_list
+    io->nvid_list = NEWN int[0x10000, sizeof(int)];
+    if (!io->nvid_list) {
+        DEG_LOG(E,"malloc failed");
+        return 0;
+    }
+
+    // 3. 查找所有 NVItem 节点（通用 XML 支持任意嵌套）
+    auto nvItems = root->getDescendants("NVItem");
+    if (nvItems.empty()) {
+        if (io->verbose) DEG_LOG(W,"can't find NVItem from input");
+    }
+
+    // 遍历每个 NVItem，提取其子节点 <ID> 的值
+    for (auto& nvItem : nvItems) {
+        auto idNode = nvItem->getFirstChild("ID");
+        if (idNode) {
+            std::string idText = idNode->getTextContent();
+            // 去除首尾空白
+            size_t start = idText.find_first_not_of(" \t\r\n");
+            if (start == std::string::npos) continue;
+            size_t end = idText.find_last_not_of(" \t\r\n");
+            std::string trimmed = idText.substr(start, end - start + 1);
+            long id = strtol(trimmed.c_str(), nullptr, 0);
+            if (id >= 0 && id < 0x10000) {
+                io->nvid_list[id] = 1;
+                if (io->verbose) printf("saved id 0x%lX to list\n", id);
+            }
+        }
+    }
+
+    // 4. 强制添加固定 ID（与原函数完全一致）
+    io->nvid_list[5] = 1;
+    io->nvid_list[0x179] = 1;
+    io->nvid_list[0x186] = 1;
+    io->nvid_list[0x1e4] = 1;
+    io->nvid_list[2] = 1;
+    io->nvid_list[0x516] = 1;
+    io->nvid_list[0x12d] = 1;
+    io->nvid_list[0x9c4] = 1;
+
+    return 1;
+}
+
+int get_nvlist_cfg(spdio_t *io, char *fn) 
+{
+	char line[512];
+	unsigned int id = 0;
+	FILE *cfg_fd;
+
+	if (!(cfg_fd = oxfopen(fn, "rb"))) return 0;
+	io->nvid_list = NEWN int[0x10000 * sizeof(int)];
+	if (!io->nvid_list) ERR_EXIT("malloc failed\n");
+	memset(io->nvid_list, 0, 0x10000 * sizeof(int));
+	while (fgets(line, sizeof(line), cfg_fd)) {
+		if (line[0] == '#' || line[0] == '\0') continue;
+		if (-1 == sscanf(line, "%*s %x", &id)) continue;
+		io->nvid_list[id] = 1;
+		if (io->verbose) DBG_LOG("saved id 0x%X to list\n", id);
+	}
+	fclose(cfg_fd);
+	io->nvid_list[5] = 1;
+	io->nvid_list[0x179] = 1;
+	io->nvid_list[0x186] = 1;
+	io->nvid_list[0x1e4] = 1;
+	io->nvid_list[2] = 1;
+	io->nvid_list[0x516] = 1;
+	io->nvid_list[0x12d] = 1;
+	io->nvid_list[0x9c4] = 1;
+	return 1;
+}
+
+void merge_nv(spdio_t *io, const uint8_t *a, size_t a_size, const uint8_t *b, 
+			size_t b_size, uint8_t *c, size_t *c_size) 
+{
+	NVEntry *nvid_list_offset = NEWN NVEntry[0x10000 * sizeof(NVEntry)];
+	if (!nvid_list_offset) ERR_EXIT("malloc failed\n");
+	memset(nvid_list_offset, 0, 0x10000 * sizeof(NVEntry));
+	size_t pos = 4;
+	int nv_broken = 0;
+	if (*(uint32_t *)a == 0x4e56) pos += 0x200;
+	while (pos + 4 <= a_size) {
+		uint16_t type = *(uint16_t *)(a + pos);
+		uint16_t length = *(uint16_t *)(a + pos + 2);
+		pos += 4;
+		if (length == 0 || pos + length > a_size) { nv_broken++; break; }
+		nvid_list_offset[type].length = length;
+		nvid_list_offset[type].offset = pos;
+		pos += length;
+
+		uint32_t doffset = ((pos + 3) & 0xFFFFFFFC) - pos;
+		pos += doffset;
+		if (*(uint16_t *)(a + pos) == 0xffff) break;
+	}
+	if (nv_broken) memset(nvid_list_offset, 0, 0x10000 * sizeof(NVEntry));
+
+	uint8_t *c_ptr = c;
+	pos = 4;
+	if (*(uint32_t *)b == 0x4e56) pos += 0x200;
+	memcpy(c_ptr, b + pos - 4, 4);
+	c_ptr += 4;
+	while (pos + 4 <= b_size) {
+		uint16_t type = *(uint16_t *)(b + pos);
+		uint16_t length = *(uint16_t *)(b + pos + 2);
+		pos += 4;
+		if (pos + length > b_size) break;
+		if (nv_broken == 0 && io->nvid_list[type]) {
+			*(uint16_t *)c_ptr = type;
+			*(uint16_t *)(c_ptr + 2) = nvid_list_offset[type].length;
+			memcpy(c_ptr + 4, a + nvid_list_offset[type].offset, nvid_list_offset[type].length);
+			c_ptr += 4 + nvid_list_offset[type].length;
+		}
+		else {
+			memcpy(c_ptr, b + pos - 4, 4 + length);
+			c_ptr += 4 + length;
+		}
+		nvid_list_offset[type].saved = 1;
+		pos += length;
+
+		uint32_t doffset = ((pos + 3) & 0xFFFFFFFC) - pos;
+		memcpy(c_ptr, b + pos, doffset);
+		pos += doffset;
+		c_ptr += doffset;
+		if (*(uint16_t *)(b + pos) == 0xffff) break;
+	}
+	if (!nv_broken)
+		for (int i = 0; i < 0x10000; i++) {
+			if (nvid_list_offset[i].length && nvid_list_offset[i].saved == 0) {
+				*(uint16_t *)c_ptr = i;
+				*(uint16_t *)(c_ptr + 2) = nvid_list_offset[i].length;
+				memcpy(c_ptr + 4, a + nvid_list_offset[i].offset, nvid_list_offset[i].length);
+				c_ptr += 4 + nvid_list_offset[i].length;
+			}
+		}
+	uint8_t endbuf[] = { 0xff,0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+	memcpy(c_ptr, endbuf, 8);
+	*c_size = c_ptr - c + 8;
+	delete[] (nvid_list_offset);
 }
 void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab, int CMethod) {
 	DEG_LOG(OP,"Start to write partitions");
@@ -1972,7 +2173,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 	if (g_app_state.flash.isPacFlashing) {
 		pac_parts = getSelectedPartitions(helper);
 		if (pac_parts.empty()) {
-			DEG_LOG(E,"Failed to get partition list from pac file.\n");
+			DEG_LOG(E,"Failed to get partition list from partition list.");
 			return;
 		}
 	}
@@ -1989,19 +2190,25 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 	if (partitions == nullptr) return;
 	char *fn;
 #if _WIN32
-	char searchPath[ARGV_LEN];
-	snprintf(searchPath, ARGV_LEN, "%s\\*", path);
-
-	WIN32_FIND_DATAA findData;
-	HANDLE hFind = FindFirstFileA(searchPath, &findData);
+	// 将 path (UTF-8) 转为 UTF-16
+	char fn_buffer[MAX_PATH];
+    wchar_t wpath[ARGV_LEN * 2];
+    MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, ARGV_LEN * 2);
+    
+    wchar_t wsearchPath[ARGV_LEN * 2];
+    swprintf(wsearchPath, ARGV_LEN * 2, L"%s\\*", wpath);
+    
+    WIN32_FIND_DATAW findData;
+    HANDLE hFind = FindFirstFileW(wsearchPath, &findData);
 
 	if (hFind == INVALID_HANDLE_VALUE) {
 		DEG_LOG(E,"Failed to open directory.\n");
 		return;
 	}
 	do {
-		fn = findData.cFileName;
 		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+        WideCharToMultiByte(CP_UTF8, 0, findData.cFileName, -1, fn_buffer, MAX_PATH, NULL, NULL);
+		fn = fn_buffer;
 		namelen = strlen(fn);
 		if (namelen >= 4) {
 			if (!strcmp(fn + namelen - 4, ".xml") ||
@@ -2029,7 +2236,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		strcpy(partitions[partition_count].name, fn);
 		partitions[partition_count].written_flag = 0;
 		partition_count++;
-	} while (FindNextFileA(hFind, &findData));
+	} while (FindNextFileW(hFind, &findData));
 	FindClose(hFind);
 #else
 	DIR *dir;
@@ -2103,6 +2310,96 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		namelen = strlen(fn);
 		if (selected_ab == 1 && namelen > 2 && 0 == strcmp(fn + namelen - 2, "_b")) { partitions[i].written_flag = 1; continue; }
 		else if (selected_ab == 2 && namelen > 2 && 0 == strcmp(fn + namelen - 2, "_a")) { partitions[i].written_flag = 1; continue; }
+		if (!strcmp(fn, "miscdata") && g_app_state.flash.isPacFlashing)
+		{
+			partitions[i].written_flag = 1;
+			continue;
+		}
+		if (!strcmp(fn, "prodnv") && g_app_state.flash.isPacFlashing)
+		{
+			partitions[i].written_flag = 1;
+			continue;
+		}
+		if (!strcmp(fn, "userdata") && g_app_state.flash.isPacFlashing)
+		{
+			partitions[i].written_flag = 1;
+			continue;
+		}
+		// NV Merge process for PAC flashing
+		if ((strstr(fn, "fixnv1") || strstr(fn, "downloadnv")) && g_app_state.flash.isPacFlashing)
+		{
+			if (strstr("nr_fixnv1", fn))
+			{
+				if (hasPartition(pac_parts, "nr_fixnv1")) 
+				{
+					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
+						size_t a_size = 0, b_size = 0, c_size = 0;
+						uint8_t *a = loadfile("old_nv_nr_fixnv1.bin", &a_size, 0);
+						uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
+						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
+						merge_nv(io, a, a_size, b, b_size, c, &c_size);
+						FILE *fi = oxfopen("nvmerged", "wb");
+						if (!fi) ERR_EXIT("fopen failed\n");
+						if (fseek(fi, 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+						if (fwrite(c, 1, c_size, fi) != c_size) ERR_EXIT("fwrite failed\n");
+						fclose(fi);
+						free(a); free(b); free(c);
+					}
+					free(io->nvid_list);
+					io->nvid_list = NULL;
+					get_partition_info(io, "nr_fixnv1", 1);
+					load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
+				}
+			}
+			else if (strstr("l_fixnv1", fn))
+			{
+				if (hasPartition(pac_parts, "l_fixnv1")) 
+				{
+					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
+						size_t a_size = 0, b_size = 0, c_size = 0;
+						uint8_t *a = loadfile("old_nv_l_fixnv1.bin", &a_size, 0);
+						uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
+						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
+						merge_nv(io, a, a_size, b, b_size, c, &c_size);
+						FILE *fi = oxfopen("nvmerged", "wb");
+						if (!fi) ERR_EXIT("fopen failed\n");
+						if (fseek(fi, 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+						if (fwrite(c, 1, c_size, fi) != c_size) ERR_EXIT("fwrite failed\n");
+						fclose(fi);
+						free(a); free(b); free(c);
+					}
+					free(io->nvid_list);
+					io->nvid_list = NULL;
+					get_partition_info(io, "l_fixnv1", 1);
+					load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
+				}
+			}
+			else if (strstr("downloadnv", fn))
+			{
+				if (hasPartition(pac_parts, "downloadnv"))
+				{
+					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
+						size_t a_size = 0, b_size = 0, c_size = 0;
+						uint8_t *a = loadfile("old_nv_downloadnv.bin", &a_size, 0);
+						uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
+						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
+						merge_nv(io, a, a_size, b, b_size, c, &c_size);
+						FILE *fi = oxfopen("nvmerged", "wb");
+						if (!fi) ERR_EXIT("fopen failed\n");
+						if (fseek(fi, 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+						if (fwrite(c, 1, c_size, fi) != c_size) ERR_EXIT("fwrite failed\n");
+						fclose(fi);
+						free(a); free(b); free(c);
+					}
+					free(io->nvid_list);
+					io->nvid_list = NULL;
+					get_partition_info(io, "downloadnv", 1);
+					load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
+				}
+			}
+			partitions[i].written_flag = 1;
+			continue;
+		}
 		if (!strcmp(fn, "splloader") ||
 			!strcmp(fn, "uboot_a") ||
 			!strcmp(fn, "uboot_b") ||
@@ -2409,6 +2706,7 @@ void set_active(spdio_t *io, const char *arg, int CMethod) {
     w_mem_to_part_offset(io, "misc", 0x800,
                          (uint8_t*)&abc, sizeof(abc), 0x1000, CMethod);
 }
+
 
 
 

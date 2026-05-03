@@ -126,18 +126,18 @@ static std::string get_executable_dir() {
 static bool dir_exists(const std::string& path) {
 #if defined(__linux__) || defined(__APPLE__)
     struct stat st;
-    if (stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
-        return true;
-    }
-    return false;
+    return (stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode));
 #elif defined(_WIN32)
-    DWORD attr = GetFileAttributesA(path.c_str());
-    if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY)) {
-        return true;
-    }
-    return false;
+    // 将 UTF-8 路径转换为 UTF-16
+    int wlen = MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, nullptr, 0);
+    if (wlen <= 0) return false;
+    
+    std::vector<wchar_t> wpath(wlen);
+    MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, wpath.data(), wlen);
+    
+    DWORD attr = GetFileAttributesW(wpath.data());
+    return (attr != INVALID_FILE_ATTRIBUTES) && (attr & FILE_ATTRIBUTE_DIRECTORY);
 #else
-    // 简单实现：其他平台暂不检查，直接使用给定路径
     (void)path;
     return false;
 #endif

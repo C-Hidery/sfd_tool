@@ -60,12 +60,6 @@ jobs:
           }
           Write-Host "Using vcpkg: $vcpkgExe"
           & $vcpkgExe install "gettext:${{ matrix.vcpkg_triplet }}"
-          
-          # 如果是 libusb 版，额外安装 libusb
-          if ("${{ matrix.use_libusb }}" -eq "ON") {
-            Write-Host "Installing libusb for libusb version..."
-            & $vcpkgExe install "libusb:${{ matrix.vcpkg_triplet }}"
-          }
       - name: Install MSYS2 and GTK3 (x64)
         if: matrix.arch == 'x64'
         shell: pwsh
