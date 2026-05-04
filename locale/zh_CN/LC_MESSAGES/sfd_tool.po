@@ -989,7 +989,8 @@ msgstr "XML文件中的分区太多"
 msgid "Empty partition name found in XML file."
 msgstr "在XML文件中发现空的分区名"
 
-
+msgid "An error occurred. The application will now exit."
+msgstr "监测到错误，应用程序将退出"
 
 # ===== Auto-appended entries from sfd_tool.pot =====
 

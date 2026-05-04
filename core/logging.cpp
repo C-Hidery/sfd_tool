@@ -1,4 +1,5 @@
 #include "logging.h"
+#include "../i18n.h"
 extern bool Err_Showed;
 extern bool isHelperInit;
 extern GtkWidgetHelper helper;
@@ -12,7 +13,7 @@ void ERR_EXIT(const char* format, ...) {
 	Err_Showed = true;
 	if (isHelperInit){
 		gui_idle_call_wait_drag([]() {
-			showErrorDialog(helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr, "Error", "An error occurred. The application will now exit.\n监测到错误，应用程序将退出。");
+			showErrorDialog(helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr, "Error", _("An error occurred. The application will now exit."));
 		}, helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr);
 		DisableWidgets(helper);
 	}

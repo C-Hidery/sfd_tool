@@ -961,7 +961,7 @@ bool pac_flash(spdio_t* io, const char* floder)
     uint32_t fdl2_base_addr = std::stoul(fdl2_base, nullptr, 0);
     int highspeed = 0;
     uint32_t baudrate = 0;
-    uint16_t blk_size = DEFAULT_BLK_SIZE;
+    uint32_t blk_size = 60000;
     auto into_func = [=]() mutable
     {
                 FILE* fi;
@@ -1116,17 +1116,17 @@ bool pac_flash(spdio_t* io, const char* floder)
     get_partition_info(io, "nr_fixnv1", 1);
     if (gPartInfo.size)
     {
-        dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "old_nv_nr_fixnv1.bin",g_default_blk_size ? g_default_blk_size : DEFAULT_BLK_SIZE);
+        dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "old_nv_nr_fixnv1.bin", blk_size);
     }
     get_partition_info(io, "l_fixnv1", 1);
     if (gPartInfo.size)
     {
-        dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "old_nv_l_fixnv1.bin",g_default_blk_size ? g_default_blk_size : DEFAULT_BLK_SIZE);
+        dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "old_nv_l_fixnv1.bin", blk_size);
     }
     get_partition_info(io, "downloadnv", 1);
     if (gPartInfo.size)
     {
-        dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "old_nv_downloadnv.bin",g_default_blk_size ? g_default_blk_size : DEFAULT_BLK_SIZE);
+        dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "old_nv_downloadnv.bin", blk_size);
     }
     bool i_is = false;
     if (isHelperInit)
