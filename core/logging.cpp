@@ -5,27 +5,72 @@ extern bool isHelperInit;
 extern GtkWidgetHelper helper;
 
 void ERR_EXIT(const char* format, ...) {
-	va_list args;
-	va_start(args, format);
-	vfprintf(stderr, format, args);
-	va_end(args);
-	if (Err_Showed) return;
+    // 1. 打印错误日志
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+    
+    // 2. 防止重复调用
+    if (Err_Showed) return;
 	Err_Showed = true;
-	if (isHelperInit){
-		gui_idle_call_wait_drag([]() {
-			showErrorDialog(helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr, "Error", _("An error occurred. The application will now exit."));
-		}, helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr);
-		DisableWidgets(helper);
-	}
-	std::thread([&](){
-#ifdef _WIN32
-		system("pause");
+    
+    // 3. 在 GUI 模式下处理弹窗
+    if (isHelperInit) {
+        // 检测当前是否在主线程
+        bool is_main_thread = g_main_context_is_owner(g_main_context_default());
+        
+        if (is_main_thread) {
+            // 主线程中直接执行，无需等待（因为没有异步）
+            // 等待窗口拖动结束
+            while (isWindowDragging(helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr)) {
+                g_main_context_iteration(g_main_context_default(), FALSE);
+                g_usleep(10000); // 10ms
+            }
+            // 禁用控件并显示对话框
+            DisableWidgets(helper);
+            GtkWidget* main_window = helper.getWidget("main_window");
+            if (main_window) {
+                showErrorDialog(GTK_WINDOW(main_window), 
+                              "Error", 
+                              _("An error occurred. The application will now exit."));
+            }
+        } else {
+            // 工作线程：使用 promise/future 等待异步回调完成
+            std::promise<void> dialogDone;
+            auto dialogFuture = dialogDone.get_future();
+            
+            gui_idle_call_wait_drag([promise = std::move(dialogDone)]() mutable {
+                DisableWidgets(helper);
+                GtkWidget* main_window = helper.getWidget("main_window");
+                if (main_window) {
+                    showErrorDialog(GTK_WINDOW(main_window), 
+                                  "Error", 
+                                  _("An error occurred. The application will now exit."));
+                }
+                promise.set_value();
+            }, helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr);
+            
+            // 工作线程阻塞等待对话框关闭
+            dialogFuture.wait();
+        }
+    } else {
+        // 命令行模式
+        fprintf(stderr, "Fatal error. Exiting...\n");
+#ifndef _WIN32
+        std::this_thread::sleep_for(std::chrono::seconds(3));
+        std::exit(EXIT_FAILURE);
 #else
-		sleep(5);
+		system("pause");
+		std::exit(EXIT_FAILURE);
 #endif
-		
-		exit(EXIT_FAILURE);
-	}).detach();
+    }
+    
+    // 4. 等待用户阅读错误信息
+    std::this_thread::sleep_for(std::chrono::seconds(3));
+    
+    // 5. 强制退出
+    std::exit(EXIT_FAILURE);
 }
 
 // 内部：统一的实际输出函数，保持原有格式/路由行为
@@ -39,7 +84,7 @@ static void logMessageInternal(int type, const char* message) {
 	switch(type) {
 		case I:  prefix = "[i] ";  break;
 		case W:  prefix = "[!] ";  break;
-		case E:  prefix = "[x] ";  break;
+		case E:  prefix = "[X] ";  break;
 		case OP: prefix = "[=] ";  break;
 		case DE: prefix = "[D] "; break;
 		default: prefix = "[?] "; break;
