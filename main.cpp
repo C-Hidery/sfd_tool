@@ -315,11 +315,6 @@ void crash_handler(int sig) {
 	(void)sig;
 	if (isCrashed) return;
 	isCrashed = true;
-	if (isHelperInit){
-		gui_idle_call_wait_drag([]() {
-			showErrorDialog(helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr, _("Program Crash"), _("The program encountered an unhandled exception, which may be caused by device connection issues or a bug in the program.\n\nIt is recommended to check the device connection, ensure the correct options are used, and try running the tool again."));
-		},helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr);
-	}
 #ifdef __linux__
     void* array[20];
     size_t size;
@@ -355,16 +350,62 @@ void crash_handler(int sig) {
     free(symbol);
 
 #endif
-    // 退出
-	std::thread([](){
-#ifdef _WIN32
-		system("pause");
+	if (isHelperInit) {
+        // 检测当前是否在主线程
+        bool is_main_thread = g_main_context_is_owner(g_main_context_default());
+        
+        if (is_main_thread) {
+            // 主线程中直接执行，无需等待（因为没有异步）
+            // 等待窗口拖动结束
+            while (isWindowDragging(helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr)) {
+                g_main_context_iteration(g_main_context_default(), FALSE);
+                g_usleep(10000); // 10ms
+            }
+            // 禁用控件并显示对话框
+            DisableWidgets(helper);
+            GtkWidget* main_window = helper.getWidget("main_window");
+            if (main_window) {
+                showErrorDialog(GTK_WINDOW(main_window),
+				 _("Program Crash"),
+				 _("The program encountered an unhandled exception, which may be caused by device connection issues or a bug in the program.\n\nIt is recommended to check the device connection, ensure the correct options are used, and try running the tool again."));
+		
+            }
+        } else {
+            // 工作线程：使用 promise/future 等待异步回调完成
+            std::promise<void> dialogDone;
+            auto dialogFuture = dialogDone.get_future();
+            
+            gui_idle_call_wait_drag([promise = std::move(dialogDone)]() mutable {
+                DisableWidgets(helper);
+                GtkWidget* main_window = helper.getWidget("main_window");
+                if (main_window) {
+                    showErrorDialog(GTK_WINDOW(main_window), 
+                                  _("Program Crash"), 
+                                  _("The program encountered an unhandled exception, which may be caused by device connection issues or a bug in the program.\n\nIt is recommended to check the device connection, ensure the correct options are used, and try running the tool again."));
+                }
+                promise.set_value();
+            }, helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr);
+            
+            // 工作线程阻塞等待对话框关闭
+            dialogFuture.wait();
+        }
+    } else {
+        // 命令行模式
+        fprintf(stderr, "Program crashed. Exiting...\n");
+#ifndef _WIN32
+        std::this_thread::sleep_for(std::chrono::seconds(3));
+        std::exit(EXIT_FAILURE);
 #else
-		sleep(5); // 5 seconds
+		system("pause");
+		std::exit(EXIT_FAILURE);
 #endif
-		exit(1);
-	}).detach();
-
+    }
+    
+    // 4. 等待用户阅读错误信息
+    std::this_thread::sleep_for(std::chrono::seconds(3));
+    
+    // 5. 强制退出
+    std::exit(EXIT_FAILURE);
 }
 
 // 全局快捷键处理：在 macOS 上支持 Command+Q，其他平台支持 Ctrl+Q 退出

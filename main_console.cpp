@@ -19,7 +19,6 @@ extern AppState g_app_state;
 static int& isCMethod = g_app_state.flash.isCMethod;
 
 void print_help() {
-	//TODO
 	DBG_LOG("Usage:\n"
 	        "\nOne-line mode example:\n"
 	        "\tsfd_tool --wait 300 fdl path/to/fdl 0x0000 fdl path/to/fdl 0x0000 exec read_part boot write_part boot boot.img reset\n"
@@ -896,6 +895,7 @@ int main_console(int argc, char** argv) {
 					encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
 					if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
 				}
+				if (execfile) delete[](execfile);
 				DEG_LOG(OP, "Execute FDL1");
 				// Tiger 310(0x5500) and Tiger 616(0x65000800) need to change baudrate after FDL1
 

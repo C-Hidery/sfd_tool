@@ -382,7 +382,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	// 8. 强制刷写设置部分
 	GtkWidget* forceFlashFrame = gtk_frame_new(NULL);
 	GtkWidget* forceFlashTitle = gtk_label_new(NULL);
-	gtk_label_set_markup(GTK_LABEL(forceFlashTitle), (std::string("<b>") + _("Force flash Settings") + "</b>").c_str());
+	gtk_label_set_markup(GTK_LABEL(forceFlashTitle), (std::string("<b>") + _("Auto Force flash Settings") + "</b>").c_str());
 	gtk_widget_set_halign(forceFlashTitle, GTK_ALIGN_CENTER);
 	gtk_frame_set_label_widget(GTK_FRAME(forceFlashFrame), forceFlashTitle);
 	gtk_frame_set_label_align(GTK_FRAME(forceFlashFrame), 0.5, 0.5);
@@ -391,8 +391,8 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* forceFlashBox = makeCardBox(32, 16);
 	gtk_container_add(GTK_CONTAINER(forceFlashFrame), forceFlashBox);
 
-	GtkWidget* forceFlashEn = helper.createButton(_("Enable Force Flash"), "force_flash_en", nullptr, 0, 0, 210, 36);
-	GtkWidget* forceFlashDis = helper.createButton(_("Disable Force Flash"), "force_flash_dis", nullptr, 0, 0, 210, 36);
+	GtkWidget* forceFlashEn = helper.createButton(_("Enable Auto Force Flash"), "force_flash_en", nullptr, 0, 0, 210, 36);
+	GtkWidget* forceFlashDis = helper.createButton(_("Disable Auto Force Flash"), "force_flash_dis", nullptr, 0, 0, 210, 36);
 	GtkWidget* forceFlashButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
 	gtk_widget_set_halign(forceFlashButtonBox, GTK_ALIGN_CENTER);
 	gtk_box_pack_start(GTK_BOX(forceFlashButtonBox), forceFlashEn, FALSE, FALSE, 0);

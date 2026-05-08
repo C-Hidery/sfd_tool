@@ -684,14 +684,14 @@ msgstr "发送结束块数据"
 msgid "A/B Part read/flash manually set --- FDL2"
 msgstr "A/B分区刷写手工干预 --- FDL2"
 
-msgid "Force flash Settings"
-msgstr "强制刷写设置"
+msgid "Auto Force flash Settings"
+msgstr "自动强制刷写设置"
 
-msgid "Enable Force Flash"
-msgstr "启用强制刷写"
+msgid "Enable Auto Force Flash"
+msgstr "启用自动强制刷写"
 
-msgid "Disable Force Flash"
-msgstr "禁用强制刷写"
+msgid "Disable Auto Force Flash"
+msgstr "禁用自动强制刷写"
 
 msgid "Force flash enabled"
 msgstr "强制刷写已启用"
@@ -1030,7 +1030,8 @@ msgstr "分区读取失败！"
 msgid "Success"
 msgstr "成功"
 
-
+msgid "FDL Info detected, do you want to load it?"
+msgstr "检测到FDL信息，是否加载？"
 
 
 
