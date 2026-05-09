@@ -935,33 +935,77 @@ bool pac_flash(spdio_t* io, const char* floder)
     std::string fdl2_path = FindFDLInExtFloder(floder, FDL2);
     std::string fdl1_base = findBaseForID(xmlPath, "fdl1");
     std::string fdl2_base = findBaseForID(xmlPath, "fdl2");
+    bool FDLInPacSupported = true;
+    bool FDLAddrInPacSupported = true;
     if (fdl1_path.empty() || fdl1_base.empty()) {
         if(isHelperInit) gui_idle_call_wait_drag([](){
             showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("FDL1 file or base address not found."));
         },GTK_WINDOW(helper.getWidget("main_window")));
         DEG_LOG(E, "FDL1 file or base address not found.");
-        return false;
+        if (fdl1_path.empty()) FDLInPacSupported = false;
+        if (fdl1_base.empty()) FDLAddrInPacSupported = false;
     }
     if (fdl2_path.empty() || fdl2_base.empty()) {
         if(isHelperInit) gui_idle_call_wait_drag([](){
             showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("FDL2 file or base address not found."));
         },GTK_WINDOW(helper.getWidget("main_window")));
         DEG_LOG(E, "FDL2 file or base address not found.");
-        return false;
+        if (fdl2_path.empty()) FDLInPacSupported = false;
+        if (fdl2_base.empty()) FDLAddrInPacSupported = false;
     }
     if (isHelperInit && !showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Are you sure you want to flash the device with the extracted files? Make sure you have the correct PAC file."))) {
         return false;
     }
+    if (showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Do you want to set FDL info manually?"))) {
+        FDLInPacSupported = false;
+        FDLAddrInPacSupported = false;
+    }
+    if (FDLInPacSupported == false || FDLAddrInPacSupported == false)
+    {
+        DEG_LOG(OP,"Try to set FDL info manmually...");
+        if (isHelperInit)
+        {
+            if (FDLAddrInPacSupported == false)
+            {
+                fdl1_base = showInputDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Input"), _("Please input FDL1 base address (hex): "));
+                fdl2_base = showInputDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Input"), _("Please input FDL2 base address (hex): "));
+            }
+            if (FDLInPacSupported == false)
+            {
+                showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Please select FDL1 executable file."));
+                fdl1_path = showFileChooser(GTK_WINDOW(helper.getWidget("main_window")));
+                showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Please select FDL2 executable file."));
+                fdl2_path = showFileChooser(GTK_WINDOW(helper.getWidget("main_window")));
+            }
+        }
+        else
+        {
+            if (FDLAddrInPacSupported == false)
+            {
+                std::cout << "Please input FDL1 base address (hex): ";
+                std::getline(std::cin, fdl1_base);
+                std::cout << "Please input FDL2 base address (hex): ";
+                std::getline(std::cin, fdl2_base);
+            }
+            if (FDLInPacSupported == false)
+            {
+                std::cout << "Please input FDL1 file path: ";
+                std::getline(std::cin, fdl1_path);
+                std::cout << "Please input FDL2 file path: ";
+                std::getline(std::cin, fdl2_path);
+            }
+        }
+    }
     ensure_device_attached_or_exit(helper);
-    
-    if (isHelperInit) gui_idle_call_wait_drag([](){
-        showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Start executing FDL1 and FDL2."));
-    },GTK_WINDOW(helper.getWidget("main_window")));
     uint32_t fdl1_base_addr = std::stoul(fdl1_base, nullptr, 0);
     uint32_t fdl2_base_addr = std::stoul(fdl2_base, nullptr, 0);
     int highspeed = 0;
     uint32_t baudrate = 0;
     uint32_t blk_size = 60000;
+    if (isHelperInit) gui_idle_call_wait_drag([](){
+        showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Start executing FDL1 and FDL2."));
+    },GTK_WINDOW(helper.getWidget("main_window")));
+    
     auto into_func = [=]() mutable
     {
                 FILE* fi;

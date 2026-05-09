@@ -391,7 +391,7 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
 
     // GUI 进度条和状态文本：每个数据块触发一次更新，保证视觉连续
     if (isHelperInit) {
-        g_idle_add([](gpointer data) -> gboolean {
+        g_main_context_invoke(nullptr, [](gpointer data) -> gboolean {
             auto* progress_data = static_cast<UiProgressData*>(data);
             double   percent_val = progress_data->percent;
             uint64_t done_value  = progress_data->done;

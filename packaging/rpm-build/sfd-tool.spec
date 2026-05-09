@@ -6,7 +6,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        1.8.5.5
+Version:        1.8.6.0
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -60,6 +60,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Sat May 09 2026 RyanCrepa <Ryan110413@outlook.com> - 1.8.6.0-1-ltv
+- PAC刷写可自定义FDL; 恢复FDL自动执行
+
 * Sun May 03 2026 RyanCrepa <Ryan110413@outlook.com> - 1.8.5.5-1-ltv
 - PAC nvmerge issue(f50300bc)
 

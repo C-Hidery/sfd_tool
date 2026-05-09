@@ -236,7 +236,7 @@ void append_log_to_ui(int type, const char* message) {
 	char* msg_copy = strdup(message);
 	if (!msg_copy) return;
 
-	g_idle_add([](gpointer data) -> gboolean {
+	g_main_context_invoke(nullptr, [](gpointer data) -> gboolean {
 		char* msg = static_cast<char*>(data);
 
 		GtkWidget* txtOutputInner = helper.getWidget("txtOutput");

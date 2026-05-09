@@ -22,7 +22,7 @@ void gui_idle_call(Func&& func) {
 	// 动态分配func的副本
 	auto* func_ptr = new FuncType(std::forward<Func>(func));
 
-	g_idle_add([](gpointer data) -> gboolean {
+	g_main_context_invoke(nullptr, [](gpointer data) -> gboolean {
 		auto* f = static_cast<FuncType*>(data);
 		(*f)();
 		delete f;
@@ -147,7 +147,7 @@ void gui_idle_call_with_callback(Func&& func, Callback&& callback, GtkWindow* wi
                 auto* func_ptr = new FuncType(std::move(wd->func));
                 auto* callback_ptr = new CallbackType(std::move(wd->callback));
                 
-                g_idle_add([](gpointer data) -> gboolean {
+                g_main_context_invoke(nullptr, [](gpointer data) -> gboolean {
                     auto* pair = static_cast<std::pair<FuncType*, CallbackType*>*>(data);
                     auto& [func, callback] = *pair;
                     
@@ -172,7 +172,7 @@ void gui_idle_call_with_callback(Func&& func, Callback&& callback, GtkWindow* wi
                 auto* func_ptr = new FuncType(std::move(wd->func));
                 auto* callback_ptr = new CallbackType(std::move(wd->callback));
                 
-                g_idle_add([](gpointer data) -> gboolean {
+                g_main_context_invoke(nullptr, [](gpointer data) -> gboolean {
                     auto* pair = static_cast<std::pair<FuncType*, CallbackType*>*>(data);
                     auto& [func, callback] = *pair;
                     
@@ -199,7 +199,7 @@ void gui_idle_call_with_callback(Func&& func, Callback&& callback, GtkWindow* wi
     auto* func_ptr = new FuncType(std::forward<Func>(func));
     auto* callback_ptr = new CallbackType(std::forward<Callback>(callback));
 
-    g_idle_add([](gpointer data) -> gboolean {
+    g_main_context_invoke(nullptr, [](gpointer data) -> gboolean {
         auto* pair = static_cast<std::pair<FuncType*, CallbackType*>*>(data);
         auto& [func, callback] = *pair;
 
@@ -218,6 +218,7 @@ void showInfoDialog(GtkWindow* parent, const char* title, const char* message);
 void showWarningDialog(GtkWindow* parent, const char* title, const char* message);
 void showErrorDialog(GtkWindow* parent, const char* title, const char* message);
 bool showConfirmDialog(GtkWindow* parent, const char* title, const char* message);
+std::string showInputDialog(GtkWindow* parent, const char* title, const char* message);
 std::string showSaveFileDialog(GtkWindow* parent,
                                const std::string& default_filename = "",
                                const std::vector<std::pair<std::string, std::string>>& filters = {});
