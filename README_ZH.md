@@ -128,11 +128,11 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
     
 **新命令，谨慎使用**
 
-# 警告 - 禁用 VERITY 与 AVB
+## 警告 - 禁用 VERITY 与 AVB
 
 **命令：** `dis_avb_tos` / `verity 0`
 
-此命令将**永久禁用**您设备上的 Android DM-verity 和 AVB 安全校验机制。
+此命令将**禁用**您设备上的 Android DM-verity 和 AVB 安全校验机制。
 
 ## 后果说明
 
@@ -147,13 +147,13 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 
 ## 操作前须知
 
-- SFD Tool 已自动备份您的 `vbmeta` 分区（请查看备份文件夹）
+- 对于  `dis_avb_tos`，SFD Tool 已自动备份您的 `trustos` 分区（请查看`trustos-orig.bin`）
 - **请妥善保管此备份** - 恢复时需要用到
 
 ## 如何恢复
 
-使用命令：`verity 1`
-
+对于`verity 0`, 使用命令：`verity 1`
+对于 `dis_avb_tos`，刷回`trustos-orig.bin`
 
 ---
 

@@ -108,7 +108,7 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 
 **Command:** `dis_avb_tos` / `verity 0`
 
-This command will **PERMANENTLY DISABLE** Android's DM-verity and AVB security verification mechanisms on your device.
+This command will **DISABLE** Android's DM-verity and AVB security verification mechanisms on your device.
 
 ## CONSEQUENCES
 
@@ -123,13 +123,13 @@ This command will **PERMANENTLY DISABLE** Android's DM-verity and AVB security v
 
 ## BEFORE CONTINUING
 
-- SFD Tool has automatically backed up your `vbmeta` partition (see backup folder)
+- For  `dis_avb_tos` , SFD Tool has automatically backed up your `trustos` partition (see `trustos-orig.bin`)
 - **Keep this backup safe** - you will need it for recovery
 
 ## TO RESTORE
 
-Use command: `verity 1`
-
+For `verity 0`, Use command: `verity 1`
+For  `dis_avb_tos`, flash back `trustos-orig.bin`
 
 ## Features
 
