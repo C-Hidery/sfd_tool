@@ -127,9 +127,33 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
     dis_avb_tos
     
 **新命令，谨慎使用**
-**警告：`dis_avb_tos`可能会损坏您的设备，如果是，请刷回备份文件（SFD Tool 下自动备份的trustos.bin）**
-**警告：`verity 1`命令将破坏Android的DM-verity/AVB安全校验机制**
-**如想恢复，使用`verity 0`命令**
+
+# 警告 - 禁用 VERITY 与 AVB
+
+**命令：** `dis_avb_tos` / `verity 0`
+
+此命令将**永久禁用**您设备上的 Android DM-verity 和 AVB 安全校验机制。
+
+## 后果说明
+
+- 您的设备将**失去所有系统完整性保护**
+- 以下应用将**停止工作**：
+  - 银行 App 和 Google Pay
+  - 使用指纹/密码支付的应用（微信支付、支付宝等）
+  - Netflix 高清播放及部分 DRM 保护内容
+  - 带有反作弊保护的游戏（吃鸡、原神等）
+- 恶意软件可在无任何警告的情况下轻松修改您的系统
+- 您的设备将变得极易遭受数据窃取攻击
+
+## 操作前须知
+
+- SFD Tool 已自动备份您的 `vbmeta` 分区（请查看备份文件夹）
+- **请妥善保管此备份** - 恢复时需要用到
+
+## 如何恢复
+
+使用命令：`verity 1`
+
 
 ---
 

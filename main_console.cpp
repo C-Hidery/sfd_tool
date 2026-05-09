@@ -2088,7 +2088,7 @@ rloop:
 			argv += 2;
 
 		} else if (!strcmp(str2[2], "dis_avb_tos")) {
-			DEG_LOG(W, "This operation may brick your device, and not all devices support this, if your device is broken, flash backup in backup_tos");
+			DEG_LOG(W, "This operation may brick your device, and not all devices support this, if your device is broken, flash backup trustos-orig.bin");
 			if (check_confirm("Disable AVB by patching trustos")) {
 				TosPatcher patcher;
 				dump_partition(io, "trustos", 0, check_partition(io, "trustos", 1), "trustos-orig.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
@@ -2110,6 +2110,12 @@ rloop:
 			}
 			if (atoi(str2[2])) dm_avb_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 			else {
+				DEG_LOG(W, "This operation may brick your device, if you want to restore, use `verity 1` command");
+				if (check_confirm("Disable dm-verity and AVB") == 0) {
+					argc -= 2;
+					argv += 2;
+					continue;
+				}
 				if (!io->part_count) {
 					DEG_LOG(W, "Disable dm-verity and AVB needs a valid partition table or a write-verification-disabled FDL2");
 					if (!skip_confirm)

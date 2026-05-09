@@ -104,9 +104,31 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 
 **New Command, use with caution.**
 
-**WARN: `dis_avb_tos` command may make your device broken, if do, flash backup(SFD Tool will backup it automatically)**
-**WARN: `verity 0` command will break Android's DM-verity/AVB security verification mechanism.**
-**If you want to restore, use `verity 1` command.**
+# WARNING - DISABLE VERITY & AVB
+
+**Command:** `dis_avb_tos` / `verity 0`
+
+This command will **PERMANENTLY DISABLE** Android's DM-verity and AVB security verification mechanisms on your device.
+
+## CONSEQUENCES
+
+- Your device will have **NO system integrity protection**
+- The following apps will **STOP WORKING**:
+  - Banking apps and Google Pay
+  - Apps using fingerprint/password for payments (WeChat Pay, Alipay, etc.)
+  - Netflix HD streaming and some DRM-protected content
+  - Games with anti-cheat protection (PUBG, Genshin Impact, etc.)
+- Malware can easily modify your system without any warning
+- Your device becomes significantly more vulnerable to data theft
+
+## BEFORE CONTINUING
+
+- SFD Tool has automatically backed up your `vbmeta` partition (see backup folder)
+- **Keep this backup safe** - you will need it for recovery
+
+## TO RESTORE
+
+Use command: `verity 1`
 
 
 ## Features
