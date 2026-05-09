@@ -281,46 +281,6 @@ GtkWidget* create_advanced_op_page(GtkWidgetHelper& helper, GtkWidget* notebook)
 	gtk_box_pack_start(GTK_BOX(repartBox), readXmlBtn, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(mainBox), repartFrame, FALSE, FALSE, 0);
 
-	// DM-verify
-	GtkWidget* dmvFrame = gtk_frame_new(NULL);
-	GtkWidget* dmvLabel = gtk_label_new(NULL);
-	gtk_label_set_markup(GTK_LABEL(dmvLabel), (std::string("<b>") + _("DM-verity and AVB Settings (if support)") + "</b>").c_str());
-	gtk_widget_set_halign(dmvLabel, GTK_ALIGN_CENTER);
-	gtk_frame_set_label_widget(GTK_FRAME(dmvFrame), dmvLabel);
-	gtk_frame_set_label_align(GTK_FRAME(dmvFrame), 0.5, 0.5);
-	helper.addWidget("dmv_label", dmvLabel);
-
-	GtkWidget* dmvBox = makeCardBox(32, 16);
-	gtk_container_add(GTK_CONTAINER(dmvFrame), dmvBox);
-
-	GtkWidget* dmvButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
-	gtk_widget_set_halign(dmvButtonBox, GTK_ALIGN_CENTER);
-	GtkWidget* dmvDisable = helper.createButton(_("Disable DM-verity and AVB"), "dmv_disable", nullptr, 0, 0, 272, 36);
-	GtkWidget* dmvEnable = helper.createButton(_("Enable DM-verity and AVB"), "dmv_enable", nullptr, 0, 0, 272, 36);
-	gtk_box_pack_start(GTK_BOX(dmvButtonBox), dmvDisable, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(dmvButtonBox), dmvEnable, FALSE, FALSE, 0);
-
-	gtk_box_pack_start(GTK_BOX(dmvBox), dmvButtonBox, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(mainBox), dmvFrame, FALSE, FALSE, 0);
-
-	// No AVB
-	GtkWidget* avbFrame = gtk_frame_new(NULL);
-	GtkWidget* disavbLabel = gtk_label_new(NULL);
-	gtk_label_set_markup(GTK_LABEL(disavbLabel), (std::string("<b>") + _("Trustos AVB Settings") + "</b>").c_str());
-	gtk_widget_set_halign(disavbLabel, GTK_ALIGN_CENTER);
-	gtk_frame_set_label_widget(GTK_FRAME(avbFrame), disavbLabel);
-	gtk_frame_set_label_align(GTK_FRAME(avbFrame), 0.5, 0.5);
-	helper.addWidget("avb_label", disavbLabel);
-
-	GtkWidget* avbBox = makeCardBox(32, 16);
-	gtk_container_add(GTK_CONTAINER(avbFrame), avbBox);
-
-	GtkWidget* dis_avb = helper.createButton(_("[CAUTION] Disable AVB verification by patching trustos(Android 9 and lower)"), "dis_avb", nullptr, 0, 0, 560, 36);
-	gtk_widget_set_halign(dis_avb, GTK_ALIGN_CENTER);
-
-	gtk_box_pack_start(GTK_BOX(avbBox), dis_avb, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(mainBox), avbFrame, FALSE, FALSE, 0);
-
 	gtk_container_add(GTK_CONTAINER(advScroll), mainBox);
 	helper.addToGrid(advOpPage, advScroll, 0, 0, 5, 5);
 

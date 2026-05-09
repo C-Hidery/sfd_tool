@@ -94,7 +94,7 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 
 ---
 
-***对比spd_dump修改的一些命令:***
+***对比spd_dump修改的一些CLI命令:***
 
     part_table [FILE PATH]
 
@@ -124,6 +124,12 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 
 **新参数，无GUI启动工具（下文也会提到）**
 
+    dis_avb_tos
+    
+**新命令，谨慎使用**
+**警告：`dis_avb_tos`可能会损坏您的设备，如果是，请刷回备份文件（SFD Tool 下自动备份的trustos.bin）**
+**警告：`verity 1`命令将破坏Android的DM-verity/AVB安全校验机制**
+**如想恢复，使用`verity 0`命令**
 
 ---
 

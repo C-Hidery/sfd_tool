@@ -1020,7 +1020,7 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	// Left frame for CVE options
 	GtkWidget* cveFrame = gtk_frame_new(NULL);
 	GtkWidget* cveLabelTitle = gtk_label_new(NULL);
-	gtk_label_set_markup(GTK_LABEL(cveLabelTitle), (std::string("<b>") + _("CVE Bypass Options") + "</b>").c_str());
+	gtk_label_set_markup(GTK_LABEL(cveLabelTitle), (std::string("<b>") + _("EXEC_ADDR Options") + "</b>").c_str());
 	gtk_frame_set_label_widget(GTK_FRAME(cveFrame), cveLabelTitle);
 	gtk_frame_set_label_align(GTK_FRAME(cveFrame), 0.5, 0.5);
 	GtkWidget* cveGrid = gtk_grid_new();
@@ -1033,7 +1033,7 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_container_add(GTK_CONTAINER(cveFrame), cveGrid);
 
 	// 行 0: CVE Switch
-	GtkWidget* cveSwitchLabel = helper.createLabel(_("Try to use CVE to skip FDL verification"), "exec_addr_label", 0, 0, 200, 20);
+	GtkWidget* cveSwitchLabel = helper.createLabel(_("Try to use EXEC_ADDR"), "exec_addr_label", 0, 0, 200, 20);
 	gtk_widget_set_halign(cveSwitchLabel, GTK_ALIGN_START);
 	gtk_label_set_xalign(GTK_LABEL(cveSwitchLabel), 0.0);
 	GtkWidget* cveSwitch = gtk_switch_new();
@@ -1046,7 +1046,7 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_grid_attach(GTK_GRID(cveGrid), cveSwitch, 1, 0, 1, 1);
 
 	// 行 1: CVE V2 Switch
-	GtkWidget* cveV2Label = helper.createLabel(_("Enable CVE v2"),"cve_v2_label", 0, 0, 100, 20);
+	GtkWidget* cveV2Label = helper.createLabel(_("Enable EXEC_ADDR v2"),"cve_v2_label", 0, 0, 100, 20);
 	gtk_widget_set_halign(cveV2Label, GTK_ALIGN_START);
 	gtk_label_set_xalign(GTK_LABEL(cveV2Label), 0.0);
 	GtkWidget* cveV2Switch = gtk_switch_new();
@@ -1059,7 +1059,7 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_grid_attach(GTK_GRID(cveGrid), cveV2Switch, 1, 1, 1, 1);
 
 	// 行 2: CVE File
-	GtkWidget* cveLabel = helper.createLabel(_("CVE Binary File Address"), "cve_label", 0, 0, 150, 20);
+	GtkWidget* cveLabel = helper.createLabel(_("EXEC_ADDR Binary File Address"), "cve_label", 0, 0, 150, 20);
 	gtk_widget_set_halign(cveLabel, GTK_ALIGN_START);
 	gtk_label_set_xalign(GTK_LABEL(cveLabel), 0.0);
 	
@@ -1116,7 +1116,7 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_grid_attach(GTK_GRID(sprdGrid), sprd4OneMode, 1, 1, 1, 1);
 
 	// 行 2: Address
-	GtkWidget* cveAddrLabel2 = helper.createLabel(_("CVE Addr"), "cve_addr_label2", 0, 0, 100, 20);
+	GtkWidget* cveAddrLabel2 = helper.createLabel(_("EXEC_ADDR executable Addr"), "cve_addr_label2", 0, 0, 100, 20);
 	gtk_widget_set_halign(cveAddrLabel2, GTK_ALIGN_START);
 	gtk_label_set_xalign(GTK_LABEL(cveAddrLabel2), 0.0);
 	GtkWidget* cveAddrC = helper.createEntry("cve_addr_c", "", false, 0, 0, 200, 32);

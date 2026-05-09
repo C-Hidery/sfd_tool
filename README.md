@@ -70,7 +70,7 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 
 ---
 
-***Modified commands:***
+***Modified CLI commands:***
 
     part_table [FILE PATH]
 
@@ -99,6 +99,14 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
     --no-gui
 
 **New parameter, open sfd_tool without GUI**
+
+    dis_avb_tos
+
+**New Command, use with caution.**
+
+**WARN: `dis_avb_tos` command may make your device broken, if do, flash backup(SFD Tool will backup it automatically)**
+**WARN: `verity 0` command will break Android's DM-verity/AVB security verification mechanism.**
+**If you want to restore, use `verity 1` command.**
 
 
 ## Features
