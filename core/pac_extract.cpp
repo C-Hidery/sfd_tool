@@ -956,9 +956,19 @@ bool pac_flash(spdio_t* io, const char* floder)
     if (isHelperInit && !showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Are you sure you want to flash the device with the extracted files? Make sure you have the correct PAC file."))) {
         return false;
     }
-    if (showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Do you want to set FDL info manually?"))) {
+    if (isHelperInit && showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Do you want to set FDL info manually?"))) {
         FDLInPacSupported = false;
         FDLAddrInPacSupported = false;
+    }
+    else if (!isHelperInit)
+    {
+        std::string input;
+        std::cout << "Do you want to set FDL info manually? (y/N): ";
+        std::getline(std::cin, input);
+        if (input == "y" || input == "Y") {
+            FDLInPacSupported = false;
+            FDLAddrInPacSupported = false;
+        }
     }
     if (FDLInPacSupported == false || FDLAddrInPacSupported == false)
     {
