@@ -388,12 +388,12 @@ msgid "Advanced"
 msgstr "高级选项"
 
 #: main.cpp:2584
-msgid "Try to use CVE to skip FDL verification"
-msgstr "利用漏洞绕过FDL签名验证"
+msgid "Try to use EXEC_ADDR"
+msgstr "尝试使用EXEC_ADDR引导"
 
 #: main.cpp:2591
-msgid "CVE Binary File Address"
-msgstr "CVE可执行镜像"
+msgid "EXEC_ADDR Binary File Address"
+msgstr "EXEC_ADDR可执行镜像"
 
 #: main.cpp:2603
 msgid "Kick device to SPRD4"
@@ -404,12 +404,12 @@ msgid "Kick One-time Mode"
 msgstr "Kick单次模式"
 
 #: main.cpp:2616
-msgid "CVE Addr"
-msgstr "CVE镜像地址"
+msgid "EXEC_ADDR executable Addr"
+msgstr "EXEC_ADDR镜像地址"
 
 #: main.cpp:2618
-msgid "Enable CVE v2"
-msgstr "启用CVE v2"
+msgid "Enable EXEC_ADDR v2"
+msgstr "启用EXEC_ADDR v2"
 
 #: main.cpp:2633
 msgid "CONNECT"
@@ -1012,8 +1012,8 @@ msgstr "English"
 msgid "Failed to create config service."
 msgstr "Failed to create config service."
 
-msgid "CVE Bypass Options"
-msgstr "CVE 绕过选项"
+msgid "EXEC_ADDR Options"
+msgstr "EXEC_ADDR 选项"
 
 msgid "SPRD4 Options"
 msgstr "SPRD4 选项"

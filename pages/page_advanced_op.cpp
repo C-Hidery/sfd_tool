@@ -113,83 +113,6 @@ static void on_button_clicked_select_xml(GtkWidgetHelper helper) {
 	}
 }
 
-static void on_button_clicked_dmv_enable(GtkWidgetHelper helper) {
-	ensure_device_attached_or_exit(helper);
-	GtkWidget *parent = helper.getWidget("main_window");
-	dm_avb_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-	showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("DM-Verity and AVB protection enabled!"));
-}
-
-static void on_button_clicked_dmv_disable(GtkWidgetHelper helper) {
-	ensure_device_attached_or_exit(helper);
-	GtkWidget *parent = helper.getWidget("main_window");
-	avb_dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-	showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("DM-Verity and AVB protection disabled!"));
-}
-
-static void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
-	ensure_device_attached_or_exit(helper);
-	helper.setLabelText(helper.getWidget("con"), "Patching trustos");
-	TosPatcher patcher;
-	bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Warning")))), _("This operation may break your device, and not all devices support this, if your device is broken, flash backup 'trustos.bin', continue?"));
-	if (i_is) {
-		LongTaskConfig cfg{
-			// worker：在后台线程中执行 trustos 读取/打补丁/回写
-			[helper, patcher](std::atomic_bool& cancel_flag) mutable {
-				(void)cancel_flag; // 当前实现暂不支持取消
-				auto* svc = ensure_flash_service();
-
-				sfd::PartitionIoOptions read_opts;
-				read_opts.partition_name = "trustos";
-				read_opts.file_path = "trustos.bin";
-				read_opts.block_size = GetEffectiveManualBlockSize();
-
-				sfd::FlashStatus st_read = svc->readPartitionToFile(read_opts);
-				if (!st_read.success) {
-					DEG_LOG(E, "readPartitionToFile(\"trustos\") failed: %s", st_read.message.c_str());
-					return;
-				}
-
-				int o = patcher.AvbFxxker("trustos.bin", "tos-noavb.bin");
-				if (!o) {
-					sfd::PartitionIoOptions write_opts;
-					write_opts.partition_name = "trustos";
-					write_opts.file_path = "tos-noavb.bin";
-					write_opts.block_size = GetEffectiveManualBlockSize();
-					write_opts.force = false;
-
-					sfd::FlashStatus st_write = svc->writePartitionFromFile(write_opts);
-					if (!st_write.success) {
-						DEG_LOG(E, "writePartitionFromFile(\"trustos\") failed: %s", st_write.message.c_str());
-						o = -1;
-					}
-				}
-
-				if (!o) {
-					gui_idle_call_wait_drag([helper]() {
-						showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Disabled AVB successfully, the backup trustos is trustos.bin"));
-					},GTK_WINDOW(helper.getWidget("main_window")));
-				} else {
-					gui_idle_call_wait_drag([helper]() {
-						showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Disabled AVB failed, go to console window to see why"));
-					},GTK_WINDOW(helper.getWidget("main_window")));
-				}
-			},
-			// on_started：GUI 线程中执行，设置状态
-			[helper]() mutable {
-				helper.setLabelText(helper.getWidget("con"), "Patching trustos");
-			},
-			// on_finished：GUI 线程中执行，恢复状态
-			[helper]() mutable {
-				helper.setLabelText(helper.getWidget("con"), "Ready");
-			}
-		};
-
-		run_long_task(cfg);
-	} else {
-		helper.setLabelText(helper.getWidget("con"), "Ready");
-	}
-}
 
 GtkWidget* create_advanced_op_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* advOpPage = helper.createGrid("adv_op_page", 5, 5);
@@ -281,46 +204,6 @@ GtkWidget* create_advanced_op_page(GtkWidgetHelper& helper, GtkWidget* notebook)
 	gtk_box_pack_start(GTK_BOX(repartBox), readXmlBtn, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(mainBox), repartFrame, FALSE, FALSE, 0);
 
-	// DM-verify
-	GtkWidget* dmvFrame = gtk_frame_new(NULL);
-	GtkWidget* dmvLabel = gtk_label_new(NULL);
-	gtk_label_set_markup(GTK_LABEL(dmvLabel), (std::string("<b>") + _("DM-verity and AVB Settings (if support)") + "</b>").c_str());
-	gtk_widget_set_halign(dmvLabel, GTK_ALIGN_CENTER);
-	gtk_frame_set_label_widget(GTK_FRAME(dmvFrame), dmvLabel);
-	gtk_frame_set_label_align(GTK_FRAME(dmvFrame), 0.5, 0.5);
-	helper.addWidget("dmv_label", dmvLabel);
-
-	GtkWidget* dmvBox = makeCardBox(32, 16);
-	gtk_container_add(GTK_CONTAINER(dmvFrame), dmvBox);
-
-	GtkWidget* dmvButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
-	gtk_widget_set_halign(dmvButtonBox, GTK_ALIGN_CENTER);
-	GtkWidget* dmvDisable = helper.createButton(_("Disable DM-verity and AVB"), "dmv_disable", nullptr, 0, 0, 272, 36);
-	GtkWidget* dmvEnable = helper.createButton(_("Enable DM-verity and AVB"), "dmv_enable", nullptr, 0, 0, 272, 36);
-	gtk_box_pack_start(GTK_BOX(dmvButtonBox), dmvDisable, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(dmvButtonBox), dmvEnable, FALSE, FALSE, 0);
-
-	gtk_box_pack_start(GTK_BOX(dmvBox), dmvButtonBox, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(mainBox), dmvFrame, FALSE, FALSE, 0);
-
-	// No AVB
-	GtkWidget* avbFrame = gtk_frame_new(NULL);
-	GtkWidget* disavbLabel = gtk_label_new(NULL);
-	gtk_label_set_markup(GTK_LABEL(disavbLabel), (std::string("<b>") + _("Trustos AVB Settings") + "</b>").c_str());
-	gtk_widget_set_halign(disavbLabel, GTK_ALIGN_CENTER);
-	gtk_frame_set_label_widget(GTK_FRAME(avbFrame), disavbLabel);
-	gtk_frame_set_label_align(GTK_FRAME(avbFrame), 0.5, 0.5);
-	helper.addWidget("avb_label", disavbLabel);
-
-	GtkWidget* avbBox = makeCardBox(32, 16);
-	gtk_container_add(GTK_CONTAINER(avbFrame), avbBox);
-
-	GtkWidget* dis_avb = helper.createButton(_("[CAUTION] Disable AVB verification by patching trustos(Android 9 and lower)"), "dis_avb", nullptr, 0, 0, 560, 36);
-	gtk_widget_set_halign(dis_avb, GTK_ALIGN_CENTER);
-
-	gtk_box_pack_start(GTK_BOX(avbBox), dis_avb, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(mainBox), avbFrame, FALSE, FALSE, 0);
-
 	gtk_container_add(GTK_CONTAINER(advScroll), mainBox);
 	helper.addToGrid(advOpPage, advScroll, 0, 0, 5, 5);
 
@@ -343,13 +226,5 @@ void bind_advanced_op_signals(GtkWidgetHelper& helper) {
 	helper.bindClick(helper.getWidget("read_xml"), [&]() {
 		on_button_clicked_read_xml(helper);
 	});
-	helper.bindClick(helper.getWidget("dmv_disable"), [&]() {
-		on_button_clicked_dmv_disable(helper);
-	});
-	helper.bindClick(helper.getWidget("dmv_enable"), [&]() {
-		on_button_clicked_dmv_enable(helper);
-	});
-	helper.bindClick(helper.getWidget("dis_avb"), [&]() {
-		on_button_clicked_dis_avb(helper);
-	});
+	
 }
