@@ -159,6 +159,56 @@ bool showConfirmDialog(GtkWindow* parent, const char* title, const char* message
 
 	return (result == GTK_RESPONSE_YES);
 }
+// 输入对话框
+std::string showInputDialog(GtkWindow* parent, const char* title, const char* message) {
+    GtkWidget* dialog = gtk_dialog_new_with_buttons(
+        title,
+        parent,
+        GTK_DIALOG_MODAL,
+        "_OK", GTK_RESPONSE_OK,
+        "_Cancel", GTK_RESPONSE_CANCEL,
+        NULL
+    );
+    
+    // 创建内容区域
+    GtkWidget* content_area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+    
+    // 创建垂直盒子来组织控件
+    GtkWidget* vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    gtk_container_set_border_width(GTK_CONTAINER(vbox), 10);
+    
+    // 添加消息标签
+    GtkWidget* label = gtk_label_new(message);
+    gtk_widget_set_halign(label, GTK_ALIGN_CENTER);
+    gtk_box_pack_start(GTK_BOX(vbox), label, FALSE, FALSE, 0);
+    
+    // 添加输入框
+    GtkWidget* entry = gtk_entry_new();
+    gtk_entry_set_activates_default(GTK_ENTRY(entry), TRUE);
+    gtk_box_pack_start(GTK_BOX(vbox), entry, FALSE, FALSE, 0);
+    
+    // 将盒子添加到对话框的内容区域
+    gtk_container_add(GTK_CONTAINER(content_area), vbox);
+    
+    // 设置默认响应为OK
+    gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_OK);
+    
+    // 显示所有控件
+    gtk_widget_show_all(dialog);
+    
+    std::string result;
+    gint response = gtk_dialog_run(GTK_DIALOG(dialog));
+    
+    if (response == GTK_RESPONSE_OK) {
+        const gchar* text = gtk_entry_get_text(GTK_ENTRY(entry));
+        if (text) {
+            result = std::string(text);
+        }
+    }
+    
+    gtk_widget_destroy(dialog);
+    return result;
+}
 // 文件选择对话框函数
 std::string showSaveFileDialog(GtkWindow* parent,
                                const std::string& default_filename,
