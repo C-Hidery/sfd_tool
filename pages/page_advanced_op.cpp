@@ -113,83 +113,6 @@ static void on_button_clicked_select_xml(GtkWidgetHelper helper) {
 	}
 }
 
-static void on_button_clicked_dmv_enable(GtkWidgetHelper helper) {
-	ensure_device_attached_or_exit(helper);
-	GtkWidget *parent = helper.getWidget("main_window");
-	dm_avb_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-	showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("DM-Verity and AVB protection enabled!"));
-}
-
-static void on_button_clicked_dmv_disable(GtkWidgetHelper helper) {
-	ensure_device_attached_or_exit(helper);
-	GtkWidget *parent = helper.getWidget("main_window");
-	avb_dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-	showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("DM-Verity and AVB protection disabled!"));
-}
-
-static void on_button_clicked_dis_avb(GtkWidgetHelper helper) {
-	ensure_device_attached_or_exit(helper);
-	helper.setLabelText(helper.getWidget("con"), "Patching trustos");
-	TosPatcher patcher;
-	bool i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Warning")))), _("This operation may break your device, and not all devices support this, if your device is broken, flash backup 'trustos.bin', continue?"));
-	if (i_is) {
-		LongTaskConfig cfg{
-			// worker：在后台线程中执行 trustos 读取/打补丁/回写
-			[helper, patcher](std::atomic_bool& cancel_flag) mutable {
-				(void)cancel_flag; // 当前实现暂不支持取消
-				auto* svc = ensure_flash_service();
-
-				sfd::PartitionIoOptions read_opts;
-				read_opts.partition_name = "trustos";
-				read_opts.file_path = "trustos.bin";
-				read_opts.block_size = GetEffectiveManualBlockSize();
-
-				sfd::FlashStatus st_read = svc->readPartitionToFile(read_opts);
-				if (!st_read.success) {
-					DEG_LOG(E, "readPartitionToFile(\"trustos\") failed: %s", st_read.message.c_str());
-					return;
-				}
-
-				int o = patcher.AvbFxxker("trustos.bin", "tos-noavb.bin");
-				if (!o) {
-					sfd::PartitionIoOptions write_opts;
-					write_opts.partition_name = "trustos";
-					write_opts.file_path = "tos-noavb.bin";
-					write_opts.block_size = GetEffectiveManualBlockSize();
-					write_opts.force = false;
-
-					sfd::FlashStatus st_write = svc->writePartitionFromFile(write_opts);
-					if (!st_write.success) {
-						DEG_LOG(E, "writePartitionFromFile(\"trustos\") failed: %s", st_write.message.c_str());
-						o = -1;
-					}
-				}
-
-				if (!o) {
-					gui_idle_call_wait_drag([helper]() {
-						showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Disabled AVB successfully, the backup trustos is trustos.bin"));
-					},GTK_WINDOW(helper.getWidget("main_window")));
-				} else {
-					gui_idle_call_wait_drag([helper]() {
-						showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_(("Error")))), _("Disabled AVB failed, go to console window to see why"));
-					},GTK_WINDOW(helper.getWidget("main_window")));
-				}
-			},
-			// on_started：GUI 线程中执行，设置状态
-			[helper]() mutable {
-				helper.setLabelText(helper.getWidget("con"), "Patching trustos");
-			},
-			// on_finished：GUI 线程中执行，恢复状态
-			[helper]() mutable {
-				helper.setLabelText(helper.getWidget("con"), "Ready");
-			}
-		};
-
-		run_long_task(cfg);
-	} else {
-		helper.setLabelText(helper.getWidget("con"), "Ready");
-	}
-}
 
 GtkWidget* create_advanced_op_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* advOpPage = helper.createGrid("adv_op_page", 5, 5);
@@ -303,13 +226,5 @@ void bind_advanced_op_signals(GtkWidgetHelper& helper) {
 	helper.bindClick(helper.getWidget("read_xml"), [&]() {
 		on_button_clicked_read_xml(helper);
 	});
-	helper.bindClick(helper.getWidget("dmv_disable"), [&]() {
-		on_button_clicked_dmv_disable(helper);
-	});
-	helper.bindClick(helper.getWidget("dmv_enable"), [&]() {
-		on_button_clicked_dmv_enable(helper);
-	});
-	helper.bindClick(helper.getWidget("dis_avb"), [&]() {
-		on_button_clicked_dis_avb(helper);
-	});
+	
 }
