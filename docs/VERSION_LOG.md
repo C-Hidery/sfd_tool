@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 1.8.5.5 LTV Edition
+Version 1.8.6.0 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -207,6 +207,9 @@ UI Refactor, optimization code logic.
 
 ---v 1.8.5.5---
 PAC nvmerge issue(f50300bc)
+
+---v 1.8.6.0---
+PAC刷写可自定义FDL; 恢复FDL自动执行
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool

@@ -1,3 +1,9 @@
+sfd-tool (1.8.6.0-1-ltv) unstable; urgency=medium
+
+  * PAC刷写可自定义FDL; 恢复FDL自动执行
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sat, 09 May 2026 18:04:14 +0800
+
 sfd-tool (1.8.5.5-1-ltv) unstable; urgency=medium
 
   * PAC nvmerge issue(f50300bc)
