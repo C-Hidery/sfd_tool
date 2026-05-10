@@ -69,8 +69,8 @@ void print_help() {
 	    "\t\tSupported baudrates are 57600, 115200, 230400, 460800, 921600, 1000000, 2000000, 3250000, and 4000000.\n"
 	    "\t\t(While in u-boot/littlekernel source code, only 115200, 230400, 460800, and 921600 are listed.)\n"
 	    "\t4.exec_addr [BINARY FILE] [ADDR] \n\t\t(BROM stage only)\n"
-	    "\t\tSend a binary file to the specified memory address to bypass the signature verification by BootRom for splloader/FDL1.\n"
-	    "\t\tUsed for CVE-2022-38694.\n"
+		"\t\tSend a binary file to the specified memory address for advanced maintenance operations (e.g., bootloader repair).\n"
+		"\t\tNote: This low-level command is intended for developers and advanced users only.\n"
 	    "\t5.fdl [FILE PATH] [ADDR]\n"
 	    "\t\tSend a file (splloader, FDL1, FDL2, sml, trustos, teecfg) to the specified memory address.\n"
 	    "\t6.loadfdl [FILE_ADDR(addr_in_name)]\n"
@@ -127,6 +127,7 @@ void print_help() {
 	    "\t\tChecks if the specified partition exists.\n"
 	    "\t27.verity {0,1}\n"
 	    "\t\tEnables or disables dm-verity and AVB on android 10(+).\n"
+		"\t\tNote: This command may not work on all devices, and enabling verity may cause the device to fail to boot if the partition table or certain partitions are modified. Use with caution!\n"
 	    "\t28.set_active {a,b}\n"
 	    "\t\tSets the active slot on VAB devices.\n"
 	    "\t29.firstmode [MODE ID]\n"
@@ -134,7 +135,7 @@ void print_help() {
 	    "\t30.add_part [PARTITION NAME]\n"
 	    "\t\tAdd a partition to the partition table (FDL2 stage only).\n"
 	    "\t\t(Only compatibility-method mode)\n"
-	    "\t31.bootloader {0,1}\n"
+	    "\t31.bl {0,1}\n"
 	    "\t\tSet the bootloader status (FDL2 stage only).\n"
 	    "\t32.show_cmd\n"
 	    "\t\tShow BSL commands\n"
@@ -195,7 +196,7 @@ void print_help() {
 		"\t\tErase flash content\n"
 	    "Notice:\n"
 	    "\t1.The compatibility method to get part table sometimes can not get all partitions on your device\n"
-	    "\t2.Command `bootloader` : It is only supported on special FDL2 and requires trustos and sml partition files.\n"
+	    "\t2.Command `bl` : It is only supported on special FDL2 and requires trustos and sml partition files.\n"
 	    "\t3.Command `sendloop` : sfd_tool has a debugging command called sendloop [ADDR], \n          which sends four zeros to write to the specified address,\n          and then sends four more zeros to (initial address - 8), (initial -16), and so on until the device becomes unresponsive.\n          The following are u2s accessed via keypad (SPL not erased; if SPL is erased, the resulting addresses will change):\n\t\tsc98xx: sfd_tool sendloop 0x5000\n\t\tums312/512: sfd_tool sendloop 0x4000 -> device enters while loop at 0x3f68\n\t\tud710: sfd_tool sendloop 0x4000 -> device enters while loop at 0x3fa0\n\t\tums9230: sfd_tool sendloop 0x65016000\n\t\tums9230: sfd_tool sendloop 0x65013000\n          Since the FDL addresses of 9230 and 9620 are both 0x65000800,\n          a better approach is to increment in a loop from 0x65000800; \n          By the time you reach 0x65013000, you can tell which one it is.\n          The send loop was written as a loop decrementing.\n          (Getting message: 7E 01 00 00 00 08 00 00 00 ... 7E)"
 	);
 	DBG_LOG(
@@ -1227,15 +1228,15 @@ int main_console(int argc, char** argv) {
 			argc -= 5;
 			argv += 5;
 
-		} else if (!strcmp(str2[1], "bootloader")) {
+		} else if (!strcmp(str2[1], "bl")) {
 			if (argcount < 2) {
-				DEG_LOG(W, "bootloader {0,1}");
+				DEG_LOG(W, "bl {0,1}");
 				argc = 1;
 				continue;
 			}
 			int status = strtol(str2[2], nullptr, 0);
 			if (status < 0 || status > 1) {
-				DEG_LOG(W, "bootloader {0,1}");
+				DEG_LOG(W, "bl {0,1}");
 				argc -= 2;
 				argv += 2;
 				continue;

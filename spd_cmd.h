@@ -141,10 +141,12 @@ enum SprdCommands : uint8_t {
 
 	/* Link Control */
 	BSL_REP_NOT_SUPPORT_BAUDRATE = 0x85,
-	/*Set bootloader status by YC*/
-	YCC_CMD_UNLOCK_BOOTLOADER = 0x19,
-	YCC_CMD_LOCK_BOOTLOADER = 0x1A,
-	YCC_REP_SET_BOOTLOADER_SUCCESS = 0xCC,
+
+	/* Set bootloader status by YC */
+	YCC_CMD_SET_BL_A = 0x19,
+	YCC_CMD_SET_BL_B = 0x1A,
+	YCC_REP_SET_BL_SUCCESS = 0xCC,
+	
 	/* Data Download */
 	BSL_REP_DOWN_NOT_START = 0x86,
 	BSL_REP_DOWN_MULTI_START = 0x87,
