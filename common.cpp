@@ -904,8 +904,8 @@ const char* get_bsl_enum_name(unsigned int value) {
 	case 0x15: return "BSL_CMD_READ_FLASH_UID";
 	case 0x16: return "BSL_CMD_READ_SOFTSIM_EID";
 	case 0x17: return "BSL_CMD_POWER_OFF";
-	case 0x19: return "BSL_CMD_CHECK_ROOT/YCC_CMD_UNLOCK_BOOTLOADER";
-	case 0x1A: return "BSL_CMD_READ_CHIP_UID/YCC_CMD_LOCK_BOOTLOADER";
+	case 0x19: return "BSL_CMD_CHECK_ROOT/YCC_CMD_SET_BL_A";
+	case 0x1A: return "BSL_CMD_READ_CHIP_UID/YCC_CMD_SET_BL_B";
 	case 0x1B: return "BSL_CMD_ENABLE_WRITE_FLASH";
 	case 0x1C: return "BSL_CMD_ENABLE_SECUREBOOT";
 	case 0x1D: return "BSL_CMD_IDENTIFY_START";
@@ -944,7 +944,7 @@ const char* get_bsl_enum_name(unsigned int value) {
 	case 0x49: return "BSL_CMD_WRITE_PARTITION_VALUE";
 	case 0x50: return "BSL_CMD_WRITE_DOWNLOAD_TIMESTAMP";
 	case 0x51: return "BSL_CMD_PARTITION_SIGNATURE";
-	case 0xCC: return "BSL_CMD_SEND_FLAG/YCC_REP_SET_BOOTLOADER_SUCCESS";
+	case 0xCC: return "BSL_CMD_SEND_FLAG/YCC_REP_SET_BL_SUCCESS";
 	case 0x7E: return "BSL_CMD_CHECK_BAUD";
 	case 0x7F: return "BSL_CMD_END_PROCESS";
 
@@ -1017,12 +1017,6 @@ const char* get_bsl_enum_name(unsigned int value) {
 	case 0xD3: return "BSL_REP_MALLOC_ERROR";
 	case 0xFE: return "BSL_REP_UNSUPPORTED_COMMAND";
 	case 0xFF: return "BSL_REP_LOG";
-
-		// YCC commands
-	//case 0x19: return "YCC_CMD_UNLOCK_BOOTLOADER";  // Note: conflicts with BSL_CMD_CHECK_ROOT
-	//case 0x1A: return "YCC_CMD_LOCK_BOOTLOADER";    // Note: conflicts with BSL_CMD_READ_CHIP_UID
-	//case 0xCC: return "YCC_REP_SET_BOOTLOADER_SUCCESS"; // Note: conflicts with BSL_CMD_SEND_FLAG
-
 	default: return "UNKNOWN_COMMAND";
 	}
 }
@@ -1054,8 +1048,8 @@ void print_all_bsl_commands() {
 	printf("0x15: BSL_CMD_READ_FLASH_UID\n");
 	printf("0x16: BSL_CMD_READ_SOFTSIM_EID\n");
 	printf("0x17: BSL_CMD_POWER_OFF\n");
-	printf("0x19: BSL_CMD_CHECK_ROOT / YCC_CMD_UNLOCK_BOOTLOADER\n");
-	printf("0x1A: BSL_CMD_READ_CHIP_UID / YCC_CMD_LOCK_BOOTLOADER\n");
+	printf("0x19: BSL_CMD_CHECK_ROOT / YCC_CMD_UN_BL\n");
+	printf("0x1A: BSL_CMD_READ_CHIP_UID / YCC_CMD_LK_BL\n");
 	printf("0x1B: BSL_CMD_ENABLE_WRITE_FLASH\n");
 	printf("0x1C: BSL_CMD_ENABLE_SECUREBOOT\n");
 	printf("0x1D: BSL_CMD_IDENTIFY_START\n");
@@ -1094,7 +1088,7 @@ void print_all_bsl_commands() {
 	printf("0x49: BSL_CMD_WRITE_PARTITION_VALUE\n");
 	printf("0x50: BSL_CMD_WRITE_DOWNLOAD_TIMESTAMP\n");
 	printf("0x51: BSL_CMD_PARTITION_SIGNATURE\n");
-	printf("0xCC: BSL_CMD_SEND_FLAG / YCC_REP_SET_BOOTLOADER_SUCCESS\n");
+	printf("0xCC: BSL_CMD_SEND_FLAG / YCC_REP_SET_BL_SUCCESS\n");
 	printf("0x7E: BSL_CMD_CHECK_BAUD\n");
 	printf("0x7F: BSL_CMD_END_PROCESS\n");
 

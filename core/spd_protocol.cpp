@@ -149,11 +149,11 @@ void encode_msg_nocpy(spdio_t *io, int type, size_t len) {
 }
 int set_bootloader_status(spdio_t* io,int status) {
 	if (check_confirm("set bootloader status")) {
-		encode_msg_nocpy(io, status ? YCC_CMD_LOCK_BOOTLOADER : YCC_CMD_UNLOCK_BOOTLOADER, 0);
+		encode_msg_nocpy(io, status ? YCC_CMD_SET_BL_B : YCC_CMD_SET_BL_A, 0);
 		send_msg(io);
 		recv_msg(io);
 		unsigned int ret = recv_type(io);
-		if (ret == YCC_REP_SET_BOOTLOADER_SUCCESS) { DEG_LOG(I, "Bootloader status set successfully"); return 1; }
+		if (ret == YCC_REP_SET_BL_SUCCESS) { DEG_LOG(I, "Bootloader status set successfully"); return 1; }
 		else { DEG_LOG(E, "Can not set bootloader status."); return 0;}
 	}
 	return 0;
