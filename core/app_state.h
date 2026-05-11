@@ -19,6 +19,7 @@ struct FlashState {
     int g_w_force = 1;     // 是否自动启用强制写入（针对部分特殊分区）
     bool isPacFlashing = false; // 是否正在进行 PAC 刷机（影响分区选择和写入策略）
     std::string pac_xmlPath; // PAC 刷机时解析出的 XML 路径，供后续分区信息查询使用
+    bool isToolMode = false; // 是否处于 Tool 模式（影响日志输出、错误处理、用户交互等）
 };
 
 // 与具体传输实现相关的状态（平台/IO 细节），暂时仍放在这里，后续可进一步下沉到传输层

@@ -18,7 +18,7 @@ extern AppState g_app_state;
 // 兼容旧代码的便捷访问器：直接操作 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
 
-bool isToolMode = false;
+bool& isToolMode = g_app_state.flash.isToolMode;
 
 void print_help() {
 	DBG_LOG("Usage:\n"
@@ -210,6 +210,7 @@ void print_help() {
 	    "\t60.reboot-fastboot\n\t\tFDL2 only\n"
 	    "\t61.reset\n\t\tFDL2 and new FDL1\n"
 	    "\t62.poweroff\n,\t\tFDL2 and new FDL1\n"
+		"\t63.exit\n\t\tExit the program (Tool mode only.)\n"
 	);
 }
 void ThrowExit() {
@@ -2525,7 +2526,7 @@ rloop:
 			argc -= 2;
 			argv += 2;
 
-		} else if (!strcmp(str2[2], "dis_avb_tos")) {
+		} else if (!strcmp(str2[1], "dis_avb_tos")) {
 			if (isToolMode)
 			{
 				
@@ -3059,18 +3060,32 @@ rloop:
 			io->verbose = atoi(str2[2]);
 			argc -= 2;
 			argv += 2;
-		} else if (strlen(str2[1])) {
+		} else if (!strcmp(str2[1], "exit")){
+			if (isToolMode)
+			{
+				break;
+			}
+			else
+			{
+				DEG_LOG(E, "Non-tool mode does not support `exit` command, use `poweroff` or `reset` instead.");
+				argc -= 1;
+				argv += 1;
+				break;
+			}
+		}
+		else if (strlen(str2[1])) {
 			print_help();
 			argc = 1;
 		}
-		if (in_quote != -1)
+		if (in_quote != -1 && !isToolMode)
+		{
 			for (i = 1; i < argcount; i++)
 				delete[](str2[i]);
-		delete[](str2);
-		if (is_device_unattached_and_log(io)) {
+			delete[](str2);
+		}
+		if (!isToolMode && is_device_unattached_and_log(io)) {
 			break;
 		}
-
 	}
 	spdio_free(io);
 	return 0;
