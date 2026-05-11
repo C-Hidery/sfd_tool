@@ -18,6 +18,8 @@ extern AppState g_app_state;
 // 兼容旧代码的便捷访问器：直接操作 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
 
+bool isToolMode = false;
+
 void print_help() {
 	DBG_LOG("Usage:\n"
 	        "\nOne-line mode example:\n"
@@ -47,6 +49,9 @@ void print_help() {
 	        "\t\tRead the partition table in compatibility mode\n"
 	        "\t--no-gui\n"
 	        "\tRun sfd_tool without GUI"
+			"\t--tool-mode\n"
+			"\tThis option can make you use some tool commands that are not depend on device connection\n"
+			"\tSuch as `pac`, `mergenv-xml-ex`, `mergenv-cfg-ex`\n"
 	       );
 #ifdef __ANDROID__
 	DBG_LOG(
@@ -351,296 +356,304 @@ int main_console(int argc, char** argv) {
 			async = 0;
 			argc -= 1;
 			argv += 1;
+		} else if (!strcmp(argv[1], "--tool-mode")) {
+			isToolMode = true;
+			argc -= 1;
+			argv += 1;
 		} else break;
 	}
 	if (stage == 99) {
 		bootmode = -1;
 		at = 0;
 	}
-#ifdef __ANDROID__
-	g_app_state.transport.bListenLibusb = 0;
-	DEG_LOG(OP, "Try to convert termux transfered usb port fd.");
-	// handle
-	if (xfd < 0)
-		ERR_EXIT("Example: termux-usb -e \"./sfd_tool` --usb-fd\" /dev/bus/usb/xxx/xxx\n"
-		         "Provide --usb-fd if run on android\n");
-
-	if (libusb_wrap_sys_device(nullptr, (intptr_t)xfd, &io->dev_handle))
-		ERR_EXIT("libusb_wrap_sys_device exit unconditionally!\n");
-
-	curPort = libusb_get_device(io->dev_handle);
-	if (libusb_get_device_descriptor(curPort, &desc))
-		ERR_EXIT("libusb_get_device exit unconditionally!");
-
-	DBG_LOG("Vendor ID: %04x\nProduct ID: %04x\n", desc.idVendor, desc.idProduct);
-	if (desc.idVendor != 0x1782 || desc.idProduct != 0x4d00) {
-		ERR_EXIT("It seems spec device not a spd device!\n");
-	}
-	call_Initialize_libusb(io);
-#else
-#if !USE_LIBUSB
-	g_app_state.transport.bListenLibusb = 0;
-	if (at || bootmode >= 0) {
-		io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
-		if (io->hThread == nullptr) return -1;
-		ChangeMode(io, conn_wait / REOPEN_FREQ * 1000, bootmode, at);
-		conn_wait = 30 * REOPEN_FREQ;
-		stage = -1;
-	}
-#else
-	if (!libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG)) {
-		DBG_LOG("hotplug unsupported on this platform\n");
+	if (!isToolMode)
+	{
+		#ifdef __ANDROID__
 		g_app_state.transport.bListenLibusb = 0;
-		bootmode = -1;
-		at = 0;
-	}
-	if (at || bootmode >= 0) {
-		startUsbEventHandle();
-		ChangeMode(io, conn_wait / REOPEN_FREQ * 1000, bootmode, at);
-		conn_wait = 30 * REOPEN_FREQ;
-		stage = -1;
-	}
-	if (!g_app_state.transport.bListenLibusb) startUsbEventHandle();
-#endif
-#if _WIN32
-	if (!g_app_state.transport.bListenLibusb) {
-		if (io->hThread == nullptr) io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
-		if (io->hThread == nullptr) return -1;
-	}
-#if !USE_LIBUSB
-	if (!m_bOpened && async) {
-		if (FALSE == CreateRecvThread(io)) {
-			io->m_dwRecvThreadID = 0;
-			DEG_LOG(E, "Create Receive Thread Fail.");
-		}
-	}
-#endif
-#endif
-	init_stage = 0;
-	if (!m_bOpened) {
-		DBG_LOG("<waiting for connection,mode:dl,%ds>\n", conn_wait / REOPEN_FREQ);
+		DEG_LOG(OP, "Try to convert termux transfered usb port fd.");
+		// handle
+		if (xfd < 0)
+			ERR_EXIT("Example: termux-usb -e \"./sfd_tool` --usb-fd\" /dev/bus/usb/xxx/xxx\n"
+					"Provide --usb-fd if run on android\n");
 
-		ThrowExit();
-		for (i = 0; ; i++) {
-#if USE_LIBUSB
-			if (g_app_state.transport.bListenLibusb) {
+		if (libusb_wrap_sys_device(nullptr, (intptr_t)xfd, &io->dev_handle))
+			ERR_EXIT("libusb_wrap_sys_device exit unconditionally!\n");
+
+		curPort = libusb_get_device(io->dev_handle);
+		if (libusb_get_device_descriptor(curPort, &desc))
+			ERR_EXIT("libusb_get_device exit unconditionally!");
+
+		DBG_LOG("Vendor ID: %04x\nProduct ID: %04x\n", desc.idVendor, desc.idProduct);
+		if (desc.idVendor != 0x1782 || desc.idProduct != 0x4d00) {
+			ERR_EXIT("It seems spec device not a spd device!\n");
+		}
+		call_Initialize_libusb(io);
+	#else
+	#if !USE_LIBUSB
+		g_app_state.transport.bListenLibusb = 0;
+		if (at || bootmode >= 0) {
+			io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
+			if (io->hThread == nullptr) return -1;
+			ChangeMode(io, conn_wait / REOPEN_FREQ * 1000, bootmode, at);
+			conn_wait = 30 * REOPEN_FREQ;
+			stage = -1;
+		}
+	#else
+		if (!libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG)) {
+			DBG_LOG("hotplug unsupported on this platform\n");
+			g_app_state.transport.bListenLibusb = 0;
+			bootmode = -1;
+			at = 0;
+		}
+		if (at || bootmode >= 0) {
+			startUsbEventHandle();
+			ChangeMode(io, conn_wait / REOPEN_FREQ * 1000, bootmode, at);
+			conn_wait = 30 * REOPEN_FREQ;
+			stage = -1;
+		}
+		if (!g_app_state.transport.bListenLibusb) startUsbEventHandle();
+	#endif
+	#if _WIN32
+		if (!g_app_state.transport.bListenLibusb) {
+			if (io->hThread == nullptr) io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
+			if (io->hThread == nullptr) return -1;
+		}
+	#if !USE_LIBUSB
+		if (!m_bOpened && async) {
+			if (FALSE == CreateRecvThread(io)) {
+				io->m_dwRecvThreadID = 0;
+				DEG_LOG(E, "Create Receive Thread Fail.");
+			}
+		}
+	#endif
+	#endif
+		init_stage = 0;
+		if (!m_bOpened) {
+			DBG_LOG("<waiting for connection,mode:dl,%ds>\n", conn_wait / REOPEN_FREQ);
+
+			ThrowExit();
+			for (i = 0; ; i++) {
+	#if USE_LIBUSB
+				if (g_app_state.transport.bListenLibusb) {
+					if (curPort) {
+						if (libusb_open(curPort, &io->dev_handle) >= 0) call_Initialize_libusb(io);
+						else ERR_EXIT("Failed to connect\n");
+						break;
+					}
+				}
+				if (!(i % 4)) {
+					if ((ports = FindPort(0x4d00))) {
+						for (libusb_device** port = ports; *port != nullptr; port++) {
+							if (libusb_open(*port, &io->dev_handle) >= 0) {
+								call_Initialize_libusb(io);
+								curPort = *port;
+								break;
+							}
+						}
+						libusb_free_device_list(ports, 1);
+						ports = nullptr;
+						if (m_bOpened) break;
+					}
+				}
+				if (i >= conn_wait)
+					ERR_EXIT("libusb_open_device failed\n");
+	#else
+				if (io->verbose) DBG_LOG("Cost: %.1f, Found: %d\n", (float)i / REOPEN_FREQ, curPort);
 				if (curPort) {
-					if (libusb_open(curPort, &io->dev_handle) >= 0) call_Initialize_libusb(io);
-					else ERR_EXIT("Failed to connect\n");
+					if (!call_ConnectChannel(io->handle, curPort, WM_RCV_CHANNEL_DATA, io->m_dwRecvThreadID)) ERR_EXIT("Connection failed\n");
 					break;
 				}
-			}
-			if (!(i % 4)) {
-				if ((ports = FindPort(0x4d00))) {
-					for (libusb_device** port = ports; *port != nullptr; port++) {
-						if (libusb_open(*port, &io->dev_handle) >= 0) {
-							call_Initialize_libusb(io);
-							curPort = *port;
-							break;
+				if (!(i % 4)) {
+					if ((ports = FindPort("SPRD U2S Diag"))) {
+						for (DWORD* port = ports; *port != 0; port++) {
+							if (call_ConnectChannel(io->handle, *port, WM_RCV_CHANNEL_DATA, io->m_dwRecvThreadID)) {
+								curPort = *port;
+								break;
+							}
 						}
+						delete[](ports);
+						ports = nullptr;
+						if (m_bOpened) break;
 					}
-					libusb_free_device_list(ports, 1);
-					ports = nullptr;
-					if (m_bOpened) break;
 				}
-			}
-			if (i >= conn_wait)
-				ERR_EXIT("libusb_open_device failed\n");
-#else
-			if (io->verbose) DBG_LOG("Cost: %.1f, Found: %d\n", (float)i / REOPEN_FREQ, curPort);
-			if (curPort) {
-				if (!call_ConnectChannel(io->handle, curPort, WM_RCV_CHANNEL_DATA, io->m_dwRecvThreadID)) ERR_EXIT("Connection failed\n");
-				break;
-			}
-			if (!(i % 4)) {
-				if ((ports = FindPort("SPRD U2S Diag"))) {
-					for (DWORD* port = ports; *port != 0; port++) {
-						if (call_ConnectChannel(io->handle, *port, WM_RCV_CHANNEL_DATA, io->m_dwRecvThreadID)) {
-							curPort = *port;
-							break;
-						}
-					}
-					delete[](ports);
-					ports = nullptr;
-					if (m_bOpened) break;
+				if (i >= conn_wait) {
+					ThrowExit();
+					ERR_EXIT("%s: Failed to find port.\n", o_exception);
 				}
+	#endif
+				usleep(1000000 / REOPEN_FREQ);
 			}
-			if (i >= conn_wait) {
-				ThrowExit();
-				ERR_EXIT("%s: Failed to find port.\n", o_exception);
-			}
-#endif
-			usleep(1000000 / REOPEN_FREQ);
 		}
-	}
-#endif
-	io->flags |= FLAGS_TRANSCODE;
-	if (stage != -1) {
-		io->flags &= ~FLAGS_CRC16;
-		encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-	} else encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
-	//handshake
-	for (int i = 0; ; ++i) {
-		//check if device is connected correctly.
-		if (io->recv_buf[2] == BSL_REP_VER) {
-			ret = BSL_REP_VER;
-			memcpy(io->raw_buf + 4, io->recv_buf + 5, 5);
-			io->raw_buf[2] = 0;
-			io->raw_buf[3] = 5;
-			io->recv_buf[2] = 0;
-		} else if (io->recv_buf[2] == BSL_REP_VERIFY_ERROR ||
-		           io->recv_buf[2] == BSL_REP_UNSUPPORTED_COMMAND) {
-			if (!fdl1_loaded) {
-				ret = io->recv_buf[2];
+	#endif
+		io->flags |= FLAGS_TRANSCODE;
+		if (stage != -1) {
+			io->flags &= ~FLAGS_CRC16;
+			encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+		} else encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
+		//handshake
+		for (int i = 0; ; ++i) {
+			//check if device is connected correctly.
+			if (io->recv_buf[2] == BSL_REP_VER) {
+				ret = BSL_REP_VER;
+				memcpy(io->raw_buf + 4, io->recv_buf + 5, 5);
+				io->raw_buf[2] = 0;
+				io->raw_buf[3] = 5;
 				io->recv_buf[2] = 0;
-			} else ERR_EXIT("Failed to connect to device: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n", o_exception);
-		} else {
-			//device correct, handshake operation
-			send_msg(io);
-			recv_msg(io);
-			ret = recv_type(io);
-		}
-		//device can only recv BSL_REP_ACK or BSL_REP_VER or BSL_REP_VERIFY_ERROR
-		init_stage = 1;
-		ThrowExit();
-		if (ret == BSL_REP_ACK || ret == BSL_REP_VER || ret == BSL_REP_VERIFY_ERROR) {
-			//check stage
-			if (ret == BSL_REP_VER) {
-				if (fdl1_loaded == 1) {
-					g_app_state.device.device_stage = FDL1;
-					DEG_LOG(OP, "FDL1 connected.");
-					if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
-					break;
-				} else {
-					g_app_state.device.device_stage = BROM;
-					DEG_LOG(OP, "Check baud BROM");
-					if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) {
-						fdl1_loaded = -1;
-						fdl2_executed = -1;
-					}
-				}
-				DBG_LOG("Device mode version: ");
-				print_string(stdout, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
-				print_to_string(mode_str, sizeof(mode_str), io->raw_buf + 4, READ16_BE(io->raw_buf + 2), 0);
-
-				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-				if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
-			} else if (ret == BSL_REP_VERIFY_ERROR) {
-				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-				if (fdl1_loaded != 1) {
-					if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
-				} else {
-					i = -1;
-					continue;
-				}
-			}
-			if (fdl1_loaded == 1) {
-				DEG_LOG(OP, "FDL1 connected.");
-				g_app_state.device.device_stage = FDL1;
-				if (keep_charge) {
-					encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
-					if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
-				}
-				break;
+			} else if (io->recv_buf[2] == BSL_REP_VERIFY_ERROR ||
+					io->recv_buf[2] == BSL_REP_UNSUPPORTED_COMMAND) {
+				if (!fdl1_loaded) {
+					ret = io->recv_buf[2];
+					io->recv_buf[2] = 0;
+				} else ERR_EXIT("Failed to connect to device: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n", o_exception);
 			} else {
-				DEG_LOG(OP, "BROM connected.");
-				g_app_state.device.device_stage = BROM;
-				break;
+				//device correct, handshake operation
+				send_msg(io);
+				recv_msg(io);
+				ret = recv_type(io);
 			}
-		}
-		//FDL2 response:UNSUPPORTED
-		else if (ret == BSL_REP_UNSUPPORTED_COMMAND) {
-			encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
-			if (!send_and_check(io)) {
-				io->flags &= ~FLAGS_TRANSCODE;
-				DEG_LOG(OP, "Try to disable transcode 0x7D.");
-				fdl2_executed = 1;
-				g_app_state.device.device_stage = FDL2;
-				int o = io->verbose;
-				io->verbose = -1;
-				g_spl_size = check_partition(io, "splloader", 1);
-				io->verbose = o;
-				if (isUseCptable) {
-					io->Cptable = partition_list_d(io);
-					isCMethod = 1;
-				}
-				if (!isUseCptable && !io->part_count) {
-					DEG_LOG(W, "No partition table found on current device");
-					DEG_LOG(I, "You may get partition table through compatibility method.");
-					DEG_LOG(I, "(Use command `cptable` to do it.)");
-				}
-				if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
-				if (nand_id == DEFAULT_NAND_ID) {
-					nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
-					nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
-					nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
-				}
-				break;
-			}
-		}
-
-		//fail
-		else if (i == 4) {
+			//device can only recv BSL_REP_ACK or BSL_REP_VER or BSL_REP_VERIFY_ERROR
 			init_stage = 1;
 			ThrowExit();
-			if (stage != -1) {
-				ERR_EXIT("Failed to connect: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n", o_exception);
-			} else {
-				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-				stage++;
-				i = -1;
-			}
-		}
+			if (ret == BSL_REP_ACK || ret == BSL_REP_VER || ret == BSL_REP_VERIFY_ERROR) {
+				//check stage
+				if (ret == BSL_REP_VER) {
+					if (fdl1_loaded == 1) {
+						g_app_state.device.device_stage = FDL1;
+						DEG_LOG(OP, "FDL1 connected.");
+						if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
+						break;
+					} else {
+						g_app_state.device.device_stage = BROM;
+						DEG_LOG(OP, "Check baud BROM");
+						if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) {
+							fdl1_loaded = -1;
+							fdl2_executed = -1;
+						}
+					}
+					DBG_LOG("Device mode version: ");
+					print_string(stdout, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+					print_to_string(mode_str, sizeof(mode_str), io->raw_buf + 4, READ16_BE(io->raw_buf + 2), 0);
 
-	}
-	size_t sub_len = strlen("SPRD3");
-	size_t str_len = strlen(mode_str);
-	int found = 0;
-	if (str_len >= sub_len) {
-		for (size_t i = 0; i <= str_len - sub_len; i++) {
-			if (strncmp(mode_str + i, "SPRD3", sub_len) == 0) {
-				found = 1;
-				break;
+					encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+					if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
+				} else if (ret == BSL_REP_VERIFY_ERROR) {
+					encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+					if (fdl1_loaded != 1) {
+						if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
+					} else {
+						i = -1;
+						continue;
+					}
+				}
+				if (fdl1_loaded == 1) {
+					DEG_LOG(OP, "FDL1 connected.");
+					g_app_state.device.device_stage = FDL1;
+					if (keep_charge) {
+						encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
+						if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
+					}
+					break;
+				} else {
+					DEG_LOG(OP, "BROM connected.");
+					g_app_state.device.device_stage = BROM;
+					break;
+				}
+			}
+			//FDL2 response:UNSUPPORTED
+			else if (ret == BSL_REP_UNSUPPORTED_COMMAND) {
+				encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
+				if (!send_and_check(io)) {
+					io->flags &= ~FLAGS_TRANSCODE;
+					DEG_LOG(OP, "Try to disable transcode 0x7D.");
+					fdl2_executed = 1;
+					g_app_state.device.device_stage = FDL2;
+					int o = io->verbose;
+					io->verbose = -1;
+					g_spl_size = check_partition(io, "splloader", 1);
+					io->verbose = o;
+					if (isUseCptable) {
+						io->Cptable = partition_list_d(io);
+						isCMethod = 1;
+					}
+					if (!isUseCptable && !io->part_count) {
+						DEG_LOG(W, "No partition table found on current device");
+						DEG_LOG(I, "You may get partition table through compatibility method.");
+						DEG_LOG(I, "(Use command `cptable` to do it.)");
+					}
+					if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
+					if (nand_id == DEFAULT_NAND_ID) {
+						nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+						nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+						nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+					}
+					break;
+				}
+			}
+
+			//fail
+			else if (i == 4) {
+				init_stage = 1;
+				ThrowExit();
+				if (stage != -1) {
+					ERR_EXIT("Failed to connect: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n", o_exception);
+				} else {
+					encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+					stage++;
+					i = -1;
+				}
+			}
+
+		}
+		size_t sub_len = strlen("SPRD3");
+		size_t str_len = strlen(mode_str);
+		int found = 0;
+		if (str_len >= sub_len) {
+			for (size_t i = 0; i <= str_len - sub_len; i++) {
+				if (strncmp(mode_str + i, "SPRD3", sub_len) == 0) {
+					found = 1;
+					break;
+				}
 			}
 		}
+		DEG_LOG(I, "SPRD3 Current : %d", found);
+		if (!found && isKickMode) g_app_state.device.device_mode = SPRD4;
+		else g_app_state.device.device_mode = SPRD3;
+		
+		if (fdl1_loaded == -1) argc += 2;
+		if (fdl2_executed == -1) argc += 1;
+		init_stage = 2;
+		ThrowExit();
+		if (fdl2_executed > 0) {
+			if (g_app_state.device.device_mode == SPRD3) {
+				DEG_LOG(I, "Device stage: FDL2/SPRD3");
+			} else DEG_LOG(I, "Device stage: FDL2/SPRD4(AutoD)");
+		} else if (fdl1_loaded > 0) {
+			if (g_app_state.device.device_mode == SPRD3) {
+				DEG_LOG(I, "Device stage: FDL1/SPRD3");
+			} else DEG_LOG(I, "Device stage: FDL1/SPRD4(AutoD)");
+		} else if (g_app_state.device.device_stage == BROM) {
+			if (g_app_state.device.device_mode == SPRD3) {
+				DEG_LOG(I, "Device stage: BROM/SPRD3");
+			} else DEG_LOG(I, "Device stage: BROM/SPRD4(AutoD)");
+		} else {
+			if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
+			else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
+		}
+		if (isKickMode && g_app_state.device.device_mode == SPRD4 && g_app_state.device.device_stage != FDL2 && !no_fdl_mode) {
+			DEG_LOG(I, "SPRD4 mode detected, but No-FDL mode not enabled.");
+			DEG_LOG(I, "You can get in FDL2 without FDL manually.");
+			DEG_LOG(I, "By execute following commands:");
+			DEG_LOG(I, "In BROM:");
+			DEG_LOG(I, "    exec 0x0");
+			DEG_LOG(I, "    exec");
+			DEG_LOG(I, "In FDL1:");
+			DEG_LOG(I, "    exec");
+			DEG_LOG(I, "(You can enable No-FDL mode by setting parameter `--no-fdl`)");
+		}
 	}
-	DEG_LOG(I, "SPRD3 Current : %d", found);
-	if (!found && isKickMode) g_app_state.device.device_mode = SPRD4;
-	else g_app_state.device.device_mode = SPRD3;
-	char** save_argv = nullptr;
-	if (fdl1_loaded == -1) argc += 2;
-	if (fdl2_executed == -1) argc += 1;
-	init_stage = 2;
-	ThrowExit();
-	if (fdl2_executed > 0) {
-		if (g_app_state.device.device_mode == SPRD3) {
-			DEG_LOG(I, "Device stage: FDL2/SPRD3");
-		} else DEG_LOG(I, "Device stage: FDL2/SPRD4(AutoD)");
-	} else if (fdl1_loaded > 0) {
-		if (g_app_state.device.device_mode == SPRD3) {
-			DEG_LOG(I, "Device stage: FDL1/SPRD3");
-		} else DEG_LOG(I, "Device stage: FDL1/SPRD4(AutoD)");
-	} else if (g_app_state.device.device_stage == BROM) {
-		if (g_app_state.device.device_mode == SPRD3) {
-			DEG_LOG(I, "Device stage: BROM/SPRD3");
-		} else DEG_LOG(I, "Device stage: BROM/SPRD4(AutoD)");
-	} else {
-		if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
-		else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
-	}
-	if (isKickMode && g_app_state.device.device_mode == SPRD4 && g_app_state.device.device_stage != FDL2 && !no_fdl_mode) {
-		DEG_LOG(I, "SPRD4 mode detected, but No-FDL mode not enabled.");
-		DEG_LOG(I, "You can get in FDL2 without FDL manually.");
-		DEG_LOG(I, "By execute following commands:");
-		DEG_LOG(I, "In BROM:");
-		DEG_LOG(I, "    exec 0x0");
-		DEG_LOG(I, "    exec");
-		DEG_LOG(I, "In FDL1:");
-		DEG_LOG(I, "    exec");
-		DEG_LOG(I, "(You can enable No-FDL mode by setting parameter `--no-fdl`)");
-	}
+
 	//get in interaction
-
+	char** save_argv = nullptr;
 	while (1) {
 		signal(SIGINT, SIG_DFL);
 		if (argc > 1) {
@@ -667,13 +680,19 @@ int main_console(int argc, char** argv) {
 			memset(str1, 0, sizeof(str1));
 			argcount = 0;
 			in_quote = 0;
-
-			if (fdl2_executed > 0)
-				DBG_LOG("[FDL2]: ");
-			else if (fdl1_loaded > 0)
-				DBG_LOG("[FDL1]: ");
+			if (!isToolMode)
+			{
+				if (fdl2_executed > 0)
+					DBG_LOG("[FDL2]: ");
+				else if (fdl1_loaded > 0)
+					DBG_LOG("[FDL1]: ");
+				else
+					DBG_LOG("[BROM]: ");
+			}
 			else
-				DBG_LOG("[BROM]: ");
+			{
+				DBG_LOG("[TMODE]: ");
+			}
 			ret = scanf("%[^\n]", str1);
 			while ('\n' != getchar());
 
@@ -712,6 +731,19 @@ int main_console(int argc, char** argv) {
 		}
 		//parse args and interacting command
 		if (!strcmp(str2[1], "sendloop")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			uint32_t addr = 0;
 			if (argcount <= 2) {
 				DEG_LOG(W, "sendloop [ADDR]");
@@ -729,6 +761,19 @@ int main_console(int argc, char** argv) {
 			argc -= 2;
 			argv += 2;
 		} else if (!strcmp(str2[1], "write_word")) {
+			if (isToolMode)
+			{
+				if (argcount <= 3)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 3;
+					argv += 3;
+				}
+				continue;
+			}
 			uint32_t addr, data;
 			if (argc <= 3) {
 				DEG_LOG(W, "write_word [ADDR] [VALUE](max is 0xFFFFFFFF)");
@@ -743,6 +788,19 @@ int main_console(int argc, char** argv) {
 			argv += 3;
 
 		} else if (!memcmp(str2[1], "exec_addr", 9)) {
+			if (isToolMode)
+			{
+				if (argcount <= 3)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 3;
+					argv += 3;
+				}
+				continue;
+			}
 			FILE* fi;
 			if (0 == fdl1_loaded && argcount > 2) {
 				exec_addr = strtoul(str2[3], nullptr, 0);
@@ -757,6 +815,19 @@ int main_console(int argc, char** argv) {
 			if (!strncmp(str2[1], "exec_addr2", 10)) cve_v2 = 1;
 			argc -= 3, argv += 3;
 		} else if (!strcmp(str2[1], "send") || !strcmp(str2[1], "send_no_enddata")) {
+			if (isToolMode)
+			{
+				if (argcount <= 3)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 3;
+					argv += 3;
+				}
+				continue;
+			}
 			const char* fn;
 			uint32_t addr = 0;
 			FILE* fi;
@@ -789,6 +860,21 @@ int main_console(int argc, char** argv) {
 			FILE* fi;
 			int argchange;
 			fn = str2[2];
+			if (isToolMode)
+			{
+				if (addr_in_name) argchange = 2;
+				else argchange = 3;
+				if (argcount <= argchange)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= argchange;
+					argv += argchange;
+				}
+				continue;
+			}
 			if (addr_in_name) {
 				argchange = 2;
 				if (argcount <= argchange) {
@@ -979,7 +1065,24 @@ int main_console(int argc, char** argv) {
 			argv += argchange;
 		} else if (!strcmp(str2[1], "exec")) {
 			//sfd_tool exec command
-
+			if (isToolMode)
+			{
+				if ((argcount <= 2 && fdl1_loaded <=0) || (argcount <= 1 && fdl1_loaded > 0))
+				{
+					argc = 1;
+				}
+				else
+				{
+					if (fdl1_loaded <= 0) {
+						argc -= 2;
+						argv += 2;
+					} else {
+						argc -= 1;
+						argv += 1;
+					}
+				}
+				continue;
+			}
 			if (fdl2_executed > 0) {
 				DEG_LOG(W, "FDL2 is already executed, skipped.");
 				argc -= 1;
@@ -1179,6 +1282,19 @@ int main_console(int argc, char** argv) {
 			argv += 2;
 #endif
 		} else if (!strcmp(str2[1], "path")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			if (argcount > 2) {
 				if (strlen(str2[2]) < sizeof(savepath)) {
 					snprintf(savepath, sizeof(savepath), "%s", str2[2]);
@@ -1193,6 +1309,19 @@ int main_console(int argc, char** argv) {
 			argc -= 2;
 			argv += 2;
 		} else if (!strcmp(str2[1], "nand_id")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			//sfd_tool func
 			if (argcount > 2) {
 				nand_id = strtol(str2[2], nullptr, 0);
@@ -1204,6 +1333,19 @@ int main_console(int argc, char** argv) {
 			argc -= 2;
 			argv += 2;
 		} else if (!strncmp(str2[1], "read_flash", 10)) {
+			if (isToolMode)
+			{
+				if (argcount <= 5)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 5;
+					argv += 5;
+				}
+				continue;
+			}
 			const char* fn;
 			uint64_t addr, offset, size;
 			if (argcount <= 5) {
@@ -1229,6 +1371,19 @@ int main_console(int argc, char** argv) {
 			argv += 5;
 
 		} else if (!strcmp(str2[1], "bl")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			if (argcount < 2) {
 				DEG_LOG(W, "bl {0,1}");
 				argc = 1;
@@ -1243,10 +1398,22 @@ int main_console(int argc, char** argv) {
 			}
 			set_bootloader_status(io, status);
 		}
-
 		else if (!strcmp(str2[1], "erase_flash")) {
+			if (isToolMode)
+			{
+				if (argcount <= 3)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 3;
+					argv += 3;
+				}
+				continue;
+			}
 			uint64_t addr, size;
-			if (argc <= 3) {
+			if (argcount <= 3) {
 				DEG_LOG(W, "erase_flash addr size");
 				argc = 1;
 				continue;
@@ -1280,6 +1447,19 @@ int main_console(int argc, char** argv) {
 			const char* name = get_bsl_enum_name(strtoul(str2[2], nullptr, 0));
 			DEG_LOG(I, "%s", name);
 		} else if (!strcmp(str2[1], "read_mem")) {
+			if (isToolMode)
+			{
+				if (argcount <= 4)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 4;
+					argv += 4;
+				}
+				continue;
+			}
 			const char* fn;
 			uint64_t addr, size;
 			if (argcount <= 4) {
@@ -1302,6 +1482,19 @@ int main_console(int argc, char** argv) {
 			argv += 4;
 
 		} else if (!strcmp(str2[1], "part_size") || !strcmp(str2[1], "ps")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			const char* name;
 			if (argcount <= 2) {
 				DEG_LOG(W, "part_size|ps [partition name]");
@@ -1320,6 +1513,19 @@ int main_console(int argc, char** argv) {
 			argv += 2;
 
 		} else if (!strcmp(str2[1], "check_part") || !strcmp(str2[1], "cp")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			const char* name;
 			if (argcount <= 2) {
 				DEG_LOG(W, "check_part|cp [partition name]");
@@ -1339,6 +1545,20 @@ int main_console(int argc, char** argv) {
 			argv += 2;
 
 		} else if (!strcmp(str2[1], "sendcmd")) {
+			if (isToolMode)
+			{
+				int argchange = (argcount > 3) ? 3 : 2;
+				if (argcount <= argchange)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= argchange;
+					argv += argchange;
+				}
+				continue;
+			}
 			if (argcount <= 2) {
 				DEG_LOG(W, "sendcmd [TYPE] <FILE>");
 				argc = 1;
@@ -1372,6 +1592,19 @@ int main_console(int argc, char** argv) {
 			argc -= (argcount > 3) ? 3 : 2;
 			argv += (argcount > 3) ? 3 : 2;
 		} else if (!strcmp(str2[1], "read_spec")) {
+			if (isToolMode)
+			{
+				if (argcount <= 5)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 5;
+					argv += 5;
+				}
+				continue;
+			}
 			const char* name, * fn;
 			uint64_t offset, size;
 			uint64_t realsize = 0;
@@ -1406,6 +1639,19 @@ int main_console(int argc, char** argv) {
 			argv += 5;
 
 		} else if (!strcmp(str2[1], "r") || !strcmp(str2[1], "read_part")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			const char* name = str2[2];
 			int loop_count = 0, in_loop = 0;
 			const char* list[] = { "vbmeta", "splloader", "uboot", "sml", "trustos", "teecfg", "boot", "recovery" };
@@ -1562,6 +1808,19 @@ rloop:
 			argv += 2;
 
 		} else if (!strcmp(str2[1], "read_parts")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			const char* fn;
 			FILE* fi;
 			if (argcount <= 2) {
@@ -1606,7 +1865,7 @@ rloop:
 				argv += 2;
 				continue;
 			}
-			if(check_confirm("flash pac"))
+			if(!isToolMode && check_confirm("flash pac"))
 			{
 				if (i_is)
 				{
@@ -1617,6 +1876,19 @@ rloop:
 			argv += 2;
 		}
 		else if (!strcmp(str2[1], "part_table")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			if (!isCMethod) {
 				if (argcount <= 2) {
 					DEG_LOG(W, "part_table FILE");
@@ -1686,6 +1958,19 @@ rloop:
 			argv += 2;
 
 		} else if (!strcmp(str2[1], "repartition")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			const char* fn;
 			FILE* fi;
 			if (argcount <= 2) {
@@ -1707,6 +1992,19 @@ rloop:
 			argv += 2;
 
 		} else if (!strcmp(str2[1], "erase_part") || !strcmp(str2[1], "e")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			const char* name = str2[2];
 			if (argcount <= 2) {
 				DEG_LOG(W, "erase_part part_name/part_id\n");
@@ -1740,6 +2038,12 @@ rloop:
 			argv += 2;
 
 		} else if (!strcmp(str2[1], "erase_all")) {
+			if (isToolMode)
+			{
+				argc -= 1;
+				argv += 1;		
+				continue;
+			}
 			if (!check_confirm("erase all")) {
 				argc -= 1;
 				argv += 1;
@@ -1750,6 +2054,19 @@ rloop:
 			argv += 1;
 		
 		} else if (!strcmp(str2[1], "g_w_force")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			int mode = atoi(str2[2]);
 			if (mode < 0 || mode > 1) {
 				DEG_LOG(W, "g_w_force {0,1}");
@@ -1765,13 +2082,29 @@ rloop:
 			argc -= 2;
 			argv += 2;
 		} else if (!strcmp(str2[1], "cptable")) {
+			if (isToolMode)
+			{
+				argc -= 1;
+				argv += 1;
+				continue;
+			}
 			if (!io->part_count_c && !io->part_count) {
 				io->Cptable = partition_list_d(io);
 				isCMethod = 1;
 			} else {
 				DEG_LOG(I, "Partition table already loaded");
 			}
+			argc -= 1;
+			argv += 1;
 		} else if (!strcmp(str2[1], "read_nand")) {
+			if (isToolMode)
+			{
+				
+				argc -= 1;
+				argv += 1;
+				
+				continue;
+			}
 			encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
 			send_msg(io);
 			ret = recv_msg(io);
@@ -1788,6 +2121,19 @@ rloop:
 			argc -= 1;
 			argv += 1;
 		} else if (!strcmp(str2[1], "w") || !strcmp(str2[1], "write_part")) {
+			if (isToolMode)
+			{
+				if (argcount <= 3)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 3;
+					argv += 3;
+				}
+				continue;
+			}
 			const char* fn;
 			FILE* fi;
 			const char* name = str2[2];
@@ -1823,6 +2169,19 @@ rloop:
 			argv += 3;
 
 		} else if (!strncmp(str2[1], "write_parts", 11)) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			if (argcount <= 2) {
 				DEG_LOG(W, "write_parts/write_parts_a/write_parts_b save_location\n");
 				argc = 1;
@@ -1836,6 +2195,19 @@ rloop:
 			argv += 2;
 
 		} else if (!strcmp(str2[1], "w_force")) {
+			if (isToolMode)
+			{
+				if (argcount <= 3)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 3;
+					argv += 3;
+				}
+				continue;
+			}
 			const char* fn;
 			FILE* fi;
 			const char* name = str2[2];
@@ -1931,6 +2303,19 @@ rloop:
 			argv += 3;
 
 		} else if (!strcmp(str2[1], "wof") || !strcmp(str2[1], "wov")) {
+			if (isToolMode)
+			{
+				if (argcount <= 4)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 4;
+					argv += 4;
+				}
+				continue;
+			}
 			uint64_t offset;
 			size_t length;
 			uint8_t* src;
@@ -1975,6 +2360,19 @@ rloop:
 
 		}
 		else if (!strcmp(str2[1], "mergenv-xml")) {
+			if (isToolMode)
+			{
+				if (argcount <= 3)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 3;
+					argv += 3;
+				}
+				continue;
+			}
 			if (argcount <= 3) { DEG_LOG(W,"mergenv-xml xml new_nv\n"); argc = 1; continue; }
 			get_partition_info(io, "nr_fixnv1", 1);
 			if (!gPartInfo.size) get_partition_info(io, "l_fixnv1", 1);
@@ -2022,6 +2420,19 @@ rloop:
 
 		}
 		else if (!strcmp(str2[1], "mergenv-cfg")) {
+			if (isToolMode)
+			{
+				if (argcount <= 3)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 3;
+					argv += 3;
+				}
+				continue;
+			}
 			if (argcount <= 3) { DEG_LOG(W, "mergenv-cfg cfg new_nv\n"); argc = 1; continue; }
 			get_partition_info(io, "nr_fixnv1", 1);
 			if (!gPartInfo.size) get_partition_info(io, "l_fixnv1", 1);
@@ -2067,6 +2478,19 @@ rloop:
 			argc -= 4; argv += 4;
 		} 
 		else if (!strcmp(str2[1], "blk_size") || !strcmp(str2[1], "bs")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			if (argcount <= 2) {
 				DEG_LOG(E, "blk_size byte\n\tmax is 65535");
 				argc = 1;
@@ -2079,6 +2503,19 @@ rloop:
 			argv += 2;
 
 		} else if (!strcmp(str2[1], "fblk_size") || !strcmp(str2[1], "fbs")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			if (argcount <= 2) {
 				DEG_LOG(E, "fblk_size [value]\n\tvalue unit: MB");
 				argc = 1;
@@ -2089,6 +2526,14 @@ rloop:
 			argv += 2;
 
 		} else if (!strcmp(str2[2], "dis_avb_tos")) {
+			if (isToolMode)
+			{
+				
+				argc -= 1;
+				argv += 1;
+				
+				continue;
+			}
 			DEG_LOG(W, "This operation may brick your device, and not all devices support this, if your device is broken, flash backup trustos-orig.bin");
 			if (check_confirm("Disable AVB by patching trustos")) {
 				TosPatcher patcher;
@@ -2104,6 +2549,19 @@ rloop:
 			argc -= 1;
 			argv += 1;
 		} else if (!strcmp(str2[1], "verity")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			if (argcount <= 2) {
 				DEG_LOG(W, "verity {0,1}");
 				argc = 1;
@@ -2132,6 +2590,19 @@ rloop:
 			argv += 2;
 
 		} else if (!strcmp(str2[1], "set_active")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			if (argcount <= 2) {
 				DEG_LOG(W, "set_active {a,b}");
 				argc = 1;
@@ -2142,6 +2613,24 @@ rloop:
 			argv += 2;
 
 		} else if (!strcmp(str2[1], "add_part")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
+			if (argcount <= 2) {
+				DEG_LOG(W, "add_part part_name");
+				argc = 1;
+				continue;
+			}
 			if (isCMethod) {
 				const char* name = str2[2];
 				int n = io->part_count_c + 1;
@@ -2161,8 +2650,23 @@ rloop:
 			} else {
 				DEG_LOG(E, "`add_part` command only supported in compatibility-method mode.");
 			}
+			argc -= 2;
+			argv += 2;
 		} 
 		else if(!strcmp(str2[1],"scan_partition")){
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			if (argcount <= 2) {
 				DEG_LOG(W, "scan_partition [PARTITION_XML_FILE]");
 				argc = 1;
@@ -2185,6 +2689,13 @@ rloop:
 			}
 		}
 		else if (!strcmp(str2[1], "p") || !strcmp(str2[1], "print")) {
+			if (isToolMode)
+			{
+				argc -= 1;
+				argv += 1;
+				
+				continue;
+			}
 			if (io->part_count) {
 				DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
 				for (i = 0; i < io->part_count; i++) {
@@ -2202,8 +2713,29 @@ rloop:
 			argv += 1;
 
 		} else if (!strcmp(str2[1], "pactime")) {
+			if (isToolMode)
+			{
+				
+				argc -= 1;
+				argv += 1;
+				
+				continue;
+			}
 			read_pactime(io);
 		} else if (!strcmp(str2[1], "firstmode")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			if (argcount <= 2) {
 				DEG_LOG(W, "firstmode mode_id");
 				argc = 1;
@@ -2218,6 +2750,19 @@ rloop:
 			argc -= 2;
 			argv += 2;
 		} else if (!strcmp(str2[1], "skip_confirm")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			if (argcount <= 2) {
 				DEG_LOG(W, "skip_confirm {0,1}");
 				argc = 1;
@@ -2227,6 +2772,19 @@ rloop:
 			argc -= 2;
 			argv += 2;
 		} else if (!strcmp(str2[1], "rawdata")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			if (argcount <= 2) {
 				DEG_LOG(W, "rawdata {0,1,2}");
 				argc = 1;
@@ -2236,6 +2794,19 @@ rloop:
 			argc -= 2;
 			argv += 2;
 		} else if (!strcmp(str2[1], "slot")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			if (argcount <= 2) {
 				DEG_LOG(W, "slot {0,1,2}");
 				argc = 1;
@@ -2245,6 +2816,14 @@ rloop:
 			argc -= 2;
 			argv += 2;
 		} else if (!strcmp(str2[1], "chip_uid")) {
+			if (isToolMode)
+			{
+				
+				argc -= 1;
+				argv += 1;
+				
+				continue;
+			}
 			encode_msg_nocpy(io, BSL_CMD_READ_CHIP_UID, 0);
 			send_msg(io);
 			ret = recv_msg(io);
@@ -2261,6 +2840,19 @@ rloop:
 			argc -= 1;
 			argv += 1;
 		} else if (!strcmp(str2[1], "transcode")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			const char* se = str2[2];
 			if (strcmp(se, "1") == 0) {
 				unsigned a, f;
@@ -2299,6 +2891,19 @@ rloop:
 			argc -= 2;
 			argv += 2;
 		} else if (!strcmp(str2[1], "keep_charge")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			if (argcount <= 2) {
 				DEG_LOG(W, "keep_charge {0,1}");
 				argc = 1;
@@ -2308,6 +2913,19 @@ rloop:
 			argc -= 2;
 			argv += 2;
 		} else if (!strcmp(str2[1], "timeout")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			if (argcount <= 2) {
 				DEG_LOG(W, "timeout [time]\n\ttime unit: ms");
 				argc = 1;
@@ -2317,6 +2935,19 @@ rloop:
 			argc -= 2;
 			argv += 2;
 		} else if (!strcmp(str2[1], "send_end_data")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			if (argcount <= 2) {
 				DEG_LOG(E, "send_end_data {0,1}");
 				argc = 1;
@@ -2326,6 +2957,14 @@ rloop:
 			argc -= 2;
 			argv += 2;
 		} else if (!strcmp(str2[1], "reset")) {
+			if (isToolMode)
+			{
+				
+				argc -= 1;
+				argv += 1;
+				
+				continue;
+			}
 			if (!fdl1_loaded) {
 				DEG_LOG(W, "FDL does not executed.");
 				argc -= 1;
@@ -2335,6 +2974,14 @@ rloop:
 			encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
 			if (!send_and_check(io)) break;
 		} else if (!strcmp(str2[1], "reboot-recovery")) {
+			if (isToolMode)
+			{
+				
+				argc -= 1;
+				argv += 1;
+				
+				continue;
+			}
 			if (!fdl1_loaded) {
 				DEG_LOG(W, "FDL does not executed.");
 				argc -= 1;
@@ -2350,6 +2997,14 @@ rloop:
 			encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
 			if (!send_and_check(io)) break;
 		} else if (!strcmp(str2[1], "reboot-fastboot")) {
+			if (isToolMode)
+			{
+				
+				argc -= 1;
+				argv += 1;
+				
+				continue;
+			}
 			if (!fdl1_loaded) {
 				DEG_LOG(W, "FDL does not executed.");
 				argc -= 1;
@@ -2366,6 +3021,14 @@ rloop:
 			encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
 			if (!send_and_check(io)) break;
 		} else if (!strcmp(str2[1], "poweroff")) {
+			if (isToolMode)
+			{
+				
+				argc -= 1;
+				argv += 1;
+				
+				continue;
+			}
 			if (!fdl1_loaded) {
 				DEG_LOG(W, "FDL does not executed.");
 				argc -= 1;
@@ -2375,6 +3038,19 @@ rloop:
 			encode_msg_nocpy(io, BSL_CMD_POWER_OFF, 0);
 			if (!send_and_check(io)) break;
 		} else if (!strcmp(str2[1], "verbose")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			if (argcount <= 2) {
 				DEG_LOG(W, "verbose {0,1,2}");
 				argc = 1;
