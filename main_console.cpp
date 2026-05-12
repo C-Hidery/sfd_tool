@@ -48,10 +48,10 @@ void print_help() {
 	        "\t--cptable\n"
 	        "\t\tRead the partition table in compatibility mode\n"
 	        "\t--no-gui\n"
-	        "\tRun sfd_tool without GUI\n"
+	        "\t\tRun sfd_tool without GUI\n"
 			"\t--tool-mode\n"
-			"\tThis option can make you use some tool commands that are not depend on device connection\n"
-			"\tSuch as `pac`, `mergenv-xml-ex`, `mergenv-cfg-ex`\n"
+			"\t\tThis option can make you use some tool commands that are not depend on device connection\n"
+			"\t\tSuch as `pac`, `mergenv-xml-ex`, `mergenv-cfg-ex`\n"
 	       );
 #ifdef __ANDROID__
 	DBG_LOG(
