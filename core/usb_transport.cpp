@@ -299,8 +299,8 @@ void spdio_free(spdio_t *io) {
 	call_Uninitialize(io->handle);
 	destroyClass(io->handle);
 #endif
-	delete[](io->ptable);
-	delete[](io->Cptable);
+	if (io->ptable) delete[](io->ptable);
+	if (io->Cptable) delete[](io->Cptable);
 	delete[](io);
 }
 
