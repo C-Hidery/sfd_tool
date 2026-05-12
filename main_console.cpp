@@ -48,7 +48,7 @@ void print_help() {
 	        "\t--cptable\n"
 	        "\t\tRead the partition table in compatibility mode\n"
 	        "\t--no-gui\n"
-	        "\tRun sfd_tool without GUI"
+	        "\tRun sfd_tool without GUI\n"
 			"\t--tool-mode\n"
 			"\tThis option can make you use some tool commands that are not depend on device connection\n"
 			"\tSuch as `pac`, `mergenv-xml-ex`, `mergenv-cfg-ex`\n"
