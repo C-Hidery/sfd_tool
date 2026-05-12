@@ -278,7 +278,6 @@ spdio_t *spdio_init(int flags) {
 
 void spdio_free(spdio_t *io) {
 	if (!io) return;
-	if (g_app_state.flash.isToolMode) return;
 	if (io->transport) {
 		delete io->transport;
 		io->transport = nullptr;
