@@ -128,6 +128,10 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
     
 **新命令，谨慎使用**
 
+    --tool-mode
+
+**新参数，你可以使用一些不需要设备连接的命令，使用`exit`退出**
+
 ## 警告 - 禁用 VERITY 与 AVB
 
 **命令：** `dis_avb_tos` / `verity 0`

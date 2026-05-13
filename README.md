@@ -104,6 +104,10 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 
 **New Command, use with caution.**
 
+    --tool-mode
+
+**New parameter, you can use some commands that DO NOT need device connection, use `exit` to exit tool**
+
 ## WARNING - DISABLE VERITY & AVB
 
 **Command:** `dis_avb_tos` / `verity 0`
