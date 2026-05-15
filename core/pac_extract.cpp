@@ -977,8 +977,8 @@ bool pac_flash(spdio_t* io, const char* floder)
         {
             if (FDLAddrInPacSupported == false)
             {
-                fdl1_base = showInputDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Input"), _("Please input FDL1 base address (hex): "));
-                fdl2_base = showInputDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Input"), _("Please input FDL2 base address (hex): "));
+                fdl1_base = showInputDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Input"), _("Please input FDL1 base address (hex): "));
+                fdl2_base = showInputDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Input"), _("Please input FDL2 base address (hex): "));
             }
             if (FDLInPacSupported == false)
             {
