@@ -37,7 +37,7 @@ void ERR_EXIT(const char* format, ...) {
             }
         } else {
             gui_idle_call_wait_drag([](){ DisableWidgets(helper); }, GTK_WINDOW(helper.getWidget("main_window")));
-            showErrorDialogSyncInThread(helper, 
+            showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), 
                     "Error", 
                     _("An error occurred. The application will now exit."));
         }

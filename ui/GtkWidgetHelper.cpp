@@ -215,7 +215,7 @@ static void waitForDragEnd(GtkWindow* window) {
         g_usleep(10000); // 10ms
     }
 }
-bool showConfirmDialogSyncInThread(GtkWidgetHelper helper, const char* title, const char* message) {
+bool showConfirmDialogSyncInThread(GtkWindow* parent, const char* title, const char* message) {
     // 为当前工作线程创建独立的 GMainContext
     GMainContext* worker_ctx = g_main_context_new();
     g_main_context_push_thread_default(worker_ctx);
@@ -226,7 +226,6 @@ bool showConfirmDialogSyncInThread(GtkWidgetHelper helper, const char* title, co
     // 复制字符串，避免生命周期问题
     std::string title_str(title);
     std::string msg_str(message);
-    GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
     
     // 投递任务到主线程
     g_main_context_invoke(g_main_context_default(), [](gpointer user_data) -> gboolean {
@@ -260,7 +259,7 @@ bool showConfirmDialogSyncInThread(GtkWidgetHelper helper, const char* title, co
     
     return result;
 }
-std::string showInputDialogSyncInThread(GtkWidgetHelper helper, const char* title, const char* message) {
+std::string showInputDialogSyncInThread(GtkWindow* parent, const char* title, const char* message) {
     // 为当前工作线程创建独立的 GMainContext
     GMainContext* worker_ctx = g_main_context_new();
     g_main_context_push_thread_default(worker_ctx);
@@ -271,7 +270,6 @@ std::string showInputDialogSyncInThread(GtkWidgetHelper helper, const char* titl
     // 复制字符串，避免生命周期问题
     std::string title_str(title);
     std::string msg_str(message);
-    GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
     
     // 投递任务到主线程
     g_main_context_invoke(g_main_context_default(), [](gpointer user_data) -> gboolean {
@@ -305,7 +303,7 @@ std::string showInputDialogSyncInThread(GtkWidgetHelper helper, const char* titl
     
     return result;
 }
-void showErrorDialogSyncInThread(GtkWidgetHelper helper, const char* title, const char* message) {
+void showErrorDialogSyncInThread(GtkWindow* parent, const char* title, const char* message) {
     GMainContext* worker_ctx = g_main_context_new();
     g_main_context_push_thread_default(worker_ctx);
     
@@ -313,7 +311,6 @@ void showErrorDialogSyncInThread(GtkWidgetHelper helper, const char* title, cons
     
     std::string title_str(title);
     std::string msg_str(message);
-    GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
     
     g_main_context_invoke(g_main_context_default(), [](gpointer user_data) -> gboolean {
         auto* data = static_cast<std::tuple<GMainLoop*, GtkWindow*, std::string, std::string>*>(user_data);

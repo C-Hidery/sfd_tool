@@ -1185,7 +1185,7 @@ bool pac_flash(spdio_t* io, const char* floder)
     bool i_is = false;
     if (isHelperInit)
     {
-        i_is = showConfirmDialogSyncInThread(helper, _("Confirm"), _("Do you want to repartition?"));
+        i_is = showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Do you want to repartition?"));
     }
     else
     {

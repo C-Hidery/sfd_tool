@@ -384,7 +384,7 @@ void crash_handler(int sig) {
             }
         } else {
 			gui_idle_call_wait_drag([](){ DisableWidgets(helper); }, GTK_WINDOW(helper.getWidget("main_window")));
-            showErrorDialogSyncInThread(helper, 
+            showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), 
 						_("Program Crash"), 
                         _("The program encountered an unhandled exception, which may be caused by device connection issues or a bug in the program.\n\nIt is recommended to check the device connection, ensure the correct options are used, and try running the tool again."));
         }

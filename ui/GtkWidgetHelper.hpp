@@ -222,9 +222,9 @@ std::string showSaveFileDialog(GtkWindow* parent,
                                const std::string& default_filename = "",
                                const std::vector<std::pair<std::string, std::string>>& filters = {});
                                
-std::string showInputDialogSyncInThread(GtkWidgetHelper helper, const char* title, const char* message);
-bool showConfirmDialogSyncInThread(GtkWidgetHelper helper, const char* title, const char* message);
-void showErrorDialogSyncInThread(GtkWidgetHelper helper, const char* title, const char* message);
+std::string showInputDialogSyncInThread(GtkWindow* parent, const char* title, const char* message);
+bool showConfirmDialogSyncInThread(GtkWindow* parent, const char* title, const char* message);
+void showErrorDialogSyncInThread(GtkWindow* parent, const char* title, const char* message);
 #ifndef G_CONNECT_DEFAULT
 #define G_CONNECT_DEFAULT ((GConnectFlags)0)
 #endif
