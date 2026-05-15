@@ -1587,33 +1587,59 @@ void on_button_clicked_backup_all(GtkWidgetHelper helper) {
 }
 
 void confirm_partition_c(GtkWidgetHelper helper) {
-	ensure_device_attached_or_exit(helper);
-	std::promise<bool> promise;
-	auto future = promise.get_future();
-	gui_idle_call_wait_drag([&promise, helper]() mutable {
-		bool result = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("No partition table found on current device, read partition list through compatibility method?\nWarn: This mode may not find all partitions on your device, use caution with force write or editing partition table!"));
-		promise.set_value(result);
-	}, GTK_WINDOW(helper.getWidget("main_window")));
-	bool result = future.get();
-	if (result) {
-		isUseCptable = 1;
-		io->Cptable = partition_list_d(io);
-		isCMethod = 1;
-		std::vector<sfd::DevicePartitionInfo> partitions;
-		partitions.reserve(io->part_count_c);
-		for (int i = 0; i < io->part_count_c; i++) {
-			sfd::DevicePartitionInfo info{};
-			info.name = io->Cptable[i].name;
-			info.size = (std::uint64_t)io->Cptable[i].size;
-			info.readable = true;
-			info.writable = true;
-			partitions.push_back(info);
-		}
-		populatePartitionList(helper, partitions);
-	} else {
-		DEG_LOG(W, "Partition table not read.");
-	}
-	
+    ensure_device_attached_or_exit(helper);
+
+    // 1. 为当前工作线程创建独立的 GMainContext
+    GMainContext* worker_context = g_main_context_new();
+    g_main_context_push_thread_default(worker_context);  // 设为线程默认
+
+    // 2. 创建基于该上下文的 GMainLoop
+    GMainLoop* loop = g_main_loop_new(worker_context, FALSE);
+
+    // 3. 存储结果的容器（线程局部，安全）
+    struct Result {
+        bool confirmed = false;
+    } result;
+
+    // 4. 将对话框任务投递到主线程（使用全局默认上下文）
+    gui_idle_call_wait_drag([&result, loop, helper]() {
+        bool r = showConfirmDialog(
+            GTK_WINDOW(helper.getWidget("main_window")),
+            _("Confirm"),
+            _("No partition table found on current device, read partition list through compatibility method?\nWarn: This mode may not find all partitions on your device, use caution with force write or editing partition table!")
+        );
+        result.confirmed = r;
+        // 退出工作线程的 loop（注意：需要在 worker_context 中执行退出）
+        g_main_loop_quit(loop);
+    }, GTK_WINDOW(helper.getWidget("main_window")));
+
+    // 5. 运行工作线程的事件循环（会处理内部消息，直到 loop 被退出）
+    g_main_loop_run(loop);
+
+    // 6. 清理
+    g_main_loop_unref(loop);
+    g_main_context_pop_thread_default(worker_context);
+    g_main_context_unref(worker_context);
+
+    // 7. 根据结果继续执行
+    if (result.confirmed) {
+        isUseCptable = 1;
+        io->Cptable = partition_list_d(io);
+        isCMethod = 1;
+        std::vector<sfd::DevicePartitionInfo> partitions;
+        partitions.reserve(io->part_count_c);
+        for (int i = 0; i < io->part_count_c; i++) {
+            sfd::DevicePartitionInfo info{};
+            info.name = io->Cptable[i].name;
+            info.size = (std::uint64_t)io->Cptable[i].size;
+            info.readable = true;
+            info.writable = true;
+            partitions.push_back(info);
+        }
+        populatePartitionList(helper, partitions);
+    } else {
+        DEG_LOG(W, "Partition table not read.");
+    }
 }
 
 GtkWidget* PartitionPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
