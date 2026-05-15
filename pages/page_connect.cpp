@@ -148,13 +148,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 			else send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
 		} else {
 			if (g_app_state.device.device_mode == SPRD4 && isKickMode) {
-				std::promise<bool> promise;
-				auto future = promise.get_future();
-				gui_idle_call_wait_drag([&promise, helper]() {
-					bool result = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Device can be booted without FDL in SPRD4 mode, continue?"));
-					promise.set_value(result);
-				}, GTK_WINDOW(helper.getWidget("main_window")));
-				bool result = future.get();
+				bool result = showConfirmDialogSyncInThread(helper, _("Confirm"), _("Device can be booted without FDL in SPRD4 mode, continue?"));
 				if (result) {
 					DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
 				} else {
@@ -426,13 +420,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 				}
 			} else {
 				if (g_app_state.device.device_mode == SPRD4 && isKickMode) {
-					std::promise<bool> promise;
-					auto future = promise.get_future();
-					gui_idle_call_wait_drag([&promise, helper]() {
-						bool result = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Device can be booted without FDL in SPRD4 mode, continue?"));
-						promise.set_value(result);
-					}, GTK_WINDOW(helper.getWidget("main_window")));
-					bool result = future.get();
+					bool result = showConfirmDialogSyncInThread(helper, _("Confirm"), _("Device can be booted without FDL in SPRD4 mode, continue?"));
 					if (result) {
 						DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
 						fclose(fi);

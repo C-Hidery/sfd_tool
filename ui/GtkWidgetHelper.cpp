@@ -209,6 +209,136 @@ std::string showInputDialog(GtkWindow* parent, const char* title, const char* me
     gtk_widget_destroy(dialog);
     return result;
 }
+static void waitForDragEnd(GtkWindow* window) {
+    while (window && isWindowDragging(window)) {
+        g_main_context_iteration(g_main_context_default(), FALSE);
+        g_usleep(10000); // 10ms
+    }
+}
+bool showConfirmDialogSyncInThread(GtkWidgetHelper helper, const char* title, const char* message) {
+    // 为当前工作线程创建独立的 GMainContext
+    GMainContext* worker_ctx = g_main_context_new();
+    g_main_context_push_thread_default(worker_ctx);
+    
+    GMainLoop* loop = g_main_loop_new(worker_ctx, FALSE);
+    bool result = false;
+    
+    // 复制字符串，避免生命周期问题
+    std::string title_str(title);
+    std::string msg_str(message);
+    GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+    
+    // 投递任务到主线程
+    g_main_context_invoke(g_main_context_default(), [](gpointer user_data) -> gboolean {
+        auto* data = static_cast<std::tuple<GMainLoop*, bool*, GtkWindow*, std::string, std::string>*>(user_data);
+        GMainLoop* loop = std::get<0>(*data);
+        bool* result = std::get<1>(*data);
+        GtkWindow* parent = std::get<2>(*data);
+        std::string& title = std::get<3>(*data);
+        std::string& message = std::get<4>(*data);
+        
+        // 等待拖动结束
+        waitForDragEnd(parent);
+        
+        // 显示模态对话框（会阻塞主线程事件循环，但不影响工作线程的独立 loop）
+        *result = showConfirmDialog(parent, title.c_str(), message.c_str());
+        
+        // 退出工作线程的 loop
+        g_main_loop_quit(loop);
+        
+        delete data; // 清理
+        return G_SOURCE_REMOVE;
+    }, new std::tuple<GMainLoop*, bool*, GtkWindow*, std::string, std::string>(loop, &result, parent, title_str, msg_str));
+    
+    // 运行工作线程的事件循环（阻塞直到 loop 被退出）
+    g_main_loop_run(loop);
+    
+    // 清理
+    g_main_loop_unref(loop);
+    g_main_context_pop_thread_default(worker_ctx);
+    g_main_context_unref(worker_ctx);
+    
+    return result;
+}
+std::string showInputDialogSyncInThread(GtkWidgetHelper helper, const char* title, const char* message) {
+    // 为当前工作线程创建独立的 GMainContext
+    GMainContext* worker_ctx = g_main_context_new();
+    g_main_context_push_thread_default(worker_ctx);
+    
+    GMainLoop* loop = g_main_loop_new(worker_ctx, FALSE);
+    std::string result;
+    
+    // 复制字符串，避免生命周期问题
+    std::string title_str(title);
+    std::string msg_str(message);
+    GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+    
+    // 投递任务到主线程
+    g_main_context_invoke(g_main_context_default(), [](gpointer user_data) -> gboolean {
+        auto* data = static_cast<std::tuple<GMainLoop*, std::string*, GtkWindow*, std::string, std::string>*>(user_data);
+        GMainLoop* loop = std::get<0>(*data);
+        std::string* result = std::get<1>(*data);
+        GtkWindow* parent = std::get<2>(*data);
+        std::string& title = std::get<3>(*data);
+        std::string& message = std::get<4>(*data);
+        
+        // 等待拖动结束
+        waitForDragEnd(parent);
+        
+        // 显示模态输入对话框（会阻塞主线程事件循环，但不影响工作线程的独立 loop）
+        *result = showInputDialog(parent, title.c_str(), message.c_str());
+        
+        // 退出工作线程的 loop
+        g_main_loop_quit(loop);
+        
+        delete data; // 清理
+        return G_SOURCE_REMOVE;
+    }, new std::tuple<GMainLoop*, std::string*, GtkWindow*, std::string, std::string>(loop, &result, parent, title_str, msg_str));
+    
+    // 运行工作线程的事件循环（阻塞直到 loop 被退出）
+    g_main_loop_run(loop);
+    
+    // 清理
+    g_main_loop_unref(loop);
+    g_main_context_pop_thread_default(worker_ctx);
+    g_main_context_unref(worker_ctx);
+    
+    return result;
+}
+void showErrorDialogSyncInThread(GtkWidgetHelper helper, const char* title, const char* message) {
+    GMainContext* worker_ctx = g_main_context_new();
+    g_main_context_push_thread_default(worker_ctx);
+    
+    GMainLoop* loop = g_main_loop_new(worker_ctx, FALSE);
+    
+    std::string title_str(title);
+    std::string msg_str(message);
+    GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+    
+    g_main_context_invoke(g_main_context_default(), [](gpointer user_data) -> gboolean {
+        auto* data = static_cast<std::tuple<GMainLoop*, GtkWindow*, std::string, std::string>*>(user_data);
+        GMainLoop* loop = std::get<0>(*data);
+        GtkWindow* parent = std::get<1>(*data);
+        std::string& title = std::get<2>(*data);
+        std::string& message = std::get<3>(*data);
+        
+        // 等待拖动结束
+        waitForDragEnd(parent);
+        
+        // 显示错误对话框（模态，会阻塞主线程）
+        showErrorDialog(parent, title.c_str(), message.c_str());
+        
+        g_main_loop_quit(loop);
+        delete data;
+        return G_SOURCE_REMOVE;
+    }, new std::tuple<GMainLoop*, GtkWindow*, std::string, std::string>(loop, parent, title_str, msg_str));
+    
+    g_main_loop_run(loop);
+    
+    g_main_loop_unref(loop);
+    g_main_context_pop_thread_default(worker_ctx);
+    g_main_context_unref(worker_ctx);
+}
 // 文件选择对话框函数
 std::string showSaveFileDialog(GtkWindow* parent,
                                const std::string& default_filename,
