@@ -383,23 +383,10 @@ void crash_handler(int sig) {
 		
             }
         } else {
-            // 工作线程：使用 promise/future 等待异步回调完成
-            std::promise<void> dialogDone;
-            auto dialogFuture = dialogDone.get_future();
-            
-            gui_idle_call_wait_drag([promise = std::move(dialogDone)]() mutable {
-                DisableWidgets(helper);
-                GtkWidget* main_window = helper.getWidget("main_window");
-                if (main_window) {
-                    showErrorDialog(GTK_WINDOW(main_window), 
-                                  _("Program Crash"), 
-                                  _("The program encountered an unhandled exception, which may be caused by device connection issues or a bug in the program.\n\nIt is recommended to check the device connection, ensure the correct options are used, and try running the tool again."));
-                }
-                promise.set_value();
-            }, helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr);
-            
-            // 工作线程阻塞等待对话框关闭
-            dialogFuture.wait();
+			gui_idle_call_wait_drag([](){ DisableWidgets(helper); }, GTK_WINDOW(helper.getWidget("main_window")));
+            showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), 
+						_("Program Crash"), 
+                        _("The program encountered an unhandled exception, which may be caused by device connection issues or a bug in the program.\n\nIt is recommended to check the device connection, ensure the correct options are used, and try running the tool again."));
         }
     } else {
         // 命令行模式
