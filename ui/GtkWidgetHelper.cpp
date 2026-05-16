@@ -1,6 +1,10 @@
 // GtkWidgetHelper.cpp
-#include "ui/GtkWidgetHelper.hpp"
-#include "i18n.h"
+#include "GtkWidgetHelper.hpp"
+#if defined(__has_include) && __has_include("../i18n.h")
+    #include "../i18n.h"
+#else
+    #define _(x) x
+#endif
 #include <iostream>
 #include <sstream>
 #include <iomanip>

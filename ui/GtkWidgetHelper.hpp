@@ -2,6 +2,10 @@
 #ifndef GTK_WIDGET_HELPER_HPP
 #define GTK_WIDGET_HELPER_HPP
 
+#if __cplusplus < 201703L
+#error "This header requires C++17 or later. Please use -std=c++17 or higher."
+#endif
+
 #include <gtk/gtk.h>
 #include <string>
 #include <vector>
