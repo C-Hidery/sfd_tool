@@ -229,7 +229,7 @@ std::string showInputDialog(GtkWindow* parent, const char* title, const char* me
 std::string showSaveFileDialog(GtkWindow* parent,
                                const std::string& default_filename = "",
                                const std::vector<std::pair<std::string, std::string>>& filters = {});
-                               
+void waitForDragEnd(GtkWindow* window);
 std::string showInputDialogSyncInThread(GtkWindow* parent, const char* title, const char* message);
 bool showConfirmDialogSyncInThread(GtkWindow* parent, const char* title, const char* message);
 void showErrorDialogSyncInThread(GtkWindow* parent, const char* title, const char* message);
