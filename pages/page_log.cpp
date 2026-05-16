@@ -10,7 +10,8 @@ static void on_button_clicked_exp_log(GtkWidgetHelper helper) {
 		showErrorDialog(GTK_WINDOW(parent), _(_(_(("Error")))), _("No save path selected!"));
 		return;
 	}
-	const char* txt = helper.getTextAreaText(txtOutput);
+	std::string txt_orig = helper.getTextAreaText(txtOutput);
+	const char* txt = txt_orig.c_str();     
 	FILE* fo = oxfopen(savePath.c_str(), "w");
 	if (!fo) {
 		showErrorDialog(GTK_WINDOW(parent), _(_(_(("Error")))), _("Failed to save log file!"));
