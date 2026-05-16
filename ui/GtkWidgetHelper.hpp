@@ -233,6 +233,8 @@ void waitForDragEnd(GtkWindow* window);
 std::string showInputDialogSyncInThread(GtkWindow* parent, const char* title, const char* message);
 bool showConfirmDialogSyncInThread(GtkWindow* parent, const char* title, const char* message);
 void showErrorDialogSyncInThread(GtkWindow* parent, const char* title, const char* message);
+void showInfoDialogSyncInThread(GtkWindow* parent, const char* title, const char* message);
+void showWarningDialogSyncInThread(GtkWindow* parent, const char* title, const char* message);
 #ifndef G_CONNECT_DEFAULT
 #define G_CONNECT_DEFAULT ((GConnectFlags)0)
 #endif

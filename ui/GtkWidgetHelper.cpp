@@ -340,6 +340,72 @@ void showErrorDialogSyncInThread(GtkWindow* parent, const char* title, const cha
     g_main_context_pop_thread_default(worker_ctx);
     g_main_context_unref(worker_ctx);
 }
+void showInfoDialogSyncInThread(GtkWindow* parent, const char* title, const char* message) {
+    GMainContext* worker_ctx = g_main_context_new();
+    g_main_context_push_thread_default(worker_ctx);
+    
+    GMainLoop* loop = g_main_loop_new(worker_ctx, FALSE);
+    
+    std::string title_str(title);
+    std::string msg_str(message);
+    
+    g_main_context_invoke(g_main_context_default(), [](gpointer user_data) -> gboolean {
+        auto* data = static_cast<std::tuple<GMainLoop*, GtkWindow*, std::string, std::string>*>(user_data);
+        GMainLoop* loop = std::get<0>(*data);
+        GtkWindow* parent = std::get<1>(*data);
+        std::string& title = std::get<2>(*data);
+        std::string& message = std::get<3>(*data);
+        
+        // 等待拖动结束
+        waitForDragEnd(parent);
+        
+        // 显示信息对话框（模态，会阻塞主线程）
+        showInfoDialog(parent, title.c_str(), message.c_str());
+        
+        g_main_loop_quit(loop);
+        delete data;
+        return G_SOURCE_REMOVE;
+    }, new std::tuple<GMainLoop*, GtkWindow*, std::string, std::string>(loop, parent, title_str, msg_str));
+    
+    g_main_loop_run(loop);
+    
+    g_main_loop_unref(loop);
+    g_main_context_pop_thread_default(worker_ctx);
+    g_main_context_unref(worker_ctx);
+}
+void showWarningDialogSyncInThread(GtkWindow* parent, const char* title, const char* message) {
+    GMainContext* worker_ctx = g_main_context_new();
+    g_main_context_push_thread_default(worker_ctx);
+    
+    GMainLoop* loop = g_main_loop_new(worker_ctx, FALSE);
+    
+    std::string title_str(title);
+    std::string msg_str(message);
+    
+    g_main_context_invoke(g_main_context_default(), [](gpointer user_data) -> gboolean {
+        auto* data = static_cast<std::tuple<GMainLoop*, GtkWindow*, std::string, std::string>*>(user_data);
+        GMainLoop* loop = std::get<0>(*data);
+        GtkWindow* parent = std::get<1>(*data);
+        std::string& title = std::get<2>(*data);
+        std::string& message = std::get<3>(*data);
+        
+        // 等待拖动结束
+        waitForDragEnd(parent);
+        
+        // 显示警告对话框（模态，会阻塞主线程）
+        showWarningDialog(parent, title.c_str(), message.c_str());
+        
+        g_main_loop_quit(loop);
+        delete data;
+        return G_SOURCE_REMOVE;
+    }, new std::tuple<GMainLoop*, GtkWindow*, std::string, std::string>(loop, parent, title_str, msg_str));
+    
+    g_main_loop_run(loop);
+    
+    g_main_loop_unref(loop);
+    g_main_context_pop_thread_default(worker_ctx);
+    g_main_context_unref(worker_ctx);
+}
 // 文件选择对话框函数
 std::string showSaveFileDialog(GtkWindow* parent,
                                const std::string& default_filename,
