@@ -4,10 +4,6 @@
 
 #ifndef __cplusplus
     #error "This header requires C++. Please compile with a C++ compiler."
-#else
-    #if __cplusplus < 201703L
-        #error "This header requires C++17 or later. Please use -std=c++17 or higher."
-    #endif
 #endif
 
 #include <gtk/gtk.h>
