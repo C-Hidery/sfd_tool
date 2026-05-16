@@ -1,3 +1,9 @@
+sfd-tool (1.8.7.0-1-ltv) unstable; urgency=medium
+
+  * 修复了一些内存泄漏问题
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sat, 16 May 2026 17:13:09 +0800
+
 sfd-tool (1.8.6.0-1-ltv) unstable; urgency=medium
 
   * PAC刷写可自定义FDL; 恢复FDL自动执行
