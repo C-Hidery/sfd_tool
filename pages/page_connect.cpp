@@ -472,7 +472,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 					
 				}
 			}
-			if (execfile) delete[](execfile);
+			// if (execfile) delete[](execfile);
 			DEG_LOG(OP, "Execute FDL1");
 
 			// Tiger 310(0x5500) and Tiger 616(0x65000800) need to change baudrate after FDL1
@@ -853,10 +853,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 				i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"),_("FDL Info detected, do you want to load it?"));
 				if (i_is)
 				{
-					char* execfile = NEWN char[ARGV_LEN];
-					if (!execfile) {
-						ERR_EXIT("malloc failed\n");
-					}
+					char execfile [ARGV_LEN] = {0};
 					std::ifstream f("fdl_info.json");
 					json j = json::parse(f);
 					fdl1_path_json = j["fdl1_path"].get<std::string>();
