@@ -246,11 +246,7 @@ int main_console(int argc, char** argv) {
 	extern libusb_device* curPort;
 	libusb_device** ports;
 #endif
-	char* execfile = NEWN char[ARGV_LEN];
-	if (!execfile) {
-		ThrowExit();
-		ERR_EXIT("%s: malloc failed\n", o_exception);
-	}
+	char execfile [ARGV_LEN] = {0};
 	io = spdio_init(0);
 
 #if USE_LIBUSB
@@ -968,12 +964,12 @@ int main_console(int argc, char** argv) {
 						}
 						encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
 						if (send_and_check(io)) ERR_EXIT("CVE v2 failed");
-						delete[](execfile);
+						// if (execfile) delete[](execfile);
 					} else {
 						send_file(io, fn, addr, end_data, 528, 0, 0);
 						if (exec_addr) {
 							send_file(io, execfile, exec_addr, 0, 528, 0, 0);
-							delete[](execfile);
+							// if (execfile) delete[](execfile);
 						} else {
 							encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
 							if (send_and_check(io)) ERR_EXIT("CVE v2 failed");
@@ -983,7 +979,7 @@ int main_console(int argc, char** argv) {
 					encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
 					if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
 				}
-				if (execfile) delete[](execfile);
+				// if (execfile) delete[](execfile);
 				DEG_LOG(OP, "Execute FDL1");
 				// Tiger 310(0x5500) and Tiger 616(0x65000800) need to change baudrate after FDL1
 

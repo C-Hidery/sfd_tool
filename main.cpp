@@ -437,10 +437,7 @@ int gtk_kmain(int argc, char** argv) {
 	g_about_text = load_about_text();
 
 	// Initialization previously at file scope
-	char* execfile = NEWN char[ARGV_LEN];
-	if (!execfile) {
-		ERR_EXIT("malloc failed\n");
-	}
+	char execfile [ARGV_LEN] = {0};
 	io = spdio_init(0);
 #if USE_LIBUSB
 	ret = libusb_init(nullptr);
@@ -587,7 +584,7 @@ int gtk_kmain(int argc, char** argv) {
 
 		// fdl_exec 需要 execfile 参数，单独绑定
 		helper.bindClick(helper.getWidget("fdl_exec"), [execfile]() {
-			std::thread([execfile]() {
+			std::thread([execfile]() mutable {
 				on_button_clicked_fdl_exec(helper, execfile);
 			}).detach();
 		});
