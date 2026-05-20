@@ -890,15 +890,6 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 
 }
 
-
-
-
-
-
-// on_button_clicked_connect 和 on_button_clicked_fdl_exec 保留在 main.cpp 中
-// （因为这两个函数过于复杂且与全局状态高度耦合，暂不做搬迁）
-// 此文件只包含 Connect 页面的 UI 构建和简单回调
-
 GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* connectPage = helper.createGrid("connect_page", 5, 5);
 	helper.addNotebookPage(notebook, connectPage, _("Connect"));

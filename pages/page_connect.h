@@ -7,6 +7,3 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook);
 
 // 绑定 Connect 页面信号
 void bind_connect_signals(GtkWidgetHelper& helper, int argc, char** argv);
-
-// 连接按钮回调
-void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv);
