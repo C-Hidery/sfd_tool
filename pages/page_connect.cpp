@@ -853,7 +853,6 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 				i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"),_("FDL Info detected, do you want to load it?"));
 				if (i_is)
 				{
-					char execfile [ARGV_LEN] = {0};
 					std::ifstream f("fdl_info.json");
 					json j = json::parse(f);
 					fdl1_path_json = j["fdl1_path"].get<std::string>();
@@ -864,8 +863,8 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 					helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(fdl1_addr_json));
 					DEG_LOG(I, "Loaded FDL info: %s at address: %s", fdl1_path_json.c_str(), uint32_to_hex_string(fdl1_addr_json).c_str());
 					waitFDL1 = 0;
-					std::thread([helper, execfile]() mutable {
-						on_button_clicked_fdl_exec(helper, execfile);
+					std::thread([helper]() mutable {
+						on_button_clicked_fdl_exec(helper);
 					}).detach();
 					while(1)
 					{
@@ -876,8 +875,8 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 					helper.setEntryText(helper.getWidget("fdl_file_path"), fdl2_path_json);
 					helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(fdl2_addr_json));
 					DEG_LOG(I, "Loaded FDL info: %s at address: %s", fdl2_path_json.c_str(), uint32_to_hex_string(fdl2_addr_json).c_str());
-					std::thread([helper, execfile]() mutable {
-						on_button_clicked_fdl_exec(helper, execfile);
+					std::thread([helper]() mutable {
+						on_button_clicked_fdl_exec(helper);
 					}).detach();
 					
 				}
@@ -1204,5 +1203,9 @@ void bind_connect_signals(GtkWidgetHelper& helper, int argc, char** argv) {
 	helper.bindClick(helper.getWidget("select_cve"), [&]() {
 		on_button_clicked_select_cve(helper);
 	});
-	// fdl_exec 信号绑定在 main.cpp 中处理，因为需要 execfile 参数
+	helper.bindClick(helper.getWidget("fdl_exec"), [&]() {
+		std::thread([&]() {
+			on_button_clicked_fdl_exec(helper);
+		}).detach();
+	});
 }
