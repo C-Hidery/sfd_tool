@@ -246,7 +246,7 @@ int main_console(int argc, char** argv) {
 	extern libusb_device* curPort;
 	libusb_device** ports;
 #endif
-	char execfile [ARGV_LEN] = {0};
+	std::string execfile;
 	io = spdio_init(0);
 
 #if USE_LIBUSB
@@ -801,10 +801,10 @@ int main_console(int argc, char** argv) {
 			FILE* fi;
 			if (0 == fdl1_loaded && argcount > 2) {
 				exec_addr = strtoul(str2[3], nullptr, 0);
-				snprintf(execfile, ARGV_LEN, "%s", str2[2]);
-				fi = oxfopen(execfile, "r");
+				execfile = std::string(str2[2]);
+				fi = oxfopen(execfile.c_str(), "r");
 				if (fi == nullptr) {
-					DEG_LOG(W, "%s does not exist", execfile);
+					DEG_LOG(W, "%s does not exist", execfile.c_str());
 					exec_addr = 0;
 				} else fclose(fi);
 			}
@@ -954,7 +954,7 @@ int main_console(int argc, char** argv) {
 							encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
 							if (send_and_check(io)) ERR_EXIT("CVE v2 failed");;
 						}
-						fi = oxfopen(execfile, "rb");
+						fi = oxfopen(execfile.c_str(), "rb");
 						if (fi) {
 							fseek(fi, 0, SEEK_END);
 							n = ftell(fi);
@@ -968,7 +968,7 @@ int main_console(int argc, char** argv) {
 					} else {
 						send_file(io, fn, addr, end_data, 528, 0, 0);
 						if (exec_addr) {
-							send_file(io, execfile, exec_addr, 0, 528, 0, 0);
+							send_file(io, execfile.c_str(), exec_addr, 0, 528, 0, 0);
 							// if (execfile) delete[](execfile);
 						} else {
 							encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);

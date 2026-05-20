@@ -122,7 +122,7 @@ static void on_button_clicked_select_fdl(GtkWidgetHelper helper) {
 		helper.setEntryText(helper.getWidget("fdl_file_path"), filename);
 	}
 }
-void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
+void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 	GtkWidget *fdlEntry = helper.getWidget("fdl_file_path");
 	GtkWidget *addrEntry = helper.getWidget("fdl_addr");
 	const char* fdl_path = helper.getEntryText(fdlEntry);
@@ -369,13 +369,13 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		DEG_LOG(I, "Executing FDL file: %s at address: 0x%X", fdl_path, fdl_addr);
 		std::string dtxt = helper.getLabelText(helper.getWidget("con"));
 		bottom_bar_set_status(dtxt + " -> FDL Executing");
-		std::thread([helper, fdl_path, fdl_addr, execfile]() mutable {
+		std::thread([helper, fdl_path, fdl_addr]() mutable {
 			FILE* fi = oxfopen(fdl_path, "r");
 			GtkWidget* cveSwitch = helper.getWidget("exec_addr");
 			GtkWidget* cveAddr = helper.getWidget("cve_addr");
 			GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
 			bool isCve = helper.getSwitchState(cveSwitch);
-			snprintf(execfile, ARGV_LEN, "%s", helper.getEntryText(cveAddr));
+			const char* execfile = helper.getEntryText(cveAddr);
 			const char* cve_addr = helper.getEntryText(cveAddrC);
 
 			if (g_app_state.device.device_mode == SPRD3) {
@@ -426,7 +426,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 						fclose(fi);
 						encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
 						if (send_and_check(io)) ERR_EXIT("FDL exec failed");
-						delete[](execfile);
+						// delete[](execfile);
 						return;
 					} else {
 						if (fi == nullptr) {

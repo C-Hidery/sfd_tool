@@ -10,6 +10,3 @@ void bind_connect_signals(GtkWidgetHelper& helper, int argc, char** argv);
 
 // 连接按钮回调
 void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv);
-
-// FDL 执行回调
-void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile);
