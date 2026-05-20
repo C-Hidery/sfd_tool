@@ -122,7 +122,7 @@ static void on_button_clicked_select_fdl(GtkWidgetHelper helper) {
 		helper.setEntryText(helper.getWidget("fdl_file_path"), filename);
 	}
 }
-void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
+void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 	GtkWidget *fdlEntry = helper.getWidget("fdl_file_path");
 	GtkWidget *addrEntry = helper.getWidget("fdl_addr");
 	const char* fdl_path = helper.getEntryText(fdlEntry);
@@ -369,13 +369,13 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 		DEG_LOG(I, "Executing FDL file: %s at address: 0x%X", fdl_path, fdl_addr);
 		std::string dtxt = helper.getLabelText(helper.getWidget("con"));
 		bottom_bar_set_status(dtxt + " -> FDL Executing");
-		std::thread([helper, fdl_path, fdl_addr, execfile]() mutable {
+		std::thread([helper, fdl_path, fdl_addr]() mutable {
 			FILE* fi = oxfopen(fdl_path, "r");
 			GtkWidget* cveSwitch = helper.getWidget("exec_addr");
 			GtkWidget* cveAddr = helper.getWidget("cve_addr");
 			GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
 			bool isCve = helper.getSwitchState(cveSwitch);
-			snprintf(execfile, ARGV_LEN, "%s", helper.getEntryText(cveAddr));
+			const char* execfile = helper.getEntryText(cveAddr);
 			const char* cve_addr = helper.getEntryText(cveAddrC);
 
 			if (g_app_state.device.device_mode == SPRD3) {
@@ -426,7 +426,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile) {
 						fclose(fi);
 						encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
 						if (send_and_check(io)) ERR_EXIT("FDL exec failed");
-						delete[](execfile);
+						// delete[](execfile);
 						return;
 					} else {
 						if (fi == nullptr) {
@@ -853,7 +853,6 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 				i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"),_("FDL Info detected, do you want to load it?"));
 				if (i_is)
 				{
-					char execfile [ARGV_LEN] = {0};
 					std::ifstream f("fdl_info.json");
 					json j = json::parse(f);
 					fdl1_path_json = j["fdl1_path"].get<std::string>();
@@ -864,8 +863,8 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 					helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(fdl1_addr_json));
 					DEG_LOG(I, "Loaded FDL info: %s at address: %s", fdl1_path_json.c_str(), uint32_to_hex_string(fdl1_addr_json).c_str());
 					waitFDL1 = 0;
-					std::thread([helper, execfile]() mutable {
-						on_button_clicked_fdl_exec(helper, execfile);
+					std::thread([helper]() mutable {
+						on_button_clicked_fdl_exec(helper);
 					}).detach();
 					while(1)
 					{
@@ -876,8 +875,8 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 					helper.setEntryText(helper.getWidget("fdl_file_path"), fdl2_path_json);
 					helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(fdl2_addr_json));
 					DEG_LOG(I, "Loaded FDL info: %s at address: %s", fdl2_path_json.c_str(), uint32_to_hex_string(fdl2_addr_json).c_str());
-					std::thread([helper, execfile]() mutable {
-						on_button_clicked_fdl_exec(helper, execfile);
+					std::thread([helper]() mutable {
+						on_button_clicked_fdl_exec(helper);
 					}).detach();
 					
 				}
@@ -890,15 +889,6 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	},GTK_WINDOW(helper.getWidget("main_window")));
 
 }
-
-
-
-
-
-
-// on_button_clicked_connect 和 on_button_clicked_fdl_exec 保留在 main.cpp 中
-// （因为这两个函数过于复杂且与全局状态高度耦合，暂不做搬迁）
-// 此文件只包含 Connect 页面的 UI 构建和简单回调
 
 GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* connectPage = helper.createGrid("connect_page", 5, 5);
@@ -1204,5 +1194,9 @@ void bind_connect_signals(GtkWidgetHelper& helper, int argc, char** argv) {
 	helper.bindClick(helper.getWidget("select_cve"), [&]() {
 		on_button_clicked_select_cve(helper);
 	});
-	// fdl_exec 信号绑定在 main.cpp 中处理，因为需要 execfile 参数
+	helper.bindClick(helper.getWidget("fdl_exec"), [&]() {
+		std::thread([&]() {
+			on_button_clicked_fdl_exec(helper);
+		}).detach();
+	});
 }
