@@ -654,7 +654,7 @@ int main_console(int argc, char** argv) {
 	while (1) {
 		signal(SIGINT, SIG_DFL);
 		if (argc > 1) {
-			str2 = NEWN char*[argc * sizeof(char*)];
+			str2 = NEWN char*[argc];
 			if (fdl1_loaded == -1) {
 				save_argv = argv;
 				str2[1] = const_cast<char*>("loadfdl");
@@ -673,7 +673,7 @@ int main_console(int argc, char** argv) {
 			in_quote = -1;
 		} else {
 			char ifs = '"';
-			str2 = NEWN char*[ARGC_MAX * sizeof(char*)];
+			str2 = NEWN char*[ARGC_MAX];
 			memset(str1, 0, sizeof(str1));
 			argcount = 0;
 			in_quote = 0;
