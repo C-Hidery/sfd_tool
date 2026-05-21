@@ -609,7 +609,7 @@ int scan_xml_partitions(spdio_t *io, const char *fn, uint8_t *buf, size_t buf_si
 
     // 5. 分配 ptable 如果需要
     if (io->ptable == nullptr)
-        io->ptable = NEWN partition_t[128 * sizeof(partition_t)];
+        io->ptable = NEWN partition_t[128];
 
     // 6. 遍历分区，填充 buf 和 ptable
     uint8_t *buf_ptr = buf;
@@ -775,7 +775,7 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 	long size;
 	unsigned i, n = 0;
 	int ret; FILE *fo = nullptr; uint8_t *p;
-	partition_t *ptable = NEWN partition_t[128 * sizeof(partition_t)];
+	partition_t *ptable = NEWN partition_t[128];
 	if (ptable == nullptr) return nullptr;
 
 	DEG_LOG(OP,"Reading partition table...\n");
@@ -1166,7 +1166,7 @@ partition_t* partition_list_d(spdio_t* io) {
 	long long size;
 	unsigned i, n = 0;
 	FILE* fo = nullptr;
-	partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
+	partition_t* ptable = NEWN partition_t[128];
 	if (ptable == nullptr) return nullptr;
 	DEG_LOG(OP, "Reading partition table through compatibility method.");
 	if (selected_ab < 0) select_ab(io);
@@ -1203,7 +1203,7 @@ partition_t* partition_list_d(spdio_t* io) {
 	return ptable;
 }
 void add_partition(spdio_t* io, const char* name, long long size) {
-	partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
+	partition_t* ptable = NEWN partition_t[128];
 	if (ptable == nullptr) return;
 	int k = io->part_count_c;
 	for (int i = 0; i < io->part_count_c; i++) {
@@ -1928,7 +1928,7 @@ void dump_partitions(spdio_t *io, const char *fn, int *nand_info, unsigned step)
     auto partitionNodes = partitions->getChildren("Partition");
 
     // 2. 动态分配分区数组（与原函数一致）
-    partition_t* partitionsArr = NEWN partition_t[128 * sizeof(partition_t)];  
+    partition_t* partitionsArr = NEWN partition_t[128];  
     int found = 0;
 
     for (auto& partNode : partitionNodes) {
@@ -2092,72 +2092,109 @@ int get_nvlist_cfg(spdio_t *io, char *fn)
 	return 1;
 }
 
-void merge_nv(spdio_t *io, const uint8_t *a, size_t a_size, const uint8_t *b, 
-			size_t b_size, uint8_t *c, size_t *c_size) 
+void merge_nv(spdio_t *io, const uint8_t *a, size_t a_size, const uint8_t *b,
+              size_t b_size, uint8_t *c, size_t *c_size)
 {
-	NVEntry *nvid_list_offset = NEWN NVEntry[0x10000 * sizeof(NVEntry)];
-	if (!nvid_list_offset) ERR_EXIT("malloc failed\n");
-	memset(nvid_list_offset, 0, 0x10000 * sizeof(NVEntry));
-	size_t pos = 4;
-	int nv_broken = 0;
-	if (*(uint32_t *)a == 0x4e56) pos += 0x200;
-	while (pos + 4 <= a_size) {
-		uint16_t type = *(uint16_t *)(a + pos);
-		uint16_t length = *(uint16_t *)(a + pos + 2);
-		pos += 4;
-		if (length == 0 || pos + length > a_size) { nv_broken++; break; }
-		nvid_list_offset[type].length = length;
-		nvid_list_offset[type].offset = pos;
-		pos += length;
+    // 修正：分配 0x10000 个 NVEntry，而不是乘以 sizeof(NVEntry)
+    NVEntry *nvid_list_offset = NEWN NVEntry[0x10000];
+    if (!nvid_list_offset) ERR_EXIT("malloc failed\n");
+    memset(nvid_list_offset, 0, 0x10000 * sizeof(NVEntry));
 
-		uint32_t doffset = ((pos + 3) & 0xFFFFFFFC) - pos;
-		pos += doffset;
-		if (*(uint16_t *)(a + pos) == 0xffff) break;
-	}
-	if (nv_broken) memset(nvid_list_offset, 0, 0x10000 * sizeof(NVEntry));
+    // 辅助函数：通过 memcpy 安全写入 2 字节 / 4 字节，避免对齐问题
+    auto write16 = [](uint8_t *dst, uint16_t val) {
+        memcpy(dst, &val, sizeof(val));
+    };
+    auto write32 = [](uint8_t *dst, uint32_t val) {
+        memcpy(dst, &val, sizeof(val));
+    };
 
-	uint8_t *c_ptr = c;
-	pos = 4;
-	if (*(uint32_t *)b == 0x4e56) pos += 0x200;
-	memcpy(c_ptr, b + pos - 4, 4);
-	c_ptr += 4;
-	while (pos + 4 <= b_size) {
-		uint16_t type = *(uint16_t *)(b + pos);
-		uint16_t length = *(uint16_t *)(b + pos + 2);
-		pos += 4;
-		if (pos + length > b_size) break;
-		if (nv_broken == 0 && io->nvid_list[type]) {
-			*(uint16_t *)c_ptr = type;
-			*(uint16_t *)(c_ptr + 2) = nvid_list_offset[type].length;
-			memcpy(c_ptr + 4, a + nvid_list_offset[type].offset, nvid_list_offset[type].length);
-			c_ptr += 4 + nvid_list_offset[type].length;
-		}
-		else {
-			memcpy(c_ptr, b + pos - 4, 4 + length);
-			c_ptr += 4 + length;
-		}
-		nvid_list_offset[type].saved = 1;
-		pos += length;
+    size_t pos = 4;
+    int nv_broken = 0;
+    if (*(uint32_t *)a == 0x4e56) pos += 0x200;
+    while (pos + 4 <= a_size) {
+        uint16_t type = *(uint16_t *)(a + pos);
+        uint16_t length = *(uint16_t *)(a + pos + 2);
+        pos += 4;
+        if (length == 0 || pos + length > a_size) { nv_broken++; break; }
+        nvid_list_offset[type].length = length;
+        nvid_list_offset[type].offset = pos;
+        pos += length;
 
-		uint32_t doffset = ((pos + 3) & 0xFFFFFFFC) - pos;
-		memcpy(c_ptr, b + pos, doffset);
-		pos += doffset;
-		c_ptr += doffset;
-		if (*(uint16_t *)(b + pos) == 0xffff) break;
-	}
-	if (!nv_broken)
-		for (int i = 0; i < 0x10000; i++) {
-			if (nvid_list_offset[i].length && nvid_list_offset[i].saved == 0) {
-				*(uint16_t *)c_ptr = i;
-				*(uint16_t *)(c_ptr + 2) = nvid_list_offset[i].length;
-				memcpy(c_ptr + 4, a + nvid_list_offset[i].offset, nvid_list_offset[i].length);
-				c_ptr += 4 + nvid_list_offset[i].length;
-			}
-		}
-	uint8_t endbuf[] = { 0xff,0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-	memcpy(c_ptr, endbuf, 8);
-	*c_size = c_ptr - c + 8;
-	delete[] (nvid_list_offset);
+        uint32_t doffset = ((pos + 3) & 0xFFFFFFFC) - pos;
+        pos += doffset;
+        if (*(uint16_t *)(a + pos) == 0xffff) break;
+    }
+    if (nv_broken) memset(nvid_list_offset, 0, 0x10000 * sizeof(NVEntry));
+
+    uint8_t *c_ptr = c;
+    pos = 4;
+    if (*(uint32_t *)b == 0x4e56) pos += 0x200;
+    memcpy(c_ptr, b + pos - 4, 4);
+    c_ptr += 4;
+
+    while (pos + 4 <= b_size) {
+        uint16_t type = *(uint16_t *)(b + pos);
+        uint16_t length = *(uint16_t *)(b + pos + 2);
+        pos += 4;
+        if (pos + length > b_size) break;
+
+        if (nv_broken == 0 && io->nvid_list[type]) {
+            // 从 a 覆盖该条目
+            write16(c_ptr, type);
+            write16(c_ptr + 2, nvid_list_offset[type].length);
+            memcpy(c_ptr + 4, a + nvid_list_offset[type].offset,
+                   nvid_list_offset[type].length);
+            c_ptr += 4 + nvid_list_offset[type].length;
+
+            // 添加填充以保证 4 字节对齐（a 中条目后可能没有填充）
+            uint32_t doffset = ((uintptr_t)(c_ptr) + 3) & ~3;
+            doffset = doffset - (uintptr_t)c_ptr;
+            if (doffset) {
+                memset(c_ptr, 0, doffset);
+                c_ptr += doffset;
+            }
+        } else {
+            // 直接从 b 复制条目（包含其原始填充）
+            memcpy(c_ptr, b + pos - 4, 4 + length);
+            c_ptr += 4 + length;
+        }
+        nvid_list_offset[type].saved = 1;
+        pos += length;
+
+        uint32_t doffset = ((pos + 3) & 0xFFFFFFFC) - pos;
+        memcpy(c_ptr, b + pos, doffset);
+        pos += doffset;
+        c_ptr += doffset;
+
+        if (*(uint16_t *)(b + pos) == 0xffff) break;
+    }
+
+    if (!nv_broken) {
+        for (int i = 0; i < 0x10000; i++) {
+            if (nvid_list_offset[i].length && nvid_list_offset[i].saved == 0) {
+                write16(c_ptr, i);
+                write16(c_ptr + 2, nvid_list_offset[i].length);
+                memcpy(c_ptr + 4, a + nvid_list_offset[i].offset,
+                       nvid_list_offset[i].length);
+                c_ptr += 4 + nvid_list_offset[i].length;
+
+                // 添加填充以保证 4 字节对齐
+                uint32_t doffset = ((uintptr_t)(c_ptr) + 3) & ~3;
+                doffset = doffset - (uintptr_t)c_ptr;
+                if (doffset) {
+                    memset(c_ptr, 0, doffset);
+                    c_ptr += doffset;
+                }
+            }
+        }
+    }
+
+    uint8_t endbuf[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+    memcpy(c_ptr, endbuf, 8);
+    c_ptr += 8;
+
+    *c_size = c_ptr - c;
+    delete[] nvid_list_offset;
 }
 void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab, int CMethod) {
 	DEG_LOG(OP,"Start to write partitions");
@@ -2185,7 +2222,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 	char miscname[1024] = { 0 };
 	int VAB = 0; // slot_in_name
 	int partition_count = 0;
-	partition_info_t *partitions = NEWN partition_info_t[128 * sizeof(partition_info_t)];
+	partition_info_t *partitions = NEWN partition_info_t[128];
 	if (partitions == nullptr) return;
 	char *fn;
 #if _WIN32

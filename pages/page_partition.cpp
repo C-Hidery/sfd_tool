@@ -1011,7 +1011,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 
 		std::thread([window, newPartName, helper, newPartSize, beforePart, use_cmethod]() mutable {
 			if(!use_cmethod) {
-				partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
+				partition_t* ptable = NEWN partition_t[128];
 				if (ptable == nullptr) {
 					gui_idle_call_wait_drag([window, helper]() {
 						showErrorDialog(window, _(_(_("Error"))), _("Memory allocation failed!"));
@@ -1089,7 +1089,7 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
 		}
 			else {
-				partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
+				partition_t* ptable = NEWN partition_t[128];
 				if (ptable == nullptr) {
 					gui_idle_call_wait_drag([window, helper]() {
 						showErrorDialog(window, _(_(_("Error"))), _("Memory allocation failed!"));
@@ -1218,7 +1218,7 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 				}, GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
-			partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
+			partition_t* ptable = NEWN partition_t[128];
 			if (ptable == nullptr) {
 				gui_idle_call_wait_drag([window, helper]() {
 					showErrorDialog(window, _(_(_("Error"))), _("Memory allocation failed!"));
@@ -1279,7 +1279,7 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 				}, GTK_WINDOW(helper.getWidget("main_window")));
 				return;
 			}
-			partition_t* ptable = NEWN partition_t[128 * sizeof(partition_t)];
+			partition_t* ptable = NEWN partition_t[128];
 			if (ptable == nullptr) {
 				gui_idle_call_wait_drag([window, helper]() {
 					showErrorDialog(window, _(_(_("Error"))), _("Memory allocation failed!"));

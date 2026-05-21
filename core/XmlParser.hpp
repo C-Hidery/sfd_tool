@@ -10,6 +10,11 @@
 #include <cstdio>
 #include <cstdlib>
 
+#ifndef __cplusplus
+    #error "This header requires C++. Please compile with a C++ compiler."
+#endif
+
+
 // ==================== XML 节点类 ====================
 class XmlNode : public std::enable_shared_from_this<XmlNode> {
 public:
