@@ -157,7 +157,7 @@ static void from_json(const json& j, AppConfig& c) {
 
 void initDefaultAppConfig(AppConfig& cfg) {
     cfg = AppConfig{};
-    cfg.ui_language = "zh_CN";
+    cfg.ui_language = "auto";
 }
 
 bool loadAppConfigOrDefault(AppConfig& out_config) {
