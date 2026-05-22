@@ -2106,7 +2106,6 @@ void merge_nv(spdio_t *io, const uint8_t *a, size_t a_size, const uint8_t *b,
 
     // 解析 a，构建偏移表
     size_t pos = 4;
-    bool a_parse_error = false;   // 是否遇到解析错误（但已解析的条目保留）
     if (*(uint32_t *)a == 0x4e56) pos += 0x200;
 
     while (pos + 4 <= a_size) {
@@ -2115,8 +2114,7 @@ void merge_nv(spdio_t *io, const uint8_t *a, size_t a_size, const uint8_t *b,
         pos += 4;
 
         if (length == 0 || pos + length > a_size) {
-            a_parse_error = true;   // 标记错误，不清空表，直接退出循环
-            break;
+            break; // 无效条目，停止解析
         }
 
         nvid_list_offset[type].length = length;
