@@ -2021,7 +2021,7 @@ int get_nvlist_xml(spdio_t *io, const char *fn) {
     }
 
     // 2. 分配并清零 nvid_list
-    io->nvid_list = NEWN int[0x10000, sizeof(int)];
+    io->nvid_list = NEWN int[0x10000];
     if (!io->nvid_list) {
         DEG_LOG(E,"malloc failed");
         return 0;
@@ -2071,7 +2071,7 @@ int get_nvlist_cfg(spdio_t *io, char *fn)
 	FILE *cfg_fd;
 
 	if (!(cfg_fd = oxfopen(fn, "rb"))) return 0;
-	io->nvid_list = NEWN int[0x10000 * sizeof(int)];
+	io->nvid_list = NEWN int[0x10000];
 	if (!io->nvid_list) ERR_EXIT("malloc failed\n");
 	memset(io->nvid_list, 0, 0x10000 * sizeof(int));
 	while (fgets(line, sizeof(line), cfg_fd)) {
@@ -2095,37 +2095,38 @@ int get_nvlist_cfg(spdio_t *io, char *fn)
 void merge_nv(spdio_t *io, const uint8_t *a, size_t a_size, const uint8_t *b,
               size_t b_size, uint8_t *c, size_t *c_size)
 {
-    // 修正：分配 0x10000 个 NVEntry，而不是乘以 sizeof(NVEntry)
     NVEntry *nvid_list_offset = NEWN NVEntry[0x10000];
     if (!nvid_list_offset) ERR_EXIT("malloc failed\n");
     memset(nvid_list_offset, 0, 0x10000 * sizeof(NVEntry));
 
-    // 辅助函数：通过 memcpy 安全写入 2 字节 / 4 字节，避免对齐问题
+    // 安全写入 2 字节（避免未对齐）
     auto write16 = [](uint8_t *dst, uint16_t val) {
         memcpy(dst, &val, sizeof(val));
     };
-    auto write32 = [](uint8_t *dst, uint32_t val) {
-        memcpy(dst, &val, sizeof(val));
-    };
 
+    // 解析 a，构建偏移表
     size_t pos = 4;
-    int nv_broken = 0;
     if (*(uint32_t *)a == 0x4e56) pos += 0x200;
+
     while (pos + 4 <= a_size) {
         uint16_t type = *(uint16_t *)(a + pos);
         uint16_t length = *(uint16_t *)(a + pos + 2);
         pos += 4;
-        if (length == 0 || pos + length > a_size) { nv_broken++; break; }
+
+        if (length == 0 || pos + length > a_size) {
+            break; // 无效条目，停止解析
+        }
+
         nvid_list_offset[type].length = length;
         nvid_list_offset[type].offset = pos;
         pos += length;
 
         uint32_t doffset = ((pos + 3) & 0xFFFFFFFC) - pos;
         pos += doffset;
+
         if (*(uint16_t *)(a + pos) == 0xffff) break;
     }
-    if (nv_broken) memset(nvid_list_offset, 0, 0x10000 * sizeof(NVEntry));
-
+    // 合并输出
     uint8_t *c_ptr = c;
     pos = 4;
     if (*(uint32_t *)b == 0x4e56) pos += 0x200;
@@ -2138,29 +2139,24 @@ void merge_nv(spdio_t *io, const uint8_t *a, size_t a_size, const uint8_t *b,
         pos += 4;
         if (pos + length > b_size) break;
 
-        if (nv_broken == 0 && io->nvid_list[type]) {
-            // 从 a 覆盖该条目
+        // 如果 a 中该 type 有效且需要覆盖（io->nvid_list[type] 为真）
+        if (io->nvid_list[type] && nvid_list_offset[type].length > 0) {
+            // 使用 a 中的条目覆盖 b 的条目
             write16(c_ptr, type);
             write16(c_ptr + 2, nvid_list_offset[type].length);
             memcpy(c_ptr + 4, a + nvid_list_offset[type].offset,
                    nvid_list_offset[type].length);
             c_ptr += 4 + nvid_list_offset[type].length;
-
-            // 添加填充以保证 4 字节对齐（a 中条目后可能没有填充）
-            uint32_t doffset = ((uintptr_t)(c_ptr) + 3) & ~3;
-            doffset = doffset - (uintptr_t)c_ptr;
-            if (doffset) {
-                memset(c_ptr, 0, doffset);
-                c_ptr += doffset;
-            }
         } else {
-            // 直接从 b 复制条目（包含其原始填充）
+            // 保留 b 中的条目
             memcpy(c_ptr, b + pos - 4, 4 + length);
             c_ptr += 4 + length;
         }
+
         nvid_list_offset[type].saved = 1;
         pos += length;
 
+        // 复制 b 中的对齐填充（保持布局不变）
         uint32_t doffset = ((pos + 3) & 0xFFFFFFFC) - pos;
         memcpy(c_ptr, b + pos, doffset);
         pos += doffset;
@@ -2169,31 +2165,22 @@ void merge_nv(spdio_t *io, const uint8_t *a, size_t a_size, const uint8_t *b,
         if (*(uint16_t *)(b + pos) == 0xffff) break;
     }
 
-    if (!nv_broken) {
-        for (int i = 0; i < 0x10000; i++) {
-            if (nvid_list_offset[i].length && nvid_list_offset[i].saved == 0) {
-                write16(c_ptr, i);
-                write16(c_ptr + 2, nvid_list_offset[i].length);
-                memcpy(c_ptr + 4, a + nvid_list_offset[i].offset,
-                       nvid_list_offset[i].length);
-                c_ptr += 4 + nvid_list_offset[i].length;
-
-                // 添加填充以保证 4 字节对齐
-                uint32_t doffset = ((uintptr_t)(c_ptr) + 3) & ~3;
-                doffset = doffset - (uintptr_t)c_ptr;
-                if (doffset) {
-                    memset(c_ptr, 0, doffset);
-                    c_ptr += doffset;
-                }
-            }
+    // 追加 a 中独有的条目（无论 a 解析是否出错，已解析的有效条目仍会被追加）
+    for (int i = 0; i < 0x10000; i++) {
+        if (nvid_list_offset[i].length > 0 && nvid_list_offset[i].saved == 0) {
+            write16(c_ptr, i);
+            write16(c_ptr + 2, nvid_list_offset[i].length);
+            memcpy(c_ptr + 4, a + nvid_list_offset[i].offset,
+                   nvid_list_offset[i].length);
+            c_ptr += 4 + nvid_list_offset[i].length;
         }
     }
 
+    // 写入结束标记
     uint8_t endbuf[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
     memcpy(c_ptr, endbuf, 8);
-    c_ptr += 8;
+    *c_size = (c_ptr - c) + 8;   // 原逻辑：c_ptr 尚未自增结束标记的长度
 
-    *c_size = c_ptr - c;
     delete[] nvid_list_offset;
 }
 void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab, int CMethod) {
