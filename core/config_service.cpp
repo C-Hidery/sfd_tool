@@ -235,7 +235,7 @@ public:
             return make_error(ConfigErrorCode::NotFound, "config file not found");
         }
 
-        FILE* f = xfopen(path.c_str(), "rb");
+        FILE* f = oxfopen(path.c_str(), "rb");
         if (!f) {
             return make_error(ConfigErrorCode::IoError, "failed to open config file");
         }
@@ -290,7 +290,7 @@ public:
         to_json(j, config);
         std::string data = j.dump(2);
 
-        FILE* f = xfopen(path.c_str(), "wb");
+        FILE* f = oxfopen(path.c_str(), "wb");
         if (!f) {
             return make_error(ConfigErrorCode::IoError, "failed to open config file for write");
         }

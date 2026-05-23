@@ -273,7 +273,7 @@ unsigned dump_mem(spdio_t *io,
 	uint32_t start, uint32_t len, const char *fn, unsigned step) {
 	uint32_t n, offset, nread;
 	int ret;
-	FILE *fo = my_xfopen(fn, "wb");
+	FILE *fo = my_oxfopen(fn, "wb");
 	if (!fo) ERR_EXIT("fopen(dump) failed\n");
 
 	for (offset = start; offset < start + len; ) {

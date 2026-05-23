@@ -1,5 +1,6 @@
 #pragma once
 #include <stdio.h>
+#include <memory>
 
 struct FileDeleter {
     void operator()(FILE* f) const noexcept {
