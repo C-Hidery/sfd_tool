@@ -2419,6 +2419,7 @@ rloop:
 				if (!fi) ERR_EXIT("fopen failed\n");
 				if (fseek(fi.get(), 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
 				if (fwrite(c, 1, c_size, fi.get()) != c_size) ERR_EXIT("fwrite failed\n");
+				fi.reset();
 				load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
 				free(a); free(b); free(c);
 			}
@@ -2442,6 +2443,7 @@ rloop:
 				fi.reset();
 				fi = oxfopen_unique("nvmerged", "rb");
 				if (!fi) DEG_LOG(E, "Failed to create merged nv file");
+				if (fi) fi.reset();
 				free(a); free(b); free(c);
 			}
 			free(io->nvid_list);
@@ -2478,6 +2480,7 @@ rloop:
 				if (!fi) ERR_EXIT("fopen failed\n");
 				if (fseek(fi.get(), 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
 				if (fwrite(c, 1, c_size, fi.get()) != c_size) ERR_EXIT("fwrite failed\n");
+				fi.reset();
 				load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
 				free(a); free(b); free(c);
 			}
@@ -2500,6 +2503,7 @@ rloop:
 				fi.reset();
 				fi = oxfopen_unique("nvmerged", "rb");
 				if (!fi) DEG_LOG(E, "Failed to create merged nv file");
+				if (fi) fi.reset();
 				free(a); free(b); free(c);
 			}
 			free(io->nvid_list);
