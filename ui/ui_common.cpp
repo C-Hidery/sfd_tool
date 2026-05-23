@@ -325,7 +325,7 @@ GtkWidget* create_bottom_controls(GtkWidgetHelper& helper) {
 void on_button_clicked_poweroff(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
+		wait_drag_sync([helper]() {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
@@ -341,7 +341,7 @@ void on_button_clicked_poweroff(GtkWidgetHelper helper) {
 void on_button_clicked_reboot(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
+		wait_drag_sync([helper]() {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
@@ -357,7 +357,7 @@ void on_button_clicked_reboot(GtkWidgetHelper helper) {
 void on_button_clicked_recovery(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
+		wait_drag_sync([helper]() {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
@@ -379,7 +379,7 @@ void on_button_clicked_recovery(GtkWidgetHelper helper) {
 void on_button_clicked_fastboot(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
+		wait_drag_sync([helper]() {
 			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
 		    exit(1);
 		},GTK_WINDOW(helper.getWidget("main_window")));
