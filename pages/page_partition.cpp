@@ -16,6 +16,7 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+#include "../core/XmlParser.hpp"
 
 extern spdio_t*& io;
 extern int ret;
@@ -843,15 +844,32 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			long long k = (*(io->ptable + i_part)).size << 20;
 			(*(io->ptable + i_part)).size = (long long)newSizeMB << 20;
 			(*(io->ptable + i_se_part)).size = (*(io->ptable + i_se_part)).size + k - ((long long)newSizeMB << 20);
-			UniqueFile fo = my_oxfopen_unique("partition_temp.xml", "wb");
-			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo.get(), "<Partitions>\n");
+			// 创建根节点
+			auto root = std::make_shared<XmlNode>("Partitions");
+
+			// 遍历分区并添加子节点
 			for (int i = 0; i < io->part_count; i++) {
-				fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
-				if (i + 1 == io->part_count) fprintf(fo.get(), "0x%x\"/>\n", ~0);
-				else fprintf(fo.get(), "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
+				auto partitionNode = std::make_shared<XmlNode>("Partition");
+				
+				// 设置 id 属性
+				partitionNode->setAttribute("id", (*(io->ptable + i)).name);
+				
+				// 设置 size 属性
+				if (i + 1 == io->part_count) {
+					partitionNode->setAttribute("size", "0xffffffff");  // ~0 通常等于 0xffffffff
+				} else {
+					char sizeStr[32];
+					snprintf(sizeStr, sizeof(sizeStr), "%lld", ((*(io->ptable + i)).size >> 20));
+					partitionNode->setAttribute("size", sizeStr);
+				}
+				
+				root->addChild(partitionNode);
 			}
-			fprintf(fo.get(), "</Partitions>");
+
+			// 保存到文件
+			if (!root->saveXmlFile("partition_temp.xml")) {
+				ERR_EXIT("Failed to save XML file\n");
+			}
 			uint8_t* buf = io->temp_buf;
 			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
@@ -895,15 +913,27 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			long long k = (*(io->Cptable + i_part)).size << 20;
 			(*(io->Cptable + i_part)).size = (long long)newSizeMB << 20;
 			(*(io->Cptable + i_se_part)).size = (*(io->Cptable + i_se_part)).size + k - ((long long)newSizeMB << 20);
-			UniqueFile fo = my_oxfopen_unique("partition_temp.xml", "wb");
-			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo.get(), "<Partitions>\n");
+			auto root = std::make_shared<XmlNode>("Partitions");
+
 			for (int i = 0; i < io->part_count_c; i++) {
-				fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(io->Cptable + i)).name);
-				if (i + 1 == io->part_count_c) fprintf(fo.get(), "0x%x\"/>\n", ~0);
-				else fprintf(fo.get(), "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
+				auto partitionNode = std::make_shared<XmlNode>("Partition");
+				partitionNode->setAttribute("id", (*(io->Cptable + i)).name);
+				
+				if (i + 1 == io->part_count_c) {
+					partitionNode->setAttribute("size", "0xffffffff");
+				} else {
+					char sizeStr[32];
+					snprintf(sizeStr, sizeof(sizeStr), "%lld", 
+							((*(io->Cptable + i)).size >> 20));
+					partitionNode->setAttribute("size", sizeStr);
+				}
+				
+				root->addChild(partitionNode);
 			}
-			fprintf(fo.get(), "</Partitions>");
+
+			if (!root->saveXmlFile("partition_temp.xml")) {
+				ERR_EXIT("Failed to save XML file\n");
+			}
 			uint8_t* buf = io->temp_buf;
 			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
@@ -1058,15 +1088,29 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			if (old_ptable && old_ptable != ptable) {
 				delete[] old_ptable;
 			}
-			UniqueFile fo = my_oxfopen_unique("partition_temp.xml", "wb");
-			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo.get(), "<Partitions>\n");
+			auto root = std::make_shared<XmlNode>("Partitions");
+
 			for (int i = 0; i < io->part_count; i++) {
-				fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
-				if (i + 1 == io->part_count) fprintf(fo.get(), "0x%x\"/>\n", ~0);
-				else fprintf(fo.get(), "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
+				auto partitionNode = std::make_shared<XmlNode>("Partition");
+				partitionNode->setAttribute("id", (*(io->ptable + i)).name);
+				
+				if (i + 1 == io->part_count) {
+					partitionNode->setAttribute("size", "0xffffffff");
+				} else {
+					char sizeStr[32];
+					snprintf(sizeStr, sizeof(sizeStr), "%lld", ((*(io->ptable + i)).size >> 20));
+					partitionNode->setAttribute("size", sizeStr);
+				}
+				
+				root->addChild(partitionNode);
 			}
-			fprintf(fo.get(), "</Partitions>");
+
+			// 保存为格式化的 XML（带换行和缩进）
+			std::ofstream file("partition_temp.xml");
+			if (!file.is_open()) {
+				ERR_EXIT("Failed to open file\n");
+			}
+			file << root->toXml();
 			uint8_t* buf = io->temp_buf;
 			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
@@ -1134,15 +1178,29 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			if (old_cptable && old_cptable != ptable) {
 				delete[] old_cptable;
 			}
-			UniqueFile fo = my_oxfopen_unique("partition_temp.xml", "wb");
-			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo.get(), "<Partitions>\n");
-			for (int i = 0; i < io->part_count_c; i++) {
-				fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(io->Cptable + i)).name);
-				if (i + 1 == io->part_count_c) fprintf(fo.get(), "0x%x\"/>\n", ~0);
-				else fprintf(fo.get(), "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
+			auto root = std::make_shared<XmlNode>("Partitions");
+
+			for (int i = 0; i < io->part_count; i++) {
+				auto partitionNode = std::make_shared<XmlNode>("Partition");
+				partitionNode->setAttribute("id", (*(io->ptable + i)).name);
+				
+				if (i + 1 == io->part_count) {
+					partitionNode->setAttribute("size", "0xffffffff");
+				} else {
+					char sizeStr[32];
+					snprintf(sizeStr, sizeof(sizeStr), "%lld", ((*(io->ptable + i)).size >> 20));
+					partitionNode->setAttribute("size", sizeStr);
+				}
+				
+				root->addChild(partitionNode);
 			}
-			fprintf(fo.get(), "</Partitions>");
+
+			// 保存为格式化的 XML（带换行和缩进）
+			std::ofstream file("partition_temp.xml");
+			if (!file.is_open()) {
+				ERR_EXIT("Failed to open file\n");
+			}
+			file << root->toXml();
 			uint8_t* buf = io->temp_buf;
 			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
@@ -1233,15 +1291,29 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 			// 注意：需要释放原来的 ptable 内存
 			delete[] (io->ptable);
 			io->ptable = ptable;
-			UniqueFile fo = my_oxfopen_unique("partition_temp.xml", "wb");
-			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo.get(), "<Partitions>\n");
+			auto root = std::make_shared<XmlNode>("Partitions");
+
 			for (int i = 0; i < io->part_count; i++) {
-				fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
-				if (i + 1 == io->part_count) fprintf(fo.get(), "0x%x\"/>\n", ~0);
-				else fprintf(fo.get(), "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
+				auto partitionNode = std::make_shared<XmlNode>("Partition");
+				partitionNode->setAttribute("id", (*(io->ptable + i)).name);
+				
+				if (i + 1 == io->part_count) {
+					partitionNode->setAttribute("size", "0xffffffff");
+				} else {
+					char sizeStr[32];
+					snprintf(sizeStr, sizeof(sizeStr), "%lld", ((*(io->ptable + i)).size >> 20));
+					partitionNode->setAttribute("size", sizeStr);
+				}
+				
+				root->addChild(partitionNode);
 			}
-			fprintf(fo.get(), "</Partitions>");
+
+			// 保存为格式化的 XML（带换行和缩进）
+			std::ofstream file("partition_temp.xml");
+			if (!file.is_open()) {
+				ERR_EXIT("Failed to open file\n");
+			}
+			file << root->toXml(); 
 			uint8_t* buf = io->temp_buf;
 			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
@@ -1293,15 +1365,29 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 			// 注意：需要释放原来的 ptable 内存
 			delete[] (io->Cptable);
 			io->Cptable = ptable;
-			UniqueFile fo = my_oxfopen_unique("partition_temp.xml", "wb");
-			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo.get(), "<Partitions>\n");
-			for (int i = 0; i < io->part_count_c; i++) {
-				fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(io->Cptable + i)).name);
-				if (i + 1 == io->part_count_c) fprintf(fo.get(), "0x%x\"/>\n", ~0);
-				else fprintf(fo.get(), "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
+			auto root = std::make_shared<XmlNode>("Partitions");
+
+			for (int i = 0; i < io->part_count; i++) {
+				auto partitionNode = std::make_shared<XmlNode>("Partition");
+				partitionNode->setAttribute("id", (*(io->ptable + i)).name);
+				
+				if (i + 1 == io->part_count) {
+					partitionNode->setAttribute("size", "0xffffffff");
+				} else {
+					char sizeStr[32];
+					snprintf(sizeStr, sizeof(sizeStr), "%lld", ((*(io->ptable + i)).size >> 20));
+					partitionNode->setAttribute("size", sizeStr);
+				}
+				
+				root->addChild(partitionNode);
 			}
-			fprintf(fo.get(), "</Partitions>");
+
+			// 保存为格式化的 XML（带换行和缩进）
+			std::ofstream file("partition_temp.xml");
+			if (!file.is_open()) {
+				ERR_EXIT("Failed to open file\n");
+			}
+			file << root->toXml();
 			uint8_t* buf = io->temp_buf;
 			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
@@ -1376,15 +1462,29 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 
 			snprintf(io->ptable[i].name, sizeof(io->ptable[i].name), "%s", new_part_name.c_str());
 
-			UniqueFile fo = my_oxfopen_unique("partition_temp.xml", "wb");
-			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo.get(), "<Partitions>\n");
+			auto root = std::make_shared<XmlNode>("Partitions");
+
 			for (int i = 0; i < io->part_count; i++) {
-				fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
-				if (i + 1 == io->part_count) fprintf(fo.get(), "0x%x\"/>\n", ~0);
-				else fprintf(fo.get(), "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
+				auto partitionNode = std::make_shared<XmlNode>("Partition");
+				partitionNode->setAttribute("id", (*(io->ptable + i)).name);
+				
+				if (i + 1 == io->part_count) {
+					partitionNode->setAttribute("size", "0xffffffff");
+				} else {
+					char sizeStr[32];
+					snprintf(sizeStr, sizeof(sizeStr), "%lld", ((*(io->ptable + i)).size >> 20));
+					partitionNode->setAttribute("size", sizeStr);
+				}
+				
+				root->addChild(partitionNode);
 			}
-			fprintf(fo.get(), "</Partitions>");
+
+			// 保存为格式化的 XML（带换行和缩进）
+			std::ofstream file("partition_temp.xml");
+			if (!file.is_open()) {
+				ERR_EXIT("Failed to open file\n");
+			}
+			file << root->toXml();
 			uint8_t* buf = io->temp_buf;
 			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
@@ -1417,15 +1517,29 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 
 			snprintf(io->Cptable[i].name, sizeof(io->Cptable[i].name), "%s", new_part_name.c_str());
 
-			UniqueFile fo = my_oxfopen_unique("partition_temp.xml", "wb");
-			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo.get(), "<Partitions>\n");
-			for (int i = 0; i < io->part_count_c; i++) {
-				fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(io->Cptable + i)).name);
-				if (i + 1 == io->part_count_c) fprintf(fo.get(), "0x%x\"/>\n", ~0);
-				else fprintf(fo.get(), "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
+			auto root = std::make_shared<XmlNode>("Partitions");
+
+			for (int i = 0; i < io->part_count; i++) {
+				auto partitionNode = std::make_shared<XmlNode>("Partition");
+				partitionNode->setAttribute("id", (*(io->ptable + i)).name);
+				
+				if (i + 1 == io->part_count) {
+					partitionNode->setAttribute("size", "0xffffffff");
+				} else {
+					char sizeStr[32];
+					snprintf(sizeStr, sizeof(sizeStr), "%lld", ((*(io->ptable + i)).size >> 20));
+					partitionNode->setAttribute("size", sizeStr);
+				}
+				
+				root->addChild(partitionNode);
 			}
-			fprintf(fo.get(), "</Partitions>");
+
+			// 保存为格式化的 XML（带换行和缩进）
+			std::ofstream file("partition_temp.xml");
+			if (!file.is_open()) {
+				ERR_EXIT("Failed to open file\n");
+			}
+			file << root->toXml();
 			uint8_t* buf = io->temp_buf;
 			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {

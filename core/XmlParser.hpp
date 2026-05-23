@@ -69,21 +69,52 @@ public:
         }
         return result;
     }
-    std::string toXml() const {
-        std::string result = "<" + name;
-        // 添加属性
+    // 添加带缩进参数的版本
+    std::string toXml(int indentLevel, bool pretty) const {
+        std::string indent;
+        std::string childIndent;
+        if (pretty) {
+            indent = std::string(indentLevel * 4, ' ');
+            childIndent = std::string((indentLevel + 1) * 4, ' ');
+        }
+        
+        std::string result = indent + "<" + name;
         for (auto& attr : attributes) {
             result += " " + attr.first + "=\"" + attr.second + "\"";
         }
+        
+        if (children.empty() && text.empty()) {
+            result += "/>";
+            if (pretty && indentLevel > 0) result += "\n";
+            return result;
+        }
+        
         result += ">";
-        // 添加文本内容（如果存在且没有子节点，或者为了保留原始格式可直接添加）
-        result += text;
+        if (pretty && !children.empty()) result += "\n";
+        
+        // 添加文本内容
+        if (!text.empty()) {
+            if (pretty) result += childIndent;
+            result += text;
+            if (pretty) result += "\n";
+        }
+        
         // 递归添加子节点
         for (auto& child : children) {
-            result += child->toXml();
+            result += child->toXml(indentLevel + 1, pretty);
         }
-        result += "</" + name + ">";
+        
+        result += indent + "</" + name + ">";
+        if (pretty && indentLevel > 0) result += "\n";
+        
         return result;
+    }
+
+    std::string toXml() const {
+        return toXml(0, true);  // 默认换行格式
+    }
+    std::string toCompactXml() const {
+        return toXml(0, false);
     }
     std::string getAttribute(const std::string& name, const std::string& defaultValue = "") const {
         auto it = attributes.find(name);
@@ -174,10 +205,10 @@ public:
         }
         return false;
     }
-    bool saveXmlFile(const std::string& filename) const {
+    bool saveXmlFile(const std::string& filename, bool pretty = true) const {
         std::ofstream file(filename);
         if (!file.is_open()) return false;
-        file << toXml();
+        file << toXml(0, pretty);
         return true;
     }
 };

@@ -12,6 +12,7 @@
 #ifdef __linux__
 #include <unistd.h>
 #endif
+#include "core/XmlParser.hpp"
 
 extern AppState g_app_state;
 
@@ -1895,16 +1896,35 @@ rloop:
 					continue;
 				} else {
 					DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
-					UniqueFile fo = my_oxfopen_unique(str2[2], "wb");
-					if (!fo) ERR_EXIT("Failed to open file\n");
-					fprintf(fo.get(), "<Partitions>\n");
+
+					// 创建根节点
+					auto root = std::make_shared<XmlNode>("Partitions");
+
+					// 添加所有分区节点
 					for (i = 0; i < io->part_count; i++) {
-						DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->ptable + i)).name, ((*(io->ptable + i)).size >> 20));
-						fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
-						if (i + 1 == io->part_count) fprintf(fo.get(), "0x%x\"/>\n", ~0);
-						else fprintf(fo.get(), "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
+						DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->ptable + i)).name, 
+								((*(io->ptable + i)).size >> 20));
+						
+						auto partitionNode = std::make_shared<XmlNode>("Partition");
+						partitionNode->setAttribute("id", (*(io->ptable + i)).name);
+						
+						if (i + 1 == io->part_count) {
+							partitionNode->setAttribute("size", "0xffffffff");
+						} else {
+							char sizeStr[32];
+							snprintf(sizeStr, sizeof(sizeStr), "%lld", 
+									((*(io->ptable + i)).size >> 20));
+							partitionNode->setAttribute("size", sizeStr);
+						}
+						
+						root->addChild(partitionNode);
 					}
-					fprintf(fo.get(), "</Partitions>");
+
+					// 保存到文件
+					if (!root->saveXmlFile(str2[2])) {
+						ERR_EXIT("Failed to save XML file\n");
+					}
+
 					DEG_LOG(I, "Partition table saved to %s", str2[2]);
 				}
 			} else {
@@ -1921,22 +1941,43 @@ rloop:
 					continue;
 				} else {
 					DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
-					UniqueFile fo = my_oxfopen_unique(str2[2], "wb");
-					if (!fo) ERR_EXIT("Failed to open file\n");
-					fprintf(fo.get(), "<Partitions>\n");
-					char* name;
+
+					// 创建根节点
+					auto root = std::make_shared<XmlNode>("Partitions");
+
+					// 保存原始 verbose 设置
 					int o = io->verbose;
 					io->verbose = -1;
-					for (i = 0; i < c; i++) {
-						name = (*(io->Cptable + i)).name;
-						DBG_LOG("%3d %36s %7lldMB\n", i + 1, name, ((*(io->Cptable + i)).size >> 20));
-						fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", name);
-						if (check_partition(io, "userdata", 0) != 0 && i + 1 == io->part_count_c) fprintf(fo.get(), "0x%x\"/>\n", ~0);
-						else fprintf(fo.get(), "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
 
+					// 添加所有分区节点
+					for (i = 0; i < c; i++) {
+						char* name = (*(io->Cptable + i)).name;
+						DBG_LOG("%3d %36s %7lldMB\n", i + 1, name, ((*(io->Cptable + i)).size >> 20));
+						
+						auto partitionNode = std::make_shared<XmlNode>("Partition");
+						partitionNode->setAttribute("id", name);
+						
+						// 判断是否为最后一个分区且 userdata 存在
+						if (check_partition(io, "userdata", 0) != 0 && i + 1 == io->part_count_c) {
+							partitionNode->setAttribute("size", "0xffffffff");
+						} else {
+							char sizeStr[32];
+							snprintf(sizeStr, sizeof(sizeStr), "%lld", 
+									((*(io->Cptable + i)).size >> 20));
+							partitionNode->setAttribute("size", sizeStr);
+						}
+						
+						root->addChild(partitionNode);
 					}
-					fprintf(fo.get(), "</Partitions>");
+
+					// 恢复 verbose 设置
 					io->verbose = o;
+
+					// 保存到文件
+					if (!root->saveXmlFile(str2[2])) {
+						ERR_EXIT("Failed to save XML file\n");
+					}
+
 					DEG_LOG(I, "Partition table saved to %s", str2[2]);
 				}
 			}

@@ -730,11 +730,13 @@ int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
 	bytes_read = fread(entries, 1, header.number_of_partition_entries * sizeof(efi_entry), fp.get());
 	if (bytes_read != (int)(header.number_of_partition_entries * sizeof(efi_entry)))
 		DEG_LOG(I,"read %d/%d only.", bytes_read, (int)(header.number_of_partition_entries * sizeof(efi_entry)));
-	UniqueFile fo = my_oxfopen_unique(fn_xml, "wb");
-	if (strcmp(fn_xml, "-")) {
-		if (!fo) ERR_EXIT("fopen failed\n");
-		fprintf(fo.get(), "<Partitions>\n");
+	std::shared_ptr<XmlNode> root = nullptr;
+	bool needSave = (strcmp(fn_xml, "-") != 0);
+
+	if (needSave) {
+		root = std::make_shared<XmlNode>("Partitions");
 	}
+
 	int n = 0;
 	for (int i = 0; i < header.number_of_partition_entries; i++) {
 		efi_entry entry = *(entries + i);
@@ -743,27 +745,48 @@ int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
 			break;
 		}
 	}
-	DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size / 1024);
+
+	DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
+
 	for (int i = 0; i < n; i++) {
 		efi_entry entry = *(entries + i);
 		copy_from_wstr((*(ptable + i)).name, 36, (uint16_t *)entry.partition_name);
 		uint64_t lba_count = entry.ending_lba - entry.starting_lba + 1;
 		(*(ptable + i)).size = lba_count * real_SECTOR_SIZE;
-		DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(ptable + i)).name, ((*(ptable + i)).size >> 20));
-		if (fo) {
-			fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(ptable + i)).name);
-			if (i + 1 == n) fprintf(fo.get(), "0x%x\"/>\n", ~0);
-			else fprintf(fo.get(), "%lld\"/>\n", ((*(ptable + i)).size >> 20));
+		
+		DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(ptable + i)).name, 
+				((*(ptable + i)).size >> 20));
+		
+		if (needSave) {
+			auto partitionNode = std::make_shared<XmlNode>("Partition");
+			partitionNode->setAttribute("id", (*(ptable + i)).name);
+			
+			if (i + 1 == n) {
+				partitionNode->setAttribute("size", "0xffffffff");
+			} else {
+				char sizeStr[32];
+				snprintf(sizeStr, sizeof(sizeStr), "%lld", ((*(ptable + i)).size >> 20));
+				partitionNode->setAttribute("size", sizeStr);
+			}
+			
+			root->addChild(partitionNode);
 		}
+		
 		if (!selected_ab) {
 			size_t namelen = strlen((*(ptable + i)).name);
-			if (namelen > 2 && 0 == strcmp((*(ptable + i)).name + namelen - 2, "_a")) selected_ab = 1;
+			if (namelen > 2 && 0 == strcmp((*(ptable + i)).name + namelen - 2, "_a")) {
+				selected_ab = 1;
+			}
 		}
 	}
-	if (fo) {
-		fprintf(fo.get(), "</Partitions>");
+
+	if (needSave) {
+		if (!root->saveXmlFile(fn_xml)) {
+			ERR_EXIT("Failed to save XML file\n");
+		}
 	}
-	delete[](entries);
+
+	delete[] entries;
 	*part_count_ptr = n;
 	DEG_LOG(I,"standard gpt table saved to pgpt.bin");
 	DEG_LOG(I,"skip saving sprd partition list packet");
@@ -806,51 +829,75 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 			delete[](ptable);
 			return nullptr;
 		}
+		std::shared_ptr<XmlNode> root = nullptr;
+		bool needSave = (strcmp(fn, "-") != 0);
+
 		UniqueFile fpkt = my_oxfopen_unique("sprdpart.bin", "wb");
 		if (!fpkt) ERR_EXIT("fopen failed\n");
 		fwrite(io->raw_buf + 4, 1, size, fpkt.get());
 		n = size / 0x4c;
-		if (strcmp(fn, "-")) {
-			fo = my_oxfopen_unique(fn, "wb");
-			if (!fo) ERR_EXIT("fopen failed\n");
-			fprintf(fo.get(), "<Partitions>\n");
+
+		if (needSave) {
+			root = std::make_shared<XmlNode>("Partitions");
 		}
+
 		int divisor = 10;
-		DEG_LOG(OP,"detecting sector size");
+		DEG_LOG(OP, "detecting sector size");
 		p = io->raw_buf + 4;
 		for (i = 0; i < n; i++, p += 0x4c) {
 			size = READ32_LE(p + 0x48);
 			while (!(size >> divisor)) divisor--;
 		}
+
 		if (Da_Info.dwStorageType == 0) { 
-			if (divisor == 10) Da_Info.dwStorageType = 0x102; //emmc
-			else Da_Info.dwStorageType = 0x103; //ufs
+			if (divisor == 10) Da_Info.dwStorageType = 0x102; // emmc
+			else Da_Info.dwStorageType = 0x103; // ufs
 		}
-		
+
 		p = io->raw_buf + 4;
-		DBG_LOG("  0 %36s     %lldKB\n", "splloader",(long long)g_spl_size / 1024);
+		DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
+
 		for (i = 0; i < n; i++, p += 0x4c) {
 			ret = copy_from_wstr((*(ptable + i)).name, 36, (uint16_t *)p);
 			if (ret) ERR_EXIT("bad partition name\n");
 			size = READ32_LE(p + 0x48);
 			(*(ptable + i)).size = (long long)size << (20 - divisor);
-			DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(ptable + i)).name, ((*(ptable + i)).size >> 20));
-			if (fo) {
-				fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(ptable + i)).name);
-				if (i + 1 == n) fprintf(fo.get(), "0x%x\"/>\n", ~0);
-				else fprintf(fo.get(), "%lld\"/>\n", ((*(ptable + i)).size >> 20));
+			DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(ptable + i)).name, 
+					((*(ptable + i)).size >> 20));
+			
+			if (needSave) {
+				auto partitionNode = std::make_shared<XmlNode>("Partition");
+				partitionNode->setAttribute("id", (*(ptable + i)).name);
+				
+				if (i + 1 == n) {
+					partitionNode->setAttribute("size", "0xffffffff");
+				} else {
+					char sizeStr[32];
+					snprintf(sizeStr, sizeof(sizeStr), "%lld", 
+							((*(ptable + i)).size >> 20));
+					partitionNode->setAttribute("size", sizeStr);
+				}
+				
+				root->addChild(partitionNode);
 			}
+			
 			if (!selected_ab) {
 				size_t namelen = strlen((*(ptable + i)).name);
-				if (namelen > 2 && 0 == strcmp((*(ptable + i)).name + namelen - 2, "_a")) selected_ab = 1;
+				if (namelen > 2 && 0 == strcmp((*(ptable + i)).name + namelen - 2, "_a")) {
+					selected_ab = 1;
+				}
 			}
 		}
-		if (fo) {
-			fprintf(fo.get(), "</Partitions>\n");
+
+		if (needSave) {
+			if (!root->saveXmlFile(fn)) {
+				ERR_EXIT("Failed to save XML file\n");
+			}
 		}
+
 		*part_count_ptr = n;
-		DEG_LOG(W,"Unable to get standard gpt table");
-		DEG_LOG(I,"Sprd partition list packet saved to sprdpart.bin");
+		DEG_LOG(W, "Unable to get standard gpt table");
+		DEG_LOG(I, "Sprd partition list packet saved to sprdpart.bin");
 		g_app_state.flash.gpt_failed = 0;
 	}
 	if (*part_count_ptr) {
