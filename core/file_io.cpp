@@ -138,3 +138,12 @@ FILE* my_oxfopen(const char* fn, const char* mode) {
 	if(file == nullptr) file = my_fopen(fn, mode); // fallback
 	return file;
 }
+
+// RAII 式
+UniqueFile oxfopen_unique(const char* fn, const char* mode) {
+    return UniqueFile(oxfopen(fn, mode));
+}
+
+UniqueFile my_oxfopen_unique(const char* fn, const char* mode) {
+    return UniqueFile(my_oxfopen(fn, mode));
+}

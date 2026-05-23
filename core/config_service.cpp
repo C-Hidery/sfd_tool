@@ -235,22 +235,22 @@ public:
             return make_error(ConfigErrorCode::NotFound, "config file not found");
         }
 
-        FILE* f = xfopen(path.c_str(), "rb");
+        UniqueFile f = oxfopen_unique(path.c_str(), "rb");
         if (!f) {
             return make_error(ConfigErrorCode::IoError, "failed to open config file");
         }
-        fseek(f, 0, SEEK_END);
-        long len = ftell(f);
-        fseek(f, 0, SEEK_SET);
+        fseek(f.get(), 0, SEEK_END);
+        long len = ftell(f.get());
+        fseek(f.get(), 0, SEEK_SET);
         std::string buf;
         buf.resize(static_cast<size_t>(len));
         if (len > 0) {
-            if (fread(&buf[0], 1, static_cast<size_t>(len), f) != static_cast<size_t>(len)) {
-                fclose(f);
+            if (fread(&buf[0], 1, static_cast<size_t>(len), f.get()) != static_cast<size_t>(len)) {
+                f.reset();
                 return make_error(ConfigErrorCode::IoError, "failed to read config file");
             }
         }
-        fclose(f);
+        f.reset();
 
         try {
             json j = json::parse(buf);
@@ -290,15 +290,15 @@ public:
         to_json(j, config);
         std::string data = j.dump(2);
 
-        FILE* f = xfopen(path.c_str(), "wb");
+        UniqueFile f = oxfopen_unique(path.c_str(), "wb");
         if (!f) {
             return make_error(ConfigErrorCode::IoError, "failed to open config file for write");
         }
-        if (fwrite(data.data(), 1, data.size(), f) != data.size()) {
-            fclose(f);
+        if (fwrite(data.data(), 1, data.size(), f.get()) != data.size()) {
+            f.reset();
             return make_error(ConfigErrorCode::IoError, "failed to write config file");
         }
-        fclose(f);
+        f.reset();
 
         return make_ok();
     }

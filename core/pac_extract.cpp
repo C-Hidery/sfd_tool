@@ -224,8 +224,6 @@ public:
     void close();
 };
 
-// 这里保留原有的 listFiles / extractFiles / checkCrc / close 实现
-// ......
 
 bool Unpac::listFiles() {
     if (!fi) { printf("PAC file not opened\n"); return false; }
@@ -765,10 +763,10 @@ bool pac_extract(const char* fn, const char* floder)
 		DEG_LOG(E, "No partition info found in xml");
 		return false;
     }
-	FILE* fi = oxfopen("partitions_temp.xml","w");
+	UniqueFile fi = oxfopen_unique("partitions_temp.xml","w");
 	if(fi) {
-		fwrite(partxml.c_str(), 1, partxml.size(), fi);
-		fclose(fi);
+		fwrite(partxml.c_str(), 1, partxml.size(), fi.get());
+		fi.reset();
 	}
 	else {
 		DEG_LOG(E, "Failed to create temporary partitions XML file.");
@@ -1018,14 +1016,14 @@ bool pac_flash(spdio_t* io, const char* floder)
     
     auto into_func = [=]() mutable
     {
-                FILE* fi;
-                fi = oxfopen(fdl1_path.c_str(), "r");
-				if (fi == nullptr) {
+                UniqueFile fi = oxfopen_unique(fdl1_path.c_str(), "r");
+				if (!fi) {
 					DEG_LOG(W, "File does not exist.\n");
-					showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
-                      return;
-                } else fclose(fi);
-					
+					if (isHelperInit) gui_idle_call_wait_drag([](){
+						showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
+					}, GTK_WINDOW(helper.getWidget("main_window")));
+                    return;
+                }
 				send_file(io, fdl1_path.c_str(), fdl1_base_addr, 0, 528, 0, 0);
 				encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
 				if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
@@ -1202,11 +1200,11 @@ bool pac_flash(spdio_t* io, const char* floder)
                         std::istreambuf_iterator<char>());
 
         std::string partxml = ExtractPartitionsWithTags(content);
-        FILE* f1 = oxfopen("repartition_xml_temp.xml", "w");
+        UniqueFile f1 = oxfopen_unique("repartition_xml_temp.xml", "w");
         if (!f1) ERR_EXIT("Failed to create temporary repartition XML file.\n");
         if(f1) {
-		    fwrite(partxml.c_str(), 1, partxml.size(), f1);
-		    fclose(f1);
+		    fwrite(partxml.c_str(), 1, partxml.size(), f1.get());
+		    f1.reset();
 	    }
         uint8_t* buf = io->temp_buf;
         int n = scan_xml_partitions(io, "repartition_xml_temp.xml", buf, 0xffff);

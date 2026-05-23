@@ -625,7 +625,7 @@ int main(int argc, char** argv) {
 
 	// 同时设置 C 运行时 locale，便于 std::locale / C API 使用
 	std::string lc_all = get_effective_lc_all_from_ui_language(cfg.ui_language);
-	if (!lc_all.empty()) {
+	if (!lc_all.empty() && lc_all != "auto") {
 		LOG_INFO("setlocale(LC_ALL, %s) on Windows", lc_all.c_str());
 		setlocale(LC_ALL, lc_all.c_str());
 		locale_from_config = true;

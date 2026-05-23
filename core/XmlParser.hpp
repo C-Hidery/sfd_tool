@@ -69,25 +69,147 @@ public:
         }
         return result;
     }
-    std::string toXml() const {
-        std::string result = "<" + name;
-        // 添加属性
+    // 添加带缩进参数的版本
+    std::string toXml(int indentLevel, bool pretty) const {
+        std::string indent;
+        std::string childIndent;
+        if (pretty) {
+            indent = std::string(indentLevel * 4, ' ');
+            childIndent = std::string((indentLevel + 1) * 4, ' ');
+        }
+        
+        std::string result = indent + "<" + name;
         for (auto& attr : attributes) {
             result += " " + attr.first + "=\"" + attr.second + "\"";
         }
+        
+        if (children.empty() && text.empty()) {
+            result += "/>";
+            if (pretty && indentLevel > 0) result += "\n";
+            return result;
+        }
+        
         result += ">";
-        // 添加文本内容（如果存在且没有子节点，或者为了保留原始格式可直接添加）
-        result += text;
+        if (pretty && !children.empty()) result += "\n";
+        
+        // 添加文本内容
+        if (!text.empty()) {
+            if (pretty) result += childIndent;
+            result += text;
+            if (pretty) result += "\n";
+        }
+        
         // 递归添加子节点
         for (auto& child : children) {
-            result += child->toXml();
+            result += child->toXml(indentLevel + 1, pretty);
         }
-        result += "</" + name + ">";
+        
+        result += indent + "</" + name + ">";
+        if (pretty && indentLevel > 0) result += "\n";
+        
         return result;
+    }
+
+    std::string toXml() const {
+        return toXml(0, true);  // 默认换行格式
+    }
+    std::string toCompactXml() const {
+        return toXml(0, false);
     }
     std::string getAttribute(const std::string& name, const std::string& defaultValue = "") const {
         auto it = attributes.find(name);
         return (it != attributes.end()) ? it->second : defaultValue;
+    }
+    void setAttribute(const std::string& key, const std::string& value) {
+        attributes[key] = value;
+    }
+
+    void setText(const std::string& newText) {
+        text = newText;
+    }
+
+    void addChild(std::shared_ptr<XmlNode> child) {
+        child->parent = this;
+        children.push_back(child);
+    }
+    void removeChild(const std::string& tagName) {
+        children.erase(std::remove_if(children.begin(), children.end(),
+            [&](auto& child) { return child->name == tagName; }), children.end());
+    }
+    void removeSelf() {
+        if (parent) {
+            auto& siblings = parent->children;
+            siblings.erase(std::remove_if(siblings.begin(), siblings.end(),
+                [this](const std::shared_ptr<XmlNode>& child) {
+                    return child.get() == this;
+                }), siblings.end());
+        }
+    }
+    void removeChild(std::shared_ptr<XmlNode> child) {
+        children.erase(std::remove(children.begin(), children.end(), child), children.end());
+    }
+    void removeDescendants(const std::string& tagName) {
+        children.erase(std::remove_if(children.begin(), children.end(),
+            [&](auto& child) {
+                if (child->name == tagName) return true;
+                child->removeDescendants(tagName);
+                return false;
+            }), children.end());
+    }
+    void removeChildIf(std::function<bool(const std::shared_ptr<XmlNode>&)> predicate) {
+        children.erase(std::remove_if(children.begin(), children.end(), predicate), children.end());
+    }
+    bool hasChild(const std::string& tagName) const {
+        for (auto& child : children) {
+            if (child->name == tagName) return true;
+        }
+        return false;
+    }
+    bool hasDescendant(const std::string& tagName) const {
+        if (name == tagName) return true;
+        for (auto& child : children) {
+            if (child->hasDescendant(tagName)) return true;
+        }
+        return false;
+    }
+    bool hasAttribute(const std::string& attrName) const {
+        return attributes.find(attrName) != attributes.end();
+    }
+    bool hasAttributeWithValue(const std::string& attrName, const std::string& value) const {
+        auto it = attributes.find(attrName);
+        return (it != attributes.end()) && (it->second == value);
+    }
+    bool hasChildWithAttribute(const std::string& tagName, const std::string& attrName, const std::string& value) const {
+        for (auto& child : children) {
+            if (child->name == tagName && child->hasAttributeWithValue(attrName, value)) return true;
+        }
+        return false;
+    }
+    bool hasDescendantWithAttribute(const std::string& tagName, const std::string& attrName, const std::string& value) const {
+        if (name == tagName && hasAttributeWithValue(attrName, value)) return true;
+        for (auto& child : children) {
+            if (child->hasDescendantWithAttribute(tagName, attrName, value)) return true;
+        }
+        return false;
+    }
+    bool hasChildWithText(const std::string& tagName, const std::string& textValue) const {
+        for (auto& child : children) {
+            if (child->name == tagName && child->getTextContent() == textValue) return true;
+        }
+        return false;
+    }
+    bool hasDescendantWithText(const std::string& tagName, const std::string& textValue) const {
+        if (name == tagName && getTextContent() == textValue) return true;
+        for (auto& child : children) {
+            if (child->hasDescendantWithText(tagName, textValue)) return true;
+        }
+        return false;
+    }
+    bool saveXmlFile(const std::string& filename, bool pretty = true) const {
+        std::ofstream file(filename);
+        if (!file.is_open()) return false;
+        file << toXml(0, pretty);
+        return true;
     }
 };
 

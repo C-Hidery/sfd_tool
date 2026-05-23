@@ -4,6 +4,7 @@
 #include "../common.h"
 #include "app_state.h"
 #include "file_io.h"
+#include "../core/XmlParser.hpp"
 
 #include <filesystem>
 #include <memory>
@@ -478,54 +479,66 @@ public:
             return make_error(FlashErrorCode::IoError, "empty output path");
         }
 
-        FILE* fo = my_oxfopen(output_path.c_str(), "wb");
-        if (!fo) {
-            DEG_LOG(E, "exportPartitionTableToXml: failed to open %s", output_path.c_str());
-            return make_error(FlashErrorCode::IoError, "failed to open output file");
-        }
-
-        std::fprintf(fo, "<Partitions>\n");
+        auto root = std::make_shared<XmlNode>("Partitions");
 
         if (!app_->flash.isCMethod) {
             if (!io_->part_count) {
-                fclose(fo);
                 DEG_LOG(E, "exportPartitionTableToXml: no partition table");
                 return make_error(FlashErrorCode::PartitionTableNotLoaded, "no partition table loaded");
             }
 
             for (int i = 0; i < io_->part_count; ++i) {
                 const auto& p = io_->ptable[i];
-                std::fprintf(fo, "    <Partition id=\"%s\" size=\"", p.name);
+                auto partitionNode = std::make_shared<XmlNode>("Partition");
+                partitionNode->setAttribute("id", p.name);
+                
                 if (i + 1 == io_->part_count) {
-                    std::fprintf(fo, "0x%x\"/>\n", ~0);
+                    partitionNode->setAttribute("size", "0xffffffff");
                 } else {
-                    std::fprintf(fo, "%lld\"/>\n", ((long long)p.size >> 20));
+                    char sizeStr[32];
+                    snprintf(sizeStr, sizeof(sizeStr), "%lld", ((long long)p.size >> 20));
+                    partitionNode->setAttribute("size", sizeStr);
                 }
+                
+                root->addChild(partitionNode);
             }
         } else {
             int c = io_->part_count_c;
             if (!c) {
-                fclose(fo);
                 DEG_LOG(E, "exportPartitionTableToXml: no CMethod partition table");
                 return make_error(FlashErrorCode::PartitionTableNotLoaded, "no CMethod partition table");
             }
 
             int o = io_->verbose;
             io_->verbose = -1;
+            
+            bool hasUserdata = (check_partition(io_, "userdata", 0) != 0);
+            
             for (int i = 0; i < c; ++i) {
                 char* name = io_->Cptable[i].name;
-                std::fprintf(fo, "    <Partition id=\"%s\" size=\"", name);
-                if (check_partition(io_, "userdata", 0) != 0 && i + 1 == io_->part_count_c) {
-                    std::fprintf(fo, "0x%x\"/>\n", ~0);
+                auto partitionNode = std::make_shared<XmlNode>("Partition");
+                partitionNode->setAttribute("id", name);
+                
+                if (hasUserdata && i + 1 == io_->part_count_c) {
+                    partitionNode->setAttribute("size", "0xffffffff");
                 } else {
-                    std::fprintf(fo, "%lld\"/>\n", ((long long)io_->Cptable[i].size >> 20));
+                    char sizeStr[32];
+                    snprintf(sizeStr, sizeof(sizeStr), "%lld", ((long long)io_->Cptable[i].size >> 20));
+                    partitionNode->setAttribute("size", sizeStr);
                 }
+                
+                root->addChild(partitionNode);
             }
+            
             io_->verbose = o;
         }
 
-        std::fprintf(fo, "</Partitions>");
-        fclose(fo);
+        // 保存到文件
+        if (!root->saveXmlFile(output_path)) {
+            DEG_LOG(E, "exportPartitionTableToXml: failed to save %s", output_path.c_str());
+            return make_error(FlashErrorCode::IoError, "failed to save XML file");
+        }
+
         DEG_LOG(I, "exportPartitionTableToXml: saved to %s", output_path.c_str());
         return make_ok();
     }

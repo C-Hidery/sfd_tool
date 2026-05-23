@@ -46,12 +46,11 @@ static void on_button_clicked_m_write(GtkWidgetHelper helper) {
 		showErrorDialog(GTK_WINDOW(parent), _(_(_(("Error")))), _("No partition name specified!"));
 		return;
 	}
-	FILE* fi;
-	fi = oxfopen(filename.c_str(), "r");
-	if (fi == nullptr) {
+	UniqueFile fi = oxfopen_unique(filename.c_str(), "r");
+	if (!fi) {
 		DEG_LOG(E, "File does not exist.\n");
 		return;
-	} else fclose(fi);
+	}
 
 	sfd::PartitionIoOptions opts;
 	opts.partition_name = part_name;

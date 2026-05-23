@@ -12,6 +12,7 @@
 #ifdef __linux__
 #include <unistd.h>
 #endif
+#include "core/XmlParser.hpp"
 
 extern AppState g_app_state;
 
@@ -798,15 +799,15 @@ int main_console(int argc, char** argv) {
 				}
 				continue;
 			}
-			FILE* fi;
+			UniqueFile fi;
 			if (0 == fdl1_loaded && argcount > 2) {
 				exec_addr = strtoul(str2[3], nullptr, 0);
 				execfile = std::string(str2[2]);
-				fi = oxfopen(execfile.c_str(), "r");
+				fi = my_oxfopen_unique(execfile.c_str(), "r");
 				if (fi == nullptr) {
 					DEG_LOG(W, "%s does not exist", execfile.c_str());
 					exec_addr = 0;
-				} else fclose(fi);
+				}
 			}
 			DEG_LOG(I, "Current CVE address is 0x%x", exec_addr);
 			if (!strncmp(str2[1], "exec_addr2", 10)) cve_v2 = 1;
@@ -827,7 +828,6 @@ int main_console(int argc, char** argv) {
 			}
 			const char* fn;
 			uint32_t addr = 0;
-			FILE* fi;
 			if (argcount <= 3) {
 				DEG_LOG(W, "send/send_no_enddata FILE addr");
 				argc = 1;
@@ -835,13 +835,13 @@ int main_console(int argc, char** argv) {
 			}
 
 			fn = str2[2];
-			fi = oxfopen(fn, "r");
+			UniqueFile fi = my_oxfopen_unique(fn, "r");
 			if (fi == nullptr) {
 				DEG_LOG(E, "File does not exist.");
 				argc -= 3;
 				argv += 3;
 				continue;
-			} else fclose(fi);
+			}
 			addr = strtoul(str2[3], nullptr, 0);
 			if (!strcmp(str2[1], "send_file")) send_file(io, fn, addr, end_data, 528, 0, 0);
 			else send_file(io, fn, addr, 0, 528, 0, 0);
@@ -854,7 +854,7 @@ int main_console(int argc, char** argv) {
 			int addr_in_name = !strncmp(str2[1], "loadfdl", 7);
 			const char* fn;
 			uint32_t addr = 0;
-			FILE* fi;
+			UniqueFile fi;
 			int argchange;
 			fn = str2[2];
 			if (isToolMode)
@@ -924,13 +924,13 @@ int main_console(int argc, char** argv) {
 			//FDL2, NOT NEED TO SEND CVE FILE
 			else if (fdl1_loaded > 0) {
 				if (fdl2_executed != -1) {
-					fi = oxfopen(fn, "r");
+					UniqueFile fi = my_oxfopen_unique(fn, "r");
 					if (fi == nullptr) {
 						DEG_LOG(W, "File does not exist.");
 						argc -= argchange;
 						argv += argchange;
 						continue;
-					} else fclose(fi);
+					}
 					if (!isKickMode) send_file(io, fn, addr, end_data, blk_size ? blk_size : 528, 0, 0);
 					else send_file(io, fn, addr, 0, 528, 0, 0);
 				}
@@ -938,13 +938,13 @@ int main_console(int argc, char** argv) {
 			//FDL1, MAY NEED TO SEND CVE FILE
 			else {
 				if (fdl1_loaded != -1) {
-					fi = oxfopen(fn, "r");
+					UniqueFile fi = my_oxfopen_unique(fn, "r");
 					if (fi == nullptr) {
 						DEG_LOG(W, "File does not exist.\n");
 						argc -= argchange;
 						argv += argchange;
 						continue;
-					} else fclose(fi);
+					}
 					if (cve_v2) {
 						size_t execsize = send_file(io, fn, addr, 0, 528, 0, 0);
 						int n, gapsize = exec_addr - addr - execsize;
@@ -954,13 +954,12 @@ int main_console(int argc, char** argv) {
 							encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
 							if (send_and_check(io)) ERR_EXIT("CVE v2 failed");;
 						}
-						fi = oxfopen(execfile.c_str(), "rb");
+						fi = my_oxfopen_unique(execfile.c_str(), "rb");
 						if (fi) {
-							fseek(fi, 0, SEEK_END);
-							n = ftell(fi);
-							fseek(fi, 0, SEEK_SET);
-							execsize = fread(io->temp_buf, 1, n, fi);
-							fclose(fi);
+							fseek(fi.get(), 0, SEEK_END);
+							n = ftell(fi.get());
+							fseek(fi.get(), 0, SEEK_SET);
+							execsize = fread(io->temp_buf, 1, n, fi.get());
 						}
 						encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
 						if (send_and_check(io)) ERR_EXIT("CVE v2 failed");
@@ -1015,8 +1014,8 @@ int main_console(int argc, char** argv) {
 				int pagecount = 0;
 				char* pdump;
 				char chdump;
-				FILE* fdump;
-				fdump = my_oxfopen("memdump.bin", "wb");
+				UniqueFile fdump;
+				fdump = my_oxfopen_unique("memdump.bin", "wb");
 				encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
 				while (1) {
 					send_msg(io);
@@ -1029,11 +1028,10 @@ int main_console(int argc, char** argv) {
 						if (chdump == 0x7d) {
 							if (*pdump == 0x5d || *pdump == 0x5e) chdump = *(pdump++) + 0x20;
 						}
-						fputc(chdump, fdump);
+						fputc(chdump, fdump.get());
 					}
 					DEG_LOG(I, "dump page count %d", ++pagecount);
 				}
-				fclose(fdump);
 				DEG_LOG(I, "dump mem end");
 				//end
 #endif
@@ -1221,8 +1219,8 @@ int main_console(int argc, char** argv) {
 				int pagecount = 0;
 				char* pdump;
 				char chdump;
-				FILE* fdump;
-				fdump = my_oxfopen("memdump.bin", "wb");
+				UniqueFile fdump;
+				fdump = my_oxfopen_unique("memdump.bin", "wb");
 				encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
 				while (1) {
 					send_msg(io);
@@ -1235,11 +1233,10 @@ int main_console(int argc, char** argv) {
 						if (chdump == 0x7d) {
 							if (*pdump == 0x5d || *pdump == 0x5e) chdump = *(pdump++) + 0x20;
 						}
-						fputc(chdump, fdump);
+						fputc(chdump, fdump.get());
 					}
 					DEG_LOG(I, "dump page count %d", ++pagecount);
 				}
-				fclose(fdump);
 				DEG_LOG(I, "dump mem end");
 				//end
 #endif
@@ -1562,17 +1559,16 @@ int main_console(int argc, char** argv) {
 				continue;
 			}
 			size_t length = 0;
-			FILE* fi;
+			UniqueFile fi;
 			if (argcount > 3) {
-				fi = oxfopen(str2[3], "rb");
-				fseek(fi, 0, SEEK_END);
-				length = ftell(fi);
+				fi = my_oxfopen_unique(str2[3], "rb");
+				fseek(fi.get(), 0, SEEK_END);
+				length = ftell(fi.get());
 				if (length) {
-					fseek(fi, 0, SEEK_SET);
-					size_t temp_fread_res = fread(io->temp_buf, 1, length, fi);
+					fseek(fi.get(), 0, SEEK_SET);
+					size_t temp_fread_res = fread(io->temp_buf, 1, length, fi.get());
 					(void)temp_fread_res;
 				}
-				fclose(fi);
 			}
 			encode_msg_nocpy(io, strtoul(str2[2], nullptr, 0), length);
 			int verb = io->verbose;
@@ -1819,20 +1815,20 @@ rloop:
 				continue;
 			}
 			const char* fn;
-			FILE* fi;
+			UniqueFile fi;
 			if (argcount <= 2) {
 				DEG_LOG(W, "read_parts partition_table_file");
 				argc = 1;
 				continue;
 			}
 			fn = str2[2];
-			fi = oxfopen(fn, "r");
+			fi = oxfopen_unique(fn, "r");
 			if (fi == nullptr) {
 				DEG_LOG(E, "File does not exist.");
 				argc -= 2;
 				argv += 2;
 				continue;
-			} else fclose(fi);
+			}
 			dump_partitions(io, fn, nand_info, blk_size ? blk_size : DEFAULT_BLK_SIZE);
 			argc -= 2;
 			argv += 2;
@@ -1840,20 +1836,20 @@ rloop:
 		}
 		else if(!strcmp(str2[1], "pac")){
 			const char* fn;
-			FILE* fi;
+			UniqueFile fi;
 			if (argcount <= 2) {
 				DEG_LOG(W, "pac FILE");
 				argc = 1;
 				continue;
 			}
 			fn = str2[2];
-			fi = oxfopen(fn, "r");
+			fi = oxfopen_unique(fn, "r");
 			if (fi == nullptr) {
 				DEG_LOG(E, "File does not exist.");
 				argc -= 2;
 				argv += 2;
 				continue;
-			} else fclose(fi);
+			}
 			bool i_is = pac_extract(fn, "pac_unpack_output");
 			if(g_app_state.device.device_stage != BROM && GetStage() != BROM)
 			{
@@ -1900,17 +1896,35 @@ rloop:
 					continue;
 				} else {
 					DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
-					FILE* fo = my_oxfopen(str2[2], "wb");
-					if (!fo) ERR_EXIT("Failed to open file\n");
-					fprintf(fo, "<Partitions>\n");
+
+					// 创建根节点
+					auto root = std::make_shared<XmlNode>("Partitions");
+
+					// 添加所有分区节点
 					for (i = 0; i < io->part_count; i++) {
-						DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->ptable + i)).name, ((*(io->ptable + i)).size >> 20));
-						fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
-						if (i + 1 == io->part_count) fprintf(fo, "0x%x\"/>\n", ~0);
-						else fprintf(fo, "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
+						DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->ptable + i)).name, 
+								((*(io->ptable + i)).size >> 20));
+						
+						auto partitionNode = std::make_shared<XmlNode>("Partition");
+						partitionNode->setAttribute("id", (*(io->ptable + i)).name);
+						
+						if (i + 1 == io->part_count) {
+							partitionNode->setAttribute("size", "0xffffffff");
+						} else {
+							char sizeStr[32];
+							snprintf(sizeStr, sizeof(sizeStr), "%lld", 
+									((*(io->ptable + i)).size >> 20));
+							partitionNode->setAttribute("size", sizeStr);
+						}
+						
+						root->addChild(partitionNode);
 					}
-					fprintf(fo, "</Partitions>");
-					fclose(fo);
+
+					// 保存到文件
+					if (!root->saveXmlFile(str2[2])) {
+						ERR_EXIT("Failed to save XML file\n");
+					}
+
 					DEG_LOG(I, "Partition table saved to %s", str2[2]);
 				}
 			} else {
@@ -1927,23 +1941,43 @@ rloop:
 					continue;
 				} else {
 					DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
-					FILE* fo = my_oxfopen(str2[2], "wb");
-					if (!fo) ERR_EXIT("Failed to open file\n");
-					fprintf(fo, "<Partitions>\n");
-					char* name;
+
+					// 创建根节点
+					auto root = std::make_shared<XmlNode>("Partitions");
+
+					// 保存原始 verbose 设置
 					int o = io->verbose;
 					io->verbose = -1;
-					for (i = 0; i < c; i++) {
-						name = (*(io->Cptable + i)).name;
-						DBG_LOG("%3d %36s %7lldMB\n", i + 1, name, ((*(io->Cptable + i)).size >> 20));
-						fprintf(fo, "    <Partition id=\"%s\" size=\"", name);
-						if (check_partition(io, "userdata", 0) != 0 && i + 1 == io->part_count_c) fprintf(fo, "0x%x\"/>\n", ~0);
-						else fprintf(fo, "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
 
+					// 添加所有分区节点
+					for (i = 0; i < c; i++) {
+						char* name = (*(io->Cptable + i)).name;
+						DBG_LOG("%3d %36s %7lldMB\n", i + 1, name, ((*(io->Cptable + i)).size >> 20));
+						
+						auto partitionNode = std::make_shared<XmlNode>("Partition");
+						partitionNode->setAttribute("id", name);
+						
+						// 判断是否为最后一个分区且 userdata 存在
+						if (check_partition(io, "userdata", 0) != 0 && i + 1 == io->part_count_c) {
+							partitionNode->setAttribute("size", "0xffffffff");
+						} else {
+							char sizeStr[32];
+							snprintf(sizeStr, sizeof(sizeStr), "%lld", 
+									((*(io->Cptable + i)).size >> 20));
+							partitionNode->setAttribute("size", sizeStr);
+						}
+						
+						root->addChild(partitionNode);
 					}
-					fprintf(fo, "</Partitions>");
-					fclose(fo);
+
+					// 恢复 verbose 设置
 					io->verbose = o;
+
+					// 保存到文件
+					if (!root->saveXmlFile(str2[2])) {
+						ERR_EXIT("Failed to save XML file\n");
+					}
+
 					DEG_LOG(I, "Partition table saved to %s", str2[2]);
 				}
 			}
@@ -1969,20 +2003,20 @@ rloop:
 				continue;
 			}
 			const char* fn;
-			FILE* fi;
+			UniqueFile fi;
 			if (argcount <= 2) {
 				DEG_LOG(W, "repartition FILE");
 				argc = 1;
 				continue;
 			}
 			fn = str2[2];
-			fi = oxfopen(fn, "r");
+			fi = oxfopen_unique(fn, "r");
 			if (fi == nullptr) {
 				DEG_LOG(E, "File does not exist.");
 				argc -= 2;
 				argv += 2;
 				continue;
-			} else fclose(fi);
+			}
 			if (skip_confirm) repartition(io, str2[2]);
 			else if (check_confirm("repartition")) repartition(io, str2[2]);
 			argc -= 2;
@@ -2132,7 +2166,7 @@ rloop:
 				continue;
 			}
 			const char* fn;
-			FILE* fi;
+			UniqueFile fi;
 			const char* name = str2[2];
 			if (argcount <= 3) {
 				DEG_LOG(W, "w/write_part part_name/part_id FILE\n");
@@ -2140,13 +2174,13 @@ rloop:
 				continue;
 			}
 			fn = str2[3];
-			fi = oxfopen(fn, "r");
+			fi = oxfopen_unique(fn, "r");
 			if (fi == nullptr) {
 				DEG_LOG(E, "File does not exist.\n");
 				argc -= 3;
 				argv += 3;
 				continue;
-			} else fclose(fi);
+			}
 			if (!skip_confirm)
 				if (!check_confirm("write partition")) {
 					argc -= 3;
@@ -2206,7 +2240,7 @@ rloop:
 				continue;
 			}
 			const char* fn;
-			FILE* fi;
+			UniqueFile fi;
 			const char* name = str2[2];
 			if (argcount <= 3) {
 				DEG_LOG(W, "w_force part_name/part_id FILE");
@@ -2227,13 +2261,13 @@ rloop:
 					continue;
 				}
 				fn = str2[3];
-				fi = oxfopen(fn, "r");
+				fi = oxfopen_unique(fn, "r");
 				if (fi == nullptr) {
 					DEG_LOG(E, "File does not exist.");
 					argc -= 3;
 					argv += 3;
 					continue;
-				} else fclose(fi);
+				}
 				get_partition_info(io, name, 0);
 				if (!gPartInfo.size) {
 					DEG_LOG(E, "Partition does not exist");
@@ -2265,13 +2299,13 @@ rloop:
 					continue;
 				}
 				fn = str2[3];
-				fi = oxfopen(fn, "r");
+				fi = oxfopen_unique(fn, "r");
 				if (fi == nullptr) {
 					DEG_LOG(E, "File does not exist.");
 					argc -= 3;
 					argv += 3;
 					continue;
-				} else fclose(fi);
+				}
 				get_partition_info(io, name, 0);
 				if (!gPartInfo.size) {
 					DEG_LOG(E, "Partition does not exist");
@@ -2381,11 +2415,10 @@ rloop:
 				uint8_t *b = loadfile(str2[3], &b_size, 0);
 				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 				merge_nv(io, a, a_size, b, b_size, c, &c_size);
-				FILE *fi = oxfopen("nvmerged", "wb");
+				UniqueFile fi = oxfopen_unique("nvmerged", "wb");
 				if (!fi) ERR_EXIT("fopen failed\n");
-				if (fseek(fi, 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-				if (fwrite(c, 1, c_size, fi) != c_size) ERR_EXIT("fwrite failed\n");
-				fclose(fi);
+				if (fseek(fi.get(), 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+				if (fwrite(c, 1, c_size, fi.get()) != c_size) ERR_EXIT("fwrite failed\n");
 				load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
 				free(a); free(b); free(c);
 			}
@@ -2402,13 +2435,13 @@ rloop:
 				uint8_t *b = loadfile(str2[4], &b_size, 0);
 				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 				merge_nv(io, a, a_size, b, b_size, c, &c_size);
-				FILE *fi = oxfopen("nvmerged", "wb");
+				UniqueFile fi = oxfopen_unique("nvmerged", "wb");
 				if (!fi) ERR_EXIT("fopen failed\n");
-				if (fseek(fi, 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-				if (fwrite(c, 1, c_size, fi) != c_size) ERR_EXIT("fwrite failed\n");
-				fclose(fi);
-				fi = oxfopen("nvmerged", "rb");
-				fclose(fi);
+				if (fseek(fi.get(), 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+				if (fwrite(c, 1, c_size, fi.get()) != c_size) ERR_EXIT("fwrite failed\n");
+				fi.reset();
+				fi = oxfopen_unique("nvmerged", "rb");
+				if (!fi) DEG_LOG(E, "Failed to create merged nv file");
 				free(a); free(b); free(c);
 			}
 			free(io->nvid_list);
@@ -2441,11 +2474,10 @@ rloop:
 				uint8_t *b = loadfile(str2[3], &b_size, 0);
 				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 				merge_nv(io, a, a_size, b, b_size, c, &c_size);
-				FILE *fi = oxfopen("nvmerged", "wb");
+				UniqueFile fi = oxfopen_unique("nvmerged", "wb");
 				if (!fi) ERR_EXIT("fopen failed\n");
-				if (fseek(fi, 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-				if (fwrite(c, 1, c_size, fi) != c_size) ERR_EXIT("fwrite failed\n");
-				fclose(fi);
+				if (fseek(fi.get(), 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+				if (fwrite(c, 1, c_size, fi.get()) != c_size) ERR_EXIT("fwrite failed\n");
 				load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
 				free(a); free(b); free(c);
 			}
@@ -2461,13 +2493,13 @@ rloop:
 				uint8_t *b = loadfile(str2[4], &b_size, 0);
 				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 				merge_nv(io, a, a_size, b, b_size, c, &c_size);
-				FILE *fi = oxfopen("nvmerged", "wb");
+				UniqueFile fi = oxfopen_unique("nvmerged", "wb");
 				if (!fi) ERR_EXIT("fopen failed\n");
-				if (fseek(fi, 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-				if (fwrite(c, 1, c_size, fi) != c_size) ERR_EXIT("fwrite failed\n");
-				fclose(fi);
-				fi = oxfopen("nvmerged", "rb");
-				fclose(fi);
+				if (fseek(fi.get(), 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+				if (fwrite(c, 1, c_size, fi.get()) != c_size) ERR_EXIT("fwrite failed\n");
+				fi.reset();
+				fi = oxfopen_unique("nvmerged", "rb");
+				if (!fi) DEG_LOG(E, "Failed to create merged nv file");
 				free(a); free(b); free(c);
 			}
 			free(io->nvid_list);
