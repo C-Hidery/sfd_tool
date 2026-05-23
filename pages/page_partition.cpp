@@ -427,7 +427,7 @@ static bool inspect_file_is_all_zero(const std::string& path,
     out_all_zero = true;
     out_error.clear();
 
-    FILE* fi = oxfopen(path.c_str(), "rb");
+    UniqueFile fi = oxfopen_unique(path.c_str(), "rb");
     if (!fi) {
         out_error = _("Failed to open image file.");
         return false;
@@ -435,11 +435,10 @@ static bool inspect_file_is_all_zero(const std::string& path,
 
     std::vector<unsigned char> buffer(1024 * 1024);
     while (true) {
-        const std::size_t nread = std::fread(buffer.data(), 1, buffer.size(), fi);
+        const std::size_t nread = std::fread(buffer.data(), 1, buffer.size(), fi.get());
         if (nread == 0) {
-            if (std::ferror(fi)) {
+            if (std::ferror(fi.get())) {
                 out_error = _("Failed to read image file.");
-                std::fclose(fi);
                 return false;
             }
             break;
@@ -447,13 +446,11 @@ static bool inspect_file_is_all_zero(const std::string& path,
         for (std::size_t i = 0; i < nread; ++i) {
             if (buffer[i] != 0) {
                 out_all_zero = false;
-                std::fclose(fi);
                 return true;
             }
         }
     }
 
-    std::fclose(fi);
     return true;
 }
 
@@ -609,12 +606,11 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 		showErrorDialog(parent, _(_(("Error"))), _("No partition table loaded, cannot write partition list!"));
 		return;
 	}
-	FILE* fi;
-	fi = oxfopen(filename.c_str(), "r");
-	if (fi == nullptr) {
+	UniqueFile fi = oxfopen_unique(filename.c_str(), "r");
+	if (!fi) {
 		DEG_LOG(E, "File does not exist.\n");
 		return;
-	} else fclose(fi);
+	}
 
 	sfd::PartitionIoOptions opts;
 	opts.partition_name = part_name;
@@ -662,12 +658,11 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 		showErrorDialog(parent, _(_(("Error"))), _("No partition table loaded, cannot write partition list!"));
 		return;
 	}
-	FILE* fi;
-	fi = oxfopen(filename.c_str(), "r");
-	if (fi == nullptr) {
+	UniqueFile fi = oxfopen_unique(filename.c_str(), "r");
+	if (!fi) {
 		DEG_LOG(E, "File does not exist.\n");
 		return;
-	} else fclose(fi);
+	}
 
 	bool i_op = showConfirmDialog(parent, _(_(("Confirm"))), _("Force writing partitions may brick the device, do you want to continue?"));
 	if (!i_op) return;
@@ -848,16 +843,15 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			long long k = (*(io->ptable + i_part)).size << 20;
 			(*(io->ptable + i_part)).size = (long long)newSizeMB << 20;
 			(*(io->ptable + i_se_part)).size = (*(io->ptable + i_se_part)).size + k - ((long long)newSizeMB << 20);
-			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
+			UniqueFile fo = my_oxfopen_unique("partition_temp.xml", "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo, "<Partitions>\n");
+			fprintf(fo.get(), "<Partitions>\n");
 			for (int i = 0; i < io->part_count; i++) {
-				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
-				if (i + 1 == io->part_count) fprintf(fo, "0x%x\"/>\n", ~0);
-				else fprintf(fo, "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
+				fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
+				if (i + 1 == io->part_count) fprintf(fo.get(), "0x%x\"/>\n", ~0);
+				else fprintf(fo.get(), "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
 			}
-			fprintf(fo, "</Partitions>");
-			fclose(fo);
+			fprintf(fo.get(), "</Partitions>");
 			uint8_t* buf = io->temp_buf;
 			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
@@ -901,16 +895,15 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper) {
 			long long k = (*(io->Cptable + i_part)).size << 20;
 			(*(io->Cptable + i_part)).size = (long long)newSizeMB << 20;
 			(*(io->Cptable + i_se_part)).size = (*(io->Cptable + i_se_part)).size + k - ((long long)newSizeMB << 20);
-			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
+			UniqueFile fo = my_oxfopen_unique("partition_temp.xml", "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo, "<Partitions>\n");
+			fprintf(fo.get(), "<Partitions>\n");
 			for (int i = 0; i < io->part_count_c; i++) {
-				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->Cptable + i)).name);
-				if (i + 1 == io->part_count_c) fprintf(fo, "0x%x\"/>\n", ~0);
-				else fprintf(fo, "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
+				fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(io->Cptable + i)).name);
+				if (i + 1 == io->part_count_c) fprintf(fo.get(), "0x%x\"/>\n", ~0);
+				else fprintf(fo.get(), "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
 			}
-			fprintf(fo, "</Partitions>");
-			fclose(fo);
+			fprintf(fo.get(), "</Partitions>");
 			uint8_t* buf = io->temp_buf;
 			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
@@ -1065,16 +1058,15 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			if (old_ptable && old_ptable != ptable) {
 				delete[] old_ptable;
 			}
-			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
+			UniqueFile fo = my_oxfopen_unique("partition_temp.xml", "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo, "<Partitions>\n");
+			fprintf(fo.get(), "<Partitions>\n");
 			for (int i = 0; i < io->part_count; i++) {
-				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
-				if (i + 1 == io->part_count) fprintf(fo, "0x%x\"/>\n", ~0);
-				else fprintf(fo, "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
+				fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
+				if (i + 1 == io->part_count) fprintf(fo.get(), "0x%x\"/>\n", ~0);
+				else fprintf(fo.get(), "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
 			}
-			fprintf(fo, "</Partitions>");
-			fclose(fo);
+			fprintf(fo.get(), "</Partitions>");
 			uint8_t* buf = io->temp_buf;
 			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
@@ -1142,16 +1134,15 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper) {
 			if (old_cptable && old_cptable != ptable) {
 				delete[] old_cptable;
 			}
-			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
+			UniqueFile fo = my_oxfopen_unique("partition_temp.xml", "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo, "<Partitions>\n");
+			fprintf(fo.get(), "<Partitions>\n");
 			for (int i = 0; i < io->part_count_c; i++) {
-				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->Cptable + i)).name);
-				if (i + 1 == io->part_count_c) fprintf(fo, "0x%x\"/>\n", ~0);
-				else fprintf(fo, "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
+				fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(io->Cptable + i)).name);
+				if (i + 1 == io->part_count_c) fprintf(fo.get(), "0x%x\"/>\n", ~0);
+				else fprintf(fo.get(), "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
 			}
-			fprintf(fo, "</Partitions>");
-			fclose(fo);
+			fprintf(fo.get(), "</Partitions>");
 			uint8_t* buf = io->temp_buf;
 			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
@@ -1242,16 +1233,15 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 			// 注意：需要释放原来的 ptable 内存
 			delete[] (io->ptable);
 			io->ptable = ptable;
-			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
+			UniqueFile fo = my_oxfopen_unique("partition_temp.xml", "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo, "<Partitions>\n");
+			fprintf(fo.get(), "<Partitions>\n");
 			for (int i = 0; i < io->part_count; i++) {
-				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
-				if (i + 1 == io->part_count) fprintf(fo, "0x%x\"/>\n", ~0);
-				else fprintf(fo, "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
+				fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
+				if (i + 1 == io->part_count) fprintf(fo.get(), "0x%x\"/>\n", ~0);
+				else fprintf(fo.get(), "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
 			}
-			fprintf(fo, "</Partitions>");
-			fclose(fo);
+			fprintf(fo.get(), "</Partitions>");
 			uint8_t* buf = io->temp_buf;
 			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
@@ -1303,16 +1293,15 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper) {
 			// 注意：需要释放原来的 ptable 内存
 			delete[] (io->Cptable);
 			io->Cptable = ptable;
-			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
+			UniqueFile fo = my_oxfopen_unique("partition_temp.xml", "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo, "<Partitions>\n");
+			fprintf(fo.get(), "<Partitions>\n");
 			for (int i = 0; i < io->part_count_c; i++) {
-				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->Cptable + i)).name);
-				if (i + 1 == io->part_count_c) fprintf(fo, "0x%x\"/>\n", ~0);
-				else fprintf(fo, "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
+				fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(io->Cptable + i)).name);
+				if (i + 1 == io->part_count_c) fprintf(fo.get(), "0x%x\"/>\n", ~0);
+				else fprintf(fo.get(), "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
 			}
-			fprintf(fo, "</Partitions>");
-			fclose(fo);
+			fprintf(fo.get(), "</Partitions>");
 			uint8_t* buf = io->temp_buf;
 			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
@@ -1387,16 +1376,15 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 
 			snprintf(io->ptable[i].name, sizeof(io->ptable[i].name), "%s", new_part_name.c_str());
 
-			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
+			UniqueFile fo = my_oxfopen_unique("partition_temp.xml", "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo, "<Partitions>\n");
+			fprintf(fo.get(), "<Partitions>\n");
 			for (int i = 0; i < io->part_count; i++) {
-				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
-				if (i + 1 == io->part_count) fprintf(fo, "0x%x\"/>\n", ~0);
-				else fprintf(fo, "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
+				fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(io->ptable + i)).name);
+				if (i + 1 == io->part_count) fprintf(fo.get(), "0x%x\"/>\n", ~0);
+				else fprintf(fo.get(), "%lld\"/>\n", ((*(io->ptable + i)).size >> 20));
 			}
-			fprintf(fo, "</Partitions>");
-			fclose(fo);
+			fprintf(fo.get(), "</Partitions>");
 			uint8_t* buf = io->temp_buf;
 			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {
@@ -1429,16 +1417,15 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper) {
 
 			snprintf(io->Cptable[i].name, sizeof(io->Cptable[i].name), "%s", new_part_name.c_str());
 
-			FILE* fo = my_oxfopen("partition_temp.xml", "wb");
+			UniqueFile fo = my_oxfopen_unique("partition_temp.xml", "wb");
 			if (!fo) ERR_EXIT("Failed to open file\n");
-			fprintf(fo, "<Partitions>\n");
+			fprintf(fo.get(), "<Partitions>\n");
 			for (int i = 0; i < io->part_count_c; i++) {
-				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(io->Cptable + i)).name);
-				if (i + 1 == io->part_count_c) fprintf(fo, "0x%x\"/>\n", ~0);
-				else fprintf(fo, "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
+				fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(io->Cptable + i)).name);
+				if (i + 1 == io->part_count_c) fprintf(fo.get(), "0x%x\"/>\n", ~0);
+				else fprintf(fo.get(), "%lld\"/>\n", ((*(io->Cptable + i)).size >> 20));
 			}
-			fprintf(fo, "</Partitions>");
-			fclose(fo);
+			fprintf(fo.get(), "</Partitions>");
 			uint8_t* buf = io->temp_buf;
 			int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
 			if (n <= 0) {

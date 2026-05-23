@@ -54,20 +54,28 @@ int check_confirm(const char *name) {
 }
 
 uint8_t *loadfile(const char *fn, size_t *num, size_t extra) {
-	size_t n, j = 0; uint8_t *buf = 0;
-	FILE *fi = oxfopen(fn, "rb");
-	if (fi) {
-		fseek(fi, 0, SEEK_END);
-		n = ftell(fi);
-		if (n) {
-			fseek(fi, 0, SEEK_SET);
-			buf = NEWN uint8_t[n + extra];
-			if (buf) j = fread(buf, 1, n, fi);
-		}
-		fclose(fi);
-	}
-	if (num) *num = j;
-	return buf;
+    size_t n = 0, j = 0;
+    uint8_t *buf = nullptr;
+    UniqueFile fi = oxfopen_unique(fn, "rb");
+    
+    if (fi) {
+        if (fseek(fi.get(), 0, SEEK_END) == 0) {
+            long n_long = ftell(fi.get());
+            if (n_long > 0) { 
+                n = static_cast<size_t>(n_long);
+                if (n <= SIZE_MAX - extra) {
+                    rewind(fi.get());
+                    buf = NEWN uint8_t[n + extra];
+                    if (buf) {
+                        j = fread(buf, 1, n, fi.get());
+                    }
+                }
+            }
+        }
+    }
+    
+    if (num) *num = j;
+    return buf;
 }
 
 void send_buf(spdio_t *io,
@@ -225,13 +233,13 @@ unsigned dump_flash(spdio_t *io,
 		uint32_t addr, uint32_t start, uint32_t len,
 		const char *fn, unsigned step, int mode) {
 	uint32_t nread = 0;
-	FILE *fo = fopen(fn, "wb");
+	UniqueFile fo = my_oxfopen_unique(fn, "wb");
 	if (!fo) ERR_EXIT("fopen(dump) failed\n");
 
 	if (mode == 1) {
 		uint8_t buf[0x34];
 		len = sizeof(buf);
-		nread = read_flash(io, addr, start, len, buf, fo, step);
+		nread = read_flash(io, addr, start, len, buf, fo.get(), step);
 		if (nread != len)
 			ERR_EXIT("can't read DHTB header\n");
 		// "DHTB" -> "BTHD", Boot Header
@@ -241,7 +249,7 @@ unsigned dump_flash(spdio_t *io,
 		if (len >> 31) ERR_EXIT("unexpected DHTB size (0x%x)\n", len);
 		len += 0x200;
 	}
-	nread += read_flash(io, addr, start + nread, len - nread, NULL, fo, step);
+	nread += read_flash(io, addr, start + nread, len - nread, NULL, fo.get(), step);
 	if (mode == 1 && len == nread) do {	// read DHTB signature
 		uint8_t buf[0x60];
 		uint32_t nread2, nread1;
@@ -251,7 +259,7 @@ unsigned dump_flash(spdio_t *io,
 		if (!READ32_LE(buf + 0x10)) break; // all zeros
 		if (!~READ32_LE(buf + 0x10)) break; // all ones
 
-		if (fwrite(buf, 1, nread2, fo) != nread2)
+		if (fwrite(buf, 1, nread2, fo.get()) != nread2)
 			ERR_EXIT("fwrite(dump) failed\n");
 
 		nread1 = nread; len = nread += nread2;
@@ -263,17 +271,16 @@ unsigned dump_flash(spdio_t *io,
 			break;
 		}
 		len += nread2 = READ32_LE(buf + 0x20);
-		nread += read_flash(io, addr, start + nread, nread2, NULL, fo, step);
+		nread += read_flash(io, addr, start + nread, nread2, NULL, fo.get(), step);
 	} while (0);
 	DEG_LOG(I,"Read flash successfully: 0x%08x+0x%x, target: 0x%x, read: 0x%x\n", addr, start, len, nread);
-	fclose(fo);
 	return nread;
 }
 unsigned dump_mem(spdio_t *io,
 	uint32_t start, uint32_t len, const char *fn, unsigned step) {
 	uint32_t n, offset, nread;
 	int ret;
-	FILE *fo = my_oxfopen(fn, "wb");
+	UniqueFile fo = my_oxfopen_unique(fn, "wb");
 	if (!fo) ERR_EXIT("fopen(dump) failed\n");
 
 	for (offset = start; offset < start + len; ) {
@@ -297,13 +304,12 @@ unsigned dump_mem(spdio_t *io,
 		nread = READ16_BE(io->raw_buf + 2);
 		if (n < nread)
 			ERR_EXIT("excepted length\n");
-		if (fwrite(io->raw_buf + 4, 1, nread, fo) != nread)
+		if (fwrite(io->raw_buf + 4, 1, nread, fo.get()) != nread)
 			ERR_EXIT("fwrite(dump) failed\n");
 		offset += nread;
 		if (n != nread) break;
 	}
 	DEG_LOG(I,"Read mem successfully: 0x%08x, target: 0x%x, read: 0x%x", start, len, offset - start);
-	fclose(fo);
 	return offset;
 }
 
@@ -476,14 +482,14 @@ uint64_t dump_partition(spdio_t *io,
 		return 0;
 	}
 	if (isCancel) {   return 0; }
-	FILE *fo = my_oxfopen(fn, "wb");
+	UniqueFile fo = my_oxfopen_unique(fn, "wb");
 	if (!fo) ERR_EXIT("fopen(dump) failed\n");
 
 	unsigned long long time_start = GetTickCount64();
 	for (offset = start; (n64 = start + len - offset); ) {
 		uint32_t *data = (uint32_t *)io->temp_buf;
 		n = (uint32_t)(n64 > step ? step : n64);
-		if (isCancel) { fclose(fo); return offset - start; }
+		if (isCancel) {return offset - start; }
 		WRITE32_LE(data, n);
 		WRITE32_LE(data + 1, offset);
 		t32 = offset >> 32;
@@ -501,7 +507,7 @@ uint64_t dump_partition(spdio_t *io,
 		nread = READ16_BE(io->raw_buf + 2);
 		if (n < nread)
 			ERR_EXIT("excepted length\n");
-		if (fwrite(io->raw_buf + 4, 1, nread, fo) != nread)
+		if (fwrite(io->raw_buf + 4, 1, nread, fo.get()) != nread)
 			ERR_EXIT("fwrite(dump) failed\n");
 		print_progress_bar(io,offset + nread - start, len, time_start);
 		offset += nread;
@@ -526,7 +532,6 @@ uint64_t dump_partition(spdio_t *io,
 		name, (long long)start, (long long)len,
 		(long long)(offset - start));
 	DEG_LOG(I, "Cost time %.6f seconds", time_spent);
-	fclose(fo);
 
 	set_progress_desc(nullptr);
 
@@ -686,8 +691,8 @@ int scan_xml_partitions(spdio_t *io, const char *fn, uint8_t *buf, size_t buf_si
 
 static int& selected_ab = g_app_state.flash.selected_ab;
 int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
-	FILE *fp = my_oxfopen("pgpt.bin", "rb");
-	if (fp == nullptr) {
+	UniqueFile fp = my_oxfopen_unique("pgpt.bin", "rb");
+	if (!fp) {
 		return -1;
 	}
 	efi_header header;
@@ -697,9 +702,8 @@ int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
 	int found = 0;
 
 	while (sector_index < MAX_SECTORS) {
-		bytes_read = fread(buffer, 1, SECTOR_SIZE, fp);
+		bytes_read = fread(buffer, 1, SECTOR_SIZE, fp.get());
 		if (bytes_read != SECTOR_SIZE) {
-			fclose(fp);
 			return -1;
 		}
 		if (memcmp(buffer, "EFI PART", 8) == 0) {
@@ -711,7 +715,6 @@ int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
 	}
 
 	if (found == 0) {
-		fclose(fp);
 		return -1;
 	}
 	else {
@@ -721,18 +724,16 @@ int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
 	int real_SECTOR_SIZE = SECTOR_SIZE * sector_index;
 	efi_entry *entries = NEWN efi_entry[header.number_of_partition_entries * sizeof(efi_entry)];
 	if (entries == nullptr) {
-		fclose(fp);
 		return -1;
 	}
-	fseek(fp, (long)header.partition_entry_lba * real_SECTOR_SIZE, SEEK_SET);
-	bytes_read = fread(entries, 1, header.number_of_partition_entries * sizeof(efi_entry), fp);
+	fseek(fp.get(), (long)header.partition_entry_lba * real_SECTOR_SIZE, SEEK_SET);
+	bytes_read = fread(entries, 1, header.number_of_partition_entries * sizeof(efi_entry), fp.get());
 	if (bytes_read != (int)(header.number_of_partition_entries * sizeof(efi_entry)))
 		DEG_LOG(I,"read %d/%d only.", bytes_read, (int)(header.number_of_partition_entries * sizeof(efi_entry)));
-	FILE *fo = nullptr;
+	UniqueFile fo = my_oxfopen_unique(fn_xml, "wb");
 	if (strcmp(fn_xml, "-")) {
-		fo = my_oxfopen(fn_xml, "wb");
 		if (!fo) ERR_EXIT("fopen failed\n");
-		fprintf(fo, "<Partitions>\n");
+		fprintf(fo.get(), "<Partitions>\n");
 	}
 	int n = 0;
 	for (int i = 0; i < header.number_of_partition_entries; i++) {
@@ -750,9 +751,9 @@ int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
 		(*(ptable + i)).size = lba_count * real_SECTOR_SIZE;
 		DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(ptable + i)).name, ((*(ptable + i)).size >> 20));
 		if (fo) {
-			fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(ptable + i)).name);
-			if (i + 1 == n) fprintf(fo, "0x%x\"/>\n", ~0);
-			else fprintf(fo, "%lld\"/>\n", ((*(ptable + i)).size >> 20));
+			fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(ptable + i)).name);
+			if (i + 1 == n) fprintf(fo.get(), "0x%x\"/>\n", ~0);
+			else fprintf(fo.get(), "%lld\"/>\n", ((*(ptable + i)).size >> 20));
 		}
 		if (!selected_ab) {
 			size_t namelen = strlen((*(ptable + i)).name);
@@ -760,11 +761,9 @@ int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
 		}
 	}
 	if (fo) {
-		fprintf(fo, "</Partitions>");
-		fclose(fo);
+		fprintf(fo.get(), "</Partitions>");
 	}
 	delete[](entries);
-	fclose(fp);
 	*part_count_ptr = n;
 	DEG_LOG(I,"standard gpt table saved to pgpt.bin");
 	DEG_LOG(I,"skip saving sprd partition list packet");
@@ -774,7 +773,7 @@ int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
 partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 	long size;
 	unsigned i, n = 0;
-	int ret; FILE *fo = nullptr; uint8_t *p;
+	int ret; UniqueFile fo = nullptr; uint8_t *p;
 	partition_t *ptable = NEWN partition_t[128];
 	if (ptable == nullptr) return nullptr;
 
@@ -807,15 +806,14 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 			delete[](ptable);
 			return nullptr;
 		}
-		FILE *fpkt = my_oxfopen("sprdpart.bin", "wb");
+		UniqueFile fpkt = my_oxfopen_unique("sprdpart.bin", "wb");
 		if (!fpkt) ERR_EXIT("fopen failed\n");
-		fwrite(io->raw_buf + 4, 1, size, fpkt);
-		fclose(fpkt);
+		fwrite(io->raw_buf + 4, 1, size, fpkt.get());
 		n = size / 0x4c;
 		if (strcmp(fn, "-")) {
-			fo = my_oxfopen(fn, "wb");
+			fo = my_oxfopen_unique(fn, "wb");
 			if (!fo) ERR_EXIT("fopen failed\n");
-			fprintf(fo, "<Partitions>\n");
+			fprintf(fo.get(), "<Partitions>\n");
 		}
 		int divisor = 10;
 		DEG_LOG(OP,"detecting sector size");
@@ -838,9 +836,9 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 			(*(ptable + i)).size = (long long)size << (20 - divisor);
 			DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(ptable + i)).name, ((*(ptable + i)).size >> 20));
 			if (fo) {
-				fprintf(fo, "    <Partition id=\"%s\" size=\"", (*(ptable + i)).name);
-				if (i + 1 == n) fprintf(fo, "0x%x\"/>\n", ~0);
-				else fprintf(fo, "%lld\"/>\n", ((*(ptable + i)).size >> 20));
+				fprintf(fo.get(), "    <Partition id=\"%s\" size=\"", (*(ptable + i)).name);
+				if (i + 1 == n) fprintf(fo.get(), "0x%x\"/>\n", ~0);
+				else fprintf(fo.get(), "%lld\"/>\n", ((*(ptable + i)).size >> 20));
 			}
 			if (!selected_ab) {
 				size_t namelen = strlen((*(ptable + i)).name);
@@ -848,8 +846,7 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 			}
 		}
 		if (fo) {
-			fprintf(fo, "</Partitions>\n");
-			fclose(fo);
+			fprintf(fo.get(), "</Partitions>\n");
 		}
 		*part_count_ptr = n;
 		DEG_LOG(W,"Unable to get standard gpt table");
@@ -1273,29 +1270,29 @@ void load_partition(spdio_t *io, const char *name,
 	const char *fn, unsigned step, int CMethod) {
 	uint64_t offset, len, n64;
 	unsigned mode64, n, step0 = step; int ret;
-	FILE *fi;
+	UniqueFile fi;
 	double rtime = get_time();
 	if (strstr(name, "runtimenv")) { erase_partition(io, name, CMethod); return; }
 	if (!strcmp(name, "calinv")) { return; } //skip calinv
 	DEG_LOG(OP, "Start to write partition %s", name);
 	DEG_LOG(I, "Type CTRL + C to cancel...");
 	start_signal();
-	fi = oxfopen(fn, "rb");
+	fi = oxfopen_unique(fn, "rb");
 	if (!fi) ERR_EXIT("fopen(load) failed\n");
 
 	uint8_t header[4], is_simg = 0;
-	if (fread(header, 1, 4, fi) != 4)
+	if (fread(header, 1, 4, fi.get()) != 4)
 		ERR_EXIT("fread(load) failed\n");
 	if (0xED26FF3A == *(uint32_t *)header) is_simg = 1;
-	fseeko(fi, 0, SEEK_END);
-	len = ftello(fi);
-	fseek(fi, 0, SEEK_SET);
+	fseeko(fi.get(), 0, SEEK_END);
+	len = ftello(fi.get());
+	fseek(fi.get(), 0, SEEK_SET);
 	DEG_LOG(I,"File size : 0x%llx\n", (long long)len);
 
 	mode64 = len >> 32;
 	select_partition(io, name, len, mode64, BSL_CMD_START_DATA);
-	if (send_and_check(io)) { fclose(fi); return; }
-	if (isCancel) { fclose(fi); return; }
+	if (send_and_check(io)) { return; }
+	if (isCancel) { return; }
 	unsigned long long time_start = GetTickCount64();
 #if !USE_LIBUSB
 	if (Da_Info.bSupportRawData) {
@@ -1327,7 +1324,7 @@ void load_partition(spdio_t *io, const char *name,
 				// ���� n �����ֵ����ֹ���
 				n = step + 1;
 			}
-			if (fread(rawbuf, 1, n, fi) != n) ERR_EXIT("fread(load) failed\n");
+			if (fread(rawbuf, 1, n, fi.get()) != n) ERR_EXIT("fread(load) failed\n");
 #if USE_LIBUSB
 			int err = libusb_bulk_transfer(io->dev_handle, io->endp_out, rawbuf, n, &ret, io->timeout); //libusb will fail with rawbuf
 			if (err < 0) ERR_EXIT("usb_send failed : %s\n", libusb_error_name(err));
@@ -1348,7 +1345,7 @@ void load_partition(spdio_t *io, const char *name,
 				DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
 				break;
 			}
-			print_progress_bar(io,offset + n, len, time_start);
+			print_progress_bar(io, offset + n, len, time_start);
 		}
 		delete[](rawbuf);
 	}
@@ -1356,9 +1353,9 @@ void load_partition(spdio_t *io, const char *name,
 #endif
 fallback_load:
 		for (offset = 0; (n64 = len - offset); offset += n) {
-			if (isCancel) {fclose(fi); return; }
+			if (isCancel) { return; }
 			n = (unsigned)(n64 > step ? step : n64);
-			if (fread(io->temp_buf, 1, n, fi) != n)
+			if (fread(io->temp_buf, 1, n, fi.get()) != n)
 				ERR_EXIT("fread(load) failed\n");
 			encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
 			send_msg(io);
@@ -1378,7 +1375,6 @@ fallback_load:
 #if !USE_LIBUSB
 	}
 #endif
-	fclose(fi);
 	encode_msg_nocpy(io, BSL_CMD_END_DATA, 0);
 	if (!send_and_check(io)) {
 		double etime = get_time();
@@ -1991,10 +1987,9 @@ void dump_partitions(spdio_t *io, const char *fn, int *nand_info, unsigned step)
         size_t size = 0;
         char* src = (char*)loadfile(fn, &size, 1);
         if (src) {
-            FILE* fo = my_oxfopen(savepath, "wb");
+            UniqueFile fo = my_oxfopen_unique(savepath, "wb");
             if (fo) {
-                fwrite(src, 1, size, fo);
-                fclose(fo);
+                fwrite(src, 1, size, fo.get());
             } else {
                 DEG_LOG(W,"Create dump list failed, skipped.");
             }
@@ -2068,19 +2063,18 @@ int get_nvlist_cfg(spdio_t *io, char *fn)
 {
 	char line[512];
 	unsigned int id = 0;
-	FILE *cfg_fd;
+	UniqueFile cfg_fd = my_oxfopen_unique(fn, "rb");
 
-	if (!(cfg_fd = oxfopen(fn, "rb"))) return 0;
+	if (!cfg_fd) return 0;
 	io->nvid_list = NEWN int[0x10000];
 	if (!io->nvid_list) ERR_EXIT("malloc failed\n");
 	memset(io->nvid_list, 0, 0x10000 * sizeof(int));
-	while (fgets(line, sizeof(line), cfg_fd)) {
+	while (fgets(line, sizeof(line), cfg_fd.get())) {
 		if (line[0] == '#' || line[0] == '\0') continue;
 		if (-1 == sscanf(line, "%*s %x", &id)) continue;
 		io->nvid_list[id] = 1;
 		if (io->verbose) DBG_LOG("saved id 0x%X to list\n", id);
 	}
-	fclose(cfg_fd);
 	io->nvid_list[5] = 1;
 	io->nvid_list[0x179] = 1;
 	io->nvid_list[0x186] = 1;
@@ -2377,11 +2371,10 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 						uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
 						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 						merge_nv(io, a, a_size, b, b_size, c, &c_size);
-						FILE *fi = oxfopen("nvmerged", "wb");
+						UniqueFile fi = my_oxfopen_unique("nvmerged", "wb");
 						if (!fi) ERR_EXIT("fopen failed\n");
-						if (fseek(fi, 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-						if (fwrite(c, 1, c_size, fi) != c_size) ERR_EXIT("fwrite failed\n");
-						fclose(fi);
+						if (fseek(fi.get(), 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+						if (fwrite(c, 1, c_size, fi.get()) != c_size) ERR_EXIT("fwrite failed\n");
 						free(a); free(b); free(c);
 					}
 					free(io->nvid_list);
@@ -2400,11 +2393,10 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 						uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
 						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 						merge_nv(io, a, a_size, b, b_size, c, &c_size);
-						FILE *fi = oxfopen("nvmerged", "wb");
+						UniqueFile fi = my_oxfopen_unique("nvmerged", "wb");
 						if (!fi) ERR_EXIT("fopen failed\n");
-						if (fseek(fi, 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-						if (fwrite(c, 1, c_size, fi) != c_size) ERR_EXIT("fwrite failed\n");
-						fclose(fi);
+						if (fseek(fi.get(), 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+						if (fwrite(c, 1, c_size, fi.get()) != c_size) ERR_EXIT("fwrite failed\n");
 						free(a); free(b); free(c);
 					}
 					free(io->nvid_list);
@@ -2423,11 +2415,10 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 						uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
 						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 						merge_nv(io, a, a_size, b, b_size, c, &c_size);
-						FILE *fi = oxfopen("nvmerged", "wb");
+						UniqueFile fi = my_oxfopen_unique("nvmerged", "wb");
 						if (!fi) ERR_EXIT("fopen failed\n");
-						if (fseek(fi, 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-						if (fwrite(c, 1, c_size, fi) != c_size) ERR_EXIT("fwrite failed\n");
-						fclose(fi);
+						if (fseek(fi.get(), 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+						if (fwrite(c, 1, c_size, fi.get()) != c_size) ERR_EXIT("fwrite failed\n");
 						free(a); free(b); free(c);
 					}
 					free(io->nvid_list);
@@ -2650,19 +2641,18 @@ void w_mem_to_part_offset(spdio_t *io, const char *name, size_t offset, uint8_t 
 	if (savepath[0]) snprintf(fix_fn, sizeof(fix_fn), "%s/%s", savepath, dfile);
 	else strcpy(fix_fn, dfile);
 
-	FILE *fi;
-	if (offset == 0) fi = oxfopen(fix_fn, "wb");
+	UniqueFile fi;
+	if (offset == 0) fi = oxfopen_unique(fix_fn, "wb");
 	else {
 		if (gPartInfo.size != (long long)dump_partition(io, gPartInfo.name, 0, gPartInfo.size, fix_fn, step)) {
 			remove(fix_fn);
 			return;
 		}
-		fi = oxfopen(fix_fn, "rb+");
+		fi = oxfopen_unique(fix_fn, "rb+");
 	}
 	if (!fi) ERR_EXIT("fopen %s failed\n", fix_fn);
-	if (fseek(fi, offset, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-	if (fwrite(mem, 1, length, fi) != length) ERR_EXIT("fwrite failed\n");
-	fclose(fi);
+	if (fseek(fi.get(), offset, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+	if (fwrite(mem, 1, length, fi.get()) != length) ERR_EXIT("fwrite failed\n");
 	load_partition_unify(io, gPartInfo.name, fix_fn, step, CMethod);
 }
 
@@ -2709,11 +2699,10 @@ int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned
 	if (size0 == size1) {
 		if (!strcmp(name0, "vbmeta")) {
 			char ch = '\0';
-			FILE *fi = oxfopen(fn, "rb+");
+			UniqueFile fi = my_oxfopen_unique(fn, "rb+");
 			if (!fi) { DEG_LOG(E,"fopen %s failed\n", fn); return 1; }
-			if (fseek(fi, 0x7B, SEEK_SET) != 0) { DEG_LOG(E,"fseek failed"); fclose(fi); return 1; }
-			if (fwrite(&ch, 1, 1, fi) != 1) { DEG_LOG(E,"fwrite failed\n"); fclose(fi); return 1; }
-			fclose(fi);
+			if (fseek(fi.get(), 0x7B, SEEK_SET) != 0) { DEG_LOG(E,"fseek failed"); return 1; }
+			if (fwrite(&ch, 1, 1, fi.get()) != 1) { DEG_LOG(E,"fwrite failed\n"); return 1; }
 		}
 		load_partition(io, name1, fn, step, CMethod);
 		return 2;

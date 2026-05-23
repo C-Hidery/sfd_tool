@@ -89,6 +89,97 @@ public:
         auto it = attributes.find(name);
         return (it != attributes.end()) ? it->second : defaultValue;
     }
+    void setAttribute(const std::string& key, const std::string& value) {
+        attributes[key] = value;
+    }
+
+    void setText(const std::string& newText) {
+        text = newText;
+    }
+
+    void addChild(std::shared_ptr<XmlNode> child) {
+        child->parent = this;
+        children.push_back(child);
+    }
+    void removeChild(const std::string& tagName) {
+        children.erase(std::remove_if(children.begin(), children.end(),
+            [&](auto& child) { return child->name == tagName; }), children.end());
+    }
+    void removeSelf() {
+        if (parent) {
+            auto& siblings = parent->children;
+            siblings.erase(std::remove_if(siblings.begin(), siblings.end(),
+                [this](const std::shared_ptr<XmlNode>& child) {
+                    return child.get() == this;
+                }), siblings.end());
+        }
+    }
+    void removeChild(std::shared_ptr<XmlNode> child) {
+        children.erase(std::remove(children.begin(), children.end(), child), children.end());
+    }
+    void removeDescendants(const std::string& tagName) {
+        children.erase(std::remove_if(children.begin(), children.end(),
+            [&](auto& child) {
+                if (child->name == tagName) return true;
+                child->removeDescendants(tagName);
+                return false;
+            }), children.end());
+    }
+    void removeChildIf(std::function<bool(const std::shared_ptr<XmlNode>&)> predicate) {
+        children.erase(std::remove_if(children.begin(), children.end(), predicate), children.end());
+    }
+    bool hasChild(const std::string& tagName) const {
+        for (auto& child : children) {
+            if (child->name == tagName) return true;
+        }
+        return false;
+    }
+    bool hasDescendant(const std::string& tagName) const {
+        if (name == tagName) return true;
+        for (auto& child : children) {
+            if (child->hasDescendant(tagName)) return true;
+        }
+        return false;
+    }
+    bool hasAttribute(const std::string& attrName) const {
+        return attributes.find(attrName) != attributes.end();
+    }
+    bool hasAttributeWithValue(const std::string& attrName, const std::string& value) const {
+        auto it = attributes.find(attrName);
+        return (it != attributes.end()) && (it->second == value);
+    }
+    bool hasChildWithAttribute(const std::string& tagName, const std::string& attrName, const std::string& value) const {
+        for (auto& child : children) {
+            if (child->name == tagName && child->hasAttributeWithValue(attrName, value)) return true;
+        }
+        return false;
+    }
+    bool hasDescendantWithAttribute(const std::string& tagName, const std::string& attrName, const std::string& value) const {
+        if (name == tagName && hasAttributeWithValue(attrName, value)) return true;
+        for (auto& child : children) {
+            if (child->hasDescendantWithAttribute(tagName, attrName, value)) return true;
+        }
+        return false;
+    }
+    bool hasChildWithText(const std::string& tagName, const std::string& textValue) const {
+        for (auto& child : children) {
+            if (child->name == tagName && child->getTextContent() == textValue) return true;
+        }
+        return false;
+    }
+    bool hasDescendantWithText(const std::string& tagName, const std::string& textValue) const {
+        if (name == tagName && getTextContent() == textValue) return true;
+        for (auto& child : children) {
+            if (child->hasDescendantWithText(tagName, textValue)) return true;
+        }
+        return false;
+    }
+    bool saveXmlFile(const std::string& filename) const {
+        std::ofstream file(filename);
+        if (!file.is_open()) return false;
+        file << toXml();
+        return true;
+    }
 };
 
 // ==================== XML 解析器类 ====================

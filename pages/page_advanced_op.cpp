@@ -75,11 +75,11 @@ static void on_button_clicked_start_repart(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
 	GtkWidget *parent = helper.getWidget("main_window");
 	std::string filePath = helper.getEntryText(helper.getWidget("xml_path"));
-	FILE *fi = oxfopen(filePath.c_str(), "r");
-	if (fi == nullptr) {
+	UniqueFile fi = oxfopen_unique(filePath.c_str(), "r");
+	if (!fi) {
 		DEG_LOG(E, "File does not exist.");
 		return;
-	} else fclose(fi);
+	}
 	repartition(io, filePath.c_str());
 	showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("Repartition completed!"));
 	refresh_partition_list(helper);

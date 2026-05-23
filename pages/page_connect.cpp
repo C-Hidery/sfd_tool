@@ -139,11 +139,11 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 		bottom_bar_set_status(dtxt + " -> FDL Executing");
 		//Send fdl2
 		if (g_app_state.device.device_mode == SPRD3) {
-			FILE *fi = oxfopen(fdl_path, "r");
-			if (fi == nullptr) {
+			UniqueFile fi = oxfopen_unique(fdl_path, "r");
+			if (!fi) {
 				DEG_LOG(W, "File does not exist.");
 				return;
-			} else fclose(fi);
+			}
 			if (!isKickMode) send_file(io, fdl_path, fdl_addr, end_data, blk_size ? blk_size : 528, 0, 0);
 			else send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
 		} else {
@@ -152,11 +152,11 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 				if (result) {
 					DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
 				} else {
-					FILE *fi = oxfopen(fdl_path, "r");
-					if (fi == nullptr) {
+					UniqueFile fi = oxfopen_unique(fdl_path, "r");
+					if (!fi) {
 						DEG_LOG(W, "File does not exist.");
 						return;
-					} else fclose(fi);
+					}
 					send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
 				}
 				
@@ -338,7 +338,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 		if(!(helper.getSwitchState(helper.getWidget("exec_addr"))) && g_app_state.device.device_mode == SPRD3)
 		{
 			// 1) 保留原有 fdl_info.json 写入逻辑，兼容旧行为
-			FILE* json_file = oxfopen("fdl_info.json", "w");
+			UniqueFile json_file = oxfopen_unique("fdl_info.json", "w");
 			if (json_file)
 			{
 				json j = {
@@ -347,8 +347,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 					{"fdl2_path", fdl2_path_json},
 					{"fdl2_addr", fdl2_addr_json}
 				};
-				fprintf(json_file, "%s\n", j.dump().c_str());
-				fclose(json_file);
+				fprintf(json_file.get(), "%s\n", j.dump().c_str());
 			}
 
 			// 2) 同步写入 AppConfig，交由 ConfigService 管理“最近使用的 FDL”
@@ -370,7 +369,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 		std::string dtxt = helper.getLabelText(helper.getWidget("con"));
 		bottom_bar_set_status(dtxt + " -> FDL Executing");
 		std::thread([helper, fdl_path, fdl_addr]() mutable {
-			FILE* fi = oxfopen(fdl_path, "r");
+			UniqueFile fi = oxfopen_unique(fdl_path, "r");
 			GtkWidget* cveSwitch = helper.getWidget("exec_addr");
 			GtkWidget* cveAddr = helper.getWidget("cve_addr");
 			GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
@@ -379,10 +378,10 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 			const char* cve_addr = helper.getEntryText(cveAddrC);
 
 			if (g_app_state.device.device_mode == SPRD3) {
-				if (fi == nullptr) {
+				if (!fi) {
 					DEG_LOG(W, "File does not exist.\n");
 					return;
-				} else fclose(fi);
+				}
 				send_file(io, fdl_path, fdl_addr, end_data, 528, 0, 0);
 				if (cve_addr && strlen(cve_addr) > 0 && isCve) {
 					bool isCVEv2 = helper.getSwitchState(helper.getWidget("cve_v2"));
@@ -402,13 +401,13 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 							encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
 							if (send_and_check(io)) ERR_EXIT("CVE v2 failed");;
 						}
-						FILE* fi = oxfopen(execfile, "rb");
+						UniqueFile fi = oxfopen_unique(execfile, "rb");
 						if (fi) {
-							fseek(fi, 0, SEEK_END);
-							n = ftell(fi);
-							fseek(fi, 0, SEEK_SET);
-							execsize = fread(io->temp_buf, 1, n, fi);
-							fclose(fi);
+							fseek(fi.get(), 0, SEEK_END);
+							n = ftell(fi.get());
+							fseek(fi.get(), 0, SEEK_SET);
+							execsize = fread(io->temp_buf, 1, n, fi.get());
+							fi.reset();
 						}
 						encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
 						if (send_and_check(io)) ERR_EXIT("CVE v2 failed");;
@@ -423,7 +422,6 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 					bool result = showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Device can be booted without FDL in SPRD4 mode, continue?"));
 					if (result) {
 						DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
-						fclose(fi);
 						encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
 						if (send_and_check(io)) ERR_EXIT("FDL exec failed");
 						// delete[](execfile);
@@ -432,7 +430,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 						if (fi == nullptr) {
 							DEG_LOG(W, "File does not exist.\n");
 							return;
-						} else fclose(fi);
+						}
 						send_file(io, fdl_path, fdl_addr, end_data, 528, 0, 0);
 						if (cve_addr && strlen(cve_addr) > 0 && isCve) {
 							bool isCVEv2 = helper.getSwitchState(helper.getWidget("cve_v2"));
@@ -452,13 +450,12 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 									encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
 									if (send_and_check(io)) ERR_EXIT("CVE V2 failed");
 								}
-								FILE* fi = oxfopen(execfile, "rb");
+								UniqueFile fi = oxfopen_unique(execfile, "rb");
 								if (fi) {
-									fseek(fi, 0, SEEK_END);
-									n = ftell(fi);
-									fseek(fi, 0, SEEK_SET);
-									execsize = fread(io->temp_buf, 1, n, fi);
-									fclose(fi);
+									fseek(fi.get(), 0, SEEK_END);
+									n = ftell(fi.get());
+									fseek(fi.get(), 0, SEEK_SET);
+									execsize = fread(io->temp_buf, 1, n, fi.get());
 								}
 								encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
 								if (send_and_check(io)) ERR_EXIT("CVE V2 failed");;
