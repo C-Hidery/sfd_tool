@@ -2422,6 +2422,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 						if (!fi) ERR_EXIT("fopen failed\n");
 						if (fseek(fi.get(), 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
 						if (fwrite(c, 1, c_size, fi.get()) != c_size) ERR_EXIT("fwrite failed\n");
+						fi.reset();
 						free(a); free(b); free(c);
 					}
 					free(io->nvid_list);
@@ -2444,6 +2445,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 						if (!fi) ERR_EXIT("fopen failed\n");
 						if (fseek(fi.get(), 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
 						if (fwrite(c, 1, c_size, fi.get()) != c_size) ERR_EXIT("fwrite failed\n");
+						fi.reset();
 						free(a); free(b); free(c);
 					}
 					free(io->nvid_list);
@@ -2466,6 +2468,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 						if (!fi) ERR_EXIT("fopen failed\n");
 						if (fseek(fi.get(), 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
 						if (fwrite(c, 1, c_size, fi.get()) != c_size) ERR_EXIT("fwrite failed\n");
+						fi.reset();
 						free(a); free(b); free(c);
 					}
 					free(io->nvid_list);
@@ -2700,6 +2703,7 @@ void w_mem_to_part_offset(spdio_t *io, const char *name, size_t offset, uint8_t 
 	if (!fi) ERR_EXIT("fopen %s failed\n", fix_fn);
 	if (fseek(fi.get(), offset, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
 	if (fwrite(mem, 1, length, fi.get()) != length) ERR_EXIT("fwrite failed\n");
+	fi.reset();
 	load_partition_unify(io, gPartInfo.name, fix_fn, step, CMethod);
 }
 
