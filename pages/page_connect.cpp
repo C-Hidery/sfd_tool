@@ -879,8 +879,8 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 				}
 			}
 		}
-		else if (g_app_state.device.device_stage == FDL2) bottom_bar_set_status("Ready");
-		bottom_bar_set_status("Connected");
+		if (g_app_state.device.device_stage == FDL2) bottom_bar_set_status("Ready");
+		else bottom_bar_set_status("Connected");
 		Enable_Startup(helper);
 		update_mode_label_from_device_service(helper);
 	},GTK_WINDOW(helper.getWidget("main_window")));
