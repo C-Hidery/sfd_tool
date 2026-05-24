@@ -548,10 +548,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	bottom_bar_set_status("Waiting for connection...");
 	if (argc > 1 && !strcmp(argv[1], "--reconnect")) {
 		stage = 99;
-		gui_idle_call_wait_drag([helper]() {
-			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("You have entered Reconnect Mode, which only supports compatibility-method partition list retrieval, and [storage mode/slot mode] can not be gotten!"));
-		},GTK_WINDOW(helper.getWidget("main_window")));
-
+		showInfoDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("You have entered Reconnect Mode, which only supports compatibility-method partition list retrieval, and [storage mode/slot mode] can not be gotten!"));
 	}
 #ifdef __linux__
 	check_root_permission(helper);
