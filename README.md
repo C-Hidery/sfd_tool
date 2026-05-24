@@ -47,8 +47,8 @@ Then make:
 make
 # Termux
 make termux
-# Locate
-make locates
+# Locales i18n
+make locales
 ```
 
 Use on Termux(No GUI):
