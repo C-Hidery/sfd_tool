@@ -71,8 +71,8 @@ pkg install termux-api libusb clang git pkg-config gtk3 glib pango libcairo gdk-
 make
 # Termux
 make termux
-# Locate
-make locates
+# Locales 国际化
+make locales
 ```
 
 在Termux上使用（无GUI）:
