@@ -70,10 +70,18 @@ static std::string get_effective_lc_all_from_ui_language(const std::string& ui_l
         return std::string();
     }
     if (ui_language == "zh_CN") {
+#ifndef _WIN32
         return "zh_CN.UTF-8";
-    }
+#else
+		return "zh_CN";
+#endif
+	}
     if (ui_language == "en_US") {
+#ifndef _WIN32
         return "en_US.UTF-8";
+#else
+		return "en_US";
+#endif
     }
     // 未知值：退回系统默认
     return std::string();
@@ -661,10 +669,8 @@ int main(int argc, char** argv) {
 	signal(SIGFPE, crash_handler);    // 浮点异常
 	signal(SIGILL, crash_handler);    // 非法指令
 #ifdef __linux__
-	signal(SIGKILL, crash_handler);   // 杀死进程(Linux)
 	signal(SIGIOT, crash_handler);    // IOT Trap (Linux)
 #endif
-	signal(SIGTERM, crash_handler);   // 终止信号
 	if (argc > 1 && !strcmp(argv[1], "--no-gui")) {
 		// Call the console version of main
 		return main_console(argc - 1, argv + 1); // Skip the first argument
