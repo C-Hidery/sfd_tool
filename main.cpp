@@ -675,6 +675,7 @@ int main(int argc, char** argv) {
 #ifdef _WIN32
     g_setenv("GTK_USE_PORTAL", "1", TRUE);
     g_setenv("GIO_USE_VFS", "local", TRUE);
+	g_setenv("GIO_USE_VOLUME_MONITOR", "win32", TRUE);
 #endif
 	if (argc > 1 && !strcmp(argv[1], "--no-gui")) {
 		// Call the console version of main
