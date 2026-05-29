@@ -150,7 +150,6 @@ For  `dis_avb_tos`, flash back `trustos-orig.bin`
 - **Manual low‑level operations**
   - Read/write by address, execute code at arbitrary addresses, etc.
 - **Advanced maintenance tools**
-  - AVB and boot‑chain related operations.
   - Other expert‑only functions for debugging and recovery.
 - **CLI mode**
   - Run without GUI using `--no-gui`.
