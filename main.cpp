@@ -668,9 +668,6 @@ int main(int argc, char** argv) {
     signal(SIGABRT, crash_handler);   // 断言失败
 	signal(SIGFPE, crash_handler);    // 浮点异常
 	signal(SIGILL, crash_handler);    // 非法指令
-#ifdef __linux__
-	signal(SIGIOT, crash_handler);    // IOT Trap (Linux)
-#endif
 // 解决Windows OneDrive的按需同步导致的文件（夹）访问错误
 #ifdef _WIN32
     g_setenv("GTK_USE_PORTAL", "1", TRUE);
