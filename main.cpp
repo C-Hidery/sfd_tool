@@ -671,6 +671,11 @@ int main(int argc, char** argv) {
 #ifdef __linux__
 	signal(SIGIOT, crash_handler);    // IOT Trap (Linux)
 #endif
+// 解决Windows OneDrive的按需同步导致的文件（夹）访问错误
+#ifdef _WIN32
+    g_setenv("GTK_USE_PORTAL", "1", TRUE);
+    g_setenv("GIO_USE_VFS", "local", TRUE);
+#endif
 	if (argc > 1 && !strcmp(argv[1], "--no-gui")) {
 		// Call the console version of main
 		return main_console(argc - 1, argv + 1); // Skip the first argument
