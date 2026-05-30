@@ -139,9 +139,9 @@ UniqueFile my_oxfopen_unique(const char* fn, const char* mode) {
 }
 
 // EnhancedFile 实现
-EnhancedFile::EnhancedFile(FILE* f) noexcept : file(f) {}
+EnhancedFile::EnhancedFile(FILE* f) noexcept { file = UniqueFile(f); }
 
-EnhancedFile::EnhancedFile(UniqueFile&& f) noexcept : file(std::move(f)) {}
+EnhancedFile::EnhancedFile(UniqueFile&& f) noexcept { file = std::move(f); }
 
 EnhancedFile::operator bool() const noexcept {
     return file != nullptr;
@@ -175,9 +175,9 @@ void EnhancedFile::close() noexcept {
     file.reset();
 }
 
-bool EnhancedFile::flush() noexcept {
-    if (file) return fflush(file.get()) == 0;
-    return false;
+int EnhancedFile::flush() noexcept {
+    if (file) return fflush(file.get());
+    return -1;
 }
 
 long EnhancedFile::tell() const noexcept {
@@ -190,24 +190,24 @@ long EnhancedFile::tello() const noexcept {
     return -1L;
 }
 
-bool EnhancedFile::seek(long offset, int origin) noexcept {
-    if (file) return fseek(file.get(), offset, origin) == 0;
-    return false;
+int EnhancedFile::seek(long offset, int origin) noexcept {
+    if (file) return fseek(file.get(), offset, origin);
+    return -1;
 }
 
-bool EnhancedFile::seeko(long offset, int origin) noexcept {
-    if (file) return fseeko(file.get(), offset, origin) == 0;
-    return false;
+int EnhancedFile::seeko(long offset, int origin) noexcept {
+    if (file) return fseeko(file.get(), offset, origin);
+    return -1;
 }
 
-bool EnhancedFile::eof() const noexcept {
-    if (file) return feof(file.get()) != 0;
-    return true;
+int EnhancedFile::eof() const noexcept {
+    if (file) return feof(file.get());
+    return -1;
 }
 
-bool EnhancedFile::error() const noexcept {
-    if (file) return ferror(file.get()) != 0;
-    return true;
+int EnhancedFile::error() const noexcept {
+    if (file) return ferror(file.get());
+    return -1;
 }
 
 void EnhancedFile::clearerr() noexcept {

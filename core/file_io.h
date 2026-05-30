@@ -69,14 +69,14 @@ public:
     UniqueFile release() noexcept;
     void reset(FILE* f = nullptr) noexcept;
     void close() noexcept;
-    bool flush() noexcept;
+    int flush() noexcept;
     long tell() const noexcept;
     long tello() const noexcept;
-    bool seek(long offset, int origin) noexcept;
-    bool seeko(long offset, int origin) noexcept;
+    int seek(long offset, int origin) noexcept;
+    int seeko(long offset, int origin) noexcept;
     void rewind() noexcept;
-    bool eof() const noexcept;
-    bool error() const noexcept;
+    int eof() const noexcept;
+    int error() const noexcept;
     void clearerr() noexcept;
     
     // 读写操作
