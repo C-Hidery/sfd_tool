@@ -57,7 +57,6 @@ uint8_t *loadfile(const char *fn, size_t *num, size_t extra) {
     size_t n = 0, j = 0;
     uint8_t *buf = nullptr;
     EnhancedFile fi = oxfopen_enhanced(fn, "rb");
-    
     if (fi) {
         if (fi.seek(0, SEEK_END) == 0) {
             long n_long = fi.tell();
@@ -73,7 +72,6 @@ uint8_t *loadfile(const char *fn, size_t *num, size_t extra) {
             }
         }
     }
-    
     if (num) *num = j;
     return buf;
 }

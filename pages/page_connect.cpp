@@ -144,6 +144,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 				DEG_LOG(W, "File does not exist.");
 				return;
 			}
+			fi.close();
 			if (!isKickMode) send_file(io, fdl_path, fdl_addr, end_data, blk_size ? blk_size : 528, 0, 0);
 			else send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
 		} else {
@@ -381,7 +382,8 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 				if (!fi) {
 					DEG_LOG(W, "File does not exist.\n");
 					return;
-				} else fi.close();
+				}
+				fi.close();
 				send_file(io, fdl_path, fdl_addr, end_data, 528, 0, 0);
 				if (cve_addr && strlen(cve_addr) > 0 && isCve) {
 					bool isCVEv2 = helper.getSwitchState(helper.getWidget("cve_v2"));
