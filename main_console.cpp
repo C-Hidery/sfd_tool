@@ -946,6 +946,7 @@ int main_console(int argc, char** argv) {
 						argv += argchange;
 						continue;
 					}
+					fi.close();
 					if (cve_v2) {
 						size_t execsize = send_file(io, fn, addr, 0, 528, 0, 0);
 						int n, gapsize = exec_addr - addr - execsize;
