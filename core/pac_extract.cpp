@@ -763,10 +763,10 @@ bool pac_extract(const char* fn, const char* floder)
 		DEG_LOG(E, "No partition info found in xml");
 		return false;
     }
-	UniqueFile fi = oxfopen_unique("partitions_temp.xml","w");
+	EnhancedFile fi = oxfopen_enhanced("partitions_temp.xml","w");
 	if(fi) {
-		fwrite(partxml.c_str(), 1, partxml.size(), fi.get());
-		fi.reset();
+		fi << partxml;
+		fi.close();
 	}
 	else {
 		DEG_LOG(E, "Failed to create temporary partitions XML file.");
@@ -1016,12 +1016,13 @@ bool pac_flash(spdio_t* io, const char* floder)
     
     auto into_func = [=]() mutable
     {
-                UniqueFile fi = oxfopen_unique(fdl1_path.c_str(), "r");
+                EnhancedFile fi = oxfopen_enhanced(fdl1_path.c_str(), "r");
 				if (!fi) {
 					DEG_LOG(W, "File does not exist.\n");
 					if (isHelperInit) gui_idle_call_wait_drag([](){
 						showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
 					}, GTK_WINDOW(helper.getWidget("main_window")));
+                    fi.close();
                     return;
                 }
 				send_file(io, fdl1_path.c_str(), fdl1_base_addr, 0, 528, 0, 0);
@@ -1200,11 +1201,11 @@ bool pac_flash(spdio_t* io, const char* floder)
                         std::istreambuf_iterator<char>());
 
         std::string partxml = ExtractPartitionsWithTags(content);
-        UniqueFile f1 = oxfopen_unique("repartition_xml_temp.xml", "w");
+        EnhancedFile f1 = oxfopen_enhanced("repartition_xml_temp.xml", "w");
         if (!f1) ERR_EXIT("Failed to create temporary repartition XML file.\n");
         if(f1) {
-		    fwrite(partxml.c_str(), 1, partxml.size(), f1.get());
-		    f1.reset();
+		    f1 << partxml;
+            f1.close();
 	    }
         uint8_t* buf = io->temp_buf;
         int n = scan_xml_partitions(io, "repartition_xml_temp.xml", buf, 0xffff);

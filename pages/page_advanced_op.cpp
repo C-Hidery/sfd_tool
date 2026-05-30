@@ -75,7 +75,7 @@ static void on_button_clicked_start_repart(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
 	GtkWidget *parent = helper.getWidget("main_window");
 	std::string filePath = helper.getEntryText(helper.getWidget("xml_path"));
-	UniqueFile fi = oxfopen_unique(filePath.c_str(), "r");
+	EnhancedFile fi = oxfopen_enhanced(filePath.c_str(), "r");
 	if (!fi) {
 		DEG_LOG(E, "File does not exist.");
 		return;

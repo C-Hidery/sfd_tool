@@ -139,7 +139,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 		bottom_bar_set_status(dtxt + " -> FDL Executing");
 		//Send fdl2
 		if (g_app_state.device.device_mode == SPRD3) {
-			UniqueFile fi = oxfopen_unique(fdl_path, "r");
+			EnhancedFile fi = oxfopen_enhanced(fdl_path, "r");
 			if (!fi) {
 				DEG_LOG(W, "File does not exist.");
 				return;
@@ -152,7 +152,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 				if (result) {
 					DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
 				} else {
-					UniqueFile fi = oxfopen_unique(fdl_path, "r");
+					EnhancedFile fi = oxfopen_enhanced(fdl_path, "r");
 					if (!fi) {
 						DEG_LOG(W, "File does not exist.");
 						return;
@@ -338,7 +338,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 		if(!(helper.getSwitchState(helper.getWidget("exec_addr"))) && g_app_state.device.device_mode == SPRD3)
 		{
 			// 1) 保留原有 fdl_info.json 写入逻辑，兼容旧行为
-			UniqueFile json_file = oxfopen_unique("fdl_info.json", "w");
+			EnhancedFile json_file = oxfopen_enhanced("fdl_info.json", "w");
 			if (json_file)
 			{
 				json j = {
@@ -347,7 +347,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 					{"fdl2_path", fdl2_path_json},
 					{"fdl2_addr", fdl2_addr_json}
 				};
-				fprintf(json_file.get(), "%s\n", j.dump().c_str());
+				json_file << j.dump();
 			}
 
 			// 2) 同步写入 AppConfig，交由 ConfigService 管理“最近使用的 FDL”

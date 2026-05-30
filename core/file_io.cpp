@@ -521,47 +521,83 @@ EnhancedFile& operator>>(EnhancedFile& ef, std::string& str) {
 }
 
 EnhancedFile& operator>>(EnhancedFile& ef, int& val) {
-    if (ef) fscanf(ef.get(), "%d", &val);
+    if (ef) {
+        if (fscanf(ef.get(), "%d", &val) != 1) {
+            val = 0;  // 读取失败时设置默认值
+        }
+    }
     return ef;
 }
 
 EnhancedFile& operator>>(EnhancedFile& ef, unsigned int& val) {
-    if (ef) fscanf(ef.get(), "%u", &val);
+    if (ef) {
+        if (fscanf(ef.get(), "%u", &val) != 1) {
+            val = 0;
+        }
+    }
     return ef;
 }
 
 EnhancedFile& operator>>(EnhancedFile& ef, long& val) {
-    if (ef) fscanf(ef.get(), "%ld", &val);
+    if (ef) {
+        if (fscanf(ef.get(), "%ld", &val) != 1) {
+            val = 0;
+        }
+    }
     return ef;
 }
 
 EnhancedFile& operator>>(EnhancedFile& ef, unsigned long& val) {
-    if (ef) fscanf(ef.get(), "%lu", &val);
+    if (ef) {
+        if (fscanf(ef.get(), "%lu", &val) != 1) {
+            val = 0;
+        }
+    }
     return ef;
 }
 
 EnhancedFile& operator>>(EnhancedFile& ef, long long& val) {
-    if (ef) fscanf(ef.get(), "%lld", &val);
+    if (ef) {
+        if (fscanf(ef.get(), "%lld", &val) != 1) {
+            val = 0;
+        }
+    }
     return ef;
 }
 
 EnhancedFile& operator>>(EnhancedFile& ef, unsigned long long& val) {
-    if (ef) fscanf(ef.get(), "%llu", &val);
+    if (ef) {
+        if (fscanf(ef.get(), "%llu", &val) != 1) {
+            val = 0;
+        }
+    }
     return ef;
 }
 
 EnhancedFile& operator>>(EnhancedFile& ef, float& val) {
-    if (ef) fscanf(ef.get(), "%f", &val);
+    if (ef) {
+        if (fscanf(ef.get(), "%f", &val) != 1) {
+            val = 0.0f;
+        }
+    }
     return ef;
 }
 
 EnhancedFile& operator>>(EnhancedFile& ef, double& val) {
-    if (ef) fscanf(ef.get(), "%lf", &val);
+    if (ef) {
+        if (fscanf(ef.get(), "%lf", &val) != 1) {
+            val = 0.0;
+        }
+    }
     return ef;
 }
 
 EnhancedFile& operator>>(EnhancedFile& ef, long double& val) {
-    if (ef) fscanf(ef.get(), "%Lf", &val);
+    if (ef) {
+        if (fscanf(ef.get(), "%Lf", &val) != 1) {
+            val = 0.0L;
+        }
+    }
     return ef;
 }
 
