@@ -130,7 +130,7 @@ static int check_path(char *path) {
 
 class Unpac {
 private:
-    FILE* fi;
+    EnhancedFile fi;
     sprd_head_t head;
     char str_buf[257];
     unsigned chunk;
@@ -148,7 +148,7 @@ public:
 
     ~Unpac() {
         if (buf) free(buf);
-        if (fi) fclose(fi);
+        if (fi) fi.close();
     }
 
     void setDirectory(const char* directory) {
@@ -184,7 +184,7 @@ public:
     }
 
     bool openPacFile(const char* filename) {
-        fi = fopen(filename, "rb");
+        fi = my_oxfopen_enhanced(filename, "rb");
         if (!fi) {
             printf("fopen(input) failed\n");
             return false;
@@ -334,12 +334,12 @@ bool Unpac::extractFiles() {
 
         if (argc && j == argc) continue;
 
-        FILE* fo; uint64_t l; uint32_t n;
+        EnhancedFile fo; uint64_t l; uint32_t n;
 
         CONV_STR(file.name);
         printf("%s\n", str_buf);
 
-        if (fseeko(fi, pac_offset, SEEK_SET)) {
+        if (fi.seeko(pac_offset, SEEK_SET)) {
             printf("fseek failed\n");
             return false;
         }
@@ -357,7 +357,7 @@ bool Unpac::extractFiles() {
             }
         }
 
-        fo = fopen(str_buf, "wb");
+        fo = oxfopen_enhanced(str_buf, "wb");
         if (!fo) {
             printf("fopen(output) failed\n");
             return false;
@@ -367,11 +367,11 @@ bool Unpac::extractFiles() {
         for (; l; l -= n) {
             n = (uint32_t)(l > chunk ? chunk : l);
             READ(buf, n, "chunk");
-            fwrite(buf, n, 1, fo);
+            fo.write(buf, n, 1);
         }
-        fclose(fo);
+        fo.close();
 
-        if (fseek(fi, sizeof(head) + (i + 1) * sizeof(sprd_file_t), SEEK_SET)) {
+        if (fi.seek(sizeof(head) + (i + 1) * sizeof(sprd_file_t), SEEK_SET)) {
             printf("fseek failed\n");
             return false;
         }
@@ -422,7 +422,7 @@ sfd::Result<void> Unpac::checkCrc_result() {
         return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "unexpected pac size");
     }
 
-    if (fseeko(fi, sizeof(head), SEEK_SET)) {
+    if (fi.seeko(sizeof(head), SEEK_SET)) {
         printf("fseeko failed in checkCrc\n");
         return sfd::Result<void>::error(sfd::ErrorCode::IoError, "fseeko failed in checkCrc");
     }
@@ -438,7 +438,7 @@ sfd::Result<void> Unpac::checkCrc_result() {
     l -= sizeof(head);
     while (l) {
         uint32_t n = l > chunk_size ? chunk_size : l;
-        size_t read_count = fread(local_buf, 1, n, fi);
+        size_t read_count = fi.read(local_buf, 1, n);
         if (read_count != n) {
             printf("fread failed in checkCrc\n");
             free(local_buf);
@@ -480,8 +480,7 @@ void Unpac::close() {
         buf = NULL;
     }
     if (fi) {
-        fclose(fi);
-        fi = NULL;
+        fi.close();
     }
 }
 static sfd::Result<void> parse_partitions_xml_result(const char* temp_xml_path,
@@ -885,7 +884,7 @@ std::string findBaseForID(const std::string& filename, const std::string& target
     }
     std::stringstream buffer;
     buffer << file.rdbuf();
-    (file.close)(); // _close宏定义阻止
+    file.close();
     
     XmlParser parser;
     auto root = parser.parseString(buffer.str());

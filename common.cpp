@@ -56,18 +56,18 @@ int check_confirm(const char *name) {
 uint8_t *loadfile(const char *fn, size_t *num, size_t extra) {
     size_t n = 0, j = 0;
     uint8_t *buf = nullptr;
-    UniqueFile fi = oxfopen_unique(fn, "rb");
+    EnhancedFile fi = oxfopen_enhanced(fn, "rb");
     
     if (fi) {
-        if (fseek(fi.get(), 0, SEEK_END) == 0) {
-            long n_long = ftell(fi.get());
+        if (fi.seek(0, SEEK_END) == 0) {
+            long n_long = fi.tell();
             if (n_long > 0) { 
                 n = static_cast<size_t>(n_long);
                 if (n <= SIZE_MAX - extra) {
-                    rewind(fi.get());
+                    fi.rewind();
                     buf = NEWN uint8_t[n + extra];
                     if (buf) {
-                        j = fread(buf, 1, n, fi.get());
+                        j = fi.read(buf, 1, n);
                     }
                 }
             }
@@ -233,7 +233,7 @@ unsigned dump_flash(spdio_t *io,
 		uint32_t addr, uint32_t start, uint32_t len,
 		const char *fn, unsigned step, int mode) {
 	uint32_t nread = 0;
-	UniqueFile fo = my_oxfopen_unique(fn, "wb");
+	EnhancedFile fo = my_oxfopen_enhanced(fn, "wb");
 	if (!fo) ERR_EXIT("fopen(dump) failed\n");
 
 	if (mode == 1) {
@@ -259,7 +259,7 @@ unsigned dump_flash(spdio_t *io,
 		if (!READ32_LE(buf + 0x10)) break; // all zeros
 		if (!~READ32_LE(buf + 0x10)) break; // all ones
 
-		if (fwrite(buf, 1, nread2, fo.get()) != nread2)
+		if (fo.write(buf, 1, nread2) != nread2)
 			ERR_EXIT("fwrite(dump) failed\n");
 
 		nread1 = nread; len = nread += nread2;
@@ -280,7 +280,7 @@ unsigned dump_mem(spdio_t *io,
 	uint32_t start, uint32_t len, const char *fn, unsigned step) {
 	uint32_t n, offset, nread;
 	int ret;
-	UniqueFile fo = my_oxfopen_unique(fn, "wb");
+	EnhancedFile fo = my_oxfopen_enhanced(fn, "wb");
 	if (!fo) ERR_EXIT("fopen(dump) failed\n");
 
 	for (offset = start; offset < start + len; ) {
@@ -304,7 +304,7 @@ unsigned dump_mem(spdio_t *io,
 		nread = READ16_BE(io->raw_buf + 2);
 		if (n < nread)
 			ERR_EXIT("excepted length\n");
-		if (fwrite(io->raw_buf + 4, 1, nread, fo.get()) != nread)
+		if (fo.write(io->raw_buf + 4, 1, nread) != nread)
 			ERR_EXIT("fwrite(dump) failed\n");
 		offset += nread;
 		if (n != nread) break;
@@ -482,7 +482,7 @@ uint64_t dump_partition(spdio_t *io,
 		return 0;
 	}
 	if (isCancel) {   return 0; }
-	UniqueFile fo = my_oxfopen_unique(fn, "wb");
+	EnhancedFile fo = my_oxfopen_enhanced(fn, "wb");
 	if (!fo) ERR_EXIT("fopen(dump) failed\n");
 
 	unsigned long long time_start = GetTickCount64();
@@ -507,7 +507,7 @@ uint64_t dump_partition(spdio_t *io,
 		nread = READ16_BE(io->raw_buf + 2);
 		if (n < nread)
 			ERR_EXIT("excepted length\n");
-		if (fwrite(io->raw_buf + 4, 1, nread, fo.get()) != nread)
+		if (fo.write(io->raw_buf + 4, 1, nread) != nread)
 			ERR_EXIT("fwrite(dump) failed\n");
 		print_progress_bar(io,offset + nread - start, len, time_start);
 		offset += nread;
@@ -691,7 +691,7 @@ int scan_xml_partitions(spdio_t *io, const char *fn, uint8_t *buf, size_t buf_si
 
 static int& selected_ab = g_app_state.flash.selected_ab;
 int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
-	UniqueFile fp = my_oxfopen_unique("pgpt.bin", "rb");
+	EnhancedFile fp = my_oxfopen_enhanced("pgpt.bin", "rb");
 	if (!fp) {
 		return -1;
 	}
@@ -702,7 +702,7 @@ int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
 	int found = 0;
 
 	while (sector_index < MAX_SECTORS) {
-		bytes_read = fread(buffer, 1, SECTOR_SIZE, fp.get());
+		bytes_read = fp.read(buffer, 1, SECTOR_SIZE);
 		if (bytes_read != SECTOR_SIZE) {
 			return -1;
 		}
@@ -726,8 +726,8 @@ int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
 	if (entries == nullptr) {
 		return -1;
 	}
-	fseek(fp.get(), (long)header.partition_entry_lba * real_SECTOR_SIZE, SEEK_SET);
-	bytes_read = fread(entries, 1, header.number_of_partition_entries * sizeof(efi_entry), fp.get());
+	fp.seek((long)header.partition_entry_lba * real_SECTOR_SIZE, SEEK_SET);
+	bytes_read = fp.read(entries, 1, header.number_of_partition_entries * sizeof(efi_entry));
 	if (bytes_read != (int)(header.number_of_partition_entries * sizeof(efi_entry)))
 		DEG_LOG(I,"read %d/%d only.", bytes_read, (int)(header.number_of_partition_entries * sizeof(efi_entry)));
 	std::shared_ptr<XmlNode> root = nullptr;
@@ -832,9 +832,9 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 		std::shared_ptr<XmlNode> root = nullptr;
 		bool needSave = (strcmp(fn, "-") != 0);
 
-		UniqueFile fpkt = my_oxfopen_unique("sprdpart.bin", "wb");
+		EnhancedFile fpkt = my_oxfopen_enhanced("sprdpart.bin", "wb");
 		if (!fpkt) ERR_EXIT("fopen failed\n");
-		fwrite(io->raw_buf + 4, 1, size, fpkt.get());
+		fpkt.write(io->raw_buf + 4, 1, size);
 		n = size / 0x4c;
 
 		if (needSave) {
@@ -1317,23 +1317,23 @@ void load_partition(spdio_t *io, const char *name,
 	const char *fn, unsigned step, int CMethod) {
 	uint64_t offset, len, n64;
 	unsigned mode64, n, step0 = step; int ret;
-	UniqueFile fi;
+	EnhancedFile fi;
 	double rtime = get_time();
 	if (strstr(name, "runtimenv")) { erase_partition(io, name, CMethod); return; }
 	if (!strcmp(name, "calinv")) { return; } //skip calinv
 	DEG_LOG(OP, "Start to write partition %s", name);
 	DEG_LOG(I, "Type CTRL + C to cancel...");
 	start_signal();
-	fi = oxfopen_unique(fn, "rb");
+	fi = oxfopen_enhanced(fn, "rb");
 	if (!fi) ERR_EXIT("fopen(load) failed\n");
 
 	uint8_t header[4], is_simg = 0;
-	if (fread(header, 1, 4, fi.get()) != 4)
+	if (fi.read(header, 1, 4) != 4)
 		ERR_EXIT("fread(load) failed\n");
 	if (0xED26FF3A == *(uint32_t *)header) is_simg = 1;
-	fseeko(fi.get(), 0, SEEK_END);
-	len = ftello(fi.get());
-	fseek(fi.get(), 0, SEEK_SET);
+	fi.seeko(0, SEEK_END);
+	len = fi.tello();
+	fi.seek(0, SEEK_SET);
 	DEG_LOG(I,"File size : 0x%llx\n", (long long)len);
 
 	mode64 = len >> 32;
@@ -1371,7 +1371,7 @@ void load_partition(spdio_t *io, const char *name,
 				// ���� n �����ֵ����ֹ���
 				n = step + 1;
 			}
-			if (fread(rawbuf, 1, n, fi.get()) != n) ERR_EXIT("fread(load) failed\n");
+			if (fi.read(rawbuf, 1, n) != n) ERR_EXIT("fread(load) failed\n");
 #if USE_LIBUSB
 			int err = libusb_bulk_transfer(io->dev_handle, io->endp_out, rawbuf, n, &ret, io->timeout); //libusb will fail with rawbuf
 			if (err < 0) ERR_EXIT("usb_send failed : %s\n", libusb_error_name(err));
@@ -1402,7 +1402,7 @@ fallback_load:
 		for (offset = 0; (n64 = len - offset); offset += n) {
 			if (isCancel) { return; }
 			n = (unsigned)(n64 > step ? step : n64);
-			if (fread(io->temp_buf, 1, n, fi.get()) != n)
+			if (fi.read(io->temp_buf, 1, n) != n)
 				ERR_EXIT("fread(load) failed\n");
 			encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
 			send_msg(io);
@@ -2034,9 +2034,9 @@ void dump_partitions(spdio_t *io, const char *fn, int *nand_info, unsigned step)
         size_t size = 0;
         char* src = (char*)loadfile(fn, &size, 1);
         if (src) {
-            UniqueFile fo = my_oxfopen_unique(savepath, "wb");
+            EnhancedFile fo = my_oxfopen_enhanced(savepath, "wb");
             if (fo) {
-                fwrite(src, 1, size, fo.get());
+                fo.write(src, 1, size);
             } else {
                 DEG_LOG(W,"Create dump list failed, skipped.");
             }
@@ -2110,13 +2110,13 @@ int get_nvlist_cfg(spdio_t *io, char *fn)
 {
 	char line[512];
 	unsigned int id = 0;
-	UniqueFile cfg_fd = my_oxfopen_unique(fn, "rb");
+	EnhancedFile cfg_fd = my_oxfopen_enhanced(fn, "rb");
 
 	if (!cfg_fd) return 0;
 	io->nvid_list = NEWN int[0x10000];
 	if (!io->nvid_list) ERR_EXIT("malloc failed\n");
 	memset(io->nvid_list, 0, 0x10000 * sizeof(int));
-	while (fgets(line, sizeof(line), cfg_fd.get())) {
+	while (cfg_fd.gets(line, sizeof(line))) {
 		if (line[0] == '#' || line[0] == '\0') continue;
 		if (-1 == sscanf(line, "%*s %x", &id)) continue;
 		io->nvid_list[id] = 1;
@@ -2418,11 +2418,11 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 						uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
 						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 						merge_nv(io, a, a_size, b, b_size, c, &c_size);
-						UniqueFile fi = my_oxfopen_unique("nvmerged", "wb");
+						EnhancedFile fi = my_oxfopen_enhanced("nvmerged", "wb");
 						if (!fi) ERR_EXIT("fopen failed\n");
-						if (fseek(fi.get(), 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-						if (fwrite(c, 1, c_size, fi.get()) != c_size) ERR_EXIT("fwrite failed\n");
-						fi.reset();
+						if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+						if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
+						fi.close();
 						free(a); free(b); free(c);
 					}
 					free(io->nvid_list);
@@ -2441,11 +2441,11 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 						uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
 						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 						merge_nv(io, a, a_size, b, b_size, c, &c_size);
-						UniqueFile fi = my_oxfopen_unique("nvmerged", "wb");
+						EnhancedFile fi = my_oxfopen_enhanced("nvmerged", "wb");
 						if (!fi) ERR_EXIT("fopen failed\n");
-						if (fseek(fi.get(), 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-						if (fwrite(c, 1, c_size, fi.get()) != c_size) ERR_EXIT("fwrite failed\n");
-						fi.reset();
+						if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+						if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
+						fi.close();
 						free(a); free(b); free(c);
 					}
 					free(io->nvid_list);
@@ -2464,11 +2464,11 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 						uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
 						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 						merge_nv(io, a, a_size, b, b_size, c, &c_size);
-						UniqueFile fi = my_oxfopen_unique("nvmerged", "wb");
+						EnhancedFile fi = my_oxfopen_enhanced("nvmerged", "wb");
 						if (!fi) ERR_EXIT("fopen failed\n");
-						if (fseek(fi.get(), 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-						if (fwrite(c, 1, c_size, fi.get()) != c_size) ERR_EXIT("fwrite failed\n");
-						fi.reset();
+						if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+						if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
+						fi.close();
 						free(a); free(b); free(c);
 					}
 					free(io->nvid_list);
@@ -2691,19 +2691,19 @@ void w_mem_to_part_offset(spdio_t *io, const char *name, size_t offset, uint8_t 
 	if (savepath[0]) snprintf(fix_fn, sizeof(fix_fn), "%s/%s", savepath, dfile);
 	else strcpy(fix_fn, dfile);
 
-	UniqueFile fi;
-	if (offset == 0) fi = oxfopen_unique(fix_fn, "wb");
+	EnhancedFile fi;
+	if (offset == 0) fi = oxfopen_enhanced(fix_fn, "wb");
 	else {
 		if (gPartInfo.size != (long long)dump_partition(io, gPartInfo.name, 0, gPartInfo.size, fix_fn, step)) {
 			remove(fix_fn);
 			return;
 		}
-		fi = oxfopen_unique(fix_fn, "rb+");
+		fi = oxfopen_enhanced(fix_fn, "rb+");
 	}
 	if (!fi) ERR_EXIT("fopen %s failed\n", fix_fn);
-	if (fseek(fi.get(), offset, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-	if (fwrite(mem, 1, length, fi.get()) != length) ERR_EXIT("fwrite failed\n");
-	fi.reset();
+	if (fi.seek(offset, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+	if (fi.write(mem, 1, length) != length) ERR_EXIT("fwrite failed\n");
+	fi.close();
 	load_partition_unify(io, gPartInfo.name, fix_fn, step, CMethod);
 }
 
@@ -2750,10 +2750,10 @@ int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned
 	if (size0 == size1) {
 		if (!strcmp(name0, "vbmeta")) {
 			char ch = '\0';
-			UniqueFile fi = my_oxfopen_unique(fn, "rb+");
+			EnhancedFile fi = my_oxfopen_enhanced(fn, "rb+");
 			if (!fi) { DEG_LOG(E,"fopen %s failed\n", fn); return 1; }
-			if (fseek(fi.get(), 0x7B, SEEK_SET) != 0) { DEG_LOG(E,"fseek failed"); return 1; }
-			if (fwrite(&ch, 1, 1, fi.get()) != 1) { DEG_LOG(E,"fwrite failed\n"); return 1; }
+			if (fi.seek(0x7B, SEEK_SET) != 0) { DEG_LOG(E,"fseek failed"); return 1; }
+			if (fi.write(&ch, 1, 1) != 1) { DEG_LOG(E,"fwrite failed\n"); return 1; }
 		}
 		load_partition(io, name1, fn, step, CMethod);
 		return 2;

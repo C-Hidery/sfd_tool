@@ -939,8 +939,8 @@ int main_console(int argc, char** argv) {
 			//FDL1, MAY NEED TO SEND CVE FILE
 			else {
 				if (fdl1_loaded != -1) {
-					UniqueFile fi = my_oxfopen_unique(fn, "r");
-					if (fi == nullptr) {
+					EnhancedFile fi = my_oxfopen_enhanced(fn, "r");
+					if (!fi) {
 						DEG_LOG(W, "File does not exist.\n");
 						argc -= argchange;
 						argv += argchange;
@@ -955,12 +955,12 @@ int main_console(int argc, char** argv) {
 							encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
 							if (send_and_check(io)) ERR_EXIT("CVE v2 failed");;
 						}
-						fi = my_oxfopen_unique(execfile.c_str(), "rb");
+						fi = my_oxfopen_enhanced(execfile.c_str(), "rb");
 						if (fi) {
-							fseek(fi.get(), 0, SEEK_END);
-							n = ftell(fi.get());
-							fseek(fi.get(), 0, SEEK_SET);
-							execsize = fread(io->temp_buf, 1, n, fi.get());
+							fi.seek(0, SEEK_END);
+							n = fi.tell();
+							fi.seek(0, SEEK_SET);
+							execsize = fi.read(io->temp_buf, 1, n);
 						}
 						encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
 						if (send_and_check(io)) ERR_EXIT("CVE v2 failed");
@@ -1560,14 +1560,14 @@ int main_console(int argc, char** argv) {
 				continue;
 			}
 			size_t length = 0;
-			UniqueFile fi;
+			EnhancedFile fi;
 			if (argcount > 3) {
-				fi = my_oxfopen_unique(str2[3], "rb");
-				fseek(fi.get(), 0, SEEK_END);
-				length = ftell(fi.get());
+				fi = my_oxfopen_enhanced(str2[3], "rb");
+				fi.seek(0, SEEK_END);
+				length = fi.tell();
 				if (length) {
-					fseek(fi.get(), 0, SEEK_SET);
-					size_t temp_fread_res = fread(io->temp_buf, 1, length, fi.get());
+					fi.seek(0, SEEK_SET);
+					size_t temp_fread_res = fi.read(io->temp_buf, 1, length);
 					(void)temp_fread_res;
 				}
 			}
@@ -2412,11 +2412,11 @@ rloop:
 				uint8_t *b = loadfile(str2[3], &b_size, 0);
 				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 				merge_nv(io, a, a_size, b, b_size, c, &c_size);
-				UniqueFile fi = oxfopen_unique("nvmerged", "wb");
+				EnhancedFile fi = oxfopen_enhanced("nvmerged", "wb");
 				if (!fi) ERR_EXIT("fopen failed\n");
-				if (fseek(fi.get(), 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-				if (fwrite(c, 1, c_size, fi.get()) != c_size) ERR_EXIT("fwrite failed\n");
-				fi.reset();
+				if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+				if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
+				fi.close();
 				load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
 				free(a); free(b); free(c);
 			}
@@ -2433,14 +2433,14 @@ rloop:
 				uint8_t *b = loadfile(str2[4], &b_size, 0);
 				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 				merge_nv(io, a, a_size, b, b_size, c, &c_size);
-				UniqueFile fi = oxfopen_unique("nvmerged", "wb");
+				EnhancedFile fi = oxfopen_enhanced("nvmerged", "wb");
 				if (!fi) ERR_EXIT("fopen failed\n");
-				if (fseek(fi.get(), 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-				if (fwrite(c, 1, c_size, fi.get()) != c_size) ERR_EXIT("fwrite failed\n");
-				fi.reset();
-				fi = oxfopen_unique("nvmerged", "rb");
+				if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+				if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
+				fi.close();
+				fi = oxfopen_enhanced("nvmerged", "rb");
 				if (!fi) DEG_LOG(E, "Failed to create merged nv file");
-				if (fi) fi.reset();
+				if (fi) fi.close();
 				free(a); free(b); free(c);
 			}
 			free(io->nvid_list);
@@ -2473,11 +2473,11 @@ rloop:
 				uint8_t *b = loadfile(str2[3], &b_size, 0);
 				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 				merge_nv(io, a, a_size, b, b_size, c, &c_size);
-				UniqueFile fi = oxfopen_unique("nvmerged", "wb");
+				EnhancedFile fi = oxfopen_enhanced("nvmerged", "wb");
 				if (!fi) ERR_EXIT("fopen failed\n");
-				if (fseek(fi.get(), 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-				if (fwrite(c, 1, c_size, fi.get()) != c_size) ERR_EXIT("fwrite failed\n");
-				fi.reset();
+				if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+				if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
+				fi.close();
 				load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
 				free(a); free(b); free(c);
 			}
@@ -2493,14 +2493,14 @@ rloop:
 				uint8_t *b = loadfile(str2[4], &b_size, 0);
 				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 				merge_nv(io, a, a_size, b, b_size, c, &c_size);
-				UniqueFile fi = oxfopen_unique("nvmerged", "wb");
+				EnhancedFile fi = oxfopen_enhanced("nvmerged", "wb");
 				if (!fi) ERR_EXIT("fopen failed\n");
-				if (fseek(fi.get(), 0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-				if (fwrite(c, 1, c_size, fi.get()) != c_size) ERR_EXIT("fwrite failed\n");
-				fi.reset();
-				fi = oxfopen_unique("nvmerged", "rb");
+				if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+				if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
+				fi.close();
+				fi = oxfopen_enhanced("nvmerged", "rb");
 				if (!fi) DEG_LOG(E, "Failed to create merged nv file");
-				if (fi) fi.reset();
+				if (fi) fi.close();
 				free(a); free(b); free(c);
 			}
 			free(io->nvid_list);

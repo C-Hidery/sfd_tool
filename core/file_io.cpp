@@ -185,8 +185,18 @@ long EnhancedFile::tell() const noexcept {
     return -1L;
 }
 
+long EnhancedFile::tello() const noexcept {
+    if (file) return ftello(file.get());
+    return -1L;
+}
+
 bool EnhancedFile::seek(long offset, int origin) noexcept {
     if (file) return fseek(file.get(), offset, origin) == 0;
+    return false;
+}
+
+bool EnhancedFile::seeko(long offset, int origin) noexcept {
+    if (file) return fseeko(file.get(), offset, origin) == 0;
     return false;
 }
 

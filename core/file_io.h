@@ -71,7 +71,10 @@ public:
     void close() noexcept;
     bool flush() noexcept;
     long tell() const noexcept;
+    long tello() const noexcept;
     bool seek(long offset, int origin) noexcept;
+    bool seeko(long offset, int origin) noexcept;
+    void rewind() noexcept { seek(0, SEEK_SET); }
     bool eof() const noexcept;
     bool error() const noexcept;
     void clearerr() noexcept;
@@ -115,12 +118,16 @@ public:
 
 // 工厂函数
 EnhancedFile oxfopen_enhanced(const char* fn, const char* mode);
+// 工厂函数
 EnhancedFile my_oxfopen_enhanced(const char* fn, const char* mode);
 
 // 原有的函数声明
 FILE* oxfopen(const char* fn, const char* mode);
 FILE* my_oxfopen(const char* fn, const char* mode);
+
+// 此接口已废弃
 UniqueFile oxfopen_unique(const char* fn, const char* mode);
+// 此接口已废弃
 UniqueFile my_oxfopen_unique(const char* fn, const char* mode);
 
 // 自定义操纵符

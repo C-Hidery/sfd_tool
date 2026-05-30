@@ -369,7 +369,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 		std::string dtxt = helper.getLabelText(helper.getWidget("con"));
 		bottom_bar_set_status(dtxt + " -> FDL Executing");
 		std::thread([helper, fdl_path, fdl_addr]() mutable {
-			UniqueFile fi = oxfopen_unique(fdl_path, "r");
+			EnhancedFile fi = oxfopen_enhanced(fdl_path, "r");
 			GtkWidget* cveSwitch = helper.getWidget("exec_addr");
 			GtkWidget* cveAddr = helper.getWidget("cve_addr");
 			GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
@@ -381,7 +381,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 				if (!fi) {
 					DEG_LOG(W, "File does not exist.\n");
 					return;
-				}
+				} else fi.close();
 				send_file(io, fdl_path, fdl_addr, end_data, 528, 0, 0);
 				if (cve_addr && strlen(cve_addr) > 0 && isCve) {
 					bool isCVEv2 = helper.getSwitchState(helper.getWidget("cve_v2"));
@@ -401,13 +401,13 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 							encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
 							if (send_and_check(io)) ERR_EXIT("CVE v2 failed");;
 						}
-						UniqueFile fi = oxfopen_unique(execfile, "rb");
+						EnhancedFile fi = oxfopen_enhanced(execfile, "rb");
 						if (fi) {
-							fseek(fi.get(), 0, SEEK_END);
-							n = ftell(fi.get());
-							fseek(fi.get(), 0, SEEK_SET);
-							execsize = fread(io->temp_buf, 1, n, fi.get());
-							fi.reset();
+							fi.seek(0, SEEK_END);
+							n = fi.tell();
+							fi.seek(0, SEEK_SET);
+							execsize = fi.read(io->temp_buf, 1, n);
+							fi.close();
 						}
 						encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
 						if (send_and_check(io)) ERR_EXIT("CVE v2 failed");;
@@ -450,12 +450,12 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 									encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
 									if (send_and_check(io)) ERR_EXIT("CVE V2 failed");
 								}
-								UniqueFile fi = oxfopen_unique(execfile, "rb");
+								EnhancedFile fi = oxfopen_enhanced(execfile, "rb");
 								if (fi) {
-									fseek(fi.get(), 0, SEEK_END);
-									n = ftell(fi.get());
-									fseek(fi.get(), 0, SEEK_SET);
-									execsize = fread(io->temp_buf, 1, n, fi.get());
+									fi.seek(0, SEEK_END);
+									n = fi.tell();
+									fi.seek(0, SEEK_SET);
+									execsize = fi.read(io->temp_buf, 1, n);
 								}
 								encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
 								if (send_and_check(io)) ERR_EXIT("CVE V2 failed");;
