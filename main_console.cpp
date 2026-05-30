@@ -799,12 +799,11 @@ int main_console(int argc, char** argv) {
 				}
 				continue;
 			}
-			UniqueFile fi;
 			if (0 == fdl1_loaded && argcount > 2) {
 				exec_addr = strtoul(str2[3], nullptr, 0);
 				execfile = std::string(str2[2]);
-				fi = my_oxfopen_unique(execfile.c_str(), "r");
-				if (fi == nullptr) {
+				EnhancedFile fi = my_oxfopen_enhanced(execfile.c_str(), "r");
+				if (!fi) {
 					DEG_LOG(W, "%s does not exist", execfile.c_str());
 					exec_addr = 0;
 				}
@@ -835,13 +834,14 @@ int main_console(int argc, char** argv) {
 			}
 
 			fn = str2[2];
-			UniqueFile fi = my_oxfopen_unique(fn, "r");
-			if (fi == nullptr) {
+			EnhancedFile fi = my_oxfopen_enhanced(fn, "r");
+			if (!fi) {
 				DEG_LOG(E, "File does not exist.");
 				argc -= 3;
 				argv += 3;
 				continue;
 			}
+			fi.close();
 			addr = strtoul(str2[3], nullptr, 0);
 			if (!strcmp(str2[1], "send_file")) send_file(io, fn, addr, end_data, 528, 0, 0);
 			else send_file(io, fn, addr, 0, 528, 0, 0);
@@ -924,13 +924,14 @@ int main_console(int argc, char** argv) {
 			//FDL2, NOT NEED TO SEND CVE FILE
 			else if (fdl1_loaded > 0) {
 				if (fdl2_executed != -1) {
-					UniqueFile fi = my_oxfopen_unique(fn, "r");
-					if (fi == nullptr) {
+					EnhancedFile fi = my_oxfopen_enhanced(fn, "r");
+					if (!fi) {
 						DEG_LOG(W, "File does not exist.");
 						argc -= argchange;
 						argv += argchange;
 						continue;
 					}
+					fi.close();
 					if (!isKickMode) send_file(io, fn, addr, end_data, blk_size ? blk_size : 528, 0, 0);
 					else send_file(io, fn, addr, 0, 528, 0, 0);
 				}
