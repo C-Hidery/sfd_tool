@@ -40,11 +40,7 @@ FILE* xfopen(const char* fn, const char* mode) {
 #endif
 }
 
-// 原有的 my_fopen 函数实现
-extern char savepath[];
-
 FILE *my_fopen(const char *fn, const char *mode) {
-    extern char savepath[];
     if (savepath[0]) {
         size_t fn_len = strlen(fn);
         size_t path_len = strlen(savepath);
@@ -66,7 +62,6 @@ FILE *my_fopen(const char *fn, const char *mode) {
 
 // 原有的 my_xfopen 函数实现
 FILE* my_xfopen(const char* fn, const char* mode) {
-    extern char savepath[];
     FILE* file = nullptr;
     char* fix_fn = nullptr;
     
