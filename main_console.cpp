@@ -1815,15 +1815,14 @@ rloop:
 				continue;
 			}
 			const char* fn;
-			UniqueFile fi;
 			if (argcount <= 2) {
 				DEG_LOG(W, "read_parts partition_table_file");
 				argc = 1;
 				continue;
 			}
 			fn = str2[2];
-			fi = oxfopen_unique(fn, "r");
-			if (fi == nullptr) {
+			EnhancedFile fi = oxfopen_enhanced(fn, "r");
+			if (!fi) {
 				DEG_LOG(E, "File does not exist.");
 				argc -= 2;
 				argv += 2;
@@ -1836,15 +1835,14 @@ rloop:
 		}
 		else if(!strcmp(str2[1], "pac")){
 			const char* fn;
-			UniqueFile fi;
 			if (argcount <= 2) {
 				DEG_LOG(W, "pac FILE");
 				argc = 1;
 				continue;
 			}
 			fn = str2[2];
-			fi = oxfopen_unique(fn, "r");
-			if (fi == nullptr) {
+			EnhancedFile fi = oxfopen_enhanced(fn, "r");
+			if (!fi) {
 				DEG_LOG(E, "File does not exist.");
 				argc -= 2;
 				argv += 2;
@@ -2003,15 +2001,14 @@ rloop:
 				continue;
 			}
 			const char* fn;
-			UniqueFile fi;
 			if (argcount <= 2) {
 				DEG_LOG(W, "repartition FILE");
 				argc = 1;
 				continue;
 			}
 			fn = str2[2];
-			fi = oxfopen_unique(fn, "r");
-			if (fi == nullptr) {
+			EnhancedFile fi = oxfopen_enhanced(fn, "r");
+			if (!fi) {
 				DEG_LOG(E, "File does not exist.");
 				argc -= 2;
 				argv += 2;
@@ -2166,7 +2163,7 @@ rloop:
 				continue;
 			}
 			const char* fn;
-			UniqueFile fi;
+			EnhancedFile fi;
 			const char* name = str2[2];
 			if (argcount <= 3) {
 				DEG_LOG(W, "w/write_part part_name/part_id FILE\n");
@@ -2174,8 +2171,8 @@ rloop:
 				continue;
 			}
 			fn = str2[3];
-			fi = oxfopen_unique(fn, "r");
-			if (fi == nullptr) {
+			fi = oxfopen_enhanced(fn, "r");
+			if (!fi) {
 				DEG_LOG(E, "File does not exist.\n");
 				argc -= 3;
 				argv += 3;
@@ -2240,7 +2237,6 @@ rloop:
 				continue;
 			}
 			const char* fn;
-			UniqueFile fi;
 			const char* name = str2[2];
 			if (argcount <= 3) {
 				DEG_LOG(W, "w_force part_name/part_id FILE");
@@ -2261,8 +2257,8 @@ rloop:
 					continue;
 				}
 				fn = str2[3];
-				fi = oxfopen_unique(fn, "r");
-				if (fi == nullptr) {
+				EnhancedFile fi = oxfopen_enhanced(fn, "r");
+				if (!fi) {
 					DEG_LOG(E, "File does not exist.");
 					argc -= 3;
 					argv += 3;
@@ -2299,8 +2295,8 @@ rloop:
 					continue;
 				}
 				fn = str2[3];
-				fi = oxfopen_unique(fn, "r");
-				if (fi == nullptr) {
+				EnhancedFile fi = oxfopen_enhanced(fn, "r");
+				if (!fi) {
 					DEG_LOG(E, "File does not exist.");
 					argc -= 3;
 					argv += 3;

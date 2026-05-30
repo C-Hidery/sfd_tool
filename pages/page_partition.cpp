@@ -607,7 +607,7 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 		showErrorDialog(parent, _(_(("Error"))), _("No partition table loaded, cannot write partition list!"));
 		return;
 	}
-	UniqueFile fi = oxfopen_unique(filename.c_str(), "r");
+	EnhancedFile fi = oxfopen_enhanced(filename.c_str(), "r");
 	if (!fi) {
 		DEG_LOG(E, "File does not exist.\n");
 		return;
@@ -659,7 +659,7 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 		showErrorDialog(parent, _(_(("Error"))), _("No partition table loaded, cannot write partition list!"));
 		return;
 	}
-	UniqueFile fi = oxfopen_unique(filename.c_str(), "r");
+	EnhancedFile fi = oxfopen_enhanced(filename.c_str(), "r");
 	if (!fi) {
 		DEG_LOG(E, "File does not exist.\n");
 		return;
