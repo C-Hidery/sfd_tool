@@ -6,22 +6,25 @@
 #include <vector>
 #include <algorithm>
 
+//额外FILE库
+#include "core/file_io.h"
+
 class TosPatcher {
 private:
     // 加载文件到内存（只读）
     static uint8_t* loadfile(const char* fn, size_t* num) {
         size_t n, j = 0;
         uint8_t* buf = nullptr;
-        FILE* fi = fopen(fn, "rb");
+        EnhancedFile fi = oxfopen_enhanced(fn, "rb");
         if (fi) {
-            fseek(fi, 0, SEEK_END);
-            n = ftell(fi);
+            fi.seek(0, SEEK_END);
+            n = fi.tell();
             if (n) {
-                fseek(fi, 0, SEEK_SET);
+                fi.seek(0, SEEK_SET);
                 buf = (uint8_t*)malloc(n);
-                if (buf) j = fread(buf, 1, n, fi);
+                if (buf) j = fi.read(buf, 1, n);
             }
-            fclose(fi);
+            fi.close();
         }
         if (num) *num = j;
         return buf;
@@ -223,7 +226,7 @@ public:
         memcpy(out_buf + sizeof(sys_img_header) + patched_payload_size, orig_remain, orig_remain_size);
 
         // 8. 写入最终文件
-        FILE* fp = fopen(output_file, "wb");
+        EnhancedFile fp = oxfopen_enhanced(output_file, "wb");
         if (!fp) {
             printf("[TosPatcher] [ERROR] Cannot create output file %s\n", output_file);
             free(out_buf);
@@ -231,8 +234,8 @@ public:
             free(patched_buf);
             return 1;
         }
-        fwrite(out_buf, 1, out_size, fp);
-        fclose(fp);
+        fp.write(out_buf, 1, out_size);
+        fp.close();
 
         printf("[TosPatcher] [INFO] Successfully generated %s (size: %zu bytes)\n", output_file, out_size);
         printf("[TosPatcher] [INFO] Dual-image layout: [header][patched payload][original payload+signature]\n");

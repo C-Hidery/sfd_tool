@@ -428,7 +428,7 @@ static bool inspect_file_is_all_zero(const std::string& path,
     out_all_zero = true;
     out_error.clear();
 
-    UniqueFile fi = oxfopen_unique(path.c_str(), "rb");
+    EnhancedFile fi = oxfopen_enhanced(path.c_str(), "rb");
     if (!fi) {
         out_error = _("Failed to open image file.");
         return false;
@@ -436,9 +436,9 @@ static bool inspect_file_is_all_zero(const std::string& path,
 
     std::vector<unsigned char> buffer(1024 * 1024);
     while (true) {
-        const std::size_t nread = std::fread(buffer.data(), 1, buffer.size(), fi.get());
+        const std::size_t nread = fi.read(buffer.data(), 1, buffer.size());
         if (nread == 0) {
-            if (std::ferror(fi.get())) {
+            if (fi.error()) {
                 out_error = _("Failed to read image file.");
                 return false;
             }
