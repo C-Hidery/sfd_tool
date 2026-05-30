@@ -63,7 +63,6 @@ public:
     bool operator!() const noexcept;
     operator FILE*() const noexcept;
     FILE* operator->() const noexcept;
-    FILE& operator*() const noexcept;
     
     // 成员函数
     FILE* get() const noexcept;

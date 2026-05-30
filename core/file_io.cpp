@@ -159,10 +159,6 @@ FILE* EnhancedFile::operator->() const noexcept {
     return file.get();
 }
 
-FILE& EnhancedFile::operator*() const noexcept {
-    return *file.get();
-}
-
 FILE* EnhancedFile::get() const noexcept {
     return file.get();
 }
