@@ -74,7 +74,7 @@ public:
     long tello() const noexcept;
     bool seek(long offset, int origin) noexcept;
     bool seeko(long offset, int origin) noexcept;
-    void rewind() noexcept { seek(0, SEEK_SET); }
+    void rewind() noexcept;
     bool eof() const noexcept;
     bool error() const noexcept;
     void clearerr() noexcept;

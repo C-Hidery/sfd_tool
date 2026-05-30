@@ -214,6 +214,10 @@ void EnhancedFile::clearerr() noexcept {
     if (file) ::clearerr(file.get());
 }
 
+void EnhancedFile::rewind() noexcept {
+    if (file) ::rewind(file.get());
+}
+
 size_t EnhancedFile::write(const void* buffer, size_t size, size_t count) noexcept {
     if (file) return fwrite(buffer, size, count, file.get());
     return 0;
