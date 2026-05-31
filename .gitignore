@@ -11,3 +11,10 @@ dist/
 *.pot
 
 version.h
+
+# Ignore generated json files
+fdl_info.json
+sfd_tool_config.json
+
+# Ignore generated .mo files
+*.mo
