@@ -1436,6 +1436,36 @@ void load_partition_force(spdio_t *io, const int id, const char *fn, unsigned st
 	uint8_t *buf = io->temp_buf;
 	double rtime = get_time();
 	char name[] = "w_force";
+	const char* part_name = CMethod ? (*(io->Cptable + id)).name : (*(io->ptable + id)).name;
+	if (strstr(part_name, "calinv") || strstr(part_name, "factorynv"))
+	{
+		DEG_LOG(W, "Partition %s is skipped for force write due to potential risks.", part_name);
+		return;
+	} //skip calinv and factorynv
+	if (g_app_state.flash.selected_ab > 0)
+	{
+		size_t namelen = strlen(part_name);
+		bool has_ab = (namelen > 2 && (strcmp(part_name + namelen - 2, "_a") == 0 || strcmp(part_name + namelen - 2, "_b") == 0));
+		if (!has_ab)
+		{
+			load_partition(io, part_name, fn, step, CMethod);
+			return;
+		}
+	}
+	else
+	{
+		const char* force_writelist[] = { "system", "super", "userdata" };
+		int force_writelist_count = sizeof(force_writelist) / sizeof(force_writelist[0]);
+		for (int i = 0; i < force_writelist_count; i++) {
+			if (strcmp(part_name, force_writelist[i]) == 0) {
+				load_partition(io, part_name, fn, step, CMethod);
+				return;
+			}
+		}
+		 //skip non-force-writable partitions
+		 DEG_LOG(W, "Partition %s is skipped for force write as it's not in the force write list.", part_name);
+		 return;
+	}
 	if(!CMethod){
 		for (i = 0; i < io->part_count; i++) {
 			memset(buf, 0, 36 * 2);
@@ -1468,7 +1498,7 @@ void load_partition_force(spdio_t *io, const int id, const char *fn, unsigned st
 			double etime = get_time();
 			double time_spent = etime - rtime;
 			
-			DEG_LOG(I, "Force write %s successfully", (*(io->ptable + id)).name); 
+			DEG_LOG(I, "Force write %s successfully", part_name); 
 			DEG_LOG(I, "Cost time %.6f seconds", time_spent);
 		}
 	}
@@ -1504,7 +1534,7 @@ void load_partition_force(spdio_t *io, const int id, const char *fn, unsigned st
 			double etime = get_time();
 			double time_spent = etime - rtime;
 			
-			DEG_LOG(I, "Force write %s successfully", (*(io->Cptable + id)).name); 
+			DEG_LOG(I, "Force write %s successfully", part_name); 
 			DEG_LOG(I, "Cost time %.6f seconds", time_spent);
 		}
 	}
