@@ -1462,9 +1462,6 @@ void load_partition_force(spdio_t *io, const int id, const char *fn, unsigned st
 				return;
 			}
 		}
-		 //skip non-force-writable partitions
-		 DEG_LOG(W, "Partition %s is skipped for force write as it's not in the force write list.", part_name);
-		 return;
 	}
 	if(!CMethod){
 		for (i = 0; i < io->part_count; i++) {
