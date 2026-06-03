@@ -1449,6 +1449,7 @@ void load_partition_force(spdio_t *io, const int id, const char *fn, unsigned st
 		if (!has_ab)
 		{
 			load_partition(io, part_name, fn, step, CMethod);
+			DEG_LOG(W, "Partition %s is skipped for force write as it's not an A/B partition.", part_name);
 			return;
 		}
 	}
@@ -1459,10 +1460,10 @@ void load_partition_force(spdio_t *io, const int id, const char *fn, unsigned st
 		for (int i = 0; i < force_writelist_count; i++) {
 			if (strcmp(part_name, force_writelist[i]) == 0) {
 				load_partition(io, part_name, fn, step, CMethod);
+				DEG_LOG(W, "Partition %s is skipped for force write as it's not in the force write list.", part_name);
 				return;
 			}
 		}
-		DEG_LOG(W, "Partition %s is skipped for force write as it's not in the force write list.", part_name);
 	}
 	if(!CMethod){
 		for (i = 0; i < io->part_count; i++) {
