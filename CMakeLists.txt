@@ -295,11 +295,6 @@ if (USE_GTK)
         foreach(tgt IN LISTS SFD_TEST_TARGETS)
             target_link_libraries(${tgt} PRIVATE ${_gtk_win_libs})
         endforeach()
-        
-        # BMPlatform 也需要链接 GTK（如果存在）
-        if (TARGET BMPlatform)
-            target_link_libraries(BMPlatform PRIVATE ${_gtk_win_libs})
-        endif()
     else()
         if (NOT PKG_CONFIG_FOUND)
             message(FATAL_ERROR "PkgConfig is required when USE_GTK=ON")
@@ -360,11 +355,6 @@ if (USE_LIBUSB)
         foreach(tgt IN LISTS SFD_TEST_TARGETS)
             target_link_libraries(${tgt} PRIVATE ${_libusb_win_lib})
         endforeach()
-        
-        # BMPlatform 也需要链接 libusb
-        if (TARGET BMPlatform)
-            target_link_libraries(BMPlatform PRIVATE ${_libusb_win_lib})
-        endif()
     else()
         if (NOT PKG_CONFIG_FOUND)
             message(FATAL_ERROR "PkgConfig is required when USE_LIBUSB=ON")
