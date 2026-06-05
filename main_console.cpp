@@ -2184,6 +2184,7 @@ rloop:
 				argv += 3;
 				continue;
 			}
+			fi.close();
 			if (!skip_confirm)
 				if (!check_confirm("write partition")) {
 					argc -= 3;
@@ -2270,6 +2271,7 @@ rloop:
 					argv += 3;
 					continue;
 				}
+				fi.close();
 				get_partition_info(io, name, 0);
 				if (!gPartInfo.size) {
 					DEG_LOG(E, "Partition does not exist");
@@ -2308,6 +2310,7 @@ rloop:
 					argv += 3;
 					continue;
 				}
+				fi.close();
 				get_partition_info(io, name, 0);
 				if (!gPartInfo.size) {
 					DEG_LOG(E, "Partition does not exist");

@@ -158,6 +158,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 						DEG_LOG(W, "File does not exist.");
 						return;
 					}
+					fi.close();
 					send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
 				}
 				

@@ -1021,9 +1021,9 @@ bool pac_flash(spdio_t* io, const char* floder)
 					if (isHelperInit) gui_idle_call_wait_drag([](){
 						showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
 					}, GTK_WINDOW(helper.getWidget("main_window")));
-                    fi.close();
                     return;
                 }
+                fi.close();
 				send_file(io, fdl1_path.c_str(), fdl1_base_addr, 0, 528, 0, 0);
 				encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
 				if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");

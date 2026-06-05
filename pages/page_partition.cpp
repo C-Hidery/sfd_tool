@@ -612,6 +612,7 @@ void on_button_clicked_list_write(GtkWidgetHelper helper) {
 		DEG_LOG(E, "File does not exist.\n");
 		return;
 	}
+	fi.close();
 
 	sfd::PartitionIoOptions opts;
 	opts.partition_name = part_name;
@@ -664,6 +665,7 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper) {
 		DEG_LOG(E, "File does not exist.\n");
 		return;
 	}
+	fi.close();
 
 	bool i_op = showConfirmDialog(parent, _(_(("Confirm"))), _("Force writing partitions may brick the device, do you want to continue?"));
 	if (!i_op) return;
