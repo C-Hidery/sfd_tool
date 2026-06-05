@@ -30,7 +30,6 @@ GitHub Releases 中通常会提供：
 - Linux `.deb` / `.rpm` 安装包；
 - macOS `.dmg` 应用包。
 
-> 旧的 Windows x86 构建已在新版中移除，目前仅提供 x64 版本。
 
 具体支持的系统版本和产物名称，请以最新 Release 页面和
 [.github/workflows/build.yml](.github/workflows/build.yml) 为准。
