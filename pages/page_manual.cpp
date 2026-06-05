@@ -51,7 +51,8 @@ static void on_button_clicked_m_write(GtkWidgetHelper helper) {
 		DEG_LOG(E, "File does not exist.\n");
 		return;
 	}
-
+	fi.close();
+	
 	sfd::PartitionIoOptions opts;
 	opts.partition_name = part_name;
 	opts.file_path = filename;

@@ -80,6 +80,7 @@ static void on_button_clicked_start_repart(GtkWidgetHelper helper) {
 		DEG_LOG(E, "File does not exist.");
 		return;
 	}
+	fi.close();
 	repartition(io, filePath.c_str());
 	showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("Repartition completed!"));
 	refresh_partition_list(helper);

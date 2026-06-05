@@ -807,6 +807,7 @@ int main_console(int argc, char** argv) {
 					DEG_LOG(W, "%s does not exist", execfile.c_str());
 					exec_addr = 0;
 				}
+				fi.close();
 			}
 			DEG_LOG(I, "Current CVE address is 0x%x", exec_addr);
 			if (!strncmp(str2[1], "exec_addr2", 10)) cve_v2 = 1;
@@ -1830,6 +1831,7 @@ rloop:
 				argv += 2;
 				continue;
 			}
+			fi.close();
 			dump_partitions(io, fn, nand_info, blk_size ? blk_size : DEFAULT_BLK_SIZE);
 			argc -= 2;
 			argv += 2;
@@ -1850,6 +1852,7 @@ rloop:
 				argv += 2;
 				continue;
 			}
+			fi.close();
 			bool i_is = pac_extract(fn, "pac_unpack_output");
 			if(g_app_state.device.device_stage != BROM && GetStage() != BROM)
 			{
@@ -2016,6 +2019,7 @@ rloop:
 				argv += 2;
 				continue;
 			}
+			fi.close();
 			if (skip_confirm) repartition(io, str2[2]);
 			else if (check_confirm("repartition")) repartition(io, str2[2]);
 			argc -= 2;
@@ -2180,6 +2184,7 @@ rloop:
 				argv += 3;
 				continue;
 			}
+			fi.close();
 			if (!skip_confirm)
 				if (!check_confirm("write partition")) {
 					argc -= 3;
@@ -2266,6 +2271,7 @@ rloop:
 					argv += 3;
 					continue;
 				}
+				fi.close();
 				get_partition_info(io, name, 0);
 				if (!gPartInfo.size) {
 					DEG_LOG(E, "Partition does not exist");
@@ -2304,6 +2310,7 @@ rloop:
 					argv += 3;
 					continue;
 				}
+				fi.close();
 				get_partition_info(io, name, 0);
 				if (!gPartInfo.size) {
 					DEG_LOG(E, "Partition does not exist");
