@@ -23,6 +23,12 @@ all:
 	cmake -S . -B $(BUILD_DIR) -G "$(GENERATOR)" -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 	cmake --build $(BUILD_DIR) -j
 
+# Termux 构建
+.PHONY: termux
+termux:
+cmake -S . -B $(BUILD_DIR) -G "$(GENERATOR)" -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DTERMUX=ON
+	cmake --build $(BUILD_DIR) -j
+	
 # 调试构建
 .PHONY: debug
 debug:
