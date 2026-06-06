@@ -39,7 +39,7 @@ sudo dnf install gcc-c++ gtk3-devel libusb1-devel libusb1 pkgconf-pkg-config mak
 brew install libusb gtk+3 pkg-config make cmake gettext
 # Android(Termux)
 pkg install x11-repo
-pkg install termux-api libusb clang git pkg-config gtk3 glib pango libcairo gdk-pixbuf at-spi2-core xorgproto xorg-util-macros make cmake gettext
+pkg install termux-api libusb clang git pkg-config gtk3 glib pango libcairo gdk-pixbuf at-spi2-core xorgproto xorg-util-macros make cmake attr gettext
 ```
 
 Then make:
