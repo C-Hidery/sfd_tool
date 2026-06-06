@@ -32,14 +32,14 @@ Run this before making:
 ``` bash
 sudo apt update
 # Ubuntu/Debian
-sudo apt install libusb-1.0-0-dev gcc g++ libgtk-3-dev pkg-config make cmake
+sudo apt install libusb-1.0-0-dev gcc g++ libgtk-3-dev pkg-config make cmake gettext
 # Fedora/RHEL
-sudo dnf install gcc-c++ gtk3-devel libusb1-devel libusb1 pkgconf-pkg-config make cmake
+sudo dnf install gcc-c++ gtk3-devel libusb1-devel libusb1 pkgconf-pkg-config make cmake gettext
 # macOS
-brew install libusb gtk+3 pkg-config make cmake
+brew install libusb gtk+3 pkg-config make cmake gettext
 # Android(Termux)
 pkg install x11-repo
-pkg install termux-api libusb clang git pkg-config gtk3 glib pango libcairo gdk-pixbuf at-spi2-core xorgproto xorg-util-macros make cmake
+pkg install termux-api libusb clang git pkg-config gtk3 glib pango libcairo gdk-pixbuf at-spi2-core xorgproto xorg-util-macros make cmake gettext
 ```
 
 Then make:
