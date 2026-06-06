@@ -20,6 +20,7 @@ static void on_cell_toggled(GtkCellRendererToggle *renderer,
                             gchar *path_str,
                             gpointer user_data)
 {
+    (void)renderer;
     GtkTreeModel *model = GTK_TREE_MODEL(user_data);
     GtkTreePath *path = gtk_tree_path_new_from_string(path_str);
     GtkTreeIter iter;
