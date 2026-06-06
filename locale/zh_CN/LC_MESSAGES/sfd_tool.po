@@ -1210,3 +1210,9 @@ msgstr "进行中..."
 
 msgid "Memory allocation failed!"
 msgstr "内存申请失败!"
+
+
+# ===== Auto-appended entries from sfd_tool.pot =====
+
+msgid "Select"
+msgstr "Select"

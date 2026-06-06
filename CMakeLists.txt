@@ -306,7 +306,8 @@ if (USE_GTK)
         # --no-copy-dt-needed-entries，这在 GTK 这类有复杂依赖链的库上容易触发
         # “DSO missing from command line” 报错。这里为主可执行文件放宽该限制，
         # 确保所有被依赖的 DSO 都会被保留。
-        if (UNIX AND NOT APPLE)
+        # Termux 上也被证实为不支持
+        if (UNIX AND NOT APPLE AND NOT TERMUX)
             target_link_options(sfd_tool PRIVATE "-Wl,--copy-dt-needed-entries")
         endif()
 
