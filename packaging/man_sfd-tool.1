@@ -252,6 +252,21 @@ Flash pac to device
 .B g_w_force \fI{0,1}\fR
 Force Flash settings
 
+.TP
+.B mergenv-xml \fIxml new_nv\fR
+PAC Firmware mergenv option, this command will flash merged nv partition automatically.
+
+.TP
+.B mergenv-xml-ex \fIxml old_nv new_nv\fR
+PAC Firmware mergenv option, you need to read nv partition manually to execute this command.
+
+.TP
+.B mergenv-cfg \fIconfig new_nv\fR
+PAC Firmware mergenv option, this command will flash merged nv partition automatically.
+
+.TP
+.B mergenv-cfg-ex \fIconfig old_nv new_nv\fR
+PAC Firmware mergenv option, you need to read nv partition manually to execute this command.
 
 .SS "Debug Commands"
 .TP
