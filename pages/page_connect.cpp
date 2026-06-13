@@ -181,7 +181,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 		else if (ret != BSL_REP_ACK) {
 			//ThrowExit();
 			const char* name = get_bsl_enum_name(ret);
-			ERR_EXIT("%s: excepted response (%s : 0x%04x)\n", name, o_exception, ret);
+			ERR_EXIT("%s: unexpected response (%s : 0x%04x)\n", name, o_exception, ret);
 		}
 		DEG_LOG(OP, "Execute FDL2");
 		//remove 0d detection for nand device
@@ -192,7 +192,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 		ret = recv_msg(io);
 		if (ret) {
 		    ret = recv_type(io);
-		    if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"excepted response (0x%04x)\n", ret);
+		    if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"unexpected response (0x%04x)\n", ret);
 		    else Da_Info.dwStorageType = 0x101;
 		    // need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
 		    // for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
@@ -475,7 +475,6 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 			// if (execfile) delete[](execfile);
 			DEG_LOG(OP, "Execute FDL1");
 
-			// Tiger 310(0x5500) and Tiger 616(0x65000800) need to change baudrate after FDL1
 			if (fdl_addr == 0x5500 || fdl_addr == 0x65000800) {
 				highspeed = 1;
 				if (!baudrate) baudrate = 921600;

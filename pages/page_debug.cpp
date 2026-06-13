@@ -31,13 +31,13 @@ static void on_button_clicked_pac_time(GtkWidgetHelper helper) {
 	if (!ret) ERR_EXIT("timeout reached\n");
 	if ((ret = recv_type(io)) != BSL_REP_READ_FLASH) {
 		const char* name = get_bsl_enum_name(ret);
-		DEG_LOG(E, "excepted response (%s : 0x%04x)", name, ret);
+		DEG_LOG(E, "unexpected response (%s : 0x%04x)", name, ret);
 		encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
 		send_and_check(io);
 		return;
 	}
 	n = READ16_BE(io->raw_buf + 2);
-	if (n != len) ERR_EXIT("excepted length\n");
+	if (n != len) ERR_EXIT("unexpected length\n");
 
 	time = (uint32_t)READ32_LE(io->raw_buf + 4);
 	time |= (uint64_t)READ32_LE(io->raw_buf + 8) << 32;
@@ -62,7 +62,7 @@ static void on_button_clicked_chip_uid(GtkWidgetHelper helper) {
 	if (!ret) ERR_EXIT("timeout reached\n");
 	if ((ret = recv_type(io)) != BSL_REP_READ_CHIP_UID) {
 		const char* name = get_bsl_enum_name(ret);
-		DEG_LOG(E, "excepted response (%s : 0x%04x)\n", name, ret);
+		DEG_LOG(E, "unexpected response (%s : 0x%04x)\n", name, ret);
 		return;
 	}
 	DEG_LOG(I, "Response: chip_uid:");
@@ -82,7 +82,7 @@ static void on_button_clicked_check_nand(GtkWidgetHelper helper) {
 	if (ret) {
 		ret = recv_type(io);
 		const char* name = get_bsl_enum_name(ret);
-		if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E, "excepted response (%s : 0x%04x)\n", name, ret);
+		if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E, "unexpected response (%s : 0x%04x)\n", name, ret);
 		else Da_Info.dwStorageType = 0x101;
 	}
 	if (Da_Info.dwStorageType == 0x101) {

@@ -233,7 +233,7 @@ int recv_transcode(spdio_t *io, const uint8_t *buf, int buf_len, int *plen) {
 		if (io->flags & FLAGS_TRANSCODE) {
 			if (esc && a != (HDLC_HEADER ^ 0x20) &&
 				a != (HDLC_ESCAPE ^ 0x20)) {
-				DEG_LOG(E,"excepted escaped byte (0x%02x)", a); return 0;
+				DEG_LOG(E,"unexpected escaped byte (0x%02x)", a); return 0;
 			}
 			if (a == HDLC_HEADER) {
 				if (!head_found) head_found = 1;
@@ -429,7 +429,7 @@ static sfd::Result<void> send_and_check_result(spdio_t *io) {
 	ret = recv_type(io);
 	if (ret != BSL_REP_ACK) {
 		const char* name = get_bsl_enum_name(ret);
-		DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
+		DEG_LOG(E,"unexpected response (%s : 0x%04x)",name, ret);
 		return sfd::Result<void>::error(sfd::ErrorCode::ProtocolError, "expected BSL_REP_ACK");
 	}
 
