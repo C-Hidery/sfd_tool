@@ -1094,7 +1094,7 @@ bool pac_flash(spdio_t* io, const char* floder)
 				else if (ret != BSL_REP_ACK) {
 					
 					const char* name = get_bsl_enum_name(ret);
-					ERR_EXIT("excepted response (%s : 0x%04x)\n", name, ret);
+					ERR_EXIT("unexpected response (%s : 0x%04x)\n", name, ret);
 				}
 				DEG_LOG(OP, "Execute FDL2");
 				//remove 0d detection for nand device
@@ -1105,7 +1105,7 @@ bool pac_flash(spdio_t* io, const char* floder)
 				ret = recv_msg(io);
 				if (ret) {
 					ret = recv_type(io);
-					if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"excepted response (0x%04x)\n", ret);
+					if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"unexpected response (0x%04x)\n", ret);
 					else Da_Info.dwStorageType = 0x101;
 					// need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
 					// for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00

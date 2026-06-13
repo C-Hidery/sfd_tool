@@ -983,7 +983,6 @@ int main_console(int argc, char** argv) {
 				}
 				// if (execfile) delete[](execfile);
 				DEG_LOG(OP, "Execute FDL1");
-				// Tiger 310(0x5500) and Tiger 616(0x65000800) need to change baudrate after FDL1
 
 				if (addr == 0x5500 || addr == 0x65000800) {
 					highspeed = 1;
@@ -1104,7 +1103,7 @@ int main_console(int argc, char** argv) {
 				else if (ret != BSL_REP_ACK) {
 					ThrowExit();
 					const char* name = get_bsl_enum_name(ret);
-					ERR_EXIT("%s: excepted response (%s : 0x%04x)\n", name, o_exception, ret);
+					ERR_EXIT("%s: unexpected response (%s : 0x%04x)\n", name, o_exception, ret);
 				}
 				DEG_LOG(OP, "Execute FDL2");
 				//remove 0d detection for nand device
@@ -1115,7 +1114,7 @@ int main_console(int argc, char** argv) {
 				ret = recv_msg(io);
 				if (ret) {
 					ret = recv_type(io);
-					if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"excepted response (0x%04x)\n", ret);
+					if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"unexpected response (0x%04x)\n", ret);
 					else Da_Info.dwStorageType = 0x101;
 					// need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
 					// for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
@@ -2145,7 +2144,7 @@ rloop:
 			if (ret) {
 				ret = recv_type(io);
 				const char* name = get_bsl_enum_name(ret);
-				if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E, "excepted response (%s : 0x%04x)\n", name, ret);
+				if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E, "unexpected response (%s : 0x%04x)\n", name, ret);
 				else Da_Info.dwStorageType = 0x101;
 				// need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
 				// for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
@@ -2868,7 +2867,7 @@ rloop:
 			if (!ret) ERR_EXIT("timeout reached\n");
 			if ((ret = recv_type(io)) != BSL_REP_READ_CHIP_UID) {
 				const char* name = get_bsl_enum_name(ret);
-				DEG_LOG(E, "excepted response (%s : 0x%04x)\n", name, ret);
+				DEG_LOG(E, "unexpected response (%s : 0x%04x)\n", name, ret);
 				argc -= 1;
 				argv += 1;
 				continue;

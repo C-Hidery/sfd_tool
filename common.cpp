@@ -208,7 +208,7 @@ unsigned read_flash(spdio_t *io,
 		ret = recv_msg(io);
 		if ((ret = recv_type(io)) != BSL_REP_READ_FLASH) {
 			const char* name = get_bsl_enum_name(ret);
-			DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
+			DEG_LOG(E,"unexpected response (%s : 0x%04x)",name, ret);
 			break;
 		}
 		nread = READ16_BE(io->raw_buf + 2);
@@ -296,12 +296,12 @@ unsigned dump_mem(spdio_t *io,
 		if (!ret) ERR_EXIT("timeout reached\n");
 		if ((ret = recv_type(io)) != BSL_REP_READ_FLASH) {
 			const char* name = get_bsl_enum_name(ret);
-			DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
+			DEG_LOG(E,"unexpected response (%s : 0x%04x)",name, ret);
 			break;
 		}
 		nread = READ16_BE(io->raw_buf + 2);
 		if (n < nread)
-			ERR_EXIT("excepted length\n");
+			ERR_EXIT("unexpected length\n");
 		if (fo.write(io->raw_buf + 4, 1, nread) != nread)
 			ERR_EXIT("fwrite(dump) failed\n");
 		offset += nread;
@@ -499,12 +499,12 @@ uint64_t dump_partition(spdio_t *io,
 		if (!ret) ERR_EXIT("timeout reached\n");
 		if ((ret = recv_type(io)) != BSL_REP_READ_FLASH) {
 			const char* name = get_bsl_enum_name(ret);
-			DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
+			DEG_LOG(E,"unexpected response (%s : 0x%04x)",name, ret);
 			break;
 		}
 		nread = READ16_BE(io->raw_buf + 2);
 		if (n < nread)
-			ERR_EXIT("excepted length\n");
+			ERR_EXIT("unexpected length\n");
 		if (fo.write(io->raw_buf + 4, 1, nread) != nread)
 			ERR_EXIT("fwrite(dump) failed\n");
 		print_progress_bar(io,offset + nread - start, len, time_start);
@@ -558,13 +558,13 @@ uint64_t read_pactime(spdio_t *io) {
 	if (!ret) ERR_EXIT("timeout reached\n");
 	if ((ret = recv_type(io)) != BSL_REP_READ_FLASH) {
 		const char* name = get_bsl_enum_name(ret);
-		DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
+		DEG_LOG(E,"unexpected response (%s : 0x%04x)",name, ret);
 		encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
 		send_and_check(io);
 		return 0;
 	}
 	n = READ16_BE(io->raw_buf + 2);
-	if (n != len) ERR_EXIT("excepted length\n");
+	if (n != len) ERR_EXIT("unexpected length\n");
 
 	time = (uint32_t)READ32_LE(io->raw_buf + 4);
 	time |= (uint64_t)READ32_LE(io->raw_buf + 8) << 32;
@@ -815,7 +815,7 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 		ret = recv_type(io);
 		if (ret != BSL_REP_READ_PARTITION) {
 			const char* name = get_bsl_enum_name(ret);
-			DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
+			DEG_LOG(E,"unexpected response (%s : 0x%04x)",name, ret);
 			g_app_state.flash.gpt_failed = -1;
 			delete[](ptable);
 			return nullptr;
@@ -1387,7 +1387,7 @@ void load_partition(spdio_t *io, const char *name,
 			}
 			if ((ret = recv_type(io)) != BSL_REP_ACK) {
 				const char* name = get_bsl_enum_name(ret);
-				DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
+				DEG_LOG(E,"unexpected response (%s : 0x%04x)",name, ret);
 				break;
 			}
 			print_progress_bar(io, offset + n, len, time_start);
@@ -1412,7 +1412,7 @@ fallback_load:
 			}
 			if ((ret = recv_type(io)) != BSL_REP_ACK) {
 				const char* name = get_bsl_enum_name(ret);
-				DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
+				DEG_LOG(E,"unexpected response (%s : 0x%04x)",name, ret);
 				break;
 			}
 			print_progress_bar(io,offset + n, len, time_start);
@@ -1655,7 +1655,7 @@ void load_nv_partition(spdio_t *io, const char *name,
 		if (!ret) ERR_EXIT("timeout reached\n");
 		if ((ret = recv_type(io)) != BSL_REP_ACK) {
 			const char* name = get_bsl_enum_name(ret);
-			DEG_LOG(E,"excepted response (%s : 0x%04x)",name, ret);
+			DEG_LOG(E,"unexpected response (%s : 0x%04x)",name, ret);
 			break;
 		}
 	}
