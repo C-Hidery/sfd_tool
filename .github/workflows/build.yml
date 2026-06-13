@@ -85,6 +85,8 @@ jobs:
           $pkgFiles = @(
             "mingw-w64-i686-glib2-2.82.4-1-any.pkg.tar.zst",
             "mingw-w64-i686-cairo-1.18.2-2-any.pkg.tar.zst",
+            "mingw-w64-i686-libdatrie-docs-0.2.13-3-any.pkg.tar.zst",
+            "mingw-w64-i686-libdatrie-0.2.14-1-any.pkg.tar.zst",
             "mingw-w64-i686-libthai-0.1.30-1-any.pkg.tar.zst",
             "mingw-w64-i686-pango-1.56.1-1-any.pkg.tar.zst",
             "mingw-w64-i686-freetype-2.13.2-1-any.pkg.tar.zst",
