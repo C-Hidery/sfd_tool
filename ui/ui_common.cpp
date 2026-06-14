@@ -198,18 +198,7 @@ void DisableWidgets(GtkWidgetHelper helper) {
 
 void ensure_device_attached_or_exit(GtkWidgetHelper helper) {
 	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Device unattached, exiting..."));
-		}, GTK_WINDOW(helper.getWidget("main_window")));
-
-        // 在单独线程中等待 5 秒后退出 GTK 主循环
-        std::thread([]() {
-            std::this_thread::sleep_for(std::chrono::seconds(5));
-            gui_idle_call([]() {
-                gtk_main_quit();
-            });
-        }).detach();
+		ERR_EXIT("device unattached, exiting...\n");
 	}
 }
 
@@ -323,14 +312,7 @@ GtkWidget* create_bottom_controls(GtkWidgetHelper& helper) {
 
 
 void on_button_clicked_poweroff(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		wait_drag_sync([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		
-	}
+	ensure_device_attached_or_exit(helper);
 	encode_msg_nocpy(io, BSL_CMD_POWER_OFF, 0);
 	if (!send_and_check(io)) {
 		spdio_free(io);
@@ -339,14 +321,7 @@ void on_button_clicked_poweroff(GtkWidgetHelper helper) {
 }
 
 void on_button_clicked_reboot(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		wait_drag_sync([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		
-	}
+	ensure_device_attached_or_exit(helper);
 	encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
 	if (!send_and_check(io)) {
 		spdio_free(io);
@@ -355,14 +330,7 @@ void on_button_clicked_reboot(GtkWidgetHelper helper) {
 }
 
 void on_button_clicked_recovery(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		wait_drag_sync([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		
-	}
+	ensure_device_attached_or_exit(helper);
 	char* miscbuf = NEWN char[0x800];
 	if (!miscbuf) ERR_EXIT("malloc failed\n");
 	memset(miscbuf, 0, 0x800);
@@ -377,14 +345,7 @@ void on_button_clicked_recovery(GtkWidgetHelper helper) {
 }
 
 void on_button_clicked_fastboot(GtkWidgetHelper helper) {
-	if (m_bOpened == -1) {
-		DEG_LOG(E, "device unattached, exiting...");
-		wait_drag_sync([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))), _("Device unattached, exiting..."));
-		    exit(1);
-		},GTK_WINDOW(helper.getWidget("main_window")));
-		
-	}
+	ensure_device_attached_or_exit(helper);
 	char* miscbuf = NEWN char[0x800];
 	if (!miscbuf) ERR_EXIT("malloc failed\n");
 	memset(miscbuf, 0, 0x800);

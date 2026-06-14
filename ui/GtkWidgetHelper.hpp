@@ -181,6 +181,11 @@ bool showConfirmDialogSyncInThread(GtkWindow* parent, const char* title, const c
 void showErrorDialogSyncInThread(GtkWindow* parent, const char* title, const char* message);
 void showInfoDialogSyncInThread(GtkWindow* parent, const char* title, const char* message);
 void showWarningDialogSyncInThread(GtkWindow* parent, const char* title, const char* message);
+std::string showFileChooserSyncInThread(GtkWindow* parent, bool open = true);
+std::string showFolderChooserSyncInThread(GtkWindow* parent);
+std::string showSaveFileDialogSyncInThread(GtkWindow* parent,
+                                       const std::string& default_filename = "",
+                                       const std::vector<std::pair<std::string, std::string>>& filters = {});
 
 #ifndef G_CONNECT_DEFAULT
 #define G_CONNECT_DEFAULT ((GConnectFlags)0)
