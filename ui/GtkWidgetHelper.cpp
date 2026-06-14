@@ -381,6 +381,86 @@ std::string showSaveFileDialog(GtkWindow* parent,
     gtk_widget_destroy(dialog);
     return filename;
 }
+std::string showFileChooserSyncInThread(GtkWindow* parent, bool open) {
+    GMainContext* worker_ctx = g_main_context_new();
+    g_main_context_push_thread_default(worker_ctx);
+    GMainLoop* loop = g_main_loop_new(worker_ctx, FALSE);
+    std::string result;
+    
+    g_main_context_invoke(g_main_context_default(), [](gpointer user_data) -> gboolean {
+        auto* data = static_cast<std::tuple<GMainLoop*, std::string*, GtkWindow*, bool>*>(user_data);
+        GMainLoop* loop = std::get<0>(*data);
+        std::string* result = std::get<1>(*data);
+        GtkWindow* parent = std::get<2>(*data);
+        bool open = std::get<3>(*data);
+        
+        waitForDragEnd(parent);
+        *result = showFileChooser(parent, open);
+        g_main_loop_quit(loop);
+        delete data;
+        return G_SOURCE_REMOVE;
+    }, new std::tuple<GMainLoop*, std::string*, GtkWindow*, bool>(loop, &result, parent, open));
+    
+    g_main_loop_run(loop);
+    g_main_loop_unref(loop);
+    g_main_context_pop_thread_default(worker_ctx);
+    g_main_context_unref(worker_ctx);
+    return result;
+}
+std::string showFolderChooserSyncInThread(GtkWindow* parent) {
+    GMainContext* worker_ctx = g_main_context_new();
+    g_main_context_push_thread_default(worker_ctx);
+    GMainLoop* loop = g_main_loop_new(worker_ctx, FALSE);
+    std::string result;
+    
+    g_main_context_invoke(g_main_context_default(), [](gpointer user_data) -> gboolean {
+        auto* data = static_cast<std::tuple<GMainLoop*, std::string*, GtkWindow*>*>(user_data);
+        GMainLoop* loop = std::get<0>(*data);
+        std::string* result = std::get<1>(*data);
+        GtkWindow* parent = std::get<2>(*data);
+        
+        waitForDragEnd(parent);
+        *result = showFolderChooser(parent);
+        g_main_loop_quit(loop);
+        delete data;
+        return G_SOURCE_REMOVE;
+    }, new std::tuple<GMainLoop*, std::string*, GtkWindow*>(loop, &result, parent));
+    
+    g_main_loop_run(loop);
+    g_main_loop_unref(loop);
+    g_main_context_pop_thread_default(worker_ctx);
+    g_main_context_unref(worker_ctx);
+    return result;
+}
+std::string showSaveFileDialogSyncInThread(GtkWindow* parent,
+                                       const std::string& default_filename,
+                                       const std::vector<std::pair<std::string, std::string>>& filters) {
+    GMainContext* worker_ctx = g_main_context_new();
+    g_main_context_push_thread_default(worker_ctx);
+    GMainLoop* loop = g_main_loop_new(worker_ctx, FALSE);
+    std::string result;
+
+    g_main_context_invoke(g_main_context_default(), [](gpointer user_data) -> gboolean {
+        auto* data = static_cast<std::tuple<GMainLoop*, std::string*, GtkWindow*, std::string, std::vector<std::pair<std::string, std::string>>>*>(user_data);
+        GMainLoop* loop = std::get<0>(*data);
+        std::string* result = std::get<1>(*data);
+        GtkWindow* parent = std::get<2>(*data);
+        std::string& default_filename = std::get<3>(*data);
+        auto& filters = std::get<4>(*data);
+        
+        waitForDragEnd(parent);
+        *result = showSaveFileDialog(parent, default_filename, filters);
+        g_main_loop_quit(loop);
+        delete data;
+        return G_SOURCE_REMOVE;
+    }, new std::tuple<GMainLoop*, std::string*, GtkWindow*, std::string, std::vector<std::pair<std::string, std::string>>>(loop, &result, parent, default_filename, filters));
+
+    g_main_loop_run(loop);
+    g_main_loop_unref(loop);
+    g_main_context_pop_thread_default(worker_ctx);
+    g_main_context_unref(worker_ctx);
+    return result;
+}
 
 // ==================== GtkWidgetHelper 实现 ====================
 

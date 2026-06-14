@@ -980,9 +980,9 @@ bool pac_flash(spdio_t* io, const char* floder)
             if (FDLInPacSupported == false)
             {
                 showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Please select FDL1 executable file."));
-                fdl1_path = showFileChooser(GTK_WINDOW(helper.getWidget("main_window")));
+                fdl1_path = showFileChooser(GTK_WINDOW(helper.getWidget("main_window")), false);
                 showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Please select FDL2 executable file."));
-                fdl2_path = showFileChooser(GTK_WINDOW(helper.getWidget("main_window")));
+                fdl2_path = showFileChooser(GTK_WINDOW(helper.getWidget("main_window")), false);
             }
         }
         else
