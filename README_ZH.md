@@ -295,6 +295,16 @@ SFD Tool 在不同平台上使用 per-user 配置文件保存用户偏好，
 
 本项目遵循 GPL 等开源许可证发布，详细信息请参见仓库中的 LICENSE 及相关说明。
 
+## 无root权限运行SFD Tool?
+
+实际上，SFD Tool可以在没有root权限的情况下正常运行，但首先需要添加一条`udev`规则。
+
+创建`/etc/udev/rules.d/80-spd.rules`，写入这一条：
+
+```text
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="1782", ATTRS{idProduct}=="4d00", MODE="0666", TAG+="uaccess"
+```
+
 ## Star History
 
 <a href="https://www.star-history.com/?repos=C-Hidery%2Fsfd_tool&type=date&legend=top-left">

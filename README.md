@@ -272,6 +272,16 @@ operations can brick a device and may lead to data loss.
 SFD Tool is distributed under the terms of the GPL. See the repository for
 license details.
 
+## Want to Run SFD Tool without root privileges?
+
+Actually, SFD Tool can be run without root privileges, but you have to create a `udev` rule.
+
+Create `/etc/udev/rules.d/80-spd.rules` with this line:
+
+```text
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="1782", ATTRS{idProduct}=="4d00", MODE="0666", TAG+="uaccess"
+```
+
 ## Star History
 
 <a href="https://www.star-history.com/?repos=C-Hidery%2Fsfd_tool&type=date&legend=top-left">
