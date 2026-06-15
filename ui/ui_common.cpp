@@ -197,6 +197,7 @@ void DisableWidgets(GtkWidgetHelper helper) {
 }
 
 void ensure_device_attached_or_exit(GtkWidgetHelper helper) {
+    (void)helper;
 	if (m_bOpened == -1) {
 		ERR_EXIT("device unattached, exiting...\n");
 	}

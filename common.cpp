@@ -30,7 +30,7 @@ extern AppState g_app_state;
 
 
 char fn_partlist[40] = { 0 };
-char savepath[ARGV_LEN] = { 0 };
+
 
 #if defined(__APPLE__)
 bool g_is_macos_bundle = false;
