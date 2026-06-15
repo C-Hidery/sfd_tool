@@ -1090,8 +1090,8 @@ void print_all_bsl_commands() {
 	printf("0x15: BSL_CMD_READ_FLASH_UID\n");
 	printf("0x16: BSL_CMD_READ_SOFTSIM_EID\n");
 	printf("0x17: BSL_CMD_POWER_OFF\n");
-	printf("0x19: BSL_CMD_CHECK_ROOT / YCC_CMD_UN_BL\n");
-	printf("0x1A: BSL_CMD_READ_CHIP_UID / YCC_CMD_LK_BL\n");
+	printf("0x19: BSL_CMD_CHECK_ROOT / YCC_CMD_SET_BL_A\n");
+	printf("0x1A: BSL_CMD_READ_CHIP_UID / YCC_CMD_SET_BL_B\n");
 	printf("0x1B: BSL_CMD_ENABLE_WRITE_FLASH\n");
 	printf("0x1C: BSL_CMD_ENABLE_SECUREBOOT\n");
 	printf("0x1D: BSL_CMD_IDENTIFY_START\n");
