@@ -152,7 +152,7 @@ void print_help() {
 	    "\t35.dis_avb_tos\n"
 	    "\t\tDisable AVB verification by patching trustos(FDL2 only)\n"
 		"\t36.scan_partition [PARTITION TABLE XML]\n"
-		"\tGet partition table through scanning a partition xml file\n"
+		"\t\tGet partition table through scanning a partition xml file\n"
 		"\t37.pac [PAC FILE]\n"
 		"\t\tFlash PAC firmware to the device (BROM stage only)\n"
 		"\t38.g_w_force {0,1}\n"
