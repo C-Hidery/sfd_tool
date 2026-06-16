@@ -4,7 +4,6 @@
 #define _FILE_OFFSET_BITS 64
 #endif
 #define ARGC_MAX 8
-#define ARGV_LEN 384
 //#include "define.h"
 #include <memory>
 #include <new>
@@ -93,8 +92,6 @@ DWORD WINAPI ThrdFunc(LPVOID lpParam);
 
 #ifdef _MSC_VER
 void usleep(unsigned int us);
-#define fseeko _fseeki64
-#define ftello _ftelli64
 #endif
 
 #include "spd_cmd.h"
@@ -102,7 +99,6 @@ void usleep(unsigned int us);
 #define FLAGS_CRC16 1
 #define FLAGS_TRANSCODE 2
 extern char fn_partlist[40];
-extern char savepath[ARGV_LEN];
 
 #if defined(__APPLE__)
 extern bool g_is_macos_bundle;

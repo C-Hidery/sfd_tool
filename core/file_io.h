@@ -8,6 +8,14 @@
     #error "This header requires C++. Please compile with a C++ compiler."
 #endif
 
+#ifdef _MSC_VER
+#define fseeko _fseeki64
+#define ftello _ftelli64
+#endif
+
+#define ARGV_LEN 384
+extern char savepath[ARGV_LEN];
+
 struct FileDeleter {
     void operator()(FILE* f) const noexcept {
         if (f) fclose(f);
@@ -84,7 +92,7 @@ public:
     size_t read(void* buffer, size_t size, size_t count) noexcept;
     int putc(int ch) noexcept;
     int getc() noexcept;
-    bool puts(const char* str) noexcept;
+    int puts(const char* str) noexcept;
     char* gets(char* buffer, int maxSize) noexcept;
     int printf(const char* format, ...) noexcept;
     int scanf(const char* format, ...) noexcept;

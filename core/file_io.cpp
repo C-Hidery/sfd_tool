@@ -1,5 +1,4 @@
 #include "file_io.h"
-#include "../common.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
@@ -9,6 +8,8 @@
 #ifdef _WIN32
 #include <windows.h>
 #endif
+
+char savepath[ARGV_LEN] = { 0 };
 
 // 原有的 xfopen 函数实现
 FILE* xfopen(const char* fn, const char* mode) {
@@ -238,9 +239,9 @@ int EnhancedFile::getc() noexcept {
     return EOF;
 }
 
-bool EnhancedFile::puts(const char* str) noexcept {
-    if (file) return fputs(str, file.get()) >= 0;
-    return false;
+int EnhancedFile::puts(const char* str) noexcept {
+    if (file) return fputs(str, file.get());
+    return EOF;
 }
 
 char* EnhancedFile::gets(char* buffer, int maxSize) noexcept {
