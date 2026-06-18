@@ -371,8 +371,8 @@ int main_console(int argc, char** argv) {
 		DEG_LOG(OP, "Try to convert termux transfered usb port fd.");
 		// handle
 		if (xfd < 0)
-			ERR_EXIT("Example: termux-usb -e \"./sfd_tool` --usb-fd\" /dev/bus/usb/xxx/xxx\n"
-					"Provide --usb-fd if run on android\n");
+			ERR_EXIT("Example: termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx\n"
+					"Error: Please provide --usb-fd if run on android\n");
 
 		if (libusb_wrap_sys_device(nullptr, (intptr_t)xfd, &io->dev_handle))
 			ERR_EXIT("libusb_wrap_sys_device exit unconditionally!\n");
