@@ -1,3 +1,9 @@
+sfd-tool (1.8.9.0-1-ltv) unstable; urgency=medium
+
+  * 修复了一些CLI的文本
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Fri, 19 Jun 2026 10:13:55 +0800
+
 sfd-tool (1.8.8.5-1-ltv) unstable; urgency=medium
 
   * 修复了一些已知bug
