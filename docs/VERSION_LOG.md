@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 1.8.8.5 LTV Edition
+Version 1.8.9.0 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -222,6 +222,9 @@ PAC刷写可自定义FDL; 恢复FDL自动执行
 
 ---v 1.8.8.5---
 修复了一些已知bug
+
+---v 1.8.9.0---
+修复了一些CLI的文本
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
