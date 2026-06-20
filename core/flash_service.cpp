@@ -296,7 +296,7 @@ public:
 
         if (!options.force) {
             load_partition_unify(io_, gPartInfo.name, options.file_path.c_str(), step, app_->flash.isCMethod);
-        } else if(io_->part_count && io_->part_count_c) {
+        } else if(io_->part_count || io_->part_count_c) {
             // 强制写：需要找到分区索引，并避免 splloader
             int index = -1;
             if (!app_->flash.isCMethod && io_->part_count) {

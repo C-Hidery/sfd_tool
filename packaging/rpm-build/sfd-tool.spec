@@ -6,7 +6,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        1.8.9.0
+Version:        1.8.9.1
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -60,6 +60,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Sat Jun 20 2026 RyanCrepa <Ryan110413@outlook.com> - 1.8.9.1-1-ltv
+- 修复了GUI无法强制刷写的问题
+
 * Fri Jun 19 2026 RyanCrepa <Ryan110413@outlook.com> - 1.8.9.0-1-ltv
 - 修复了一些CLI的文本
 
