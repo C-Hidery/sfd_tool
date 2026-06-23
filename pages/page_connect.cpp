@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ryan Crepa
+ */
 #include "ui/layout/bottom_bar.h"
 #include "page_connect.h"
 #include "../common.h"

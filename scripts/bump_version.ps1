@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryan Crepa
+
 $ErrorActionPreference = "Stop"
 
 # bump_version.ps1 - 交互式更新 sfd_tool 版本号和相关文件，并提交 git

@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ryan Crepa
+ */
 #pragma once
 #include "ui/GtkWidgetHelper.hpp"
 #include "../common.h"

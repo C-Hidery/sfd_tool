@@ -1,5 +1,9 @@
 #!/usr/bin/make -f
 
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryan Crepa
+
+
 %:
 	dh $@ --buildsystem=cmake --parallel
 

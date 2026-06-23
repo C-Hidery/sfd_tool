@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryan Crepa
+
 $ErrorActionPreference = "Stop"
 
 # 在项目根目录下运行（PowerShell）：

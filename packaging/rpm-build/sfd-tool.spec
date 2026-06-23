@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryan Crepa
+
 # 禁用 debug 包
 %global debug_package %{nil}
 %global _enable_debug_package 0

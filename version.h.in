@@ -1,2 +1,6 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ryan Crepa
+ */
 #pragma once
 #define SFD_TOOL_VERSION "@SFD_TOOL_VERSION_STR@"

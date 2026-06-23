@@ -1,7 +1,8 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 # SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# Copyright (C) 2026 Ryan Crepa
 # This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# Ryan Crepa <ryan110413@outlook.com>, 2026.
 #
 #, fuzzy
 msgid ""

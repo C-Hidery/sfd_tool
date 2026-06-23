@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryan Crepa
+
 add_library(pages_lib STATIC
     page_connect.cpp
     page_partition.cpp

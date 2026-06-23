@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ryan Crepa
+ */
 #include "pac_extract.h"
 #include "../i18n.h"
 #include "logging.h"  // 使用统一的 ERR_EXIT
