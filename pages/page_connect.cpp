@@ -344,7 +344,16 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 		if(!(helper.getSwitchState(helper.getWidget("exec_addr"))) && g_app_state.device.device_mode == SPRD3)
 		{
 			// 1) 保留原有 fdl_info.json 写入逻辑，兼容旧行为
-			EnhancedFile json_file = oxfopen_enhanced("fdl_info.json", "w");
+			std::string json_path = "fdl_info.json";
+#ifndef _WIN32
+			const char* home = getenv("HOME");
+			if (home) {
+				fs::path config_dir = fs::path(home) / ".config" / "sfd_tool";
+				fs::create_directories(config_dir);
+				json_path = (config_dir / "fdl_info.json").string();
+			}
+#endif
+			EnhancedFile json_file = oxfopen_enhanced(json_path.c_str(), "w");
 			if (json_file)
 			{
 				json j = {

@@ -31,6 +31,7 @@ GitHub Releases 中通常会提供：
 - macOS `.dmg` 应用包。
 
 Arch Linux 用户可以使用此AUR包：
+
 [sfd_tool_arch_aur_package](https://aur.archlinux.org/packages/sfd-tool)
 
 具体支持的系统版本和产物名称，请以最新 Release 页面和

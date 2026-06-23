@@ -278,6 +278,9 @@ int main_console(int argc, char** argv) {
 		DEG_LOG(W, "You are running this tool without root permission!");
 		DEG_LOG(W, "It may cause device connecting issue");
 		DEG_LOG(W, "Recommanded to open this tool with root permission!");
+		DEG_LOG(I, "Or you can create a udev rule to allow non-root access to the device");
+		DEG_LOG(I, "Create a file in /etc/udev/rules.d/80-spd.rules with the following content:");
+		DEG_LOG(I, "SUBSYSTEMS==\"usb\", ATTRS{idVendor}==\"1782\", ATTRS{idProduct}==\"4d00\", MODE=\"0666\", TAG+=\"uaccess\"");
 	}
 #endif
 	int i = 1;
