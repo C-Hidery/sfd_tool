@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ryan Crepa
+ */
 #include "file_io.h"
 #include <stdlib.h>
 #include <string.h>

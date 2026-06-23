@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ryan Crepa
+ */
 #include "ui/layout/bottom_bar.h"
 #include "page_connect.h"
 #include "../common.h"
@@ -340,7 +344,16 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 		if(!(helper.getSwitchState(helper.getWidget("exec_addr"))) && g_app_state.device.device_mode == SPRD3)
 		{
 			// 1) 保留原有 fdl_info.json 写入逻辑，兼容旧行为
-			EnhancedFile json_file = oxfopen_enhanced("fdl_info.json", "w");
+			std::string json_path = "fdl_info.json";
+#ifndef _WIN32
+			const char* home = getenv("HOME");
+			if (home) {
+				fs::path config_dir = fs::path(home) / ".config" / "sfd_tool";
+				fs::create_directories(config_dir);
+				json_path = (config_dir / "fdl_info.json").string();
+			}
+#endif
+			EnhancedFile json_file = oxfopen_enhanced(json_path.c_str(), "w");
 			if (json_file)
 			{
 				json j = {
@@ -843,13 +856,22 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 			if (g_app_state.device.device_mode == SPRD4 && isKickMode) {
 				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Since your device is in SPRD4 mode, you can choose to skip FDL setting and directly execute FDL, but not all devices support that, please proceed with caution!"));
 			}
-			if(fs::exists("fdl_info.json") && g_app_state.device.device_stage == BROM && g_app_state.device.device_mode == SPRD3 && !isKickMode && !isCve)
+			std::string json_path = "fdl_info.json";
+#ifndef _WIN32
+			const char* home = getenv("HOME");
+			if (home) {
+				fs::path config_dir = fs::path(home) / ".config" / "sfd_tool";
+				fs::create_directories(config_dir);
+				json_path = (config_dir / "fdl_info.json").string();
+			}
+#endif
+			if(fs::exists(json_path) && g_app_state.device.device_stage == BROM && g_app_state.device.device_mode == SPRD3 && !isKickMode && !isCve)
 			{
 				bool i_is = false;
 				i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"),_("FDL Info detected, do you want to load it?"));
 				if (i_is)
 				{
-					std::ifstream f("fdl_info.json");
+					std::ifstream f(json_path);
 					json j = json::parse(f);
 					fdl1_path_json = j["fdl1_path"].get<std::string>();
 					fdl2_path_json = j["fdl2_path"].get<std::string>();

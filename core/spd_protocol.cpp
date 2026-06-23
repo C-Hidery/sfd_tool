@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ryan Crepa
+ */
 #include "spd_protocol.h"
 #include "logging.h"
 #include "device_attach_helpers.h"

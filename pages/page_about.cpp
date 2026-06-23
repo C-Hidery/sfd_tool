@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ryan Crepa
+ */
 #include "page_about.h"
 #include "../i18n.h"
 #include <string>

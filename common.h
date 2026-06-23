@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ryan Crepa
+ */
 #pragma once
 #ifndef _MSC_VER
 #define _GNU_SOURCE 1

@@ -1,3 +1,6 @@
+#SPDX-License-Identifier: GPL-3.0-or-later
+#Copyright (C) 2026 Ryan Crepa
+
 # 配置选项
 LIBUSB = 1
 GTK = 1

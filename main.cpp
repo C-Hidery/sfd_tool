@@ -348,7 +348,7 @@ libusb_device** ports;
 void check_root_permission(GtkWidgetHelper helper) {
 	if (geteuid() != 0) {
 		// not root
-		showWarningDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Warning"))), _("You are running this tool without root permission!\nIt may cause device connecting issue\nRecommanded to open this tool with root permission!\n\nsudo -E /path/to/sfd_tool"));
+		showWarningDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Warning"))), _("You are running this tool without root permission!\nIt may cause device connecting issue\nIn GUI, you can create a udev rule to allow non-root access to the device:\nCreate a file in /etc/udev/rules.d/80-spd.rules with the following content:\n\nSUBSYSTEMS==\"usb\", ATTRS{idVendor}==\"1782\", ATTRS{idProduct}==\"4d00\", MODE=\"0666\", TAG+=\"uaccess\""));
 	}
 }
 #endif

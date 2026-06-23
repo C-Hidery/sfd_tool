@@ -175,6 +175,9 @@ Prebuilt binaries and packages are provided on GitHub Releases, typically includ
 - `.rpm` packages for RPM‑based distributions.
 - macOS `.dmg` application bundles.
 
+And Arch Linux users can use this pre-built package in aur:
+
+[sfd_tool_arch_aur_package](https://aur.archlinux.org/packages/sfd-tool)
 
 For exact platforms and artifact names, refer to the latest release page and
 [.github/workflows/build.yml](.github/workflows/build.yml).

@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ryan Crepa
+ */
 #include "bottom_bar.h"
 #include "ui/GtkWidgetHelper.hpp"
 #include "common.h"

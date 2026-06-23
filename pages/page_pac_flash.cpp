@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ryan Crepa
+ */
 #include "page_pac_flash.h"
 #include "../core/app_state.h"
 #include "../core/usb_transport.h"

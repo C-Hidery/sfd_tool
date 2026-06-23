@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Ryan Crepa
+
 # 禁用 debug 包
 %global debug_package %{nil}
 %global _enable_debug_package 0
@@ -6,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        1.8.9.1
+Version:        1.8.9.2
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -60,6 +63,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Tue Jun 23 2026 RyanCrepa <Ryan110413@outlook.com> - 1.8.9.2-1-ltv
+- 修复了一些已知bug, 优化用户体验
+
 * Sat Jun 20 2026 RyanCrepa <Ryan110413@outlook.com> - 1.8.9.1-1-ltv
 - 修复了GUI无法强制刷写的问题
 

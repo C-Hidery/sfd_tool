@@ -1,4 +1,10 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Ryan Crepa
+ */
+
 // GtkWidgetHelper.hpp
+
 #ifndef GTK_WIDGET_HELPER_HPP
 #define GTK_WIDGET_HELPER_HPP
 
