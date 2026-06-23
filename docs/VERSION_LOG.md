@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 1.8.9.1 LTV Edition
+Version 1.8.9.2 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -228,6 +228,9 @@ PAC刷写可自定义FDL; 恢复FDL自动执行
 
 ---v 1.8.9.1---
 修复了GUI无法强制刷写的问题
+
+---v 1.8.9.2---
+修复了一些已知bug, 优化用户体验
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
