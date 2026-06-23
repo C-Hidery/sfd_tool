@@ -25,7 +25,7 @@
  * [sfd_tool] - Low-level device communication module
  * 
  * This module contains code that works with certain UNISOC bootrom behaviors.
- * The implementation is based on publicly disclosed information from 2026s.
+ * The implementation is based on publicly disclosed information from 2026.
  * 
  * USE RESTRICTION: This tool is designed for legal device maintenance only.
  * The author does not authorize its use for any illegal purpose, including
