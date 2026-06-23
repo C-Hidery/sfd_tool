@@ -12,6 +12,8 @@ operations**, with first‑class support for modern 64‑bit platforms.
 
 ![License](https://img.shields.io/github/license/C-Hidery/sfd_tool)
 
+**License: GPL-3.0-or-later**
+
 [中文文档](README_ZH.md)
 
 ## Introduction
