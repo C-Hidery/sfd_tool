@@ -38,6 +38,8 @@ GitHub Releases 中通常会提供：
 
 ![License](https://img.shields.io/github/license/C-Hidery/sfd_tool)
 
+**License: GPL-3.0-or-later**
+
 ## 介绍
 
 

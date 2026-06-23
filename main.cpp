@@ -1,8 +1,31 @@
 /*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * 
+ * Copyright (C) 2026 Ryan Crepa
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ * 
+ * This project contains code originally from spreadtrum_flash
+ * (MIT License, Copyright (c) TomKing062)
+ * See spreadtrum_flash/spd_dump.c for details.
+ */
+
+/*
  * [sfd_tool] - Low-level device communication module
  * 
  * This module contains code that works with certain UNISOC bootrom behaviors.
- * The implementation is based on publicly disclosed information from 2025.
+ * The implementation is based on publicly disclosed information from 2026s.
  * 
  * USE RESTRICTION: This tool is designed for legal device maintenance only.
  * The author does not authorize its use for any illegal purpose, including
