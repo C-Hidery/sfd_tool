@@ -1,6 +1,6 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-or-later
- * Copyright (C) 2026 Ryan Crepa
+ * SFDTool Copyright (C) 2026 Ryan Crepa
  */
 #define HDLC_HEADER 0x7e
 #define HDLC_ESCAPE 0x7d
