@@ -1,6 +1,6 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-or-later
- * Copyright (C) 2026 Ryan Crepa
+ * SFDTool Copyright (C) 2026 Ryan Crepa
  */
 #include "ui/layout/bottom_bar.h"
 #include "ui/ui_common.h"

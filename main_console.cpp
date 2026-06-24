@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * SFDTool Copyright (C) 2026 Ryan Crepa
+ */
 #ifndef MAIN_CONSOLE_IMPLEMENTATION
 #define MAIN_CONSOLE_IMPLEMENTATION
 

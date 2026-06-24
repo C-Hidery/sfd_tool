@@ -1,6 +1,6 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-or-later
- * Copyright (C) 2026 Ryan Crepa
+ * SFDTool Copyright (C) 2026 Ryan Crepa
  */
 #ifndef SFD_TOOL_I18N_H
 #define SFD_TOOL_I18N_H
