@@ -277,16 +277,6 @@ int main_console(int argc, char** argv) {
 #else
 	DBG_LOG("version:stable, core version:%s\n", Version);
 #endif
-#ifdef __linux__
-	if (geteuid() != 0) {
-		DEG_LOG(W, "You are running this tool without root permission!");
-		DEG_LOG(W, "It may cause device connecting issue");
-		DEG_LOG(W, "Recommanded to open this tool with root permission!");
-		DEG_LOG(I, "Or you can create a udev rule to allow non-root access to the device");
-		DEG_LOG(I, "Create a file in /etc/udev/rules.d/80-spd.rules with the following content:");
-		DEG_LOG(I, "SUBSYSTEMS==\"usb\", ATTRS{idVendor}==\"1782\", ATTRS{idProduct}==\"4d00\", MODE=\"0666\", TAG+=\"uaccess\"");
-	}
-#endif
 	int i = 1;
 	while (argc > 1) {
 		if (!strcmp(argv[1], "--wait")) {
@@ -371,6 +361,16 @@ int main_console(int argc, char** argv) {
 		bootmode = -1;
 		at = 0;
 	}
+#ifndef _WIN32
+	if (geteuid() != 0 && !isToolMode) {
+		DEG_LOG(W, "You are running this tool without root permission!");
+		DEG_LOG(W, "It may cause device connecting issue");
+		DEG_LOG(W, "Recommanded to open this tool with root permission!");
+		DEG_LOG(I, "Or you can create a udev rule to allow non-root access to the device");
+		DEG_LOG(I, "Create a file in /etc/udev/rules.d/80-spd.rules with the following content:");
+		DEG_LOG(I, "SUBSYSTEMS==\"usb\", ATTRS{idVendor}==\"1782\", ATTRS{idProduct}==\"4d00\", MODE=\"0666\", TAG+=\"uaccess\"");
+	}
+#endif
 	if (!isToolMode)
 	{
 		#ifdef __ANDROID__
@@ -1400,6 +1400,8 @@ int main_console(int argc, char** argv) {
 				continue;
 			}
 			set_bootloader_status(io, status);
+			argc -= 2;
+			argv += 2;
 		}
 		else if (!strcmp(str2[1], "erase_flash")) {
 			if (isToolMode)
@@ -1441,6 +1443,8 @@ int main_console(int argc, char** argv) {
 
 		} else if (!strcmp(str2[1], "show_cmd")) {
 			print_all_bsl_commands();
+			argc--; 
+			argv++;
 		} else if (!strcmp(str2[1], "find_cmd")) {
 			if (argcount <= 2) {
 				DEG_LOG(W, "find_cmd [TYPE]");
@@ -1449,6 +1453,8 @@ int main_console(int argc, char** argv) {
 			}
 			const char* name = get_bsl_enum_name(strtoul(str2[2], nullptr, 0));
 			DEG_LOG(I, "%s", name);
+			argc -= 2;
+			argv += 2;
 		} else if (!strcmp(str2[1], "read_mem")) {
 			if (isToolMode)
 			{
@@ -3120,7 +3126,7 @@ rloop:
 			print_help();
 			argc = 1;
 		}
-		if (in_quote != -1 && !isToolMode)
+		if (in_quote != -1)
 		{
 			for (i = 1; i < argcount; i++)
 				delete[](str2[i]);
