@@ -2267,6 +2267,8 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			return;
 		}
 	}
+	bool isHasDownloadNV = false;
+	int dlnv_id = 0;
 	const char* primary_id = nullptr;
 	const char* fallback_id = "SPLLoader";
 	if (Da_Info.dwStorageType != 0x103) primary_id = "SPLLoaderEMMC";
@@ -2324,7 +2326,11 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			!strncmp(fn, "lk", 2) ||
 			!strncmp(fn, "0x", 2) ||
 			!strncmp(fn, "custom_exec", 11) ||
-		    !strncmp(fn, "factorynv", 9)) continue;
+		    strstr(fn, "factorynv")) continue;
+		if (strstr(fn, "downloadnv")) {
+			isHasDownloadNV = true;
+			dlnv_id = partition_count;
+		}
 		snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s", path, fn);
 		char *dot = strrchr(fn, '.');
 		if (dot != nullptr) *dot = '\0';
@@ -2374,7 +2380,11 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			!strncmp(fn, "lk", 2) ||
 			!strncmp(fn, "0x", 2) ||
 			!strncmp(fn, "custom_exec", 11) ||
-		    !strncmp(fn, "factorynv", 9)) continue;
+		    strstr(fn, "factorynv")) continue;
+		if (strstr(fn, "downloadnv")) {
+			isHasDownloadNV = true;
+			dlnv_id = partition_count;
+		}
 		snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s", path, fn);
 		char *dot = strrchr(fn, '.');
 		if (dot != nullptr) *dot = '\0';
@@ -2572,10 +2582,16 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			if (g_app_state.flash.isPacFlashing && !hasPartition(pac_parts, fn)) continue;
 			get_partition_info(io, fn, 0);
 			if (!gPartInfo.size) continue;
+			if (isHasDownloadNV) continue;
 			if (!strcmp(gPartInfo.name, "metadata")) { metadata_in_dump = 1; metadata_id = i; continue; }
 			if (!strcmp(gPartInfo.name, "super")) { super_in_dump = 1; super_id = i; continue; }
 			load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
 		}
+	}
+	if (isHasDownloadNV && dlnv_id)
+	{
+		get_partition_info(io, partitions[dlnv_id].name, 1);
+		if (gPartInfo.size) load_nv_partition(io, gPartInfo.name, partitions[dlnv_id].file_path, 4096);
 	}
 	if (super_in_dump) {
 		load_partition(io, "super", partitions[super_id].file_path, step, CMethod);
