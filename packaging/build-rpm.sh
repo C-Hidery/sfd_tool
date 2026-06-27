@@ -51,3 +51,4 @@ echo "RPM packages created in:"
 ls -la ~/rpmbuild/RPMS/*/*.rpm 2>/dev/null || echo "Check ~/rpmbuild/RPMS/"
 ls -la ~/rpmbuild/SRPMS/*.rpm 2>/dev/null || echo "Check ~/rpmbuild/SRPMS/"
 cp ~/rpmbuild/RPMS/*/*.rpm ~/
+echo "Package copied to home (~) directory."

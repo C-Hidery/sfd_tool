@@ -53,9 +53,11 @@ cd /tmp/build-$PKGNAME/$ARCHIVE
 # 构建包
 dpkg-buildpackage -us -uc
 
-# 复制生成的包回项目目录
+# 复制生成的包回home目录
 cp ../*.deb ~/ 2>/dev/null || true
 
 echo "=== Build complete ==="
 echo "Packages:"
 ls -la ../*.deb 2>/dev/null || echo "Packages in /tmp/build-$PKGNAME/"
+
+echo "Package copied to home (~) directory."
