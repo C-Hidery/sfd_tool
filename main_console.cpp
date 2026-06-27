@@ -2816,6 +2816,8 @@ rloop:
 				else if (isKickMode) DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
 				else DEG_LOG(I, "Device stage: Unknown/Unknown");
 			}
+			argc -= 1;
+			argv += 1;
 		}
 		else if (!strcmp(str2[1], "firstmode")) {
 			if (isToolMode)
