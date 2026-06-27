@@ -836,26 +836,26 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 
 	if (fdl2_executed > 0) {
 		if (g_app_state.device.device_mode == SPRD3) {
-			DEG_LOG(I, "Device stage: FDL2/SPRD3");
+			DEG_LOG(I, "Device status: FDL2/SPRD3");
 		} 
-		else if (isKickMode) DEG_LOG(I, "Device stage: FDL2/SPRD4(AutoD)");
-		else DEG_LOG(I, "Device stage: FDL2/Unknown");
+		else if (isKickMode) DEG_LOG(I, "Device status: FDL2/SPRD4(AutoD)");
+		else DEG_LOG(I, "Device status: FDL2/Unknown");
 	} else if (fdl1_loaded > 0) {
 		if (g_app_state.device.device_mode == SPRD3) {
-			DEG_LOG(I, "Device stage: FDL1/SPRD3");
+			DEG_LOG(I, "Device status: FDL1/SPRD3");
 		} 
-		else if (isKickMode) DEG_LOG(I, "Device stage: FDL1/SPRD4(AutoD)");
-		else DEG_LOG(I, "Device stage: FDL1/Unknown");
+		else if (isKickMode) DEG_LOG(I, "Device status: FDL1/SPRD4(AutoD)");
+		else DEG_LOG(I, "Device status: FDL1/Unknown");
 	} else if (g_app_state.device.device_stage == BROM) {
 		if (g_app_state.device.device_mode == SPRD3) {
-			DEG_LOG(I, "Device stage: BROM/SPRD3");
+			DEG_LOG(I, "Device status: BROM/SPRD3");
 		} 
-		else if (isKickMode) DEG_LOG(I, "Device stage: BROM/SPRD4(AutoD)");
-		else DEG_LOG(I, "Device stage: BROM/Unknown");
+		else if (isKickMode) DEG_LOG(I, "Device status: BROM/SPRD4(AutoD)");
+		else DEG_LOG(I, "Device status: BROM/Unknown");
 	} else {
-		if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
-		else if (isKickMode) DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
-		else DEG_LOG(I, "Device stage: Unknown/Unknown");
+		if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device status: Unknown/SPRD3");
+		else if (isKickMode) DEG_LOG(I, "Device status: Unknown/SPRD4(AutoD)");
+		else DEG_LOG(I, "Device status: Unknown/Unknown");
 	}
 
 	gui_idle_call_wait_drag([=]() mutable {
