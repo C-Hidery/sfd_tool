@@ -149,10 +149,10 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 				return;
 			}
 			fi.close();
-			if (!isKickMode) send_file(io, fdl_path, fdl_addr, end_data, blk_size ? blk_size : 528, 0, 0);
+			if (g_app_state.device.device_mode != SPRD4 || !isKickMode) send_file(io, fdl_path, fdl_addr, end_data, blk_size ? blk_size : 528, 0, 0);
 			else send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
 		} else {
-			if (g_app_state.device.device_mode == SPRD4 && isKickMode) {
+			if (g_app_state.device.device_mode == SPRD4) {
 				bool result = showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Device can be booted without FDL in SPRD4 mode, continue?"));
 				if (result) {
 					DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
@@ -434,7 +434,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 					if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
 				}
 			} else {
-				if (g_app_state.device.device_mode == SPRD4 && isKickMode) {
+				if (g_app_state.device.device_mode == SPRD4) {
 					bool result = showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Device can be booted without FDL in SPRD4 mode, continue?"));
 					if (result) {
 						DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
@@ -732,6 +732,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 					g_app_state.device.device_stage = FDL1;
 					DEG_LOG(OP, "FDL1 connected.");
 					if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
+					if (!memcmp(io->raw_buf + 4, "SPRD4", 5)) g_app_state.device.device_mode = SPRD4;
 					break;
 				} else {
 					g_app_state.device.device_stage = BROM;
@@ -740,6 +741,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 						fdl1_loaded = -1;
 						fdl2_executed = -1;
 					}
+					if (!memcmp(io->raw_buf + 4, "SPRD4", 5)) g_app_state.device.device_mode = SPRD4;
 				}
 				DBG_LOG("Device mode version: ");
 				print_string(stdout, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
@@ -827,33 +829,41 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		}
 	}
 	DEG_LOG(I, "SPRD3 Current : %d", found);
-	if (!found && isKickMode) g_app_state.device.device_mode = SPRD4;
-	else g_app_state.device.device_mode = SPRD3;
+	if (found && g_app_state.device.device_mode != SPRD4) g_app_state.device.device_mode = SPRD3;
+	else g_app_state.device.device_mode = Nothing;
 
 	// 使用 DeviceService 视图统一记录阶段/模式信息
 
 	if (fdl2_executed > 0) {
 		if (g_app_state.device.device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: FDL2/SPRD3");
-		} else DEG_LOG(I, "Device stage: FDL2/SPRD4(AutoD)");
+		} 
+		else if (isKickMode) DEG_LOG(I, "Device stage: FDL2/SPRD4(AutoD)");
+		else DEG_LOG(I, "Device stage: FDL2/Unknown");
 	} else if (fdl1_loaded > 0) {
 		if (g_app_state.device.device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: FDL1/SPRD3");
-		} else DEG_LOG(I, "Device stage: FDL1/SPRD4(AutoD)");
+		} 
+		else if (isKickMode) DEG_LOG(I, "Device stage: FDL1/SPRD4(AutoD)");
+		else DEG_LOG(I, "Device stage: FDL1/Unknown");
 	} else if (g_app_state.device.device_stage == BROM) {
 		if (g_app_state.device.device_mode == SPRD3) {
 			DEG_LOG(I, "Device stage: BROM/SPRD3");
-		} else DEG_LOG(I, "Device stage: BROM/SPRD4(AutoD)");
+		} 
+		else if (isKickMode) DEG_LOG(I, "Device stage: BROM/SPRD4(AutoD)");
+		else DEG_LOG(I, "Device stage: BROM/Unknown");
 	} else {
 		if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
-		else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
+		else if (isKickMode) DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
+		else DEG_LOG(I, "Device stage: Unknown/Unknown");
 	}
+
 	gui_idle_call_wait_drag([=]() mutable {
 		showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Successfully connected"), _("Device already connected! Some advanced settings opened!"));
 		if (!fdl2_executed) {
 			helper.enableWidget("fdl_exec");
 			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Please execute FDL file to continue!"));
-			if (g_app_state.device.device_mode == SPRD4 && isKickMode) {
+			if (g_app_state.device.device_mode == SPRD4) {
 				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Since your device is in SPRD4 mode, you can choose to skip FDL setting and directly execute FDL, but not all devices support that, please proceed with caution!"));
 			}
 			std::string json_path = "fdl_info.json";
@@ -865,7 +875,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 				json_path = (config_dir / "fdl_info.json").string();
 			}
 #endif
-			if(fs::exists(json_path) && g_app_state.device.device_stage == BROM && g_app_state.device.device_mode == SPRD3 && !isKickMode && !isCve)
+			if(fs::exists(json_path) && g_app_state.device.device_stage == BROM && !isKickMode && !isCve)
 			{
 				bool i_is = false;
 				i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"),_("FDL Info detected, do you want to load it?"));

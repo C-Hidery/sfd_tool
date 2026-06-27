@@ -19,6 +19,10 @@
 #include "core/XmlParser.hpp"
 
 extern AppState g_app_state;
+char** str2;
+int in_quote;
+char str1[(ARGC_MAX - 1) * ARGV_LEN];
+const char *Version = "[1.2.3.0@_250726]";
 
 // 兼容旧代码的便捷访问器：直接操作 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
@@ -171,38 +175,40 @@ void print_help() {
 		"\t\tMerge NV partition with an XML config file, Old nvimage needed.\n"
 		"\t43.mergenv-cfg-ex [CONFIG] old_nv new_nv\n"
 		"\t\tMerge NV partition with a special config file, Old nvimage needed.\n"
+		"\t44.status\n"
+		"\t\tShow device status (FDL2 only)\n"
 	    "Debug commands:\n"
-	    "\t44.skip_confirm {0,1}\n"
+	    "\t45.skip_confirm {0,1}\n"
 	    "\t\tSkips all confirmation prompts(use with caution!)\n"
-	    "\t45.keep_charge\n"
+	    "\t46.keep_charge\n"
 	    "\t\tKeep charge in FDL1/FDL2 stage.\n"
-	    "\t46.send_end_data {0,1}\n"
+	    "\t47.send_end_data {0,1}\n"
 	    "\t\tSends end data after file transfer.\n"
-	    "\t47.rawdata {0,1,2}\n"
+	    "\t48.rawdata {0,1,2}\n"
 	    "\t\tEnable raw_data mode for file sending to get better speed.\n"
 	    "\t\t(Not all FDL2 support.)\n"
-	    "\t48.slot {0,1,2}\n"
+	    "\t49.slot {0,1,2}\n"
 	    "\t\tSelect slot auto|a|b on VAB devices.\n"
-	    "\t49.chip_uid\n"
+	    "\t50.chip_uid\n"
 	    "\t\tReads the chip UID (FDL2 stage only).\n"
-	    "\t50.transcode {0,1}\n"
+	    "\t51.transcode {0,1}\n"
 	    "\t\tEnable or disable transcode mode (FDL2 stage only).\n"
-	    "\t51.sendloop [ADDR]\n"
+	    "\t52.sendloop [ADDR]\n"
 	    "\t\tSend [0, 0, 0, 0] packet to a specified address, then send addresses in a loop of [0, 0, 0, 0] packet to sequentially decrease by 8\n"
-	    "\t52.write_word\n"
+	    "\t53.write_word\n"
 	    "\t\tWrite a HEX number word to a specified address.\n"
-	    "\t53.read_nand\n"
+	    "\t54.read_nand\n"
 	    "\t\tDetermine whether the current device is a NAND model; not all devices are supported.(through 0x0D)\n"
-	    "\t54.sendcmd [TYPE] <FILE>\n"
+	    "\t55.sendcmd [TYPE] <FILE>\n"
 	    "\t\tSend a specified command (with a file)\n"
-	    "\t55.pactime\n"
+	    "\t56.pactime\n"
 	    "\t\tRead the last time the PAC firmware was flashed.\n"
-		"\t56.read_flash [ADDR] [OFFSET] [SIZE] [FILE]\n"
+		"\t57.read_flash [ADDR] [OFFSET] [SIZE] [FILE]\n"
 		"\t\tRead flash content to a file\n"
 		"\t\t`read_flash_dhtb` for reading DHTB Signature for ums9117\n"
-		"\t57.read_mem [ADDR] [SIZE] [FILE]\n"
+		"\t58.read_mem [ADDR] [SIZE] [FILE]\n"
 		"\t\tRead memory content to a file\n"
-		"\t58.erase_flash [ADDR] [SIZE]\n"
+		"\t59.erase_flash [ADDR] [SIZE]\n"
 		"\t\tErase flash content\n"
 	    "Notice:\n"
 	    "\t1.The compatibility method to get part table sometimes can not get all partitions on your device\n"
@@ -211,11 +217,11 @@ void print_help() {
 	);
 	DBG_LOG(
 	    "\nExit Commands\n"
-	    "\t59.reboot-recovery\n\t\tFDL2 only\n"
-	    "\t60.reboot-fastboot\n\t\tFDL2 only\n"
-	    "\t61.reset\n\t\tFDL2 and new FDL1\n"
-	    "\t62.poweroff\n,\t\tFDL2 and new FDL1\n"
-		"\t63.exit\n\t\tExit the program (Tool mode only.)\n"
+	    "\t60.reboot-recovery\n\t\tFDL2 only\n"
+	    "\t61.reboot-fastboot\n\t\tFDL2 only\n"
+	    "\t62.reset\n\t\tFDL2 and new FDL1\n"
+	    "\t63.poweroff\n,\t\tFDL2 and new FDL1\n"
+		"\t64.exit\n\t\tExit the program (Tool mode only.)\n"
 	);
 }
 void ThrowExit() {
@@ -526,6 +532,7 @@ int main_console(int argc, char** argv) {
 						g_app_state.device.device_stage = FDL1;
 						DEG_LOG(OP, "FDL1 connected.");
 						if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
+						if (!memcmp(io->raw_buf + 4, "SPRD4", 5)) g_app_state.device.device_mode = SPRD4;
 						break;
 					} else {
 						g_app_state.device.device_stage = BROM;
@@ -534,6 +541,7 @@ int main_console(int argc, char** argv) {
 							fdl1_loaded = -1;
 							fdl2_executed = -1;
 						}
+						if (!memcmp(io->raw_buf + 4, "SPRD4", 5)) g_app_state.device.device_mode = SPRD4;
 					}
 					DBG_LOG("Device mode version: ");
 					print_string(stdout, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
@@ -621,9 +629,9 @@ int main_console(int argc, char** argv) {
 			}
 		}
 		DEG_LOG(I, "SPRD3 Current : %d", found);
-		if (!found && isKickMode) g_app_state.device.device_mode = SPRD4;
-		else g_app_state.device.device_mode = SPRD3;
-		
+		if (found && g_app_state.device.device_mode != SPRD4) g_app_state.device.device_mode = SPRD3;
+		else g_app_state.device.device_mode = Nothing;
+
 		if (fdl1_loaded == -1) argc += 2;
 		if (fdl2_executed == -1) argc += 1;
 		init_stage = 2;
@@ -631,18 +639,25 @@ int main_console(int argc, char** argv) {
 		if (fdl2_executed > 0) {
 			if (g_app_state.device.device_mode == SPRD3) {
 				DEG_LOG(I, "Device stage: FDL2/SPRD3");
-			} else DEG_LOG(I, "Device stage: FDL2/SPRD4(AutoD)");
+			} 
+			else if (isKickMode) DEG_LOG(I, "Device stage: FDL2/SPRD4(AutoD)");
+			else DEG_LOG(I, "Device stage: FDL2/Unknown");
 		} else if (fdl1_loaded > 0) {
 			if (g_app_state.device.device_mode == SPRD3) {
 				DEG_LOG(I, "Device stage: FDL1/SPRD3");
-			} else DEG_LOG(I, "Device stage: FDL1/SPRD4(AutoD)");
+			} 
+			else if (isKickMode) DEG_LOG(I, "Device stage: FDL1/SPRD4(AutoD)");
+			else DEG_LOG(I, "Device stage: FDL1/Unknown");
 		} else if (g_app_state.device.device_stage == BROM) {
 			if (g_app_state.device.device_mode == SPRD3) {
 				DEG_LOG(I, "Device stage: BROM/SPRD3");
-			} else DEG_LOG(I, "Device stage: BROM/SPRD4(AutoD)");
+			} 
+			else if (isKickMode) DEG_LOG(I, "Device stage: BROM/SPRD4(AutoD)");
+			else DEG_LOG(I, "Device stage: BROM/Unknown");
 		} else {
 			if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
-			else DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
+			else if (isKickMode) DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
+			else DEG_LOG(I, "Device stage: Unknown/Unknown");
 		}
 		if (isKickMode && g_app_state.device.device_mode == SPRD4 && g_app_state.device.device_stage != FDL2 && !no_fdl_mode) {
 			DEG_LOG(I, "SPRD4 mode detected, but No-FDL mode not enabled.");
@@ -1017,6 +1032,7 @@ int main_console(int argc, char** argv) {
 				print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
 
 				if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
+				if (!memcmp(io->raw_buf + 4, "SPRD4", 5)) g_app_state.device.device_mode = SPRD4;
 				//special FDL1 MEM, DISABLED FOR STABILITY
 #if FDL1_DUMP_MEM
 				//read dump mem
@@ -1222,6 +1238,7 @@ int main_console(int argc, char** argv) {
 				printf("Device REP_Version: ");
 				print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
 				if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
+				if (!memcmp(io->raw_buf + 4, "SPRD4", 5)) g_app_state.device.device_mode = SPRD4;
 				//special FDL1 MEM, DISABLED FOR STABILITY
 #if FDL1_DUMP_MEM
 				//read dump mem
@@ -2772,7 +2789,35 @@ rloop:
 				continue;
 			}
 			read_pactime(io);
-		} else if (!strcmp(str2[1], "firstmode")) {
+			argc -= 1;
+			argv += 1;
+		} 
+		else if (!strcmp(str2[1], "status")){
+			if (fdl2_executed > 0) {
+				if (g_app_state.device.device_mode == SPRD3) {
+					DEG_LOG(I, "Device stage: FDL2/SPRD3");
+				} 
+				else if (isKickMode) DEG_LOG(I, "Device stage: FDL2/SPRD4(AutoD)");
+				else DEG_LOG(I, "Device stage: FDL2/Unknown");
+			} else if (fdl1_loaded > 0) {
+				if (g_app_state.device.device_mode == SPRD3) {
+					DEG_LOG(I, "Device stage: FDL1/SPRD3");
+				} 
+				else if (isKickMode) DEG_LOG(I, "Device stage: FDL1/SPRD4(AutoD)");
+				else DEG_LOG(I, "Device stage: FDL1/Unknown");
+			} else if (g_app_state.device.device_stage == BROM) {
+				if (g_app_state.device.device_mode == SPRD3) {
+					DEG_LOG(I, "Device stage: BROM/SPRD3");
+				} 
+				else if (isKickMode) DEG_LOG(I, "Device stage: BROM/SPRD4(AutoD)");
+				else DEG_LOG(I, "Device stage: BROM/Unknown");
+			} else {
+				if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
+				else if (isKickMode) DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
+				else DEG_LOG(I, "Device stage: Unknown/Unknown");
+			}
+		}
+		else if (!strcmp(str2[1], "firstmode")) {
 			if (isToolMode)
 			{
 				if (argcount <= 2)
