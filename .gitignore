@@ -18,3 +18,10 @@ sfd_tool_config.json
 
 # Ignore generated .mo files
 *.mo
+
+# Ignore generated .deb and .rpm files
+*.deb
+*.rpm
+
+# Ignore generated .dmg files
+*.dmg
