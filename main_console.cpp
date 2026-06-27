@@ -2754,6 +2754,8 @@ rloop:
 			    io->part_count_c = 0;
 			    isCMethod = 0;
 			}
+			argc -= 2;
+			argv += 2;
 		}
 		else if (!strcmp(str2[1], "p") || !strcmp(str2[1], "print")) {
 			if (isToolMode)
@@ -3163,7 +3165,7 @@ rloop:
 			}
 			else
 			{
-				DEG_LOG(E, "Non-tool mode does not support `exit` command, use `poweroff` or `reset` instead.");
+				DEG_LOG(E, "Non-tool mode does not support `exit` command, use `poweroff`, `reset`, etc. instead.");
 				argc -= 1;
 				argv += 1;
 				break;
