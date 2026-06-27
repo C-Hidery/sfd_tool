@@ -176,7 +176,7 @@ void print_help() {
 		"\t43.mergenv-cfg-ex [CONFIG] old_nv new_nv\n"
 		"\t\tMerge NV partition with a special config file, Old nvimage needed.\n"
 		"\t44.status\n"
-		"\t\tShow device status (FDL2 only)\n"
+		"\t\tShow device status.\n"
 	    "Debug commands:\n"
 	    "\t45.skip_confirm {0,1}\n"
 	    "\t\tSkips all confirmation prompts(use with caution!)\n"
@@ -638,26 +638,26 @@ int main_console(int argc, char** argv) {
 		ThrowExit();
 		if (fdl2_executed > 0) {
 			if (g_app_state.device.device_mode == SPRD3) {
-				DEG_LOG(I, "Device stage: FDL2/SPRD3");
+				DEG_LOG(I, "Device status: FDL2/SPRD3");
 			} 
-			else if (isKickMode) DEG_LOG(I, "Device stage: FDL2/SPRD4(AutoD)");
-			else DEG_LOG(I, "Device stage: FDL2/Unknown");
+			else if (isKickMode) DEG_LOG(I, "Device status: FDL2/SPRD4(AutoD)");
+			else DEG_LOG(I, "Device status: FDL2/Unknown");
 		} else if (fdl1_loaded > 0) {
 			if (g_app_state.device.device_mode == SPRD3) {
-				DEG_LOG(I, "Device stage: FDL1/SPRD3");
+				DEG_LOG(I, "Device status: FDL1/SPRD3");
 			} 
-			else if (isKickMode) DEG_LOG(I, "Device stage: FDL1/SPRD4(AutoD)");
-			else DEG_LOG(I, "Device stage: FDL1/Unknown");
+			else if (isKickMode) DEG_LOG(I, "Device status: FDL1/SPRD4(AutoD)");
+			else DEG_LOG(I, "Device status: FDL1/Unknown");
 		} else if (g_app_state.device.device_stage == BROM) {
 			if (g_app_state.device.device_mode == SPRD3) {
-				DEG_LOG(I, "Device stage: BROM/SPRD3");
+				DEG_LOG(I, "Device status: BROM/SPRD3");
 			} 
-			else if (isKickMode) DEG_LOG(I, "Device stage: BROM/SPRD4(AutoD)");
-			else DEG_LOG(I, "Device stage: BROM/Unknown");
+			else if (isKickMode) DEG_LOG(I, "Device status: BROM/SPRD4(AutoD)");
+			else DEG_LOG(I, "Device status: BROM/Unknown");
 		} else {
-			if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
-			else if (isKickMode) DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
-			else DEG_LOG(I, "Device stage: Unknown/Unknown");
+			if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device status: Unknown/SPRD3");
+			else if (isKickMode) DEG_LOG(I, "Device status: Unknown/SPRD4(AutoD)");
+			else DEG_LOG(I, "Device status: Unknown/Unknown");
 		}
 		if (isKickMode && g_app_state.device.device_mode == SPRD4 && g_app_state.device.device_stage != FDL2 && !no_fdl_mode) {
 			DEG_LOG(I, "SPRD4 mode detected, but No-FDL mode not enabled.");
@@ -2795,26 +2795,26 @@ rloop:
 		else if (!strcmp(str2[1], "status")){
 			if (fdl2_executed > 0) {
 				if (g_app_state.device.device_mode == SPRD3) {
-					DEG_LOG(I, "Device stage: FDL2/SPRD3");
+					DEG_LOG(I, "Device status: FDL2/SPRD3");
 				} 
-				else if (isKickMode) DEG_LOG(I, "Device stage: FDL2/SPRD4(AutoD)");
-				else DEG_LOG(I, "Device stage: FDL2/Unknown");
+				else if (isKickMode) DEG_LOG(I, "Device status: FDL2/SPRD4(AutoD)");
+				else DEG_LOG(I, "Device status: FDL2/Unknown");
 			} else if (fdl1_loaded > 0) {
 				if (g_app_state.device.device_mode == SPRD3) {
-					DEG_LOG(I, "Device stage: FDL1/SPRD3");
+					DEG_LOG(I, "Device status: FDL1/SPRD3");
 				} 
-				else if (isKickMode) DEG_LOG(I, "Device stage: FDL1/SPRD4(AutoD)");
-				else DEG_LOG(I, "Device stage: FDL1/Unknown");
+				else if (isKickMode) DEG_LOG(I, "Device status: FDL1/SPRD4(AutoD)");
+				else DEG_LOG(I, "Device status: FDL1/Unknown");
 			} else if (g_app_state.device.device_stage == BROM) {
 				if (g_app_state.device.device_mode == SPRD3) {
-					DEG_LOG(I, "Device stage: BROM/SPRD3");
+					DEG_LOG(I, "Device status: BROM/SPRD3");
 				} 
-				else if (isKickMode) DEG_LOG(I, "Device stage: BROM/SPRD4(AutoD)");
-				else DEG_LOG(I, "Device stage: BROM/Unknown");
+				else if (isKickMode) DEG_LOG(I, "Device status: BROM/SPRD4(AutoD)");
+				else DEG_LOG(I, "Device status: BROM/Unknown");
 			} else {
-				if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device stage: Unknown/SPRD3");
-				else if (isKickMode) DEG_LOG(I, "Device stage: Unknown/SPRD4(AutoD)");
-				else DEG_LOG(I, "Device stage: Unknown/Unknown");
+				if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device status: Unknown/SPRD3");
+				else if (isKickMode) DEG_LOG(I, "Device status: Unknown/SPRD4(AutoD)");
+				else DEG_LOG(I, "Device status: Unknown/Unknown");
 			}
 			argc -= 1;
 			argv += 1;
