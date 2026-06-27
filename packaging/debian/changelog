@@ -1,3 +1,9 @@
+sfd-tool (1.8.9.5-1-ltv) unstable; urgency=medium
+
+  * 优化设备模式检测，新CLI命令
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sat, 27 Jun 2026 11:31:10 +0800
+
 sfd-tool (1.8.9.4-1-ltv) unstable; urgency=medium
 
   * 修复了downloadnv的刷写问题

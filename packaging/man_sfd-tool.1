@@ -196,15 +196,15 @@ Check if partition exists.
 Add partition to table (FDL2 only, compatibility mode).
 
 .TP
-.B read_flash \faddr offset size FILE\fR
+.B read_flash \fIaddr offset size FILE\fR
 Read flash on device, read_flash_dhtb for ums9117
 
 .TP
-.B erase_flash \faddr size\fR
+.B erase_flash \fIaddr size\fR
 Erase flash on device.
 
 .TP
-.B read_mem \faddr size FILE\fR
+.B read_mem \fIaddr size FILE\fR
 Read memory on device.
 
 .TP
@@ -267,6 +267,10 @@ PAC Firmware mergenv option, this command will flash merged nv partition automat
 .TP
 .B mergenv-cfg-ex \fIconfig old_nv new_nv\fR
 PAC Firmware mergenv option, you need to read nv partition manually to execute this command.
+
+.TP
+.B status
+Show device status.
 
 .SS "Debug Commands"
 .TP

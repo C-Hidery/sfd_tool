@@ -301,7 +301,6 @@ std::string load_about_text() {
 	return "SFD Tool GUI\n\nBy Ryan Crepa\n\nAbout information file missing.\n";
 }
 
-const char *Version = "[1.2.3.0@_250726]";
 AppState g_app_state; // 全局应用状态实例
 int& m_bOpened = g_app_state.device.m_bOpened;
 int fdl1_loaded = 0;
@@ -317,11 +316,8 @@ int init_stage = -1;
 int& device_stage = g_app_state.device.device_stage;
 int& device_mode = g_app_state.device.device_mode;
 //sfd_tool protocol
-char** str2;
 char mode_str[256];
-int in_quote;
 char* temp;
-char str1[(ARGC_MAX - 1) * ARGV_LEN];
 spdio_t*& io = g_app_state.transport.io;
 int ret;
 int conn_wait = 30 * REOPEN_FREQ;
