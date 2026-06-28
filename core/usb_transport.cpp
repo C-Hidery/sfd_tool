@@ -282,6 +282,11 @@ spdio_t *spdio_init(int flags) {
 
 void spdio_free(spdio_t *io) {
 	if (!io) return;
+#if USE_LIBUSB
+	if (g_app_state.transport.bListenLibusb) {
+        stopUsbEventHandle(); 
+    }
+#endif
 	if (io->transport) {
 		delete io->transport;
 		io->transport = nullptr;
@@ -294,8 +299,10 @@ void spdio_free(spdio_t *io) {
 	}
 #endif
 #if USE_LIBUSB
-	if (g_app_state.transport.bListenLibusb) stopUsbEventHandle();
-	libusb_close(io->dev_handle);
+    if (io->dev_handle) {
+        libusb_close(io->dev_handle);
+        io->dev_handle = nullptr;
+    }
 	libusb_exit(nullptr);
 #else
 	call_DisconnectChannel(io->handle);
@@ -550,6 +557,7 @@ void DestroyRecvThread(spdio_t *io) {
 #ifndef _MSC_VER
 pthread_t gUsbEventThrd;
 libusb_hotplug_callback_handle gHotplugCbHandle = 0;
+volatile int g_usb_thread_running = 0;
 
 // SPRD DIAG, bInterfaceNumber 0
 // SPRD LOG, bInterfaceNumber 1
@@ -564,15 +572,23 @@ int HotplugCbFunc(libusb_context *ctx, libusb_device *device, libusb_hotplug_eve
 void *UsbThrdFunc(void *param) {
 	(void)param;
 	int ret;
+	struct timeval tv;
 	while (g_app_state.transport.bListenLibusb) {
-		ret = libusb_handle_events(nullptr);
-		if (ret < 0)
+		tv.tv_sec = 0;
+        tv.tv_usec = 500 * 1000;  // 500ms超时，保证及时响应退出
+		ret = libusb_handle_events_timeout(nullptr, &tv);
+		if (ret < 0 && ret != LIBUSB_ERROR_INTERRUPTED)
 			DEG_LOG(E,"libusb_handle_events() failed: %s", libusb_error_name(ret));
 	}
 	return nullptr;
 }
 
 void startUsbEventHandle(void) {
+	if (g_usb_thread_running) {
+        DEG_LOG(W,"(startUsbEventHandle) USB event thread already running");
+		g_app_state.transport.bListenLibusb = 0; 
+        return;
+    }
 	int ret = libusb_hotplug_register_callback(
 		nullptr,
 		LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED | LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT,
@@ -590,16 +606,36 @@ void startUsbEventHandle(void) {
 		libusb_hotplug_deregister_callback(nullptr, gHotplugCbHandle);
 		ERR_EXIT("Failed to create thread, error: %d\n", ret);
 	}
-
+	g_usb_thread_running = 1;
 	g_app_state.transport.bListenLibusb = 1;
 }
 
 void stopUsbEventHandle(void) {
-	g_app_state.transport.bListenLibusb = 0;
-	libusb_hotplug_deregister_callback(nullptr, gHotplugCbHandle);
-
-	int ret = pthread_join(gUsbEventThrd, nullptr);
-	if (ret != 0) DEG_LOG(E,"Failed to join thread, error: %d", ret);
+    g_app_state.transport.bListenLibusb = 0;
+    
+    if (g_usb_thread_running && gUsbEventThrd != 0) {
+        int ret = pthread_join(gUsbEventThrd, nullptr);
+        if (ret != 0) {
+            if (ret == ESRCH) {
+                DEG_LOG(W,"Thread already terminated (ESRCH)");
+            } else {
+                DEG_LOG(E,"Failed to join thread, error: %d", ret);
+            }
+        }
+        gUsbEventThrd = 0;
+        g_usb_thread_running = 0;
+    } else {
+        if (gUsbEventThrd != 0) {
+            gUsbEventThrd = 0;
+        }
+        g_usb_thread_running = 0;
+        DEG_LOG(I,"USB event thread cleaned up (was not running)");
+    }
+	
+    if (gHotplugCbHandle != 0) {
+        libusb_hotplug_deregister_callback(nullptr, gHotplugCbHandle);
+        gHotplugCbHandle = 0;
+    }
 }
 #else
 void startUsbEventHandle(void) {
