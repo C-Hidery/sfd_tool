@@ -382,20 +382,20 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
     if (completed > PROGRESS_BAR_WIDTH) completed = PROGRESS_BAR_WIDTH;
     int remaining = PROGRESS_BAR_WIDTH - completed;
 
-    DBG_LOG("[");
+	DBG_LOG("Progress: |");
     for (int i = 0; i < completed; i++) {
-        DBG_LOG("=");
+        DBG_LOG("#");
     }
     for (int i = 0; i < remaining; i++) {
-        DBG_LOG(" ");
+        DBG_LOG("-");
     }
 
     double speed_mb_s = (time > time0)
         ? (double)1000 * done / (double)(time - time0) / 1024.0 / 1024.0
         : 0.0;
 
-    DBG_LOG("]%6.1f%% Speed:%6.2fMb/s\r", percent * 100.0, speed_mb_s);
-    if (io->nor_bar) DBG_LOG("\n");
+    DBG_LOG("|%6.1f%% Speed:%6.2fMb/s\r", percent * 100.0, speed_mb_s);
+    if (io->nor_bar || percent >= 1.0) DBG_LOG("\n");
 
     // GUI 进度条和状态文本：每个数据块触发一次更新，保证视觉连续
     if (isHelperInit) {
