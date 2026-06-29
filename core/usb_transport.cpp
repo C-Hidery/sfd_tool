@@ -252,32 +252,40 @@ int SpdioUsbTransport::clear() {
 } // namespace
 
 spdio_t *spdio_init(int flags) {
-	size_t total_size = sizeof(spdio_t) + RECV_BUF_LEN + (4 + 0x10000 + 2) * 4 + 4;
-	uint8_t *p = NEWN uint8_t[total_size];
-	if (p == nullptr) {
-		DEG_LOG(E, "Memory allocation failed: insufficient memory");
-		return nullptr;
-	}
+    size_t total_size = sizeof(spdio_t) + RECV_BUF_LEN + (4 + 0x10000 + 2) * 4 + 4;
+    
+    // 多分配对齐所需空间（最大 alignof(spdio_t) - 1 字节）
+    uint8_t *raw = NEWN uint8_t[total_size + alignof(spdio_t) - 1];
+    if (raw == nullptr) {
+        DEG_LOG(E, "Memory allocation failed: insufficient memory");
+        return nullptr;
+    }
 
-	spdio_t* io = reinterpret_cast<spdio_t*>(p);
-	memset(io, 0, sizeof(spdio_t));
-	p += sizeof(spdio_t);
-	io->flags = flags;
-	io->transport = NEWN SpdioUsbTransport(io);
-	if (!io->transport) {
-		DEG_LOG(E, "Memory allocation failed: transport adapter");
-		delete[] reinterpret_cast<uint8_t*>(io);
-		return nullptr;
-	}
-	io->recv_buf = p; p += RECV_BUF_LEN;
-	io->raw_buf = p; p += 4 + 0x10000 + 2;
-	io->temp_buf = p + 5;
-	io->untranscode_buf = p; p += 4 + 0x10000 + 4;
-	io->enc_buf = p;
-	io->timeout = 3000;
-	io->nor_bar = 0;
-	memset(io->recv_buf, 0, 8);
-	return io;
+    // 手动对齐到 spdio_t 的对齐边界
+    uintptr_t addr = reinterpret_cast<uintptr_t>(raw);
+    uintptr_t aligned_addr = (addr + alignof(spdio_t) - 1) & ~(alignof(spdio_t) - 1);
+    uint8_t *aligned_p = reinterpret_cast<uint8_t*>(aligned_addr);
+    
+    // placement new 构造对象
+    spdio_t* io = new(aligned_p) spdio_t();
+    memset(io, 0, sizeof(spdio_t));
+    
+    // 保存原始指针以便释放
+    io->_alloc_ptr = raw;
+    
+    // 缓冲区从对齐地址后开始
+    uint8_t *p = aligned_p + sizeof(spdio_t);
+    io->flags = flags;
+    io->recv_buf = p; p += RECV_BUF_LEN;
+    io->raw_buf = p; p += 4 + 0x10000 + 2;
+    io->temp_buf = p + 5;  // 偏移5字节用于协议头
+    io->untranscode_buf = p; p += 4 + 0x10000 + 4;
+    io->enc_buf = p;
+    io->timeout = 3000;
+    io->nor_bar = 0;
+    memset(io->recv_buf, 0, 8);
+    
+    return io;
 }
 
 void spdio_free(spdio_t *io) {
@@ -312,7 +320,10 @@ void spdio_free(spdio_t *io) {
 #endif
 	if (io->ptable) delete[](io->ptable);
 	if (io->Cptable) delete[](io->Cptable);
-	delete[](io);
+	io->~spdio_t();
+	    if (io->_alloc_ptr) {
+        delete[] reinterpret_cast<uint8_t*>(io->_alloc_ptr);
+    }
 }
 
 int recv_read_data(spdio_t *io) {
