@@ -575,6 +575,8 @@ static std::vector<BatchPartitionWriteItem>
 scan_folder_and_match_partitions(const std::string& folder,
                                  const std::vector<sfd::DevicePartitionInfo>& partitions) {
     std::vector<BatchPartitionWriteItem> result;
+    BatchPartitionWriteItem downloadnv_item;
+    bool has_downloadnv = false;
 
     auto image_files = scan_backup_image_files(folder);
     for (const auto& part : partitions) {
@@ -592,12 +594,23 @@ scan_folder_and_match_partitions(const std::string& folder,
         DEG_LOG(I, "[restore-folder] matched partition=%s path=%s size=%llu critical=%d",
                 item.part.name.c_str(), item.image_path.c_str(),
                 static_cast<unsigned long long>(item.image_size), item.is_critical ? 1 : 0);
-        result.push_back(std::move(item));
+
+        // 如果分区名包含 "downloadnv"，保存到临时变量，稍后追加到最后
+        if (item.part.name.find("downloadnv") != std::string::npos) {
+            downloadnv_item = std::move(item);
+            has_downloadnv = true;
+        } else {
+            result.push_back(std::move(item));
+        }
+    }
+
+    // 如果存在 downloadnv 分区，追加到末尾
+    if (has_downloadnv) {
+        result.push_back(std::move(downloadnv_item));
     }
 
     return result;
 }
-
 void on_button_clicked_list_write(GtkWidgetHelper helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
 	std::string filename = showFileChooser(parent, true);
