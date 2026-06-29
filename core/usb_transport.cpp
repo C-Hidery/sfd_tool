@@ -253,28 +253,23 @@ int SpdioUsbTransport::clear() {
 
 spdio_t *spdio_init(int flags) {
     size_t total_size = sizeof(spdio_t) + RECV_BUF_LEN + (4 + 0x10000 + 2) * 4 + 4;
-    uint8_t *raw = NEWN uint8_t[total_size + alignof(spdio_t) - 1];
-    if (raw == nullptr) {
+    
+    uint8_t *p = new (std::align_val_t{alignof(spdio_t)}, std::nothrow) uint8_t[total_size];
+    if (p == nullptr) {
         DEG_LOG(E, "Memory allocation failed: insufficient memory");
         return nullptr;
     }
 
-    uintptr_t addr = reinterpret_cast<uintptr_t>(raw);
-    uintptr_t aligned_addr = (addr + alignof(spdio_t) - 1) & ~(alignof(spdio_t) - 1);
-    uint8_t *aligned_p = reinterpret_cast<uint8_t*>(aligned_addr);
-    
-    spdio_t* io = new(aligned_p) spdio_t();
+    spdio_t* io = reinterpret_cast<spdio_t*>(p);
     memset(io, 0, sizeof(spdio_t));
-    io->_alloc_ptr = raw;
+    io->_alloc_ptr = p;
     
-    uint8_t *p = aligned_p + sizeof(spdio_t);
+    p += sizeof(spdio_t);
     io->flags = flags;
-    io->transport = NEWN SpdioUsbTransport(io); 
+    io->transport = NEWN SpdioUsbTransport(io);
     if (!io->transport) {
         DEG_LOG(E, "Memory allocation failed: transport adapter");
-        if (io->_alloc_ptr) {
-            delete[] reinterpret_cast<uint8_t*>(io->_alloc_ptr);
-        }
+        delete[] reinterpret_cast<uint8_t*>(io->_alloc_ptr);
         return nullptr;
     }
     io->recv_buf = p; p += RECV_BUF_LEN;
@@ -285,7 +280,6 @@ spdio_t *spdio_init(int flags) {
     io->timeout = 3000;
     io->nor_bar = 0;
     memset(io->recv_buf, 0, 8);
-    
     return io;
 }
 
@@ -321,8 +315,7 @@ void spdio_free(spdio_t *io) {
 #endif
 	if (io->ptable) delete[](io->ptable);
 	if (io->Cptable) delete[](io->Cptable);
-	io->~spdio_t();
-	    if (io->_alloc_ptr) {
+	if (io->_alloc_ptr) {
         delete[] reinterpret_cast<uint8_t*>(io->_alloc_ptr);
     }
 }
