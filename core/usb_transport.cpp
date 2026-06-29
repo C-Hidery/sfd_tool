@@ -315,6 +315,7 @@ void spdio_free(spdio_t *io) {
 #endif
 	if (io->ptable) delete[](io->ptable);
 	if (io->Cptable) delete[](io->Cptable);
+	io->~spdio_t();
 	if (io->_alloc_ptr) {
         delete[] reinterpret_cast<uint8_t*>(io->_alloc_ptr);
     }
