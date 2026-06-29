@@ -2588,20 +2588,20 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
 		}
 	}
-	if (isHasDownloadNV && dlnv_id)
-	{
-		get_partition_info(io, partitions[dlnv_id].name, 1);
-		if (gPartInfo.size) load_nv_partition(io, gPartInfo.name, partitions[dlnv_id].file_path, 4096);
-	}
 	if (super_in_dump) {
 		load_partition(io, "super", partitions[super_id].file_path, step, CMethod);
 		if (metadata_in_dump) load_partition(io, "metadata", partitions[metadata_id].file_path, step, CMethod);
 		else erase_partition(io, "metadata", CMethod);
 	}
-	delete[](partitions);
 	if (selected_ab == 1) set_active(io, "a", CMethod);
 	else if (selected_ab == 2) set_active(io, "b", CMethod);
 	selected_ab = selected_ab_bak;
+	if (isHasDownloadNV && dlnv_id)
+	{
+		get_partition_info(io, partitions[dlnv_id].name, 1);
+		if (gPartInfo.size) load_nv_partition(io, gPartInfo.name, partitions[dlnv_id].file_path, 4096);
+	}
+	delete[](partitions);
 }
 
 void get_Da_Info(spdio_t *io) {
