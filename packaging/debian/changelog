@@ -1,3 +1,9 @@
+sfd-tool (1.8.9.7-1-ltv) unstable; urgency=medium
+
+  * 修复了libusb和spdio的资源管理问题
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Mon, 29 Jun 2026 11:05:55 +0800
+
 sfd-tool (1.8.9.6-1-ltv) unstable; urgency=medium
 
   * 修复了一些已知问题
