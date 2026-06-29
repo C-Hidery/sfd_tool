@@ -9,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        1.8.9.6
+Version:        1.8.9.7
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -63,6 +63,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Mon Jun 29 2026 RyanCrepa <Ryan110413@outlook.com> - 1.8.9.7-1-ltv
+- 修复了libusb和spdio的资源管理问题
+
 * Sat Jun 27 2026 RyanCrepa <Ryan110413@outlook.com> - 1.8.9.6-1-ltv
 - 修复了一些已知问题
 
