@@ -252,36 +252,44 @@ int SpdioUsbTransport::clear() {
 } // namespace
 
 spdio_t *spdio_init(int flags) {
-	size_t total_size = sizeof(spdio_t) + RECV_BUF_LEN + (4 + 0x10000 + 2) * 4 + 4;
-	uint8_t *p = NEWN uint8_t[total_size];
-	if (p == nullptr) {
-		DEG_LOG(E, "Memory allocation failed: insufficient memory");
-		return nullptr;
-	}
+    size_t total_size = sizeof(spdio_t) + RECV_BUF_LEN + (4 + 0x10000 + 2) * 4 + 4;
+    
+    uint8_t *p = new (std::align_val_t{alignof(spdio_t)}, std::nothrow) uint8_t[total_size];
+    if (p == nullptr) {
+        DEG_LOG(E, "Memory allocation failed: insufficient memory");
+        return nullptr;
+    }
 
-	spdio_t* io = reinterpret_cast<spdio_t*>(p);
-	memset(io, 0, sizeof(spdio_t));
-	p += sizeof(spdio_t);
-	io->flags = flags;
-	io->transport = NEWN SpdioUsbTransport(io);
-	if (!io->transport) {
-		DEG_LOG(E, "Memory allocation failed: transport adapter");
-		delete[] reinterpret_cast<uint8_t*>(io);
-		return nullptr;
-	}
-	io->recv_buf = p; p += RECV_BUF_LEN;
-	io->raw_buf = p; p += 4 + 0x10000 + 2;
-	io->temp_buf = p + 5;
-	io->untranscode_buf = p; p += 4 + 0x10000 + 4;
-	io->enc_buf = p;
-	io->timeout = 3000;
-	io->nor_bar = 0;
-	memset(io->recv_buf, 0, 8);
-	return io;
+    spdio_t* io = reinterpret_cast<spdio_t*>(p);
+    memset(io, 0, sizeof(spdio_t));
+    io->_alloc_ptr = p;
+    
+    p += sizeof(spdio_t);
+    io->flags = flags;
+    io->transport = NEWN SpdioUsbTransport(io);
+    if (!io->transport) {
+        DEG_LOG(E, "Memory allocation failed: transport adapter");
+        delete[] reinterpret_cast<uint8_t*>(io->_alloc_ptr);
+        return nullptr;
+    }
+    io->recv_buf = p; p += RECV_BUF_LEN;
+    io->raw_buf = p; p += 4 + 0x10000 + 2;
+    io->temp_buf = p + 5;
+    io->untranscode_buf = p; p += 4 + 0x10000 + 4;
+    io->enc_buf = p;
+    io->timeout = 3000;
+    io->nor_bar = 0;
+    memset(io->recv_buf, 0, 8);
+    return io;
 }
 
 void spdio_free(spdio_t *io) {
 	if (!io) return;
+#if USE_LIBUSB
+	if (g_app_state.transport.bListenLibusb) {
+        stopUsbEventHandle(); 
+    }
+#endif
 	if (io->transport) {
 		delete io->transport;
 		io->transport = nullptr;
@@ -294,8 +302,10 @@ void spdio_free(spdio_t *io) {
 	}
 #endif
 #if USE_LIBUSB
-	if (g_app_state.transport.bListenLibusb) stopUsbEventHandle();
-	libusb_close(io->dev_handle);
+    if (io->dev_handle) {
+        libusb_close(io->dev_handle);
+        io->dev_handle = nullptr;
+    }
 	libusb_exit(nullptr);
 #else
 	call_DisconnectChannel(io->handle);
@@ -305,7 +315,10 @@ void spdio_free(spdio_t *io) {
 #endif
 	if (io->ptable) delete[](io->ptable);
 	if (io->Cptable) delete[](io->Cptable);
-	delete[](io);
+	io->~spdio_t();
+	if (io->_alloc_ptr) {
+        delete[] reinterpret_cast<uint8_t*>(io->_alloc_ptr);
+    }
 }
 
 int recv_read_data(spdio_t *io) {
@@ -550,6 +563,7 @@ void DestroyRecvThread(spdio_t *io) {
 #ifndef _MSC_VER
 pthread_t gUsbEventThrd;
 libusb_hotplug_callback_handle gHotplugCbHandle = 0;
+volatile int g_usb_thread_running = 0;
 
 // SPRD DIAG, bInterfaceNumber 0
 // SPRD LOG, bInterfaceNumber 1
@@ -564,15 +578,23 @@ int HotplugCbFunc(libusb_context *ctx, libusb_device *device, libusb_hotplug_eve
 void *UsbThrdFunc(void *param) {
 	(void)param;
 	int ret;
+	struct timeval tv;
 	while (g_app_state.transport.bListenLibusb) {
-		ret = libusb_handle_events(nullptr);
-		if (ret < 0)
+		tv.tv_sec = 0;
+        tv.tv_usec = 500 * 1000;  // 500ms超时，保证及时响应退出
+		ret = libusb_handle_events_timeout(nullptr, &tv);
+		if (ret < 0 && ret != LIBUSB_ERROR_INTERRUPTED)
 			DEG_LOG(E,"libusb_handle_events() failed: %s", libusb_error_name(ret));
 	}
 	return nullptr;
 }
 
 void startUsbEventHandle(void) {
+	if (g_usb_thread_running) {
+        DEG_LOG(W,"(startUsbEventHandle) USB event thread already running");
+		g_app_state.transport.bListenLibusb = 0; 
+        return;
+    }
 	int ret = libusb_hotplug_register_callback(
 		nullptr,
 		LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED | LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT,
@@ -590,16 +612,36 @@ void startUsbEventHandle(void) {
 		libusb_hotplug_deregister_callback(nullptr, gHotplugCbHandle);
 		ERR_EXIT("Failed to create thread, error: %d\n", ret);
 	}
-
+	g_usb_thread_running = 1;
 	g_app_state.transport.bListenLibusb = 1;
 }
 
 void stopUsbEventHandle(void) {
-	g_app_state.transport.bListenLibusb = 0;
-	libusb_hotplug_deregister_callback(nullptr, gHotplugCbHandle);
-
-	int ret = pthread_join(gUsbEventThrd, nullptr);
-	if (ret != 0) DEG_LOG(E,"Failed to join thread, error: %d", ret);
+    g_app_state.transport.bListenLibusb = 0;
+    
+    if (g_usb_thread_running && gUsbEventThrd != 0) {
+        int ret = pthread_join(gUsbEventThrd, nullptr);
+        if (ret != 0) {
+            if (ret == ESRCH) {
+                DEG_LOG(W,"Thread already terminated (ESRCH)");
+            } else {
+                DEG_LOG(E,"Failed to join thread, error: %d", ret);
+            }
+        }
+        gUsbEventThrd = 0;
+        g_usb_thread_running = 0;
+    } else {
+        if (gUsbEventThrd != 0) {
+            gUsbEventThrd = 0;
+        }
+        g_usb_thread_running = 0;
+        DEG_LOG(I,"USB event thread cleaned up (was not running)");
+    }
+	
+    if (gHotplugCbHandle != 0) {
+        libusb_hotplug_deregister_callback(nullptr, gHotplugCbHandle);
+        gHotplugCbHandle = 0;
+    }
 }
 #else
 void startUsbEventHandle(void) {

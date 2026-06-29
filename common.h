@@ -190,6 +190,7 @@ typedef struct spdio_t {
 	int part_count;
 	int *nvid_list;
 	IUsbTransport *transport; // 传输实现指针，用于承载 IUsbTransport 适配器
+	void *_alloc_ptr;
 } spdio_t;
 
 #pragma pack(1)
