@@ -472,7 +472,7 @@ jobs:
       - name: Package with Inno Setup
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
-          script: ./installer.iss
+          path: ./installer.iss
           options: /O+
   
       - name: Upload Setup Artifacts
