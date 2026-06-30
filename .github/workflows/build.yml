@@ -462,9 +462,6 @@ jobs:
           [Tasks]
           Name: "addtopath"; Description: "将 sfd_tool 添加到系统 PATH（可在命令行中直接运行）"; GroupDescription: "附加选项:"; Flags: checkedonce
 
-          [Run]
-          Filename: "{app}\sfd_tool.exe"; Description: "启动 sfd_tool"; Flags: postinstall nowait skipifsilent
-
           [Files]
           Source: "./app/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
@@ -491,21 +488,28 @@ jobs:
             Result := Pos(';' + Param + ';', ';' + OrigPath + ';') = 0;
           end;
 
-          function InitializeUninstall(): Boolean;
+          procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
           var
             OrigPath: string;
             NewPath: string;
             AppDir: string;
+            PosA, PosB: Integer;
           begin
-            AppDir := ExpandConstant('{app}');
-            if RegQueryStringValue(HKLM, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', OrigPath) then
+            if CurUninstallStep = usUninstall then
             begin
-              NewPath := StringReplace(OrigPath, ';' + AppDir, '', False);
-              NewPath := StringReplace(NewPath, AppDir + ';', '', False);
-              NewPath := StringReplace(NewPath, AppDir, '', False);
-              RegWriteExpandStringValue(HKLM, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', NewPath);
+              AppDir := ExpandConstant('{app}');
+              if RegQueryStringValue(HKLM, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', OrigPath) then
+              begin
+                NewPath := OrigPath;
+                StringChange(NewPath, AppDir + ';', '');
+                StringChange(NewPath, ';' + AppDir, '');
+                StringChange(NewPath, AppDir, '');
+                if NewPath <> OrigPath then
+                begin
+                  RegWriteExpandStringValue(HKLM, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', NewPath);
+                end;
+              end;
             end;
-            Result := True;
           end;
           "@ | Out-File -FilePath ./installer.iss -Encoding UTF8
         
