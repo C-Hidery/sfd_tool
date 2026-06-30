@@ -444,45 +444,87 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
-          $appName = "sfd_tool_${{ matrix.artifact_name }}"
           $arch = "${{ matrix.arch_display }}"
-          
+          $appName = "sfd_tool_${{ matrix.artifact_name }}"
           @"
           [Setup]
           AppName=sfd_tool (${{ matrix.artifact_name }})
           AppVersion=$tag
-          DefaultDirName={autopf}\sfd_tool_${{ matrix.artifact_name }}
+          DefaultDirName={autopf}\$appName
           DefaultGroupName=sfd_tool
           UninstallDisplayIcon={app}\sfd_tool.exe
           Compression=lzma2
           SolidCompression=yes
           OutputDir=./setup
           OutputBaseFilename=sfd_tool_$tag_$arch
-  
+          ChangesEnvironment=yes
+
+          [Tasks]
+          Name: "addtopath"; Description: "将 sfd_tool 添加到系统 PATH（可在命令行中直接运行）"; GroupDescription: "附加选项:"; Flags: checkedonce
+
           [Files]
           Source: "./app/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-  
+
           [Icons]
           Name: "{group}\sfd_tool"; Filename: "{app}\sfd_tool.exe"
           Name: "{group}\Uninstall"; Filename: "{uninstallexe}"
           Name: "{commondesktop}\sfd_tool"; Filename: "{app}\sfd_tool.exe"
-  
-          [Run]
-          Filename: "{app}\sfd_tool.exe"; Description: "启动 sfd_tool"; Flags: postinstall nowait skipifsilent
+
+          [Registry]
+          Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; \
+              ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; \
+              Check: NeedsAddPath(ExpandConstant('{app}')); Tasks: addtopath
+
+          [Code]
+          function NeedsAddPath(Param: string): boolean;
+          var
+            OrigPath: string;
+          begin
+            if not RegQueryStringValue(HKLM, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', OrigPath)
+            then begin
+              Result := True;
+              exit;
+            end;
+            Result := Pos(';' + Param + ';', ';' + OrigPath + ';') = 0;
+          end;
+
+          procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+          var
+            OrigPath: string;
+            NewPath: string;
+            AppDir: string;
+            PosA, PosB: Integer;
+          begin
+            if CurUninstallStep = usUninstall then
+            begin
+              AppDir := ExpandConstant('{app}');
+              if RegQueryStringValue(HKLM, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', OrigPath) then
+              begin
+                NewPath := OrigPath;
+                StringChange(NewPath, AppDir + ';', '');
+                StringChange(NewPath, ';' + AppDir, '');
+                StringChange(NewPath, AppDir, '');
+                if NewPath <> OrigPath then
+                begin
+                  RegWriteExpandStringValue(HKLM, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', NewPath);
+                end;
+              end;
+            end;
+          end;
           "@ | Out-File -FilePath ./installer.iss -Encoding UTF8
-  
+        
       - name: Package with Inno Setup
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
           path: ./installer.iss
           options: /O+
-  
+
       - name: Upload Setup Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: sfd_tool_setup_${{ matrix.artifact_name }}
           path: ./setup/*.exe
-        
+              
   # ==================== Release Job ====================
   release:
     if: startsWith(github.ref, 'refs/tags/v')
