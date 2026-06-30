@@ -171,6 +171,7 @@ jobs:
           $libusbPath = "third_party/Lib/libusb-1.0.dll"
           if (Test-Path $libusbPath) {
             Copy-Item $libusbPath -Destination $destDir -Force
+            Copy-Item "docs/VERSION_LOG.md" -Destination $destDir -Force
           }
 
       - name: Copy SPRD Driver Files (x86 only)
@@ -183,6 +184,7 @@ jobs:
           if (Test-Path "third_party/Lib/Channel.ini") {
             Copy-Item "third_party/Lib/Channel.ini" -Destination $destDir -Force
           }
+          Copy-Item "docs/VERSION_LOG.md" -Destination $destDir -Force
 
       - name: Copy ALL DLLs from GTK3 bin directory
         run: |
@@ -540,14 +542,10 @@ jobs:
           # 重命名 Windows 绿色版目录
           if [ -d "sfd_tool_LibUSB_Release" ]; then
             mv sfd_tool_LibUSB_Release sfd_tool_windows_x64_libusb
-            cp ../master/docs/VERSION_LOG.md sfd_tool_windows_x64_libusb/ 2>/dev/null || true
           fi
   
           if [ -d "sfd_tool_SPRD_Release" ]; then
             mv sfd_tool_SPRD_Release sfd_tool_windows_x86_sprd
-            cp ../master/docs/VERSION_LOG.md sfd_tool_windows_x86_sprd/ 2>/dev/null || true
-            cp ../master/third_party/Lib/Channel9.dll sfd_tool_windows_x86_sprd/ 2>/dev/null || true
-            cp ../master/third_party/Lib/Channel.ini sfd_tool_windows_x86_sprd/ 2>/dev/null || true
           fi
   
           # 复制文档
