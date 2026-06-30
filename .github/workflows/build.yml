@@ -415,102 +415,193 @@ jobs:
           path: |
             ~/rpmbuild/RPMS/*/*.rpm
 
+  # ==================== Windows 安装程序打包 ====================
+  package-windows:
+    runs-on: windows-latest
+    needs: build-windows
+    strategy:
+      matrix:
+        include:
+          - artifact_name: LibUSB
+            arch_display: x64
+          - artifact_name: SPRD
+            arch_display: x86
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+  
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: sfd_tool_${{ matrix.artifact_name }}_Release
+          path: ./app
+  
+      - name: Create Inno Setup Script
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $appName = "sfd_tool_${{ matrix.artifact_name }}"
+          $arch = "${{ matrix.arch_display }}"
+          
+          @"
+          [Setup]
+          AppName=sfd_tool (${{ matrix.artifact_name }})
+          AppVersion=$tag
+          DefaultDirName={autopf}\sfd_tool_${{ matrix.artifact_name }}
+          DefaultGroupName=sfd_tool
+          UninstallDisplayIcon={app}\sfd_tool.exe
+          Compression=lzma2
+          SolidCompression=yes
+          OutputDir=./setup
+          OutputBaseFilename=sfd_tool_$tag_$arch
+  
+          [Files]
+          Source: "./app/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+  
+          [Icons]
+          Name: "{group}\sfd_tool"; Filename: "{app}\sfd_tool.exe"
+          Name: "{group}\Uninstall"; Filename: "{uninstallexe}"
+          Name: "{commondesktop}\sfd_tool"; Filename: "{app}\sfd_tool.exe"
+  
+          [Run]
+          Filename: "{app}\sfd_tool.exe"; Description: "启动 sfd_tool"; Flags: postinstall nowait skipifsilent
+          "@ | Out-File -FilePath ./installer.iss -Encoding UTF8
+  
+      - name: Package with Inno Setup
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+        with:
+          path: ./installer.iss
+          options: /O+
+  
+      - name: Upload Setup Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sfd_tool_setup_${{ matrix.artifact_name }}
+          path: ./setup/*.exe
+        
   # ==================== Release Job ====================
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    needs: [build-windows, build-macos, build-linux-deb, build-linux-rpm]
+    needs: [build-windows, build-macos, build-linux-deb, build-linux-rpm, package-windows]  # 添加 package-windows
     steps:
       - name: Set Release Tag
         run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-
+  
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           path: master
-
+  
       - name: Download Windows Artifacts
         uses: actions/download-artifact@v4
         with:
           path: output
           pattern: sfd_tool_*_Release
           merge-multiple: false
-
+  
+      - name: Download Windows Setup Artifacts  # 新增：下载安装程序
+        uses: actions/download-artifact@v4
+        with:
+          path: output
+          pattern: sfd_tool_setup_*
+          merge-multiple: false
+  
       - name: Download macOS DMG Artifact
         uses: actions/download-artifact@v4
         with:
           path: output
           pattern: sfd_tool_macos_dmg
           merge-multiple: false
-
+  
       - name: Download Linux Artifacts
         uses: actions/download-artifact@v4
         with:
           path: output
           pattern: sfd_tool_linux_*
           merge-multiple: false
-
+  
       - name: Download Linux RPM Artifacts
         uses: actions/download-artifact@v4
         with:
           path: output
           pattern: sfd_tool_rpm_package
           merge-multiple: false
-
+  
       - name: Prepare Release Files
         run: |
           cd output
-
-          # 重命名 Windows 目录
+          TAG="${{ env.RELEASE_TAG }}"
+  
+          # 重命名 Windows 绿色版目录
           if [ -d "sfd_tool_LibUSB_Release" ]; then
             mv sfd_tool_LibUSB_Release sfd_tool_windows_x64_libusb
             cp ../master/docs/VERSION_LOG.md sfd_tool_windows_x64_libusb/ 2>/dev/null || true
           fi
-
+  
           if [ -d "sfd_tool_SPRD_Release" ]; then
             mv sfd_tool_SPRD_Release sfd_tool_windows_x86_sprd
             cp ../master/docs/VERSION_LOG.md sfd_tool_windows_x86_sprd/ 2>/dev/null || true
             cp ../master/third_party/Lib/Channel9.dll sfd_tool_windows_x86_sprd/ 2>/dev/null || true
             cp ../master/third_party/Lib/Channel.ini sfd_tool_windows_x86_sprd/ 2>/dev/null || true
           fi
+  
           # 复制文档
           cp ../master/*.md . 2>/dev/null || true
-
+  
           # 复制 Linux 包
           cp -r sfd_tool_linux_deb/*.deb . 2>/dev/null || true
           cp -r sfd_tool_rpm_package/*/*.rpm . 2>/dev/null || true
-
+  
           # 复制 macOS DMG
           for dmg in sfd_tool_macos_dmg/*.dmg; do
             [ -f "$dmg" ] || continue
-            cp "$dmg" "sfd_tool_macos_${{ env.RELEASE_TAG }}.dmg"
+            cp "$dmg" "sfd_tool_macos_${TAG}.dmg"
           done
-
-          # 创建 Windows ZIP 包
+  
+          # ===== 处理 Windows 安装程序 =====
+          # 重命名 Setup 文件：sfd_tool_标签_架构.exe
+          for setup_dir in sfd_tool_setup_*; do
+            if [ -d "$setup_dir" ] && [ -f "$setup_dir"/*.exe ]; then
+              # 从目录名提取架构标识
+              case "$setup_dir" in
+                *LibUSB*) arch="x64" ;;
+                *SPRD*) arch="x86" ;;
+                *) arch="unknown" ;;
+              esac
+              # 重命名并移动到根目录
+              mv "$setup_dir"/*.exe "sfd_tool_${TAG}_${arch}.exe"
+            fi
+          done
+  
+          # 创建 Windows ZIP 包（绿色版）
           if [ -d "sfd_tool_windows_x86_sprd" ]; then
-            zip -r sfd_tool_windows_x86_sprd_${{ env.RELEASE_TAG }}.zip sfd_tool_windows_x86_sprd
+            zip -r sfd_tool_windows_x86_sprd_${TAG}.zip sfd_tool_windows_x86_sprd
           fi
-
+  
           if [ -d "sfd_tool_windows_x64_libusb" ]; then
-            zip -r sfd_tool_windows_x64_libusb_${{ env.RELEASE_TAG }}.zip sfd_tool_windows_x64_libusb
+            zip -r sfd_tool_windows_x64_libusb_${TAG}.zip sfd_tool_windows_x64_libusb
           fi
-
-          # 创建完整包（只打包最终发布文件，避免重复）
+  
+          # 创建完整包
           mkdir -p all_in_one
           cp ARCHITECTURE.md all_in_one/ 2>/dev/null || true
           cp README*.md all_in_one/ 2>/dev/null || true
           cp *.deb all_in_one/ 2>/dev/null || true
           cp *.rpm all_in_one/ 2>/dev/null || true
-          cp sfd_tool_macos_${{ env.RELEASE_TAG }}.dmg all_in_one/ 2>/dev/null || true
-          cp sfd_tool_windows_x86_sprd_${{ env.RELEASE_TAG }}.zip all_in_one/ 2>/dev/null || true
-          cp sfd_tool_windows_x64_libusb_${{ env.RELEASE_TAG }}.zip all_in_one/ 2>/dev/null || true
-
+          cp sfd_tool_macos_${TAG}.dmg all_in_one/ 2>/dev/null || true
+          cp sfd_tool_windows_x86_sprd_${TAG}.zip all_in_one/ 2>/dev/null || true
+          cp sfd_tool_windows_x64_libusb_${TAG}.zip all_in_one/ 2>/dev/null || true
+          cp sfd_tool_${TAG}_*.exe all_in_one/ 2>/dev/null || true
+  
           cd all_in_one
-          zip -r ../../sfd_tool_all_${{ env.RELEASE_TAG }}.zip .
+          zip -r ../../sfd_tool_all_${TAG}.zip .
           cd ..
-
+  
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -523,22 +614,28 @@ jobs:
           body: |
             ## sfd_tool Release ${{ env.RELEASE_TAG }}
             
-            ### Windows 版本:
-            - **sfd_tool_windows_x86_sprd**: Windows x86 版本，使用 SPRD 原生驱动（兼容性最好，需SPRD额外驱动）
-            - **sfd_tool_windows_x64_libusb**: Windows x64 版本，使用 libusb 驱动（除arm外不支持热插拔，需安装驱动）
-
+            ### Windows 安装程序:
+            - **sfd_tool_${{ env.RELEASE_TAG }}_x64.exe**: Windows x64 版本，使用 libusb 驱动
+            - **sfd_tool_${{ env.RELEASE_TAG }}_x86.exe**: Windows x86 版本，使用 SPRD 原生驱动
+  
+            ### Windows 绿色版 (ZIP):
+            - **sfd_tool_windows_x86_sprd_${{ env.RELEASE_TAG }}.zip**: x86 绿色版，SPRD 驱动
+            - **sfd_tool_windows_x64_libusb_${{ env.RELEASE_TAG }}.zip**: x64 绿色版，libusb 驱动
+  
             ### 其他平台:
-            - **sfd_tool_macos**: macOS 版本（DMG 包）
-            - **Linux DEB 包**: Ubuntu/Debian 系统安装包
-            - **Linux RPM 包**: Fedora/RPM-Based 系统安装包
-
+            - **sfd_tool_macos_${{ env.RELEASE_TAG }}.dmg**: macOS 版本
+            - **Linux DEB 包**: Ubuntu/Debian 系统
+            - **Linux RPM 包**: Fedora/RPM-Based 系统
+  
             ### 使用说明:
-            1. **Windows x86 (SPRD 版)**: 使用 SPRD 驱动
-            2. **Windows x64 (libusb 版)**: 需要安装 libusb 驱动（可使用 Zadig 工具）
+            1. **Windows x86 (SPRD)**: 使用 SPRD 驱动
+            2. **Windows x64 (libusb)**: 需要安装 libusb 驱动（可使用 Zadig 工具）
           files: |
             sfd_tool_all_${{ env.RELEASE_TAG }}.zip
             output/sfd_tool_windows_x86_sprd_${{ env.RELEASE_TAG }}.zip
             output/sfd_tool_windows_x64_libusb_${{ env.RELEASE_TAG }}.zip
+            output/sfd_tool_${{ env.RELEASE_TAG }}_x64.exe
+            output/sfd_tool_${{ env.RELEASE_TAG }}_x86.exe
             output/*.dmg
             output/*.deb
             output/*.rpm
