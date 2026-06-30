@@ -468,7 +468,7 @@ jobs:
           "@ | Out-File -FilePath ./installer.iss -Encoding UTF8
   
       - name: Package with Inno Setup
-        uses: C-Hidery/Inno-Setup-Action@v1
+        uses: C-Hidery/Inno-Setup-Action@v1.2.2
         with:
           script: ./installer.iss
           options: /O+
