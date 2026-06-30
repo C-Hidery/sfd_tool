@@ -468,9 +468,10 @@ jobs:
           "@ | Out-File -FilePath ./installer.iss -Encoding UTF8
   
       - name: Package with Inno Setup
-        uses: isabellgh/inno-setup-action@v1
+        uses: C-Hidery/Inno-Setup-Action@v1
         with:
           script: ./installer.iss
+          options: /O+
   
       - name: Upload Setup Artifacts
         uses: actions/upload-artifact@v4
