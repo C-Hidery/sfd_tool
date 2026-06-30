@@ -462,6 +462,9 @@ jobs:
           [Tasks]
           Name: "addtopath"; Description: "将 sfd_tool 添加到系统 PATH（可在命令行中直接运行）"; GroupDescription: "附加选项:"; Flags: checkedonce
 
+          [Run]
+          Filename: "{app}\sfd_tool.exe"; Description: "启动 sfd_tool"; Flags: postinstall nowait skipifsilent
+
           [Files]
           Source: "./app/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
