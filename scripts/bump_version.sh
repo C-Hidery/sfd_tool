@@ -82,7 +82,7 @@ if [[ -f docs/VERSION_LOG.md ]]; then
   echo "[3/4] 追加本次版本日志到 docs/VERSION_LOG.md..."
 
   # 把新版本日志插入到上一条日志的正下方（紧贴上一版本），同时保持尾注在末尾
-  if grep -q '^---v [0-9]\+\.[0-9]\+\.[0-9]\+---$' docs/VERSION_LOG.md; then
+  if grep -q '^---v [0-9]\+\.[0-9]\+\.[0-9]\---$' docs/VERSION_LOG.md; then
     head_tmp="$(mktemp)"
     footer_tmp="$(mktemp)"
 
