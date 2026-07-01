@@ -22,7 +22,7 @@ if ($LASTEXITCODE -ne 0) {
 # 读取版本号（容错：自动去掉空白、中文句号等）
 $newVersion = $null
 while ($true) {
-    $raw = Read-Host "请输入新版本号 (格式 X.Y.Z.W，例如 1.7.8.0，输入 q 退出)"
+    $raw = Read-Host "请输入新版本号 (格式 X.Y.Z，例如 1.7.8，输入 q 退出)"
 
     if ($raw -eq "q" -or $raw -eq "Q") {
         Write-Host "已取消"
@@ -35,11 +35,11 @@ while ($true) {
     $cleanedChars = $cleaned.ToCharArray() | Where-Object { $_ -match '[0-9.]' }
     $newVersion = -join $cleanedChars
 
-    if ($newVersion -match '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$') {
+    if ($newVersion -match '^[0-9]+\.[0-9]+\.[0-9]+$') {
         break
     }
 
-    Write-Host "Error: 版本号格式必须类似 1.7.8.0，请重新输入。" -ForegroundColor Red
+    Write-Host "Error: 版本号格式必须类似 1.7.8，请重新输入。" -ForegroundColor Red
 }
 
 Write-Host ""
