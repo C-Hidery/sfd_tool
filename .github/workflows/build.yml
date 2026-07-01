@@ -463,7 +463,7 @@ jobs:
       
           [Languages]
           Name: "en"; MessagesFile: "compiler:Default.isl"
-          Name: "zh"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+          Name: "zh"; MessagesFile: "./ChineseSimplified.isl"
       
           [CustomMessages]
           en.AddToPath=Add sfd_tool to system PATH (run from command line)
@@ -521,7 +521,23 @@ jobs:
             end;
           end;
           "@ | Out-File -FilePath ./installer.iss -Encoding UTF8
-        
+      - name: Install Chinese Language File for Inno Setup
+        shell: pwsh
+        run: |
+          # 1. 设定目标路径
+          New-Item -ItemType Directory -Force -Path $langDir | Out-Null
+          $outputPath = "./ChineseSimplified.isl"
+
+          # 2. 将完整的文件内容下载
+          $islUrl = "https://raw.githubusercontent.com/C-Hidery/Inno-Setup-Chinese-Simplified-Translation/refs/heads/main/ChineseSimplified.isl"
+          Write-Host "正在下载中文语言文件..."
+          $content = Invoke-WebRequest -Uri $islUrl -UseBasicParsing | Select-Object -ExpandProperty Content
+
+          # 3. 写入文件
+          $Utf8BomEncoding = New-Object System.Text.UTF8Encoding $true
+          [System.IO.File]::WriteAllText($outputPath, $content, $Utf8BomEncoding)
+
+          Write-Host "中文语言文件已成功创建并放置到: $outputPath"
       - name: Package with Inno Setup
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
