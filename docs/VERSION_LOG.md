@@ -250,8 +250,9 @@ PAC刷写可自定义FDL; 恢复FDL自动执行
 ---v 1.8.9.8---
 修复了一些已知问题
 
+---v 1.9.0---
+修复了一些已知问题
+
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
 LTV means Long-time-version
----v 1.9.0---
-修复了一些已知问题
