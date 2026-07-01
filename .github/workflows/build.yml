@@ -525,7 +525,6 @@ jobs:
         shell: pwsh
         run: |
           # 1. 设定目标路径
-          New-Item -ItemType Directory -Force -Path $langDir | Out-Null
           $outputPath = "./ChineseSimplified.isl"
 
           # 2. 将完整的文件内容下载
