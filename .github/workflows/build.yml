@@ -458,23 +458,33 @@ jobs:
           OutputDir=./setup
           OutputBaseFilename=sfd_tool_$tag_$arch
           ChangesEnvironment=yes
-
+          LanguageDetectionMethod=locale
+          ShowLanguageDialog=yes
+      
+          [Languages]
+          Name: "en"; MessagesFile: "compiler:Default.isl"
+          Name: "zh"; MessagesFile: "./ChineseSimplified.isl"
+      
+          [CustomMessages]
+          en.AddToPath=Add sfd_tool to system PATH (run from command line)
+          zh.AddToPath=将 sfd_tool 添加到系统 PATH（可在命令行中直接运行）
+      
           [Tasks]
-          Name: "addtopath"; Description: "将 sfd_tool 添加到系统 PATH（可在命令行中直接运行）"; GroupDescription: "附加选项:"; Flags: checkedonce
-
+          Name: "addtopath"; Description: "{cm:AddToPath}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checkedonce
+      
           [Files]
           Source: "./app/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-
+      
           [Icons]
           Name: "{group}\sfd_tool"; Filename: "{app}\sfd_tool.exe"
           Name: "{group}\Uninstall"; Filename: "{uninstallexe}"
           Name: "{commondesktop}\sfd_tool"; Filename: "{app}\sfd_tool.exe"
-
+      
           [Registry]
           Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; \
               ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; \
               Check: NeedsAddPath(ExpandConstant('{app}')); Tasks: addtopath
-
+      
           [Code]
           function NeedsAddPath(Param: string): boolean;
           var
@@ -487,13 +497,12 @@ jobs:
             end;
             Result := Pos(';' + Param + ';', ';' + OrigPath + ';') = 0;
           end;
-
+      
           procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
           var
             OrigPath: string;
             NewPath: string;
             AppDir: string;
-            PosA, PosB: Integer;
           begin
             if CurUninstallStep = usUninstall then
             begin
@@ -512,7 +521,22 @@ jobs:
             end;
           end;
           "@ | Out-File -FilePath ./installer.iss -Encoding UTF8
-        
+      - name: Install Chinese Language File for Inno Setup
+        shell: pwsh
+        run: |
+          # 1. 设定目标路径
+          $outputPath = "./ChineseSimplified.isl"
+
+          # 2. 将完整的文件内容下载
+          $islUrl = "https://raw.githubusercontent.com/C-Hidery/Inno-Setup-Chinese-Simplified-Translation/refs/heads/main/ChineseSimplified.isl"
+          Write-Host "正在下载中文语言文件..."
+          $content = Invoke-WebRequest -Uri $islUrl -UseBasicParsing | Select-Object -ExpandProperty Content
+
+          # 3. 写入文件
+          $Utf8BomEncoding = New-Object System.Text.UTF8Encoding $true
+          [System.IO.File]::WriteAllText($outputPath, $content, $Utf8BomEncoding)
+
+          Write-Host "中文语言文件已成功创建并放置到: $outputPath"
       - name: Package with Inno Setup
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
