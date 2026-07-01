@@ -19,7 +19,7 @@ fi
 
 # 读取版本号（容错：自动去掉空白、中文句号等）
 while :; do
-  read -erp "请输入新版本号 (格式 X.Y.Z.W，例如 1.7.8.0，输入 q 退出): " NEW_VERSION_RAW
+  read -erp "请输入新版本号 (格式 X.Y.Z，例如 1.7.8，输入 q 退出): " NEW_VERSION_RAW
   # 允许直接退出
   if [[ "$NEW_VERSION_RAW" == "q" || "$NEW_VERSION_RAW" == "Q" ]]; then
     echo "已取消"
@@ -33,11 +33,11 @@ while :; do
 
   NEW_VERSION="$CLEANED"
 
-  # 简单校验版本号格式：X.Y.Z.W
-  if printf '%s\n' "$NEW_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+  # 简单校验版本号格式：X.Y.Z
+  if printf '%s\n' "$NEW_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
     break
   fi
-  echo "Error: 版本号格式必须类似 1.7.8.0，请重新输入。"
+  echo "Error: 版本号格式必须类似 1.7.8，请重新输入。"
 done
 
 echo
@@ -82,7 +82,7 @@ if [[ -f docs/VERSION_LOG.md ]]; then
   echo "[3/4] 追加本次版本日志到 docs/VERSION_LOG.md..."
 
   # 把新版本日志插入到上一条日志的正下方（紧贴上一版本），同时保持尾注在末尾
-  if grep -q '^---v [0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+---$' docs/VERSION_LOG.md; then
+  if grep -q '^---v [0-9]\+\.[0-9]\+\.[0-9]\+---$' docs/VERSION_LOG.md; then
     head_tmp="$(mktemp)"
     footer_tmp="$(mktemp)"
 
