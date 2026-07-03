@@ -2634,7 +2634,7 @@ rloop:
 				argc = 1;
 				continue;
 			}
-			if (atoi(str2[2])) dm_avb_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
+			if (atoi(str2[2])) dm_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 			else {
 				DEG_LOG(W, "This operation may brick your device, if you want to restore, use `verity 1` command");
 				if (check_confirm("Disable dm-verity and AVB") == 0) {
@@ -2651,7 +2651,7 @@ rloop:
 							continue;
 						}
 				}
-				avb_dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
+				dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 			}
 			argc -= 2;
 			argv += 2;
