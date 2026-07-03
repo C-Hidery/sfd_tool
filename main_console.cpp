@@ -1185,7 +1185,7 @@ int main_console(int argc, char** argv) {
 					}
 				} else if (isUseCptable) {
 					io->Cptable = partition_list_d(io);
-					isCMethod = 1;
+					if (io->Cptable) isCMethod = 1;
 				}
 				if (!isUseCptable && !io->part_count) {
 					DEG_LOG(W, "No partition table found on current device");
@@ -2153,7 +2153,7 @@ rloop:
 			}
 			if (!io->part_count_c && !io->part_count) {
 				io->Cptable = partition_list_d(io);
-				isCMethod = 1;
+				if (io->Cptable) isCMethod = 1;
 			} else {
 				DEG_LOG(I, "Partition table already loaded");
 			}

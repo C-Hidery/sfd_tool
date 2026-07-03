@@ -1745,7 +1745,8 @@ void confirm_partition_c(GtkWidgetHelper helper) {
     if (result.confirmed) {
         isUseCptable = 1;
         io->Cptable = partition_list_d(io);
-        isCMethod = 1;
+        if (io->Cptable) isCMethod = 1;
+		else return;
         std::vector<sfd::DevicePartitionInfo> partitions;
         partitions.reserve(io->part_count_c);
         for (int i = 0; i < io->part_count_c; i++) {

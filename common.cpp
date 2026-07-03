@@ -1239,10 +1239,28 @@ partition_t* partition_list_d(spdio_t* io) {
 		}
 	}
 	io->verbose = verbose;
+	for (int i = 0; i < n; i++)
+	{
+		if (strcmp(ptable[n].name, "user_partition") == 0)
+		{
+			DEG_LOG(I, "Normal partition list found on device, try to parse...");
+			io->ptable = partition_list(io, fn_partlist, &io->part_count);
+			if (io->part_count) 
+			{
+				DEG_LOG(I, "Parsed successfully, Compatibility-method mode disabled.");
+				if (ptable) delete[] ptable;
+				return nullptr;
+			}
+			else
+			{
+				DEG_LOG(I, "Parse failed, fall back to Compatibility-method mode.");
+			}
+		}
+	}
 	DEG_LOG(I,"Compatibility-method mode will not save partition table xml automatically.");
 	DEG_LOG(I, "You can get partition xml by `part_table` command manually.");
 	DEG_LOG(I,"Total number of partitions: %d", n);
-	delete[] io->ptable;
+	if(io->ptable) delete[] io->ptable;
 	io->ptable = nullptr;
 	io->part_count = 0;
 	io->part_count_c = n;
