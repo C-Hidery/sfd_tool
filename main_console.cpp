@@ -140,7 +140,7 @@ void print_help() {
 	    "\t26.cp|check_part part_name\n"
 	    "\t\tChecks if the specified partition exists.\n"
 	    "\t27.verity {0,1}\n"
-	    "\t\tEnables or disables dm-verity and AVB on android 10(+).\n"
+	    "\t\tEnables or disables dm-verity on android 10(+).\n"
 		"\t\tNote: This command may not work on all devices, and enabling verity may cause the device to fail to boot if the partition table or certain partitions are modified. Use with caution!\n"
 	    "\t28.set_active {a,b}\n"
 	    "\t\tSets the active slot on VAB devices.\n"
@@ -1185,7 +1185,7 @@ int main_console(int argc, char** argv) {
 					}
 				} else if (isUseCptable) {
 					io->Cptable = partition_list_d(io);
-					isCMethod = 1;
+					if (io->Cptable) isCMethod = 1;
 				}
 				if (!isUseCptable && !io->part_count) {
 					DEG_LOG(W, "No partition table found on current device");
@@ -2153,7 +2153,7 @@ rloop:
 			}
 			if (!io->part_count_c && !io->part_count) {
 				io->Cptable = partition_list_d(io);
-				isCMethod = 1;
+				if (io->Cptable) isCMethod = 1;
 			} else {
 				DEG_LOG(I, "Partition table already loaded");
 			}
@@ -2634,24 +2634,24 @@ rloop:
 				argc = 1;
 				continue;
 			}
-			if (atoi(str2[2])) dm_avb_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
+			if (atoi(str2[2])) dm_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 			else {
 				DEG_LOG(W, "This operation may brick your device, if you want to restore, use `verity 1` command");
-				if (check_confirm("Disable dm-verity and AVB") == 0) {
+				if (check_confirm("Disable dm-verity") == 0) {
 					argc -= 2;
 					argv += 2;
 					continue;
 				}
 				if (!io->part_count) {
-					DEG_LOG(W, "Disable dm-verity and AVB needs a valid partition table or a write-verification-disabled FDL2");
+					DEG_LOG(W, "Disable dm-verity needs a valid partition table or a write-verification-disabled FDL2");
 					if (!skip_confirm)
-						if (!check_confirm("disable dm-verity and AVB")) {
+						if (!check_confirm("disable dm-verity")) {
 							argc -= 2;
 							argv += 2;
 							continue;
 						}
 				}
-				avb_dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
+				dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 			}
 			argc -= 2;
 			argv += 2;

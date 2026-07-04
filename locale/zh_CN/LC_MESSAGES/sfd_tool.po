@@ -1212,3 +1212,6 @@ msgstr "内存申请失败!"
 
 msgid "Select"
 msgstr "选择"
+
+msgid "Partition list found in device, compatibility-method mode is disabled."
+msgstr "在设备上重新找到了分区表，兼容模式已被关闭。"
