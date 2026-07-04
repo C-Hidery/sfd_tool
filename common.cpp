@@ -1239,9 +1239,9 @@ partition_t* partition_list_d(spdio_t* io) {
 		}
 	}
 	io->verbose = verbose;
-	for (int i = 0; i < n; i++)
+	for (unsigned j = 0; j < n; j++)
 	{
-		if (strcmp(ptable[n].name, "user_partition") == 0)
+		if (!strcmp(ptable[j].name, "user_partition"))
 		{
 			DEG_LOG(I, "Normal partition list found on device, try to parse...");
 			io->ptable = partition_list(io, fn_partlist, &io->part_count);
