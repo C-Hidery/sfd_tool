@@ -1,3 +1,9 @@
+sfd-tool (2.0.1-1-ltv) unstable; urgency=medium
+
+  * 修复了一些已知问题
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sat, 04 Jul 2026 20:48:24 +0800
+
 sfd-tool (2.0.0-1-ltv) unstable; urgency=medium
 
   * Enhanced partition list read
