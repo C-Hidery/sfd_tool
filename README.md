@@ -110,6 +110,14 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 
 **New parameter, you can use some commands that DO NOT need device connection, use `exit` to exit tool**
 
+## Reconnecting mode in GUI mode
+
+You can run `sfd_tool` with this parameter:
+
+    --reconnect
+
+This option will let tool try to reconnect to device, equivalent to `-r` in CLI.
+
 ## WARNING - DISABLE VERITY & AVB
 
 **Command:** `dis_avb_tos` / `verity 0`
