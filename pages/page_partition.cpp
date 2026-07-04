@@ -1748,7 +1748,7 @@ void confirm_partition_c(GtkWidgetHelper helper) {
         if (io->Cptable) isCMethod = 1;
 		    else
 		    {
-		        showInfoDialogSyncInThread(helper.getWidget("main_window"), _("Info"), _("Partition list found in device, compatibility-method mode is disabled."));
+		        showInfoDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Partition list found in device, compatibility-method mode is disabled."));
 		        return;
 		    }
         std::vector<sfd::DevicePartitionInfo> partitions;
