@@ -838,6 +838,19 @@ int main_console(int argc, char** argv) {
 			argc -= 3, argv += 3;
 		}
 		else if (!strncmp(str2[1], "loadexec", 8)) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			const char *fn; char *ch; EnhancedFile fi;
 			if (argcount <= 2) { DEG_LOG(W, "loadexec FILE\n"); argc = 1; continue; }
 			if (0 == fdl1_loaded) {
@@ -856,7 +869,6 @@ int main_console(int argc, char** argv) {
 			DEG_LOG(I, "current exec_addr is 0x%x\n", exec_addr);
 			if (!strcmp(str2[1], "loadexec2")) exec_addr_v2 = 1;
 			argc -= 2; argv += 2;
-
 		}
 		else if (!strcmp(str2[1], "send") || !strcmp(str2[1], "send_no_enddata")) {
 			if (isToolMode)
