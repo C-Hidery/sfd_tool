@@ -1643,7 +1643,7 @@ void load_nv_partition(spdio_t *io, const char *name,
 		uint8_t *crc_mem = loadfile("nvcrc", nullptr, 0);
 		mem[0] = crc_mem[0];
 		mem[1] = crc_mem[1];
-		free(crc_mem);
+		delete[](crc_mem);
 	}
 	else {
 		crc = crc16(crc, mem + 2, len - 2);
@@ -2482,9 +2482,9 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 						if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
 						if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
 						fi.close();
-						free(a); free(b); free(c);
+						delete[](a); delete[](b); free(c);
 					}
-					free(io->nvid_list);
+					delete[](io->nvid_list);
 					io->nvid_list = NULL;
 					get_partition_info(io, "nr_fixnv1", 1);
 					load_nv_partition(io, gPartInfo.name, "nvmerged_nr_fixnv1.bin", 4096);
@@ -2505,9 +2505,9 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 						if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
 						if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
 						fi.close();
-						free(a); free(b); free(c);
+						delete[](a); delete[](b); free(c);
 					}
-					free(io->nvid_list);
+					delete[](io->nvid_list);
 					io->nvid_list = NULL;
 					get_partition_info(io, "l_fixnv1", 1);
 					load_nv_partition(io, gPartInfo.name, "nvmerged_l_fixnv1.bin", 4096);
@@ -2614,9 +2614,9 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 						if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
 						if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
 						fi.close();
-						free(a); free(b); free(c);
+						delete[](a); delete[](b); free(c);
 					}
-					free(io->nvid_list);
+					delete[](io->nvid_list);
 					io->nvid_list = NULL;
 					get_partition_info(io, "downloadnv", 1);
 					load_nv_partition(io, gPartInfo.name, "nvmerged_downloadnv.bin", 4096);

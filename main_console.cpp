@@ -2455,9 +2455,9 @@ rloop:
 				if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
 				fi.close();
 				load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
-				free(a); free(b); free(c);
+				delete[](a); delete[](b); free(c);
 			}
-			free(io->nvid_list);
+			delete[](io->nvid_list);
 			io->nvid_list = NULL;
 			argc -= 3; argv += 3;
 
@@ -2478,9 +2478,9 @@ rloop:
 				fi = oxfopen_enhanced("nvmerged", "rb");
 				if (!fi) DEG_LOG(E, "Failed to create merged nv file");
 				if (fi) fi.close();
-				free(a); free(b); free(c);
+				delete[](a); delete[](b); free(c);
 			}
-			free(io->nvid_list);
+			delete[](io->nvid_list);
 			io->nvid_list = NULL;
 			argc -= 4; argv += 4;
 
@@ -2516,9 +2516,9 @@ rloop:
 				if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
 				fi.close();
 				load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
-				free(a); free(b); free(c);
+				delete[](a); delete[](b); free(c);
 			}
-			free(io->nvid_list);
+			delete[](io->nvid_list);
 			io->nvid_list = NULL;
 			argc -= 3; argv += 3;
 		} 
@@ -2538,9 +2538,9 @@ rloop:
 				fi = oxfopen_enhanced("nvmerged", "rb");
 				if (!fi) DEG_LOG(E, "Failed to create merged nv file");
 				if (fi) fi.close();
-				free(a); free(b); free(c);
+				delete[](a); delete[](b); free(c);
 			}
-			free(io->nvid_list);
+			delete[](io->nvid_list);
 			io->nvid_list = NULL;
 			argc -= 4; argv += 4;
 		} 
