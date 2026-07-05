@@ -109,13 +109,13 @@ static void update_mode_label_from_device_service(GtkWidgetHelper& helper) {
 extern void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv);
 static void on_button_clicked_select_fdl(GtkWidgetHelper helper);
 extern void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile);
-static void on_button_clicked_select_cve(GtkWidgetHelper helper);
+static void on_button_clicked_select_exec_addr(GtkWidgetHelper helper);
 
-static void on_button_clicked_select_cve(GtkWidgetHelper helper) {
+static void on_button_clicked_select_exec_addr(GtkWidgetHelper helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
 	std::string filename = showFileChooser(parent, true);
 	if (!filename.empty()) {
-		helper.setEntryText(helper.getWidget("cve_addr"), filename);
+		helper.setEntryText(helper.getWidget("exec_addr_file"), filename);
 	}
 }
 
@@ -382,12 +382,12 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 		bottom_bar_set_status(dtxt + " -> FDL Executing");
 		std::thread([helper, fdl_path, fdl_addr]() mutable {
 			EnhancedFile fi = oxfopen_enhanced(fdl_path, "r");
-			GtkWidget* cveSwitch = helper.getWidget("exec_addr");
-			GtkWidget* cveAddr = helper.getWidget("cve_addr");
-			GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
-			bool isCve = helper.getSwitchState(cveSwitch);
-			const char* execfile = helper.getEntryText(cveAddr);
-			const char* cve_addr = helper.getEntryText(cveAddrC);
+			GtkWidget* execSwitch = helper.getWidget("exec_addr");
+			GtkWidget* execAddr = helper.getWidget("exec_addr_file");
+			GtkWidget* execAddrC = helper.getWidget("exec_addr_c");
+			bool isExecAddr = helper.getSwitchState(execSwitch);
+			const char* execfile = helper.getEntryText(execAddr);
+			const char* exec_addr_addr = helper.getEntryText(execAddrC);
 
 			if (g_app_state.device.device_mode == SPRD3) {
 				if (!fi) {
@@ -396,18 +396,18 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 				}
 				fi.close();
 				send_file(io, fdl_path, fdl_addr, end_data, 528, 0, 0);
-				if (cve_addr && strlen(cve_addr) > 0 && isCve) {
-					bool isCVEv2 = helper.getSwitchState(helper.getWidget("cve_v2"));
-					if(!isCVEv2){
-						DEG_LOG(I, "Using CVE binary: %s at address: %s", execfile, cve_addr);
-						uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
-						send_file(io, execfile, cve_addr_val, 0, 528, 0, 0);
+				if (exec_addr_addr && strlen(exec_addr_addr) > 0 && isExecAddr) {
+					bool isExecAddrV2 = helper.getSwitchState(helper.getWidget("exec_addr_v2"));
+					if(!isExecAddrV2){
+						DEG_LOG(I, "Using EXEC binary: %s at address: %s", execfile, exec_addr_addr);
+						uint32_t exec_addr_val = strtoul(exec_addr_addr, nullptr, 0);
+						send_file(io, execfile, exec_addr_val, 0, 528, 0, 0);
 					}
 					else{
-						DEG_LOG(I, "Using CVEv2 binary: %s at address: %s", execfile, cve_addr);
-						uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
-						size_t execsize = send_file(io, execfile, cve_addr_val, 0, 528, 0, 0);
-						int n, gapsize = exec_addr - cve_addr_val - execsize;
+						DEG_LOG(I, "Using EXECv2 binary: %s at address: %s", execfile, exec_addr_addr);
+						uint32_t exec_addr_val = strtoul(exec_addr_addr, nullptr, 0);
+						size_t execsize = send_file(io, execfile, exec_addr_val, 0, 528, 0, 0);
+						int n, gapsize = exec_addr - exec_addr_val - execsize;
 						for (int i = 0; i < gapsize; i += n) {
 							n = gapsize - i;
 							if (n > 528) n = 528;
@@ -445,18 +445,18 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 							return;
 						}
 						send_file(io, fdl_path, fdl_addr, end_data, 528, 0, 0);
-						if (cve_addr && strlen(cve_addr) > 0 && isCve) {
-							bool isCVEv2 = helper.getSwitchState(helper.getWidget("cve_v2"));
-							if(!isCVEv2){
-								DEG_LOG(I, "Using CVE binary: %s at address: %s", execfile, cve_addr);
-								uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
-								send_file(io, execfile, cve_addr_val, 0, 528, 0, 0);
+						if (exec_addr_addr && strlen(exec_addr_addr) > 0 && isExecAddr) {
+							bool isExecAddrV2 = helper.getSwitchState(helper.getWidget("exec_addr_v2"));
+							if(!isExecAddrV2){
+								DEG_LOG(I, "Using EXEC binary: %s at address: %s", execfile, exec_addr_addr);
+								uint32_t exec_addr_val = strtoul(exec_addr_addr, nullptr, 0);
+								send_file(io, execfile, exec_addr_val, 0, 528, 0, 0);
 							}
 							else{
-								DEG_LOG(I, "Using CVEv2 binary: %s at address: %s", execfile, cve_addr);
-								uint32_t cve_addr_val = strtoul(cve_addr, nullptr, 0);
-								size_t execsize = send_file(io, execfile, cve_addr_val, 0, 528, 0, 0);
-								int n, gapsize = exec_addr - cve_addr_val - execsize;
+								DEG_LOG(I, "Using EXECv2 binary: %s at address: %s", execfile, exec_addr_addr);
+								uint32_t exec_addr_val = strtoul(exec_addr_addr, nullptr, 0);
+								size_t execsize = send_file(io, execfile, exec_addr_val, 0, 528, 0, 0);
+								int n, gapsize = exec_addr - exec_addr_val - execsize;
 								for (int i = 0; i < gapsize; i += n) {
 									n = gapsize - i;
 									if (n > 528) n = 528;
@@ -553,9 +553,9 @@ std::string uint32_to_hex_string(uint32_t value) {
 void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	GtkWidget* waitBox = helper.getWidget("wait_con");
 	GtkWidget* sprd4Switch = helper.getWidget("sprd4");
-	GtkWidget* cveSwitch = helper.getWidget("exec_addr");
-	GtkWidget* cveAddr = helper.getWidget("cve_addr");
-	GtkWidget* cveAddrC = helper.getWidget("cve_addr_c");
+	GtkWidget* execSwitch = helper.getWidget("exec_addr");
+	GtkWidget* execAddr = helper.getWidget("exec_addr_file");
+	GtkWidget* execAddrC = helper.getWidget("exec_addr_c");
 	GtkWidget* sprd4OneMode = helper.getWidget("sprd4_one_mode");
 	bottom_bar_set_status("Waiting for connection...");
 	if (argc > 1 && !strcmp(argv[1], "--reconnect")) {
@@ -581,9 +581,9 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	}
 	bool isSprd4 = helper.getSwitchState(sprd4Switch);
 	bool isOneMode = helper.getSwitchState(sprd4OneMode);
-	bool isCve = helper.getSwitchState(cveSwitch);
-	const char* cve_path = helper.getEntryText(cveAddr);
-	const char* cve_addr = helper.getEntryText(cveAddrC);
+	bool isExec = helper.getSwitchState(execSwitch);
+	const char* exec_path = helper.getEntryText(execAddr);
+	const char* exec_addr = helper.getEntryText(execAddrC);
 	DEG_LOG(I, "Begin to boot...(%fs)", wait_time);
 	conn_wait = static_cast<int>(wait_time * REOPEN_FREQ);
 	if (isSprd4) {
@@ -598,8 +598,8 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 			at = 1;
 		}
 	}
-	if (isCve) {
-		DEG_LOG(I, "Using CVE binary: %s at address: %s", cve_path, cve_addr);
+	if (isExec) {
+		DEG_LOG(I, "Using EXEC binary: %s at address: %s", exec_path, exec_addr);
 	}
 
 #if !USE_LIBUSB
@@ -872,7 +872,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 				json_path = (config_dir / "fdl_info.json").string();
 			}
 #endif
-			if(fs::exists(json_path) && g_app_state.device.device_stage == BROM && !isKickMode && !isCve)
+			if(fs::exists(json_path) && g_app_state.device.device_stage == BROM && !isKickMode && !isExec)
 			{
 				bool i_is = false;
 				i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"),_("FDL Info detected, do you want to load it?"));
@@ -1032,7 +1032,7 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_widget_set_margin_bottom(cveGrid, 15);
 	gtk_container_add(GTK_CONTAINER(cveFrame), cveGrid);
 
-	// 行 0: CVE Switch
+	// 行 0: EXEC_ADDR Switch
 	GtkWidget* cveSwitchLabel = helper.createLabel(_("Try to use EXEC_ADDR"), "exec_addr_label", 0, 0, 200, 20);
 	gtk_widget_set_halign(cveSwitchLabel, GTK_ALIGN_START);
 	gtk_label_set_xalign(GTK_LABEL(cveSwitchLabel), 0.0);
@@ -1045,34 +1045,34 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_grid_attach(GTK_GRID(cveGrid), cveSwitchLabel, 0, 0, 1, 1);
 	gtk_grid_attach(GTK_GRID(cveGrid), cveSwitch, 1, 0, 1, 1);
 
-	// 行 1: CVE V2 Switch
-	GtkWidget* cveV2Label = helper.createLabel(_("Enable EXEC_ADDR v2"),"cve_v2_label", 0, 0, 100, 20);
-	gtk_widget_set_halign(cveV2Label, GTK_ALIGN_START);
-	gtk_label_set_xalign(GTK_LABEL(cveV2Label), 0.0);
-	GtkWidget* cveV2Switch = gtk_switch_new();
-	gtk_widget_set_name(cveV2Switch, "cve_v2");
-	gtk_widget_set_halign(cveV2Switch, GTK_ALIGN_END);
-	gtk_widget_set_hexpand(cveV2Switch, TRUE);
-	helper.addWidget("cve_v2", cveV2Switch);
+	// 行 1: EXEC_ADDR V2 Switch
+	GtkWidget* execAddrV2Label = helper.createLabel(_("Enable EXEC_ADDR v2"),"exec_addr_v2_label", 0, 0, 100, 20);
+	gtk_widget_set_halign(execAddrV2Label, GTK_ALIGN_START);
+	gtk_label_set_xalign(GTK_LABEL(execAddrV2Label), 0.0);
+	GtkWidget* execAddrV2Switch = gtk_switch_new();
+	gtk_widget_set_name(execAddrV2Switch, "exec_addr_v2");
+	gtk_widget_set_halign(execAddrV2Switch, GTK_ALIGN_END);
+	gtk_widget_set_hexpand(execAddrV2Switch, TRUE);
+	helper.addWidget("exec_addr_v2", execAddrV2Switch);
 
-	gtk_grid_attach(GTK_GRID(cveGrid), cveV2Label, 0, 1, 1, 1);
-	gtk_grid_attach(GTK_GRID(cveGrid), cveV2Switch, 1, 1, 1, 1);
+	gtk_grid_attach(GTK_GRID(cveGrid), execAddrV2Label, 0, 1, 1, 1);
+	gtk_grid_attach(GTK_GRID(cveGrid), execAddrV2Switch, 1, 1, 1, 1);
 
-	// 行 2: CVE File
-	GtkWidget* cveLabel = helper.createLabel(_("EXEC_ADDR Binary File Address"), "cve_label", 0, 0, 150, 20);
-	gtk_widget_set_halign(cveLabel, GTK_ALIGN_START);
-	gtk_label_set_xalign(GTK_LABEL(cveLabel), 0.0);
+	// 行 2: EXEC_ADDR File
+	GtkWidget* execAddrLabel = helper.createLabel(_("EXEC_ADDR Binary File Address"), "exec_addr_label", 0, 0, 150, 20);
+	gtk_widget_set_halign(execAddrLabel, GTK_ALIGN_START);
+	gtk_label_set_xalign(GTK_LABEL(execAddrLabel), 0.0);
 	
-	GtkWidget* cveInputBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-	gtk_widget_set_halign(cveInputBox, GTK_ALIGN_END);
-	gtk_widget_set_hexpand(cveInputBox, TRUE);
-	GtkWidget* cveAddr = helper.createEntry("cve_addr", "", false, 0, 0, 150, 32);
-	GtkWidget* selectCveBtn = helper.createButton("...", "select_cve", nullptr, 0, 0, 40, 32);
-	gtk_box_pack_start(GTK_BOX(cveInputBox), cveAddr, TRUE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX(cveInputBox), selectCveBtn, FALSE, FALSE, 0);
+	GtkWidget* execAddrInputBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+	gtk_widget_set_halign(execAddrInputBox, GTK_ALIGN_END);
+	gtk_widget_set_hexpand(execAddrInputBox, TRUE);
+	GtkWidget* execAddr = helper.createEntry("exec_addr_file", "", false, 0, 0, 150, 32);
+	GtkWidget* selectExecAddrBtn = helper.createButton("...", "select_exec_addr", nullptr, 0, 0, 40, 32);
+	gtk_box_pack_start(GTK_BOX(execAddrInputBox), execAddr, TRUE, TRUE, 0);
+	gtk_box_pack_start(GTK_BOX(execAddrInputBox), selectExecAddrBtn, FALSE, FALSE, 0);
 
-	gtk_grid_attach(GTK_GRID(cveGrid), cveLabel, 0, 2, 1, 1);
-	gtk_grid_attach(GTK_GRID(cveGrid), cveInputBox, 1, 2, 1, 1);
+	gtk_grid_attach(GTK_GRID(cveGrid), execAddrLabel, 0, 2, 1, 1);
+	gtk_grid_attach(GTK_GRID(cveGrid), execAddrInputBox, 1, 2, 1, 1);
 
 	// Right frame for SPRD4 options
 	GtkWidget* sprdFrame = gtk_frame_new(NULL);
@@ -1116,15 +1116,15 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	gtk_grid_attach(GTK_GRID(sprdGrid), sprd4OneMode, 1, 1, 1, 1);
 
 	// 行 2: Address
-	GtkWidget* cveAddrLabel2 = helper.createLabel(_("EXEC_ADDR executable Addr"), "cve_addr_label2", 0, 0, 100, 20);
-	gtk_widget_set_halign(cveAddrLabel2, GTK_ALIGN_START);
-	gtk_label_set_xalign(GTK_LABEL(cveAddrLabel2), 0.0);
-	GtkWidget* cveAddrC = helper.createEntry("cve_addr_c", "", false, 0, 0, 200, 32);
-	gtk_widget_set_halign(cveAddrC, GTK_ALIGN_END);
-	gtk_widget_set_hexpand(cveAddrC, TRUE);
+	GtkWidget* execAddrLabel2 = helper.createLabel(_("EXEC_ADDR executable Addr"), "exec_addr_label2", 0, 0, 100, 20);
+	gtk_widget_set_halign(execAddrLabel2, GTK_ALIGN_START);
+	gtk_label_set_xalign(GTK_LABEL(execAddrLabel2), 0.0);
+	GtkWidget* execAddrC = helper.createEntry("exec_addr_c", "", false, 0, 0, 200, 32);
+	gtk_widget_set_halign(execAddrC, GTK_ALIGN_END);
+	gtk_widget_set_hexpand(execAddrC, TRUE);
 
-	gtk_grid_attach(GTK_GRID(sprdGrid), cveAddrLabel2, 0, 2, 1, 1);
-	gtk_grid_attach(GTK_GRID(sprdGrid), cveAddrC, 1, 2, 1, 1);
+	gtk_grid_attach(GTK_GRID(sprdGrid), execAddrLabel2, 0, 2, 1, 1);
+	gtk_grid_attach(GTK_GRID(sprdGrid), execAddrC, 1, 2, 1, 1);
 
 	gtk_box_pack_start(GTK_BOX(advContainer), cveFrame, TRUE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(advContainer), sprdFrame, TRUE, TRUE, 0);
@@ -1216,8 +1216,8 @@ void bind_connect_signals(GtkWidgetHelper& helper, int argc, char** argv) {
 	helper.bindClick(helper.getWidget("select_fdl"), [&]() {
 		on_button_clicked_select_fdl(helper);
 	});
-	helper.bindClick(helper.getWidget("select_cve"), [&]() {
-		on_button_clicked_select_cve(helper);
+	helper.bindClick(helper.getWidget("select_exec_addr"), [&]() {
+		on_button_clicked_select_exec_addr(helper);
 	});
 	helper.bindClick(helper.getWidget("fdl_exec"), [&]() {
 		std::thread([&]() {
