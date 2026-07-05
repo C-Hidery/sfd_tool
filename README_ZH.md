@@ -136,12 +136,6 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 
 **新参数，你可以使用一些不需要设备连接的命令，使用`exit`退出**
 
-## 警告 - 禁用 VERITY 与 AVB
-
-**命令：** `dis_avb_tos` / `verity 0`
-
-此命令将**禁用**您设备上的 Android DM-verity 和 AVB 安全校验机制。
-
 ## GUI下的重连模式
 
 您可以用下面的参数启动`sfd_tool`:
@@ -149,6 +143,12 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
     --reconnect
 
 这个选项将使工具尝试重连设备，等效于CLI模式中的`-r`参数
+
+## 警告 - 禁用 VERITY 与 AVB
+
+**命令：** `dis_avb_tos` / `verity 0`
+
+此命令将**禁用**您设备上的 Android DM-verity 和 AVB 安全校验机制。
 
 ## 后果说明
 
