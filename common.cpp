@@ -2465,7 +2465,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			continue;
 		}
 		// NV Merge process for PAC flashing
-		if ((strstr(fn, "fixnv1") || strstr(fn, "downloadnv")) && g_app_state.flash.isPacFlashing)
+		if ((strstr(fn, "fixnv1") && g_app_state.flash.isPacFlashing))
 		{
 			if (strstr("nr_fixnv1", fn))
 			{
@@ -2477,7 +2477,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 						uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
 						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 						merge_nv(io, a, a_size, b, b_size, c, &c_size);
-						EnhancedFile fi = my_oxfopen_enhanced("nvmerged", "wb");
+						EnhancedFile fi = my_oxfopen_enhanced("nvmerged_nr_fixnv1.bin", "wb");
 						if (!fi) ERR_EXIT("fopen failed\n");
 						if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
 						if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
@@ -2487,7 +2487,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 					free(io->nvid_list);
 					io->nvid_list = NULL;
 					get_partition_info(io, "nr_fixnv1", 1);
-					load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
+					load_nv_partition(io, gPartInfo.name, "nvmerged_nr_fixnv1.bin", 4096);
 				}
 			}
 			else if (strstr("l_fixnv1", fn))
@@ -2500,7 +2500,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 						uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
 						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 						merge_nv(io, a, a_size, b, b_size, c, &c_size);
-						EnhancedFile fi = my_oxfopen_enhanced("nvmerged", "wb");
+						EnhancedFile fi = my_oxfopen_enhanced("nvmerged_l_fixnv1.bin", "wb");
 						if (!fi) ERR_EXIT("fopen failed\n");
 						if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
 						if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
@@ -2510,30 +2510,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 					free(io->nvid_list);
 					io->nvid_list = NULL;
 					get_partition_info(io, "l_fixnv1", 1);
-					load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
-				}
-			}
-			else if (strstr("downloadnv", fn))
-			{
-				if (hasPartition(pac_parts, "downloadnv"))
-				{
-					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
-						size_t a_size = 0, b_size = 0, c_size = 0;
-						uint8_t *a = loadfile("old_nv_downloadnv.bin", &a_size, 0);
-						uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
-						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
-						merge_nv(io, a, a_size, b, b_size, c, &c_size);
-						EnhancedFile fi = my_oxfopen_enhanced("nvmerged", "wb");
-						if (!fi) ERR_EXIT("fopen failed\n");
-						if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-						if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
-						fi.close();
-						free(a); free(b); free(c);
-					}
-					free(io->nvid_list);
-					io->nvid_list = NULL;
-					get_partition_info(io, "downloadnv", 1);
-					load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
+					load_nv_partition(io, gPartInfo.name, "nvmerged_l_fixnv1.bin", 4096);
 				}
 			}
 			partitions[i].written_flag = 1;
@@ -2617,7 +2594,35 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 	if (isHasDownloadNV && dlnv_id)
 	{
 		get_partition_info(io, partitions[dlnv_id].name, 1);
-		if (gPartInfo.size) load_nv_partition(io, gPartInfo.name, partitions[dlnv_id].file_path, 4096);
+		if (gPartInfo.size) 
+		{
+			if (!g_app_state.flash.isPacFlashing) {
+				load_nv_partition(io, gPartInfo.name, partitions[dlnv_id].file_path, 4096);
+			}
+			else
+			{
+				if (hasPartition(pac_parts, "downloadnv"))
+				{
+					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
+						size_t a_size = 0, b_size = 0, c_size = 0;
+						uint8_t *a = loadfile("old_nv_downloadnv.bin", &a_size, 0);
+						uint8_t *b = loadfile(partitions[dlnv_id].file_path, &b_size, 0);
+						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
+						merge_nv(io, a, a_size, b, b_size, c, &c_size);
+						EnhancedFile fi = my_oxfopen_enhanced("nvmerged_downloadnv.bin", "wb");
+						if (!fi) ERR_EXIT("fopen failed\n");
+						if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+						if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
+						fi.close();
+						free(a); free(b); free(c);
+					}
+					free(io->nvid_list);
+					io->nvid_list = NULL;
+					get_partition_info(io, "downloadnv", 1);
+					load_nv_partition(io, gPartInfo.name, "nvmerged_downloadnv.bin", 4096);
+				}
+			}
+		}
 	}
 	delete[](partitions);
 }
