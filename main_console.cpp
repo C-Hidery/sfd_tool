@@ -877,7 +877,6 @@ int main_console(int argc, char** argv) {
 			int addr_in_name = !strncmp(str2[1], "loadfdl", 7);
 			const char* fn;
 			uint32_t addr = 0;
-			UniqueFile fi;
 			int argchange;
 			fn = str2[2];
 			if (isToolMode)

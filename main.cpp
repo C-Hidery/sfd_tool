@@ -687,12 +687,6 @@ int main(int argc, char** argv) {
     signal(SIGABRT, crash_handler);   // 断言失败
 	signal(SIGFPE, crash_handler);    // 浮点异常
 	signal(SIGILL, crash_handler);    // 非法指令
-// 解决Windows OneDrive的按需同步导致的文件（夹）访问错误
-#ifdef _WIN32
-    g_setenv("GTK_USE_PORTAL", "1", TRUE);
-    g_setenv("GIO_USE_VFS", "local", TRUE);
-	g_setenv("GIO_USE_VOLUME_MONITOR", "win32", TRUE);
-#endif
 	if (argc > 1 && !strcmp(argv[1], "--no-gui")) {
 		// Call the console version of main
 		return main_console(argc - 1, argv + 1); // Skip the first argument
