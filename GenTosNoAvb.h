@@ -146,142 +146,196 @@ private:
     }
 
 public:
-    // 新 API：完全按照 bsp_sign_fxxker 逻辑，并保留对 __target 的 AVB 补丁
+    // 修正后：允许 __orig_image 为 nullptr（仅当 patch_bsp == false）
     int AvbFxxker(const char* __orig_image, const char* __target, const char* __save_path,
-              bool patch_avb, bool patch_bsp) {
+                  bool patch_avb, bool patch_bsp) {
         if (!patch_avb && !patch_bsp) {
             printf("[TosPatcher] [ERROR] Both flags are false, nothing to do.\n");
             return 1;
         }
 
-        // 1. 加载并截取目标镜像的有效区域（始终需要）
+        // 如果需要进行 BSP 拼接，则必须提供原始镜像
+        if (patch_bsp && __orig_image == nullptr) {
+            printf("[TosPatcher] [ERROR] BSP merge requires an original image.\n");
+            return 1;
+        }
+
+        // 1. 加载目标文件（总是需要）
         size_t target_raw_size = 0;
         uint8_t* target_raw = loadfile(__target, &target_raw_size);
         if (!target_raw) {
             printf("[TosPatcher] [ERROR] Failed to load %s\n", __target);
             return 1;
         }
-        size_t target_eff_size = get_effective_size(target_raw, target_raw_size);
-        if (target_eff_size == 0) {
-            printf("[TosPatcher] [ERROR] Invalid target image\n");
-            free(target_raw);
-            return 1;
-        }
-        // 复制有效区域（避免原数据被修改）
-        uint8_t* target_eff = (uint8_t*)malloc(target_eff_size);
-        if (!target_eff) {
-            free(target_raw);
-            return 1;
-        }
-        memcpy(target_eff, target_raw, target_eff_size);
-        free(target_raw);  // 不再需要原始文件
 
-        // 2. 根据 patch_avb 决定是否对有效区域进行 AVB 修补
-        uint8_t* target_final = nullptr;
-        size_t target_final_size = 0;
-        if (patch_avb) {
-            // patch_in_memory 内部会再次计算有效区域并分配新内存
-            target_final = patch_in_memory(target_eff, target_eff_size, &target_final_size);
-            free(target_eff);  // 释放未修补的副本
-            if (!target_final) {
-                printf("[TosPatcher] [ERROR] AVB patch failed on target\n");
-                return 1;
+        // 提取目标载荷（无论是否有效）
+        uint8_t* target_payload = nullptr;
+        size_t target_payload_size = 0;
+        uint8_t* target_for_avb = nullptr;
+        size_t target_for_avb_size = 0;
+        bool is_valid_target = false;
+
+        // 检查目标是否有效 BTHD 镜像
+        size_t target_eff_size = get_effective_size(target_raw, target_raw_size);
+        if (target_eff_size != 0) {
+            is_valid_target = true;
+            sys_img_header* target_hdr = (sys_img_header*)target_raw;
+            target_payload = target_raw + sizeof(sys_img_header);
+            target_payload_size = target_hdr->mImgSize;
+
+            if (patch_avb) {
+                target_for_avb = (uint8_t*)malloc(target_eff_size);
+                if (target_for_avb) {
+                    memcpy(target_for_avb, target_raw, target_eff_size);
+                    target_for_avb_size = target_eff_size;
+                } else {
+                    printf("[TosPatcher] [ERROR] malloc for AVB buffer failed\n");
+                    free(target_raw);
+                    return 1;
+                }
             }
         } else {
-            target_final = target_eff;          // 直接使用已截断的有效区域
-            target_final_size = target_eff_size;
+            // 无效镜像：整个文件作为载荷（原始 fallback 行为）
+            target_payload = target_raw;
+            target_payload_size = target_raw_size;
+
+            if (patch_avb) {
+                printf("[TosPatcher] [ERROR] AVB patch requires valid BTHD image, but target is invalid\n");
+                free(target_raw);
+                return 1;
+            }
         }
 
-        // 3. 如果只做 AVB 修补，直接输出结果并返回
+        // 2. AVB 修补（如果启用）
+        uint8_t* avb_patched = nullptr;
+        size_t avb_patched_size = 0;
+
+        if (patch_avb) {
+            if (!is_valid_target) {
+                // 理论上不会到这里，但保留安全
+                printf("[TosPatcher] [ERROR] Cannot perform AVB patch on invalid target\n");
+                free(target_raw);
+                if (target_for_avb) free(target_for_avb);
+                return 1;
+            }
+
+            avb_patched = patch_in_memory(target_for_avb, target_for_avb_size, &avb_patched_size);
+            free(target_for_avb);  // 释放 AVB 专用缓冲区
+
+            if (!avb_patched) {
+                printf("[TosPatcher] [ERROR] AVB patch failed on target\n");
+                free(target_raw);
+                return 1;
+            }
+
+            // 从修补后的区域提取载荷
+            sys_img_header* patched_hdr = (sys_img_header*)avb_patched;
+            target_payload = avb_patched + sizeof(sys_img_header);
+            target_payload_size = patched_hdr->mImgSize;
+        }
+
+        // 3. 如果只做 AVB 修补（不进行 BSP 拼接），直接输出结果
         if (!patch_bsp) {
+            // 此时 avb_patched 必须有效（因为 patch_avb 为 true）
+            if (!avb_patched) {
+                printf("[TosPatcher] [ERROR] AVB patch was requested but not performed\n");
+                free(target_raw);
+                return 1;
+            }
+
             EnhancedFile fp = oxfopen_enhanced(__save_path, "wb");
             if (!fp) {
                 printf("[TosPatcher] [ERROR] Cannot create %s\n", __save_path);
-                free(target_final);
+                free(avb_patched);
+                free(target_raw);
                 return 1;
             }
-            fp.write(target_final, 1, target_final_size);
+            fp.write(avb_patched, 1, avb_patched_size);
             fp.close();
             printf("[TosPatcher] [INFO] AVB-patched image saved to %s (size: %zu)\n",
-                __save_path, target_final_size);
-            free(target_final);
+                   __save_path, avb_patched_size);
+            free(avb_patched);
+            free(target_raw);
             return 0;
         }
 
-        // 4. 需要执行 BSP 拼接（patch_bsp == true）
-        //    加载原始签名镜像（__orig_image）的有效区域
+        // 4. BSP 拼接（patch_bsp == true）
+        // 此时 __orig_image 非空（已在开头检查）
         size_t orig_raw_size = 0;
         uint8_t* orig_raw = loadfile(__orig_image, &orig_raw_size);
         if (!orig_raw) {
             printf("[TosPatcher] [ERROR] Failed to load %s\n", __orig_image);
-            free(target_final);
+            free(target_raw);
+            if (avb_patched) free(avb_patched);
             return 1;
         }
+
         size_t orig_eff_size = get_effective_size(orig_raw, orig_raw_size);
         if (orig_eff_size == 0 || orig_eff_size > orig_raw_size) {
             printf("[TosPatcher] [ERROR] Invalid original image\n");
             free(orig_raw);
-            free(target_final);
+            free(target_raw);
+            if (avb_patched) free(avb_patched);
             return 1;
         }
+
         uint8_t* orig_eff = (uint8_t*)malloc(orig_eff_size);
         if (!orig_eff) {
             free(orig_raw);
-            free(target_final);
+            free(target_raw);
+            if (avb_patched) free(avb_patched);
             return 1;
         }
         memcpy(orig_eff, orig_raw, orig_eff_size);
         free(orig_raw);
 
-        // 5. 提取原始镜像的头部和签名头
         sys_img_header* orig_hdr = (sys_img_header*)orig_eff;
         uint32_t orig_payload_size = orig_hdr->mImgSize;
         uint8_t* sechdr_addr = orig_eff + sizeof(sys_img_header) + orig_payload_size;
         sprdsignedimageheader* sig_hdr = (sprdsignedimageheader*)sechdr_addr;
-        uint8_t* orig_remain = orig_eff + sizeof(sys_img_header);   // 原始载荷 + 签名头
+        uint8_t* orig_remain = orig_eff + sizeof(sys_img_header);
         size_t orig_remain_size = orig_eff_size - sizeof(sys_img_header);
 
-        // 6. 从 target_final 中提取载荷（目标镜像头部之后的部分）
-        sys_img_header* target_hdr = (sys_img_header*)target_final;
-        uint32_t target_payload_size = target_hdr->mImgSize;
-        uint8_t* target_payload = target_final + sizeof(sys_img_header);
-
-        // 7. 构建新头部并更新签名偏移
+        // 构建新头部并更新签名偏移
         sys_img_header new_hdr = *orig_hdr;
         new_hdr.mImgSize = orig_payload_size + target_payload_size;
         sig_hdr->payload_offset += target_payload_size;
-        sig_hdr->cert_offset    += target_payload_size;
+        sig_hdr->cert_offset += target_payload_size;
 
-        // 8. 拼接输出
+        // 拼接输出
         size_t out_size = sizeof(sys_img_header) + target_payload_size + orig_remain_size;
         uint8_t* out_buf = (uint8_t*)malloc(out_size);
         if (!out_buf) {
             printf("[TosPatcher] [ERROR] malloc failed\n");
             free(orig_eff);
-            free(target_final);
+            free(target_raw);
+            if (avb_patched) free(avb_patched);
             return 1;
         }
+
         memcpy(out_buf, &new_hdr, sizeof(sys_img_header));
         memcpy(out_buf + sizeof(sys_img_header), target_payload, target_payload_size);
         memcpy(out_buf + sizeof(sys_img_header) + target_payload_size, orig_remain, orig_remain_size);
 
-        // 9. 写入最终文件
+        // 写入最终文件
         EnhancedFile fp = oxfopen_enhanced(__save_path, "wb");
         if (!fp) {
             printf("[TosPatcher] [ERROR] Cannot create %s\n", __save_path);
             free(out_buf);
             free(orig_eff);
-            free(target_final);
+            free(target_raw);
+            if (avb_patched) free(avb_patched);
             return 1;
         }
         fp.write(out_buf, 1, out_size);
         fp.close();
         printf("[TosPatcher] [INFO] BSP-merged image saved to %s (size: %zu)\n",
-            __save_path, out_size);
+               __save_path, out_size);
 
         free(out_buf);
         free(orig_eff);
-        free(target_final);
+        free(target_raw);
+        if (avb_patched) free(avb_patched);
         return 0;
     }
 };
