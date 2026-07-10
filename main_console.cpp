@@ -2915,6 +2915,13 @@ rloop:
 				else if (isKickMode) DEG_LOG(I, "Device status: Unknown/SPRD4(AutoD)");
 				else DEG_LOG(I, "Device status: Unknown/Unknown");
 			}
+			DEG_LOG(I, "CMethod: %d", isCMethod);
+			DEG_LOG(I, "rawdata: %u", (unsigned)Da_Info.bSupportRawData);
+			DEG_LOG(I, "storage: ");
+			if(Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Nand");
+			else if(Da_Info.dwStorageType == 0x102) DEG_LOG(I, "Emmc");
+			else if(Da_Info.dwStorageType == 0x103) DEG_LOG(I, "Ufs");
+			else DEG_LOG(I, "Unknown");
 			argc -= 1;
 			argv += 1;
 		}

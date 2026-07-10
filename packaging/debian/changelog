@@ -1,3 +1,9 @@
+sfd-tool (2.2.1-1-ltv) unstable; urgency=medium
+
+  * 修复一个CLI命令
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Fri, 10 Jul 2026 16:40:51 +0800
+
 sfd-tool (2.2.0-1-ltv) unstable; urgency=medium
 
   * 修复了Trustos修补问题，CLI新增两个工具命令
