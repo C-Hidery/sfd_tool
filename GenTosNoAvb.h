@@ -123,12 +123,6 @@ private:
         sys_img_header* sys_img_hdr = (sys_img_header*)buf;
         sprdsignedimageheader* img_hdr = (sprdsignedimageheader*)&buf[sys_img_hdr->mImgSize + 0x200];
 
-        // 若 payload_offset != sizeof(sys_img_header) 表示已修补（与 dis_avb 逻辑一致）
-        if (img_hdr->payload_offset != sizeof(sys_img_header)) {
-            printf("[TosPatcher] [ERROR] Image is already patched.\n");
-            return nullptr;
-        }
-
         size_t pmov[3] = {0};
         size_t last_start_pos = 0, start_pos = 0;
         int mov_count = 0;
@@ -204,6 +198,15 @@ private:
     static uint8_t* bsp_cve_2img_in_memory(uint8_t* signed_buf, size_t signed_size,
                                            uint8_t* target_buf, size_t target_size,
                                            size_t* out_size) {
+        // 检查原始镜像是否已经被 BSP 拼接过
+        sys_img_header* sys_img_hdr = (sys_img_header*)signed_buf;
+        sprdsignedimageheader* img_hdr = (sprdsignedimageheader*)&signed_buf[sys_img_hdr->mImgSize + 0x200];
+        
+        if (img_hdr->payload_offset != sizeof(sys_img_header)) {
+            printf("[TosPatcher] [ERROR] Original image appears already BSP-merged (payload_offset=0x%llx).\n",
+                (unsigned long long)img_hdr->payload_offset);
+            return nullptr;
+        }
         // 1. 目标大小 16 字节对齐（与上游一致）
         size_t modified_img_size = ((target_size + 15) / 16) * 16;
 
