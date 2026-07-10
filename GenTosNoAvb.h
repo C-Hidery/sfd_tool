@@ -120,9 +120,6 @@ private:
         return max_size(size_in_footer, sizewithPostrom);
     }
     static uint8_t* dis_avb_in_memory(uint8_t* buf, size_t size, size_t* out_size) {
-        sys_img_header* sys_img_hdr = (sys_img_header*)buf;
-        sprdsignedimageheader* img_hdr = (sprdsignedimageheader*)&buf[sys_img_hdr->mImgSize + 0x200];
-
         size_t pmov[3] = {0};
         size_t last_start_pos = 0, start_pos = 0;
         int mov_count = 0;
