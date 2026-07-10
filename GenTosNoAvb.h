@@ -146,8 +146,6 @@ private:
     }
 
 public:
-    // 修正后的 API：允许 __orig_image 为 nullptr（仅当 patch_bsp == false）
-    // 输出文件：若实际大小 <= 原始目标大小，则补零至原始大小；若超出，则警告并写入完整数据（不截断）
     int AvbFxxker(const char* __orig_image, const char* __target, const char* __save_path,
                   bool patch_avb, bool patch_bsp) {
         if (!patch_avb && !patch_bsp) {
@@ -352,7 +350,7 @@ public:
             memcpy(out_buf + sizeof(sys_img_header), target_payload, target_payload_size);
             memcpy(out_buf + sizeof(sys_img_header) + target_payload_size, orig_remain, orig_remain_size);
             write_size = out_size;
-            printf("[TosPatcher] [WARNING] BSP-merged size (%zu) exceeds original target size (%zu), writing full data (may overflow partition)\n",
+            printf("[TosPatcher] [WARNING] BSP-merged size (%zu) exceeds original target size (%zu).\n",
                    out_size, original_target_raw_size);
         }
 
