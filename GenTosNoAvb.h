@@ -9,44 +9,7 @@
 #include <string.h>
 #include <vector>
 #include "core/file_io.h"
-
-typedef struct {
-    uint32_t  mMagicNum;        // "BTHD"
-    uint32_t  mVersion;
-    uint8_t   mPayloadHash[32];
-    uint64_t  mImgAddr;
-    uint32_t  mImgSize;
-    uint32_t  is_packed;
-    uint32_t  mFirmwareSize;
-    uint32_t  mFirmwareOff;
-    uint8_t   reserved[448];
-    uint32_t  mPostromOffset;   // 新增：用于 postrom 支持
-} sys_img_header;
-
-#define MAGIC_SIZE 8
-typedef struct sprdsignedimageheader {
-    uint8_t magic[MAGIC_SIZE];
-    uint32_t header_version_major;
-    uint32_t header_version_minor;
-    uint64_t payload_size;
-    uint64_t payload_offset;
-    uint64_t cert_size;
-    uint64_t cert_offset;
-    uint64_t priv_size;
-    uint64_t priv_offset;
-    uint64_t cert_dbg_prim_size;
-    uint64_t cert_dbg_prim_offset;
-    uint64_t cert_dbg_developer_size;
-    uint64_t cert_dbg_developer_offset;
-} sprdsignedimageheader;
-
-// postrom 头部结构
-typedef struct postrom_main_header {
-    uint32_t mMagicNum;    // "PROM"
-    uint32_t mVersion;
-    uint32_t mImgSize;
-    uint8_t  reserved[4];
-} postrom_main_header;
+#include "sprdsec_header.h"
 
 // 定义 max_size 宏
 #define max_size(x, y) ((x) > (y) ? (x) : (y))
