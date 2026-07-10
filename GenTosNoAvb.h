@@ -217,8 +217,6 @@ private:
 
         // 3. 处理签名镜像
         size_t signed_img_size = signed_size - sizeof(sys_img_header);  // 去除头部
-        sys_img_header* sys_img_hdr = (sys_img_header*)signed_buf;
-        sprdsignedimageheader* img_hdr = (sprdsignedimageheader*)&signed_buf[sys_img_hdr->mImgSize + 0x200];
         uint8_t* signed_img = signed_buf + sizeof(sys_img_header);  // 原始载荷 + 签名
 
         // 4. 更新头部和签名偏移
