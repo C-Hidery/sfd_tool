@@ -168,6 +168,9 @@ public:
             return 1;
         }
 
+        // 保存原始目标大小（用于后续大小检查）
+        size_t original_target_raw_size = target_raw_size;
+
         // 提取目标载荷（无论是否有效）
         uint8_t* target_payload = nullptr;
         size_t target_payload_size = 0;
@@ -243,17 +246,39 @@ public:
                 return 1;
             }
 
-            EnhancedFile fp = oxfopen_enhanced(__save_path, "wb");
-            if (!fp) {
-                printf("[TosPatcher] [ERROR] Cannot create %s\n", __save_path);
+            // 检查大小：不能大于原始大小
+            if (avb_patched_size > original_target_raw_size) {
+                printf("[TosPatcher] [ERROR] AVB-patched image size (%zu) exceeds original size (%zu)\n",
+                       avb_patched_size, original_target_raw_size);
                 free(avb_patched);
                 free(target_raw);
                 return 1;
             }
-            fp.write(avb_patched, 1, avb_patched_size);
+
+            // 如果小于原始大小，补 0x00 到原始大小
+            uint8_t* final_buf = (uint8_t*)malloc(original_target_raw_size);
+            if (!final_buf) {
+                printf("[TosPatcher] [ERROR] malloc for final buffer failed\n");
+                free(avb_patched);
+                free(target_raw);
+                return 1;
+            }
+            memset(final_buf, 0, original_target_raw_size);
+            memcpy(final_buf, avb_patched, avb_patched_size);
+
+            EnhancedFile fp = oxfopen_enhanced(__save_path, "wb");
+            if (!fp) {
+                printf("[TosPatcher] [ERROR] Cannot create %s\n", __save_path);
+                free(final_buf);
+                free(avb_patched);
+                free(target_raw);
+                return 1;
+            }
+            fp.write(final_buf, 1, original_target_raw_size);
             fp.close();
-            printf("[TosPatcher] [INFO] AVB-patched image saved to %s (size: %zu)\n",
-                   __save_path, avb_patched_size);
+            printf("[TosPatcher] [INFO] AVB-patched image saved to %s (size: %zu, padded to original size)\n",
+                   __save_path, original_target_raw_size);
+            free(final_buf);
             free(avb_patched);
             free(target_raw);
             return 0;
@@ -304,7 +329,18 @@ public:
 
         // 拼接输出
         size_t out_size = sizeof(sys_img_header) + target_payload_size + orig_remain_size;
-        uint8_t* out_buf = (uint8_t*)malloc(out_size);
+
+        // 检查大小：不能大于原始目标大小
+        if (out_size > original_target_raw_size) {
+            printf("[TosPatcher] [ERROR] BSP-merged image size (%zu) exceeds original target size (%zu)\n",
+                   out_size, original_target_raw_size);
+            free(orig_eff);
+            free(target_raw);
+            if (avb_patched) free(avb_patched);
+            return 1;
+        }
+
+        uint8_t* out_buf = (uint8_t*)malloc(original_target_raw_size);  // 使用原始大小
         if (!out_buf) {
             printf("[TosPatcher] [ERROR] malloc failed\n");
             free(orig_eff);
@@ -313,6 +349,9 @@ public:
             return 1;
         }
 
+        // 全部填充 0x00
+        memset(out_buf, 0, original_target_raw_size);
+        // 复制实际数据
         memcpy(out_buf, &new_hdr, sizeof(sys_img_header));
         memcpy(out_buf + sizeof(sys_img_header), target_payload, target_payload_size);
         memcpy(out_buf + sizeof(sys_img_header) + target_payload_size, orig_remain, orig_remain_size);
@@ -327,10 +366,10 @@ public:
             if (avb_patched) free(avb_patched);
             return 1;
         }
-        fp.write(out_buf, 1, out_size);
+        fp.write(out_buf, 1, original_target_raw_size);
         fp.close();
-        printf("[TosPatcher] [INFO] BSP-merged image saved to %s (size: %zu)\n",
-               __save_path, out_size);
+        printf("[TosPatcher] [INFO] BSP-merged image saved to %s (size: %zu, padded to original target size)\n",
+               __save_path, original_target_raw_size);
 
         free(out_buf);
         free(orig_eff);
