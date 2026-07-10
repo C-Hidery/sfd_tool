@@ -143,7 +143,10 @@ This command will **DISABLE** Android's DM-verity and AVB security verification 
 ## TO RESTORE
 
 For `verity 0`, Use command: `verity 1`
+
 For  `dis_avb_tos`, flash back `trustos-orig.bin`
+
+[Useful link for more details](https://github.com/TomKing062/unisoc_chipram_signcheck_exploit/)
 
 ## Features
 
