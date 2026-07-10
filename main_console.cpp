@@ -2689,38 +2689,19 @@ rloop:
 					argc = 1;
 					continue;
 				}
-				std::string mode;
-				get_partition_info(io, "teecfg", 1);
+				
+				get_partition_info(io, "sml", 1);
 				if (gPartInfo.size)
 				{
-					dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "teecfg-orig.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
-					mode = "teecfg";
+					dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "sml-orig.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
 				}
 				else
 				{
-					get_partition_info(io, "sml", 1);
-					if (gPartInfo.size)
-					{
-						dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "sml-orig.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
-						mode = "sml";
-					}
-				}
-				if (mode.empty())
-				{
-					DEG_LOG(E, "No sml or teecfg partition found!");
+					DEG_LOG(E, "No sml partition found!");
 					argc = 1;
 					continue;
 				}
-				int o;
-				if (mode == "teecfg")
-				{
-					o = patcher.AvbFxxker("teecfg-orig.bin", "trustos-orig.bin", "tos-noavb.bin", true, true);
-				}
-				else if (mode == "sml")
-				{
-					o = patcher.AvbFxxker("sml-orig.bin", "trustos-orig.bin", "tos-noavb.bin", true, true);
-				}
-				else { /* No way...? */ argc = 1; continue;}
+				int o = patcher.AvbFxxker("sml-orig.bin", "trustos-orig.bin", "tos-noavb.bin", true, true);
 				if (!o) {
 					load_partition_unify(io, "trustos", "tos-noavb.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 					DEG_LOG(I, "Done, backup trustos image trustos-orig.bin");
