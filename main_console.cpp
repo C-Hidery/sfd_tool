@@ -2922,6 +2922,10 @@ rloop:
 			else if(Da_Info.dwStorageType == 0x102) DEG_LOG(I, "Emmc");
 			else if(Da_Info.dwStorageType == 0x103) DEG_LOG(I, "Ufs");
 			else DEG_LOG(I, "Unknown");
+			DEG_LOG(I, "Slot: ");
+			if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "A");
+			else if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "B");
+			else DEG_LOG(I, "Not VAB");
 			argc -= 1;
 			argv += 1;
 		}
