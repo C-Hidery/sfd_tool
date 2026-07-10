@@ -152,12 +152,12 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 
 ## 后果说明
 
-- 您的设备将**失去所有系统完整性保护**
-- 以下应用将**停止工作**：
+- 您的设备将**失去系统完整性保护**
+- 以下应用可能**停止工作**：
   - 银行 App 和 Google Pay
   - 使用指纹/密码支付的应用（微信支付、支付宝等）
   - Netflix 高清播放及部分 DRM 保护内容
-  - 带有反作弊保护的游戏（吃鸡、原神等）
+  - 带有反作弊保护的游戏
 - 恶意软件可在无任何警告的情况下轻松修改您的系统
 - 您的设备将变得极易遭受数据窃取攻击
 
@@ -169,7 +169,10 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 ## 如何恢复
 
 对于`verity 0`, 使用命令：`verity 1`
+
 对于 `dis_avb_tos`，刷回`trustos-orig.bin`
+
+[更多技术细节](https://github.com/TomKing062/unisoc_chipram_signcheck_exploit/)
 
 ---
 
