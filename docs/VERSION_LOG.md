@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 2.1.0 LTV Edition
+Version 2.2.0 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -264,6 +264,9 @@ Enhanced partition list read
 
 ---v 2.1.0---
 新的CLI命令：loadexec
+
+---v 2.2.0---
+修复了Trustos修补问题，CLI新增两个工具命令
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool

@@ -476,6 +476,11 @@ uint64_t dump_partition(spdio_t *io,
 		if (len > 512)
 			len -= 512;
 	}
+	else if (strstr(name, "downloadnv") || strstr(name, "factorynv")) {
+		start = 0;
+		if (len > 512)
+			len -= 512;
+	}
 	if (isCancel) {  return 0; }
 	select_partition(io, name, start + len, mode64, BSL_CMD_READ_START);
 	if (send_and_check(io)) {
@@ -1883,7 +1888,11 @@ uint64_t check_partition(spdio_t *io, const char *name, int need_size) {
 		}
 	}
 	// NAND detection
-	if (end == 10) Da_Info.dwStorageType = 0x101;
+	if (end == 10) 
+	{
+		Da_Info.dwStorageType = 0x101;
+		DEG_LOG(I, "Storage is nand.");
+	}
 	if(io->verbose != -1) DEG_LOG(I,"Partition check: %s, size : 0x%llx", name, offset);
 	encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
 	send_and_check(io);
@@ -2345,10 +2354,6 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			!strncmp(fn, "0x", 2) ||
 			!strncmp(fn, "custom_exec", 11) ||
 		    strstr(fn, "factorynv")) continue;
-		if (strstr(fn, "downloadnv")) {
-			isHasDownloadNV = true;
-			dlnv_id = partition_count;
-		}
 		snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s", path, fn);
 		char *dot = strrchr(fn, '.');
 		if (dot != nullptr) *dot = '\0';
@@ -2399,10 +2404,6 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			!strncmp(fn, "0x", 2) ||
 			!strncmp(fn, "custom_exec", 11) ||
 		    strstr(fn, "factorynv")) continue;
-		if (strstr(fn, "downloadnv")) {
-			isHasDownloadNV = true;
-			dlnv_id = partition_count;
-		}
 		snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s", path, fn);
 		char *dot = strrchr(fn, '.');
 		if (dot != nullptr) *dot = '\0';
@@ -2469,7 +2470,8 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		{
 			if (strstr("nr_fixnv1", fn))
 			{
-				if (hasPartition(pac_parts, "nr_fixnv1")) 
+				get_partition_info(io, "nr_fixnv1", 1);
+				if (gPartInfo.size && hasPartition(pac_parts, std::string(gPartInfo.name))) 
 				{
 					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
 						size_t a_size = 0, b_size = 0, c_size = 0;
@@ -2486,13 +2488,13 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 					}
 					delete[](io->nvid_list);
 					io->nvid_list = NULL;
-					get_partition_info(io, "nr_fixnv1", 1);
-					load_nv_partition(io, gPartInfo.name, "nvmerged_nr_fixnv1.bin", 4096);
+					load_partition_unify(io, gPartInfo.name, "nvmerged_nr_fixnv1.bin", step, CMethod);
 				}
 			}
 			else if (strstr("l_fixnv1", fn))
 			{
-				if (hasPartition(pac_parts, "l_fixnv1")) 
+				get_partition_info(io, "l_fixnv1", 1);
+				if (gPartInfo.size && hasPartition(pac_parts, std::string(gPartInfo.name))) 
 				{
 					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
 						size_t a_size = 0, b_size = 0, c_size = 0;
@@ -2509,8 +2511,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 					}
 					delete[](io->nvid_list);
 					io->nvid_list = NULL;
-					get_partition_info(io, "l_fixnv1", 1);
-					load_nv_partition(io, gPartInfo.name, "nvmerged_l_fixnv1.bin", 4096);
+					load_partition_unify(io, gPartInfo.name, "nvmerged_l_fixnv1.bin", step, CMethod);
 				}
 			}
 			partitions[i].written_flag = 1;
@@ -2577,7 +2578,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			if (g_app_state.flash.isPacFlashing && !hasPartition(pac_parts, fn)) continue;
 			get_partition_info(io, fn, 0);
 			if (!gPartInfo.size) continue;
-			if (isHasDownloadNV) continue;
+			if (strstr(fn, "downloadnv")) {isHasDownloadNV = true; dlnv_id = i; continue; }
 			if (!strcmp(gPartInfo.name, "metadata")) { metadata_in_dump = 1; metadata_id = i; continue; }
 			if (!strcmp(gPartInfo.name, "super")) { super_in_dump = 1; super_id = i; continue; }
 			load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
@@ -2597,11 +2598,11 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		if (gPartInfo.size) 
 		{
 			if (!g_app_state.flash.isPacFlashing) {
-				load_nv_partition(io, gPartInfo.name, partitions[dlnv_id].file_path, 4096);
+				load_partition_unify(io, gPartInfo.name, partitions[dlnv_id].file_path, step, CMethod);
 			}
 			else
 			{
-				if (hasPartition(pac_parts, "downloadnv"))
+				if (hasPartition(pac_parts, std::string(gPartInfo.name)))
 				{
 					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
 						size_t a_size = 0, b_size = 0, c_size = 0;
@@ -2618,8 +2619,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 					}
 					delete[](io->nvid_list);
 					io->nvid_list = NULL;
-					get_partition_info(io, "downloadnv", 1);
-					load_nv_partition(io, gPartInfo.name, "nvmerged_downloadnv.bin", 4096);
+					load_partition_unify(io, gPartInfo.name, "nvmerged_downloadnv.bin", step, CMethod);
 				}
 			}
 		}

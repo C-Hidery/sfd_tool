@@ -179,38 +179,42 @@ void print_help() {
 		"\t\tMerge NV partition with a special config file, Old nvimage needed.\n"
 		"\t45.status\n"
 		"\t\tShow device status.\n"
+		"\t46.gen_tos [TRUSTOS IMAGE]\n"
+		"\t\tPatch trustos.\n"
+		"\t47.bsp_patch [ORIG IMAGE SIGNED] [MODIFIED IMAGE] [SAVE PATH]\n"
+		"\t\tPatch bsp signature.\n"
 	    "Debug commands:\n"
-	    "\t46.skip_confirm {0,1}\n"
+	    "\t48.skip_confirm {0,1}\n"
 	    "\t\tSkips all confirmation prompts(use with caution!)\n"
-	    "\t47.keep_charge\n"
+	    "\t49.keep_charge\n"
 	    "\t\tKeep charge in FDL1/FDL2 stage.\n"
-	    "\t48.send_end_data {0,1}\n"
+	    "\t50.send_end_data {0,1}\n"
 	    "\t\tSends end data after file transfer.\n"
-	    "\t49.rawdata {0,1,2}\n"
+	    "\t51.rawdata {0,1,2}\n"
 	    "\t\tEnable raw_data mode for file sending to get better speed.\n"
 	    "\t\t(Not all FDL2 support.)\n"
-	    "\t50.slot {0,1,2}\n"
+	    "\t52.slot {0,1,2}\n"
 	    "\t\tSelect slot auto|a|b on VAB devices.\n"
-	    "\t51.chip_uid\n"
+	    "\t53.chip_uid\n"
 	    "\t\tReads the chip UID (FDL2 stage only).\n"
-	    "\t52.transcode {0,1}\n"
+	    "\t54.transcode {0,1}\n"
 	    "\t\tEnable or disable transcode mode (FDL2 stage only).\n"
-	    "\t53.sendloop [ADDR]\n"
+	    "\t55.sendloop [ADDR]\n"
 	    "\t\tSend [0, 0, 0, 0] packet to a specified address, then send addresses in a loop of [0, 0, 0, 0] packet to sequentially decrease by 8\n"
-	    "\t54.write_word\n"
+	    "\t56.write_word\n"
 	    "\t\tWrite a HEX number word to a specified address.\n"
-	    "\t55.read_nand\n"
+	    "\t57.read_nand\n"
 	    "\t\tDetermine whether the current device is a NAND model; not all devices are supported.(through 0x0D)\n"
-	    "\t56.sendcmd [TYPE] <FILE>\n"
+	    "\t58.sendcmd [TYPE] <FILE>\n"
 	    "\t\tSend a specified command (with a file)\n"
-	    "\t57.pactime\n"
+	    "\t59.pactime\n"
 	    "\t\tRead the last time the PAC firmware was flashed.\n"
-		"\t58.read_flash [ADDR] [OFFSET] [SIZE] [FILE]\n"
+		"\t60.read_flash [ADDR] [OFFSET] [SIZE] [FILE]\n"
 		"\t\tRead flash content to a file\n"
 		"\t\t`read_flash_dhtb` for reading DHTB Signature for ums9117\n"
-		"\t59.read_mem [ADDR] [SIZE] [FILE]\n"
+		"\t61.read_mem [ADDR] [SIZE] [FILE]\n"
 		"\t\tRead memory content to a file\n"
-		"\t60.erase_flash [ADDR] [SIZE]\n"
+		"\t62.erase_flash [ADDR] [SIZE]\n"
 		"\t\tErase flash content\n"
 	    "Notice:\n"
 	    "\t1.The compatibility method to get part table sometimes can not get all partitions on your device\n"
@@ -219,11 +223,11 @@ void print_help() {
 	);
 	DBG_LOG(
 	    "\nExit Commands\n"
-	    "\t61.reboot-recovery\n\t\tFDL2 only\n"
-	    "\t62.reboot-fastboot\n\t\tFDL2 only\n"
-	    "\t63.reset\n\t\tFDL2 and new FDL1\n"
-	    "\t64.poweroff\n,\t\tFDL2 and new FDL1\n"
-		"\t65.exit\n\t\tExit the program (Tool mode only.)\n"
+	    "\t63.reboot-recovery\n\t\tFDL2 only\n"
+	    "\t64.reboot-fastboot\n\t\tFDL2 only\n"
+	    "\t65.reset\n\t\tFDL2 and new FDL1\n"
+	    "\t66.poweroff\n,\t\tFDL2 and new FDL1\n"
+		"\t67.exit\n\t\tExit the program (Tool mode only.)\n"
 	);
 }
 void ThrowExit() {
@@ -2626,8 +2630,43 @@ rloop:
 			fblk_size = strtoull(str2[2], nullptr, 0) * 1024 * 1024; // Not safe with `<<`
 			argc -= 2;
 			argv += 2;
-
-		} else if (!strcmp(str2[1], "dis_avb_tos")) {
+		
+		}
+		else if (!strcmp(str2[1], "gen_tos"))
+		{
+			if (argcount <= 2) {
+				DEG_LOG(E, "gen_tos [TRUSTOS IMAGE]");
+				argc = 1;
+				continue;
+			}
+			TosPatcher patcher;
+			int o = patcher.AvbFxxker(nullptr, str2[2], "tos_no-avb.bin", true, false);
+			if (!o)
+			{
+				DEG_LOG(I, "Patched image saved to tos_no-avb.bin.");
+			}
+			else DEG_LOG(E, "Failed.");
+			argc -= 2;
+			argv += 2;
+		}
+		else if(!strcmp(str2[1], "bsp_patch"))
+		{
+			if (argcount <= 4) {
+				DEG_LOG(E, "bsp_patch [ORIG IMAGE SIGNED] [MODIFIED IMAGE] [SAVE PATH]");
+				argc = 1;
+				continue;
+			}
+			TosPatcher patcher;
+			int o = patcher.AvbFxxker(str2[2], str2[3], str2[4], false, true);
+			if (!o)
+			{
+				DEG_LOG(I, "Patched image saved to %s.", str2[4]);
+			}
+			else DEG_LOG(E, "Failed.");
+			argc -= 4;
+			argv += 4;
+		}
+		else if (!strcmp(str2[1], "dis_avb_tos")) {
 			if (isToolMode)
 			{
 				
@@ -2636,11 +2675,34 @@ rloop:
 				
 				continue;
 			}
-			DEG_LOG(W, "This operation may brick your device, and not all devices support this, if your device is broken, flash backup trustos-orig.bin");
+			DEG_LOG(W, "This operation may brick your device, and not all devices support this, if your device is broken, flash backup trustos-orig.bin or flash back all partitions");
+			DEG_LOG(W, "Please make a FULL backup for your device before execute this command.");
 			if (check_confirm("Disable AVB by patching trustos")) {
 				TosPatcher patcher;
-				dump_partition(io, "trustos", 0, check_partition(io, "trustos", 1), "trustos-orig.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
-				int o = patcher.AvbFxxker("trustos-orig.bin", "tos-noavb.bin");
+				get_partition_info(io, "trustos", 1);
+				if (gPartInfo.size)
+				{
+					dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "trustos-orig.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
+				}
+				else
+				{
+					DEG_LOG(E, "Trustos not found!");
+					argc = 1;
+					continue;
+				}
+				
+				get_partition_info(io, "sml", 1);
+				if (gPartInfo.size)
+				{
+					dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "sml-orig.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
+				}
+				else
+				{
+					DEG_LOG(E, "No sml partition found!");
+					argc = 1;
+					continue;
+				}
+				int o = patcher.AvbFxxker("sml-orig.bin", "trustos-orig.bin", "tos-noavb.bin", true, true);
 				if (!o) {
 					load_partition_unify(io, "trustos", "tos-noavb.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 					DEG_LOG(I, "Done, backup trustos image trustos-orig.bin");
