@@ -2619,7 +2619,6 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 					}
 					delete[](io->nvid_list);
 					io->nvid_list = NULL;
-					get_partition_info(io, "downloadnv", 1);
 					load_partition_unify(io, gPartInfo.name, "nvmerged_downloadnv.bin", step, CMethod);
 				}
 			}
