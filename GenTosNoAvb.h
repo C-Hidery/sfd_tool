@@ -193,17 +193,25 @@ private:
         return patched;
     }
     static uint8_t* bsp_cve_2img_in_memory(uint8_t* signed_buf, size_t signed_size,
-                                           uint8_t* target_buf, size_t target_size,
-                                           size_t* out_size) {
+                                       uint8_t* target_buf, size_t target_size,
+                                       size_t* out_size, bool* already_merged = nullptr) {
         // 检查原始镜像是否已经被 BSP 拼接过
         sys_img_header* sys_img_hdr = (sys_img_header*)signed_buf;
         sprdsignedimageheader* img_hdr = (sprdsignedimageheader*)&signed_buf[sys_img_hdr->mImgSize + 0x200];
         
         if (img_hdr->payload_offset != sizeof(sys_img_header)) {
-            printf("[TosPatcher] [ERROR] Original image appears already BSP-merged (payload_offset=0x%llx).\n",
+            printf("[TosPatcher] [WARNING] Original image appears already BSP-merged (payload_offset=0x%llx). Skipping merge.\n",
                 (unsigned long long)img_hdr->payload_offset);
-            return nullptr;
+            
+            // 直接返回原始镜像的副本
+            uint8_t* original_copy = (uint8_t*)malloc(signed_size);
+            if (!original_copy) return nullptr;
+            memcpy(original_copy, signed_buf, signed_size);
+            *out_size = signed_size;
+            if (already_merged) *already_merged = true;
+            return original_copy;
         }
+        
         // 1. 目标大小 16 字节对齐（与上游一致）
         size_t modified_img_size = ((target_size + 15) / 16) * 16;
 
@@ -236,6 +244,7 @@ private:
         memcpy(out_buf + sizeof(sys_img_header) + modified_img_size, signed_img, signed_img_size);
 
         *out_size = out_size_total;
+        if (already_merged) *already_merged = false;
         return out_buf;
     }
 
@@ -336,14 +345,19 @@ public:
 
         // 执行 BSP 拼接
         size_t merged_size = 0;
+        bool already_merged = false;
         uint8_t* merged = bsp_cve_2img_in_memory(orig_eff, orig_eff_size,
-                                                 target_raw, target_raw_size,
-                                                 &merged_size);
+                                                target_raw, target_raw_size,
+                                                &merged_size, &already_merged);
         free(orig_eff);
         free(target_raw);
         if (!merged) {
             printf("[TosPatcher] [ERROR] BSP merge failed.\n");
             return 1;
+        }
+
+        if (already_merged) {
+            printf("[TosPatcher] [INFO] Original image already BSP-merged, output unchanged.\n");
         }
 
         // 写入输出文件（直接写入实际大小，与上游一致）
