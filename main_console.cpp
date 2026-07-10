@@ -2675,7 +2675,8 @@ rloop:
 				
 				continue;
 			}
-			DEG_LOG(W, "This operation may brick your device, and not all devices support this, if your device is broken, flash backup trustos-orig.bin");
+			DEG_LOG(W, "This operation may brick your device, and not all devices support this, if your device is broken, flash backup trustos-orig.bin or flash back all partitions");
+			DEG_LOG(W, "Please make a FULL backup for your device before execute this command.");
 			if (check_confirm("Disable AVB by patching trustos")) {
 				TosPatcher patcher;
 				get_partition_info(io, "trustos", 1);
