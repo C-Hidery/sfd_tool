@@ -8,10 +8,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <vector>
-#include <algorithm>
 #include "core/file_io.h"
 
-// 结构体定义（与 common.txt 完全一致）
 typedef struct {
     uint32_t  mMagicNum;        // "BTHD"
     uint32_t  mVersion;
@@ -42,13 +40,16 @@ typedef struct sprdsignedimageheader {
     uint64_t cert_dbg_developer_offset;
 } sprdsignedimageheader;
 
-// postrom 头部结构（参考 common.txt）
+// postrom 头部结构
 typedef struct postrom_main_header {
     uint32_t mMagicNum;    // "PROM"
     uint32_t mVersion;
     uint32_t mImgSize;
     uint8_t  reserved[4];
 } postrom_main_header;
+
+// 定义 max_size 宏
+#define max_size(x, y) ((x) > (y) ? (x) : (y))
 
 class TosPatcher {
 private:
@@ -72,42 +73,51 @@ private:
         if (num) *num = j;
         return buf;
     }
-
-    // 计算有效大小：完全等价于 bsp_chsize 的计算逻辑（不含文件截断）
     static size_t calculate_effective_size(uint8_t* mem, size_t file_size) {
         sys_img_header* header = (sys_img_header*)mem;
-        size_t sizewithPostrom = 0, size_in_footer = 0;
+        size_t sizewithPostrom = 0;
+        size_t size_in_footer = 0;
 
-        // 1. 检查 postrom（与 bsp_chsize 相同）
+        // 1. 检查 postrom（与 bsp_chsize 完全一致）
         if (header->mPostromOffset && header->mPostromOffset + 0x200 < file_size) {
             postrom_main_header* postrom_hdr = (postrom_main_header*)(mem + header->mPostromOffset);
-            if (postrom_hdr->mImgSize && (header->mPostromOffset + 0x200 + postrom_hdr->mImgSize <= file_size)) {
+            if (postrom_hdr->mImgSize && 
+                (header->mPostromOffset + 0x200 + postrom_hdr->mImgSize <= file_size)) {
                 sizewithPostrom = header->mPostromOffset + 0x200 + postrom_hdr->mImgSize;
             }
         }
 
-        // 2. 检查 signature footer
+        // 2. 检查 signature footer（与 bsp_chsize 完全一致）
         if (!header->mImgSize) {
             return 0;
         }
+
         sprdsignedimageheader* footer = (sprdsignedimageheader*)&mem[header->mImgSize + 0x200];
+        
+        // 如果 footer 超出文件大小，返回文件大小
         if (header->mImgSize + 0x200 + sizeof(sprdsignedimageheader) >= file_size) {
-            size_in_footer = file_size;
-        } else {
-            // 取所有非零偏移+大小的最大值（与 bsp_chsize 的 max 逻辑一致）
-            if (footer->cert_dbg_developer_size && footer->cert_dbg_developer_offset)
-                size_in_footer = std::max<size_t>(size_in_footer, static_cast<size_t>(footer->cert_dbg_developer_size + footer->cert_dbg_developer_offset));
-            if (footer->priv_size && footer->priv_offset)
-                size_in_footer = std::max<size_t>(size_in_footer, static_cast<size_t>(footer->priv_size + footer->priv_offset));
-            if (footer->cert_size && footer->cert_offset)
-                size_in_footer = std::max<size_t>(size_in_footer, static_cast<size_t>(footer->cert_size + footer->cert_offset));
-            if (footer->payload_size && footer->payload_offset)
-                size_in_footer = std::max<size_t>(size_in_footer, static_cast<size_t>(footer->payload_size + footer->payload_offset));
-            else
-                size_in_footer = std::max<size_t>(size_in_footer, static_cast<size_t>(header->mImgSize + 0x200));
+            return file_size;
         }
 
-        return std::max(size_in_footer, sizewithPostrom);
+        // 3. 取所有非零 offset+size 的最大值（与 bsp_chsize 完全一致）
+        if (footer->cert_dbg_developer_size && footer->cert_dbg_developer_offset)
+            size_in_footer = max_size(size_in_footer, 
+                (size_t)(footer->cert_dbg_developer_size + footer->cert_dbg_developer_offset));
+        if (footer->priv_size && footer->priv_offset)
+            size_in_footer = max_size(size_in_footer, 
+                (size_t)(footer->priv_size + footer->priv_offset));
+        if (footer->cert_size && footer->cert_offset)
+            size_in_footer = max_size(size_in_footer, 
+                (size_t)(footer->cert_size + footer->cert_offset));
+        if (footer->payload_size && footer->payload_offset)
+            size_in_footer = max_size(size_in_footer, 
+                (size_t)(footer->payload_size + footer->payload_offset));
+        else
+            size_in_footer = max_size(size_in_footer, 
+                (size_t)(header->mImgSize + 0x200));
+
+        // 4. 返回最大值（与 bsp_chsize 完全一致）
+        return max_size(size_in_footer, sizewithPostrom);
     }
     static uint8_t* dis_avb_in_memory(uint8_t* buf, size_t size, size_t* out_size) {
         sys_img_header* sys_img_hdr = (sys_img_header*)buf;
@@ -115,6 +125,7 @@ private:
 
         // 若 payload_offset != sizeof(sys_img_header) 表示已修补（与 dis_avb 逻辑一致）
         if (img_hdr->payload_offset != sizeof(sys_img_header)) {
+            printf("[TosPatcher] [ERROR] Image is already patched.\n");
             return nullptr;
         }
 
@@ -170,6 +181,7 @@ private:
         }
 
         if (mov_count < 2) {
+            printf("[TosPatcher] [ERROR] Failed to find mov points (mov_count < 2).\n");
             return nullptr;
         }
         int idx;
