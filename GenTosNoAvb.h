@@ -96,15 +96,15 @@ private:
         } else {
             // 取所有非零偏移+大小的最大值（与 bsp_chsize 的 max 逻辑一致）
             if (footer->cert_dbg_developer_size && footer->cert_dbg_developer_offset)
-                size_in_footer = std::max(size_in_footer, footer->cert_dbg_developer_size + footer->cert_dbg_developer_offset);
+                size_in_footer = std::max<size_t>(size_in_footer, static_cast<size_t>(footer->cert_dbg_developer_size + footer->cert_dbg_developer_offset));
             if (footer->priv_size && footer->priv_offset)
-                size_in_footer = std::max(size_in_footer, footer->priv_size + footer->priv_offset);
+                size_in_footer = std::max<size_t>(size_in_footer, static_cast<size_t>(footer->priv_size + footer->priv_offset));
             if (footer->cert_size && footer->cert_offset)
-                size_in_footer = std::max(size_in_footer, footer->cert_size + footer->cert_offset);
+                size_in_footer = std::max<size_t>(size_in_footer, static_cast<size_t>(footer->cert_size + footer->cert_offset));
             if (footer->payload_size && footer->payload_offset)
-                size_in_footer = std::max(size_in_footer, footer->payload_size + footer->payload_offset);
+                size_in_footer = std::max<size_t>(size_in_footer, static_cast<size_t>(footer->payload_size + footer->payload_offset));
             else
-                size_in_footer = std::max(size_in_footer, header->mImgSize + 0x200);
+                size_in_footer = std::max<size_t>(size_in_footer, static_cast<size_t>(header->mImgSize + 0x200));
         }
 
         return std::max(size_in_footer, sizewithPostrom);
