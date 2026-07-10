@@ -194,28 +194,9 @@ private:
     }
     static uint8_t* bsp_cve_2img_in_memory(uint8_t* signed_buf, size_t signed_size,
                                        uint8_t* target_buf, size_t target_size,
-                                       size_t* out_size, bool* already_merged = nullptr) {
-        // 检查原始镜像是否已经被 BSP 拼接过
-        sys_img_header* sys_img_hdr = (sys_img_header*)signed_buf;
-        sprdsignedimageheader* img_hdr = (sprdsignedimageheader*)&signed_buf[sys_img_hdr->mImgSize + 0x200];
-        
-        if (img_hdr->payload_offset != sizeof(sys_img_header)) {
-            printf("[TosPatcher] [WARNING] Original image appears already BSP-merged (payload_offset=0x%llx). Skipping merge.\n",
-                (unsigned long long)img_hdr->payload_offset);
-            
-            // 直接返回原始镜像的副本
-            uint8_t* original_copy = (uint8_t*)malloc(signed_size);
-            if (!original_copy) return nullptr;
-            memcpy(original_copy, signed_buf, signed_size);
-            *out_size = signed_size;
-            if (already_merged) *already_merged = true;
-            return original_copy;
-        }
-        
-        // 1. 目标大小 16 字节对齐（与上游一致）
+                                       size_t* out_size) {
         size_t modified_img_size = ((target_size + 15) / 16) * 16;
 
-        // 2. 提取目标载荷（若目标有 BTHD 头则跳过）
         uint8_t* modified_img = target_buf;
         size_t orig_modified_img_size = *(uint32_t*)&modified_img[0x30];
         if (*(uint32_t*)modified_img == 0x42544844 && orig_modified_img_size) {
@@ -223,28 +204,25 @@ private:
             modified_img += sizeof(sys_img_header);
         }
 
-        // 3. 处理签名镜像
-        size_t signed_img_size = signed_size - sizeof(sys_img_header);  // 去除头部
-        uint8_t* signed_img = signed_buf + sizeof(sys_img_header);  // 原始载荷 + 签名
+        sys_img_header* sys_img_hdr = (sys_img_header*)signed_buf;
+        sprdsignedimageheader* img_hdr = (sprdsignedimageheader*)&signed_buf[sys_img_hdr->mImgSize + 0x200];
+        size_t signed_img_size = signed_size - sizeof(sys_img_header);
+        uint8_t* signed_img = signed_buf + sizeof(sys_img_header);
 
-        // 4. 更新头部和签名偏移
         sys_img_header new_hdr = *sys_img_hdr;
         new_hdr.mImgSize += modified_img_size;
         img_hdr->payload_offset += modified_img_size;
         img_hdr->cert_offset += modified_img_size;
 
-        // 5. 分配输出缓冲区
         size_t out_size_total = sizeof(sys_img_header) + modified_img_size + signed_img_size;
         uint8_t* out_buf = (uint8_t*)malloc(out_size_total);
         if (!out_buf) return nullptr;
 
-        // 6. 拼接：新头部 + 目标载荷 + 原始载荷及签名
         memcpy(out_buf, &new_hdr, sizeof(sys_img_header));
         memcpy(out_buf + sizeof(sys_img_header), modified_img, modified_img_size);
         memcpy(out_buf + sizeof(sys_img_header) + modified_img_size, signed_img, signed_img_size);
 
         *out_size = out_size_total;
-        if (already_merged) *already_merged = false;
         return out_buf;
     }
 
@@ -259,7 +237,7 @@ public:
     //   - true, true   : 先 AVB 修补，再 BSP 拼接，输出最终镜像
     // 输出文件大小 = 实际拼接大小（不补零，与上游一致）
     int AvbFxxker(const char* __orig_image, const char* __target, const char* __save_path,
-                  bool patch_avb, bool patch_bsp) {
+              bool patch_avb, bool patch_bsp) {
         if (!patch_avb && !patch_bsp) {
             printf("[TosPatcher] [ERROR] Both flags are false, nothing to do.\n");
             return 1;
@@ -281,7 +259,6 @@ public:
         uint8_t* target_after_avb = nullptr;
         size_t target_after_avb_size = 0;
         if (patch_avb) {
-            // 必须先检查目标是否有效 BTHD（与 dis_avb 隐含要求一致）
             if (*(uint32_t*)target_raw != 0x42544844) {
                 printf("[TosPatcher] [ERROR] AVB patch requires valid BTHD image.\n");
                 free(target_raw);
@@ -289,11 +266,10 @@ public:
             }
             target_after_avb = dis_avb_in_memory(target_raw, target_raw_size, &target_after_avb_size);
             if (!target_after_avb) {
-                printf("[TosPatcher] [ERROR] AVB patch failed (image already patched or pattern not found).\n");
+                printf("[TosPatcher] [ERROR] AVB patch failed.\n");
                 free(target_raw);
                 return 1;
             }
-            // 释放原始目标，后续使用修补后的
             free(target_raw);
             target_raw = target_after_avb;
             target_raw_size = target_after_avb_size;
@@ -310,13 +286,12 @@ public:
             fp.write(target_raw, 1, target_raw_size);
             fp.close();
             printf("[TosPatcher] [INFO] AVB-patched image saved to %s (size: %zu)\n",
-                   __save_path, target_raw_size);
+                __save_path, target_raw_size);
             free(target_raw);
             return 0;
         }
 
         // 4. BSP 拼接（patch_bsp == true）
-        // 加载原始签名镜像
         size_t orig_raw_size = 0;
         uint8_t* orig_raw = loadfile(__orig_image, &orig_raw_size);
         if (!orig_raw) {
@@ -325,7 +300,6 @@ public:
             return 1;
         }
 
-        // 计算有效区域（使用与 bsp_chsize 相同的逻辑）
         size_t orig_eff_size = calculate_effective_size(orig_raw, orig_raw_size);
         if (orig_eff_size == 0) {
             printf("[TosPatcher] [ERROR] Invalid original image (no BTHD or broken).\n");
@@ -333,7 +307,7 @@ public:
             free(target_raw);
             return 1;
         }
-        // 将 orig_raw 截取到有效区域（内存中）
+
         uint8_t* orig_eff = (uint8_t*)malloc(orig_eff_size);
         if (!orig_eff) {
             free(orig_raw);
@@ -343,12 +317,44 @@ public:
         memcpy(orig_eff, orig_raw, orig_eff_size);
         free(orig_raw);
 
-        // 执行 BSP 拼接
+        // 5. 检查是否已 BSP 拼接
+        sys_img_header* sys_img_hdr = (sys_img_header*)orig_eff;
+        sprdsignedimageheader* img_hdr = (sprdsignedimageheader*)&orig_eff[sys_img_hdr->mImgSize + 0x200];
+        bool already_merged = (img_hdr->payload_offset != sizeof(sys_img_header));
+
+        if (already_merged) {
+            printf("[TosPatcher] [WARNING] Original image already BSP-merged (payload_offset=0x%llx).\n",
+                (unsigned long long)img_hdr->payload_offset);
+            free(orig_eff);
+
+            if (patch_avb) {
+                // 有 AVB 修补结果，直接输出 AVB 修补后的文件
+                printf("[TosPatcher] [INFO] BSP merge skipped (already merged), outputting AVB-patched image.\n");
+                EnhancedFile fp = oxfopen_enhanced(__save_path, "wb");
+                if (!fp) {
+                    printf("[TosPatcher] [ERROR] Cannot create %s\n", __save_path);
+                    free(target_raw);
+                    return 1;
+                }
+                fp.write(target_raw, 1, target_raw_size);
+                fp.close();
+                printf("[TosPatcher] [INFO] AVB-patched image saved to %s (size: %zu)\n",
+                    __save_path, target_raw_size);
+                free(target_raw);
+                return 0;
+            } else {
+                // patch_avb=false 且 BSP 已修补，无法继续
+                printf("[TosPatcher] [ERROR] Original image already BSP-merged, and AVB patch was not requested.\n");
+                free(target_raw);
+                return 1;
+            }
+        }
+
+        // 6. 执行 BSP 拼接（正常流程）
         size_t merged_size = 0;
-        bool already_merged = false;
         uint8_t* merged = bsp_cve_2img_in_memory(orig_eff, orig_eff_size,
                                                 target_raw, target_raw_size,
-                                                &merged_size, &already_merged);
+                                                &merged_size);
         free(orig_eff);
         free(target_raw);
         if (!merged) {
@@ -356,11 +362,6 @@ public:
             return 1;
         }
 
-        if (already_merged) {
-            printf("[TosPatcher] [INFO] Original image already BSP-merged, output unchanged.\n");
-        }
-
-        // 写入输出文件（直接写入实际大小，与上游一致）
         EnhancedFile fp = oxfopen_enhanced(__save_path, "wb");
         if (!fp) {
             printf("[TosPatcher] [ERROR] Cannot create %s\n", __save_path);
@@ -370,7 +371,7 @@ public:
         fp.write(merged, 1, merged_size);
         fp.close();
         printf("[TosPatcher] [INFO] BSP-merged image saved to %s (size: %zu)\n",
-               __save_path, merged_size);
+            __save_path, merged_size);
         free(merged);
         return 0;
     }
