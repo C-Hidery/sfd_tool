@@ -297,13 +297,3 @@ Create `/etc/udev/rules.d/80-spd.rules` with this line:
 ```text
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="1782", ATTRS{idProduct}=="4d00", MODE="0666", TAG+="uaccess"
 ```
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=C-Hidery%2Fsfd_tool&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=C-Hidery/sfd_tool&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=C-Hidery/sfd_tool&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=C-Hidery/sfd_tool&type=date&legend=top-left" />
- </picture>
-</a>
