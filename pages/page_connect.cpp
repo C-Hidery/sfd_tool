@@ -53,6 +53,7 @@ extern int at;
 extern int async;
 extern uint64_t g_spl_size;
 extern int waitFDL1;
+extern int autoFDL1Suc;
 extern std::string fdl1_path_json;
 extern std::string fdl2_path_json;
 extern uint32_t fdl1_addr_json;
@@ -146,6 +147,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 			EnhancedFile fi = oxfopen_enhanced(fdl_path, "r");
 			if (!fi) {
 				DEG_LOG(W, "File does not exist.");
+				showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
 				return;
 			}
 			fi.close();
@@ -160,6 +162,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 					EnhancedFile fi = oxfopen_enhanced(fdl_path, "r");
 					if (!fi) {
 						DEG_LOG(W, "File does not exist.");
+						showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
 						return;
 					}
 					fi.close();
@@ -392,6 +395,8 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 			if (g_app_state.device.device_mode == SPRD3) {
 				if (!fi) {
 					DEG_LOG(W, "File does not exist.\n");
+					showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
+					waitFDL1 = 1;
 					return;
 				}
 				fi.close();
@@ -442,6 +447,8 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 					} else {
 						if (fi == nullptr) {
 							DEG_LOG(W, "File does not exist.\n");
+							showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
+							waitFDL1 = 1;
 							return;
 						}
 						send_file(io, fdl_path, fdl_addr, end_data, 528, 0, 0);
@@ -539,6 +546,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 				},GTK_WINDOW(helper.getWidget("main_window")));
 			}
 			waitFDL1 = 1;
+			autoFDL1Suc = 1;
 
 		}).detach();
 
@@ -897,12 +905,15 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 						std::this_thread::sleep_for(std::chrono::milliseconds(100));
 						gtk_main_iteration_do(false);
 					}
-					helper.setEntryText(helper.getWidget("fdl_file_path"), fdl2_path_json);
-					helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(fdl2_addr_json));
-					DEG_LOG(I, "Loaded FDL info: %s at address: %s", fdl2_path_json.c_str(), uint32_to_hex_string(fdl2_addr_json).c_str());
-					std::thread([helper]() mutable {
-						on_button_clicked_fdl_exec(helper);
-					}).detach();
+					if (autoFDL1Suc)
+					{
+						helper.setEntryText(helper.getWidget("fdl_file_path"), fdl2_path_json);
+						helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(fdl2_addr_json));
+						DEG_LOG(I, "Loaded FDL info: %s at address: %s", fdl2_path_json.c_str(), uint32_to_hex_string(fdl2_addr_json).c_str());
+						std::thread([helper]() mutable {
+							on_button_clicked_fdl_exec(helper);
+						}).detach();
+					}
 					
 				}
 			}
