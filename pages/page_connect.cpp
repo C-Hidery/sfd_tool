@@ -143,7 +143,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 		std::string dtxt = helper.getLabelText(helper.getWidget("con"));
 		bottom_bar_set_status(dtxt + " -> FDL Executing");
 		//Send fdl2
-		if (g_app_state.device.device_mode == SPRD3) {
+		if (g_app_state.device.device_mode != SPRD4) {
 			EnhancedFile fi = oxfopen_enhanced(fdl_path, "r");
 			if (!fi) {
 				DEG_LOG(W, "File does not exist.");
@@ -343,29 +343,8 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 		}
 		if(!(helper.getSwitchState(helper.getWidget("exec_addr"))) && g_app_state.device.device_mode == SPRD3)
 		{
-			// 1) 保留原有 fdl_info.json 写入逻辑，兼容旧行为
-			std::string json_path = "fdl_info.json";
-#ifndef _WIN32
-			const char* home = getenv("HOME");
-			if (home) {
-				fs::path config_dir = fs::path(home) / ".config" / "sfd_tool";
-				fs::create_directories(config_dir);
-				json_path = (config_dir / "fdl_info.json").string();
-			}
-#endif
-			EnhancedFile json_file = oxfopen_enhanced(json_path.c_str(), "w");
-			if (json_file)
-			{
-				json j = {
-					{"fdl1_path", fdl1_path_json},
-					{"fdl1_addr", fdl1_addr_json},
-					{"fdl2_path", fdl2_path_json},
-					{"fdl2_addr", fdl2_addr_json}
-				};
-				json_file << j.dump();
-			}
 
-			// 2) 同步写入 AppConfig，交由 ConfigService 管理“最近使用的 FDL”
+			// 同步写入 AppConfig，交由 ConfigService 管理“最近使用的 FDL”
 			auto* cfgSvc = ensure_config_service();
 			if (cfgSvc) {
 				sfd::AppConfig cfg{};
@@ -373,6 +352,8 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 				cfgSvc->loadAppConfig(cfg);
 				cfg.last_fdl1_path = fdl1_path_json;
 				cfg.last_fdl2_path = fdl2_path_json;
+				cfg.last_fdl1_addr = std::to_string(fdl1_addr_json);
+				cfg.last_fdl2_addr = std::to_string(fdl2_addr_json);
 				cfgSvc->saveAppConfig(cfg);
 			}
 		}
@@ -392,7 +373,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 			const char* execfile = helper.getEntryText(execAddr);
 			const char* exec_addr_addr = helper.getEntryText(execAddrC);
 
-			if (g_app_state.device.device_mode == SPRD3) {
+			if (g_app_state.device.device_mode != SPRD4) {
 				if (!fi) {
 					DEG_LOG(W, "File does not exist.\n");
 					showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
@@ -871,30 +852,18 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 			if (g_app_state.device.device_mode == SPRD4) {
 				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Since your device is in SPRD4 mode, you can choose to skip FDL setting and directly execute FDL, but not all devices support that, please proceed with caution!"));
 			}
-			std::string json_path = "fdl_info.json";
-#ifndef _WIN32
-			const char* home = getenv("HOME");
-			if (home) {
-				fs::path config_dir = fs::path(home) / ".config" / "sfd_tool";
-				fs::create_directories(config_dir);
-				json_path = (config_dir / "fdl_info.json").string();
-			}
-#endif
-			if(fs::exists(json_path) && g_app_state.device.device_stage == BROM && !isKickMode && !isExec)
+			auto* cfgSvc = ensure_config_service();
+			sfd::AppConfig cfg{};
+			sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
+			if(status.success && !cfg.last_fdl1_path.empty() && !cfg.last_fdl2_path.empty() && !cfg.last_fdl1_addr.empty() && !cfg.last_fdl2_addr.empty() && g_app_state.device.device_stage == BROM && !isKickMode && !isExec)
 			{
 				bool i_is = false;
 				i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"),_("FDL Info detected, do you want to load it?"));
 				if (i_is)
 				{
-					std::ifstream f(json_path);
-					json j = json::parse(f);
-					fdl1_path_json = j["fdl1_path"].get<std::string>();
-					fdl2_path_json = j["fdl2_path"].get<std::string>();
-					fdl1_addr_json = j["fdl1_addr"].get<uint32_t>();
-					fdl2_addr_json = j["fdl2_addr"].get<uint32_t>();
-					helper.setEntryText(helper.getWidget("fdl_file_path"), fdl1_path_json);
-					helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(fdl1_addr_json));
-					DEG_LOG(I, "Loaded FDL info: %s at address: %s", fdl1_path_json.c_str(), uint32_to_hex_string(fdl1_addr_json).c_str());
+					helper.setEntryText(helper.getWidget("fdl_file_path"), cfg.last_fdl1_path);
+					helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(static_cast<uint32_t>(std::stoul(cfg.last_fdl1_addr))));
+					DEG_LOG(I, "Loaded FDL info: %s at address: %s", cfg.last_fdl1_path.c_str(), uint32_to_hex_string(static_cast<uint32_t>(std::stoul(cfg.last_fdl1_addr))).c_str());
 					waitFDL1 = 0;
 					std::thread([helper]() mutable {
 						on_button_clicked_fdl_exec(helper);
@@ -907,9 +876,9 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 					}
 					if (autoFDL1Suc)
 					{
-						helper.setEntryText(helper.getWidget("fdl_file_path"), fdl2_path_json);
-						helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(fdl2_addr_json));
-						DEG_LOG(I, "Loaded FDL info: %s at address: %s", fdl2_path_json.c_str(), uint32_to_hex_string(fdl2_addr_json).c_str());
+						helper.setEntryText(helper.getWidget("fdl_file_path"), cfg.last_fdl2_path);
+						helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(static_cast<uint32_t>(std::stoul(cfg.last_fdl2_addr))));
+						DEG_LOG(I, "Loaded FDL info: %s at address: %s", cfg.last_fdl2_path.c_str(), uint32_to_hex_string(static_cast<uint32_t>(std::stoul(cfg.last_fdl2_addr))).c_str());
 						std::thread([helper]() mutable {
 							on_button_clicked_fdl_exec(helper);
 						}).detach();
@@ -998,7 +967,7 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 		sfd::AppConfig cfg{};
 		sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
 		if (status.success && !cfg.last_fdl1_path.empty()) {
-			helper.setEntryText(fdlFilePath, cfg.last_fdl1_path.c_str());
+			helper.setEntryText(fdlFilePath, cfg.last_fdl1_path);
 		}
 	}
 
@@ -1010,7 +979,17 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	GtkWidget* fdlAddrLabel = helper.createLabel(_("FDL Send Address :"), "fdl_addr_label", 0, 0, 120, 20);
 	gtk_widget_set_halign(fdlAddrLabel, GTK_ALIGN_START);
 	GtkWidget* fdlAddr = helper.createEntry("fdl_addr", "", false, 0, 0, 300, 32);
+
 	gtk_widget_set_hexpand(fdlAddr, TRUE);
+
+	// 从配置中恢复最近使用的 FDL 地址（如果有）
+	if (cfgSvc) {
+		sfd::AppConfig cfg{};
+		sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
+		if (status.success && !cfg.last_fdl1_addr.empty()) {
+			helper.setEntryText(fdlAddr, uint32_to_hex_string(static_cast<uint32_t>(std::stoul(cfg.last_fdl1_addr))));
+		}
+	}
 
 	gtk_grid_attach(GTK_GRID(fdlGrid), fdlAddrLabel, 0, 1, 1, 1);
 	gtk_grid_attach(GTK_GRID(fdlGrid), fdlAddr, 1, 1, 2, 1);

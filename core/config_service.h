@@ -37,6 +37,10 @@ struct AppConfig {
     std::string last_fdl1_path;
     std::string last_fdl2_path;
 
+    // 最近FDL地址
+    std::string last_fdl1_addr;
+    std::string last_fdl2_addr;
+
     // 连接默认设置
     ConnectionConfig connection;
 
