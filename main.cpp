@@ -328,6 +328,7 @@ int argcount = 0, stage = -1, nand_id = DEFAULT_NAND_ID;
 unsigned exec_addr = 0, baudrate = 0;
 int bootmode = -1, at = 0, async = 1;
 int waitFDL1 = -1;
+int autoFDL1Suc = 0;
 //Set up environment
 #if !USE_LIBUSB
 extern DWORD curPort;
