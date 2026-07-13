@@ -131,6 +131,8 @@ static void to_json(json& j, const AppConfig& c) {
         {"last_partition_export_dir", c.last_partition_export_dir},
         {"last_fdl1_path", c.last_fdl1_path},
         {"last_fdl2_path", c.last_fdl2_path},
+        {"last_fdl1_addr", c.last_fdl1_addr},
+        {"last_fdl2_addr", c.last_fdl2_addr},
         {"default_verify_after_flash", c.default_verify_after_flash},
         {"default_backup_before_flash", c.default_backup_before_flash},
         {"ui_language", c.ui_language},
@@ -147,6 +149,8 @@ static void from_json(const json& j, AppConfig& c) {
     if (j.contains("last_partition_export_dir")) j.at("last_partition_export_dir").get_to(c.last_partition_export_dir);
     if (j.contains("last_fdl1_path")) j.at("last_fdl1_path").get_to(c.last_fdl1_path);
     if (j.contains("last_fdl2_path")) j.at("last_fdl2_path").get_to(c.last_fdl2_path);
+    if (j.contains("last_fdl1_addr")) j.at("last_fdl1_addr").get_to(c.last_fdl1_addr);
+    if (j.contains("last_fdl2_addr")) j.at("last_fdl2_addr").get_to(c.last_fdl2_addr);
     if (j.contains("default_verify_after_flash")) j.at("default_verify_after_flash").get_to(c.default_verify_after_flash);
     if (j.contains("default_backup_before_flash")) j.at("default_backup_before_flash").get_to(c.default_backup_before_flash);
     if (j.contains("ui_language")) j.at("ui_language").get_to(c.ui_language);
