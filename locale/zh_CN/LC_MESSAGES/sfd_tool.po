@@ -26,8 +26,8 @@ msgid "Warning"
 msgstr "警告"
 
 #: main.cpp:66
-msgid "You are running this tool without root permission.\nIt may cause device connecting issue without device rule(80-spd.rules)."
-msgstr "此工具未在root权限下运行\n在没有设备规则（80-spd.rules）时可能无法正常与设备通信。"
+msgid "You are running this tool without root permission!\nIt may cause device connecting issue without device rule(80-spd.rules)."
+msgstr "此工具未在root权限下运行!\n在没有设备规则（80-spd.rules）时可能无法正常与设备通信。"
 
 #: main.cpp:77
 msgid "Program Crash"
