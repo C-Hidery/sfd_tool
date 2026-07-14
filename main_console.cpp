@@ -373,7 +373,7 @@ int main_console(int argc, char** argv) {
 		bootmode = -1;
 		at = 0;
 	}
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__ANDROID__)
 	if (geteuid() != 0 && !isToolMode) {
 		DEG_LOG(W, "You are running this tool without root permission!");
 		DEG_LOG(W, "It may cause device connecting issue");
