@@ -341,7 +341,7 @@ libusb_device** ports;
 #endif
 // Moved initialization into gtk_kmain()
 
-#ifndef __WIN32
+#ifndef _WIN32
 void check_root_permission(GtkWidgetHelper helper) {
 	if (geteuid() != 0) {
 		// not root
