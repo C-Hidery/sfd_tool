@@ -64,14 +64,14 @@ void print_help() {
 	       );
 #ifdef __ANDROID__
 	DBG_LOG(
-	    "\t--usb-fd[CODE]\n"
-	    "\t\tConvert termux transfered usb port fd.(Android platform only!!!)\n"
+			"\t--usb-fd[CODE]\n"
+			"\t\tConvert termux transfered usb port fd.(Android platform only!!!)\n"
 	);
 
 #endif // __ANDROID__
 	DBG_LOG(
-	    "\t--no-fdl\n"
-	    "\t\tSkip sending the FDL file and execute FDL2(Sprd4 mode only)\n"
+			"\t--no-fdl\n"
+			"\t\tSkip sending the FDL file and execute FDL2(Sprd4 mode only)\n"
 	);
 	DBG_LOG(
 	    "\nRuntime Commands\n"
@@ -226,7 +226,7 @@ void print_help() {
 	    "\t63.reboot-recovery\n\t\tFDL2 only\n"
 	    "\t64.reboot-fastboot\n\t\tFDL2 only\n"
 	    "\t65.reset\n\t\tFDL2 and new FDL1\n"
-	    "\t66.poweroff\n,\t\tFDL2 and new FDL1\n"
+	    "\t66.poweroff\n\t\tFDL2 and new FDL1\n"
 		"\t67.exit\n\t\tExit the program (Tool mode only.)\n"
 	);
 }
@@ -375,12 +375,8 @@ int main_console(int argc, char** argv) {
 	}
 #if !defined(_WIN32) && !defined(__ANDROID__)
 	if (geteuid() != 0 && !isToolMode) {
-		DEG_LOG(W, "You are running this tool without root permission!");
-		DEG_LOG(W, "It may cause device connecting issue");
-		DEG_LOG(W, "Recommanded to open this tool with root permission!");
-		DEG_LOG(I, "Or you can create a udev rule to allow non-root access to the device");
-		DEG_LOG(I, "Create a file in /etc/udev/rules.d/80-spd.rules with the following content:");
-		DEG_LOG(I, "SUBSYSTEMS==\"usb\", ATTRS{idVendor}==\"1782\", ATTRS{idProduct}==\"4d00\", MODE=\"0666\", TAG+=\"uaccess\"");
+		DEG_LOG(W, "You are running this tool without root permission.");
+		DEG_LOG(W, "It may cause device connecting issue without device rule.");
 	}
 #endif
 	if (!isToolMode)

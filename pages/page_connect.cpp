@@ -551,7 +551,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		stage = 99;
 		showInfoDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("You have entered Reconnect Mode, which only supports compatibility-method partition list retrieval, and [storage mode/slot mode] can not be gotten!"));
 	}
-#ifdef __linux__
+#ifndef _WIN32
 	check_root_permission(helper);
 #endif
 	helper.disableWidget("connect_1");

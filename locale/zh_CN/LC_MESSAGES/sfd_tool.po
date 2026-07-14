@@ -26,8 +26,8 @@ msgid "Warning"
 msgstr "警告"
 
 #: main.cpp:66
-msgid "You are running this tool without root permission!\nIt may cause device connecting issue\nIn GUI, you can create a udev rule to allow non-root access to the device:\nCreate a file in /etc/udev/rules.d/80-spd.rules with the following content:\n\nSUBSYSTEMS==\"usb\", ATTRS{idVendor}==\"1782\", ATTRS{idProduct}==\"4d00\", MODE=\"0666\", TAG+=\"uaccess\""
-msgstr "检测到未使用ROOT权限运行此工具\n可能会引起设备连接问题\n在GUI中建议创建一个udev规则以避免usb权限问题\n创建 /etc/udev/rules.d/80-spd.rules 并写入以下内容：\n\nSUBSYSTEMS==\"usb\", ATTRS{idVendor}==\"1782\", ATTRS{idProduct}==\"4d00\", MODE=\"0666\", TAG+=\"uaccess\""
+msgid "You are running this tool without root permission.\nIt may cause device connecting issue without device rule(80-spd.rules)."
+msgstr "此工具未在root权限下运行\n在没有设备规则（80-spd.rules）时可能无法正常与设备通信。"
 
 #: main.cpp:77
 msgid "Program Crash"

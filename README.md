@@ -297,3 +297,5 @@ Create `/etc/udev/rules.d/80-spd.rules` with this line:
 ```text
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="1782", ATTRS{idProduct}=="4d00", MODE="0666", TAG+="uaccess"
 ```
+
+By the way, `80-spd.rules` is also in repo.

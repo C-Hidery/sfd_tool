@@ -16,8 +16,6 @@
 
 class TosPatcher {
 private:
-    // ========== 辅助函数：完全复制自 common.txt ==========
-
     // 加载文件（与上游一致）
     static uint8_t* loadfile(const char* fn, size_t* num) {
         size_t n, j = 0;
