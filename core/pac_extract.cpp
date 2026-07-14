@@ -489,7 +489,7 @@ void Unpac::close() {
 }
 static sfd::Result<void> parse_partitions_xml_result(const char* temp_xml_path,
                                                      partition_t* pacptable,
-                                                     int& pac_part_count) {
+                                                     int* pac_part_count) {
     // 1. 解析 XML 文件
     XmlParser parser;
     auto root = parser.parseFile(temp_xml_path);
@@ -615,7 +615,7 @@ static sfd::Result<void> parse_partitions_xml_result(const char* temp_xml_path,
         ++found;
     }
 
-    pac_part_count = found;
+    *pac_part_count = found;
     delete[] buf_orig;
     return sfd::Result<void>::ok();
 }
@@ -719,9 +719,10 @@ std::string FindFDLInExtFloder(const char* folder, Stages mode)
         return "";
     }
 }
+partition_t* pacptable;
+int pac_part_count = 0;
 bool pac_extract(const char* fn, const char* floder)
 {
-	int pac_part_count;
 	Unpac unpac;
 	unpac.setDirectory(floder);
 	if(!unpac.openPacFile(fn)) {
@@ -775,16 +776,14 @@ bool pac_extract(const char* fn, const char* floder)
 		DEG_LOG(E, "Failed to create temporary partitions XML file.");
 		ERR_EXIT("Failed to create temporary partitions XML file.");
 	}
-	partition_t* pacptable = NEWN partition_t[128];
-	pac_part_count = 0;
-	{
-		auto r = parse_partitions_xml_result("partitions_temp.xml", pacptable, pac_part_count);
-		if (!r) {
-			// parse_partitions_xml_result 已经处理了日志和 GUI 提示，这里维持返回 false 即可
-			delete[] pacptable;
-			return false;
-		}
+	
+	auto r = parse_partitions_xml_result("partitions_temp.xml", pacptable, &pac_part_count);
+	if (!r) {
+		// parse_partitions_xml_result 已经处理了日志和 GUI 提示，这里维持返回 false 即可
+		if (pacptable) delete[] pacptable;
+		return false;
 	}
+	
     if (isHelperInit)
     {
         const std::vector<partition_t>& partitions = std::vector<partition_t>(pacptable, pacptable + pac_part_count);
@@ -872,8 +871,6 @@ bool pac_extract(const char* fn, const char* floder)
         // 更新显示
         gtk_widget_queue_draw(part_list);
     }
-	
-	delete[] pacptable;
 
     return true;
 }
@@ -923,6 +920,8 @@ std::string findBaseForID(const std::string& filename, const std::string& target
 }
 bool pac_flash(spdio_t* io, const char* floder)
 {
+    io->ptable = pacptable;
+    io->part_count = pac_part_count;
     std::string xmlPath = FindFirstXMLFile(floder);
     if (xmlPath.empty()) {
         if(isHelperInit) gui_idle_call_wait_drag([](){
@@ -1232,6 +1231,7 @@ bool pac_flash(spdio_t* io, const char* floder)
 #else
     Sleep(5000);
 #endif
+    spdio_free(io);
 	exit(0);
     };
     if (isHelperInit)

@@ -322,6 +322,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 			nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
 		}
 		fdl2_executed = 1;
+		g_app_state.device.device_stage = FDL2;
 		gui_idle_call_wait_drag([helper]() mutable {
 			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("FDL2 Executed"), _("FDL2 executed successfully!"));
 			EnableWidgets(helper);
@@ -519,6 +520,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 				if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
 			}
 			fdl1_loaded = 1;
+			g_app_state.device.device_stage = FDL1;
 			if(waitFDL1 == -1){
 				gui_idle_call_wait_drag([helper]() mutable {
 					showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("FDL1 Executed"), _("FDL1 executed successfully!"));

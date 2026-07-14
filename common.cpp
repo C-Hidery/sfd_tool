@@ -8,12 +8,56 @@
 #include <functional>
 #if defined(__linux__) || defined(__APPLE__)
 #include <sys/stat.h>
+#define _POSIX_C_SOURCE 200809L
+#include <strings.h>
 #endif
+#include <algorithm>
+#include <vector>
 #include <string>
+#include <cctype>
 #include "main.h"
 #include "core/logging.h"
 #include "core/app_state.h"
 #include "core/XmlParser.hpp"
+#include <string.h>
+#include <ctype.h>
+
+static inline int my_strnicmp(const char* s1, const char* s2, size_t len)
+{
+#ifdef _WIN32
+	return _strnicmp(s1, s2, len);
+#else
+	return strncasecmp(s1, s2, len);
+#endif
+}
+
+// 使用 inline 函数实现
+static inline int my_stricmp(const char* s1, const char* s2) {
+#ifdef _WIN32
+    return _stricmp(s1, s2);
+#else
+    return strcasecmp(s1, s2);
+#endif
+}
+
+// 跨平台的不区分大小写子串查找
+static inline char* my_stristr(const char* haystack, const char* needle) {
+    if (!*needle) return (char*)haystack;
+
+    size_t haystack_len = strlen(haystack);
+    size_t needle_len = strlen(needle);
+    
+    if (haystack_len < needle_len) return NULL;
+
+    const char* end = haystack + haystack_len - needle_len;
+
+    for (const char* p = haystack; p <= end; ++p) {
+        if (my_strnicmp(p, needle, needle_len) == 0) {
+            return (char*)p;
+        }
+    }
+    return NULL;
+}
 int isCancel = 0;
 bool isHelperInit = false;
 GtkWidgetHelper helper;
@@ -102,73 +146,7 @@ void send_buf(spdio_t *io,
 		send_and_check(io);
 	}
 }
-/*
-void send_buf_1(spdio_t* io,
-	uint32_t start_addr, int end_data,
-	unsigned step, uint8_t* mem, unsigned size) {
 
-	static unsigned long long start_time = 0;
-	static uint64_t total_sent = 0;
-	static uint64_t total_size = 0;
-
-	// ������µĴ����������ü�ʱ���ͼ�����
-	if (start_time == 0) {
-		start_time = GetTickCount64();
-		total_sent = 0;
-		total_size = size;
-	}
-
-	uint32_t i, n;
-	uint32_t* data = (uint32_t*)io->temp_buf;
-	WRITE32_BE(data, start_addr);
-	WRITE32_BE(data + 1, size);
-
-	encode_msg_nocpy(io, BSL_CMD_START_DATA, 4 * 2);
-	if (send_and_check(io)) {
-		// ����ʱ��ʾ��ǰ����
-		print_progress_bar(total_sent, total_size, start_time);
-		printf("\n"); // ����
-		start_time = 0; // �����Ա��´�ʹ��
-		return;
-	}
-
-	for (i = 0; i < size; i += n) {
-		n = size - i;
-		if (n > step) n = step;
-
-		encode_msg(io, BSL_CMD_MIDST_DATA, mem + i, n);
-		if (send_and_check(io)) {
-			// ����ʱ��ʾ��ǰ����
-			print_progress_bar(total_sent, total_size, start_time);
-			printf("\n"); // ����
-			start_time = 0; // �����Ա��´�ʹ��
-			return;
-		}
-
-		// �����ѷ����ֽ�������ʾ����
-		total_sent += n;
-		print_progress_bar(total_sent, total_size, start_time);
-	}
-
-	if (end_data) {
-		encode_msg_nocpy(io, BSL_CMD_END_DATA, 0);
-		if (send_and_check(io)) {
-			// ����ʱ��ʾ��ǰ����
-			print_progress_bar(total_sent, total_size, start_time);
-			printf("\n"); // ����
-			start_time = 0; // �����Ա��´�ʹ��
-			return;
-		}
-	}
-
-	// ��ɴ��䣬��ʾ100%����
-	print_progress_bar(total_size, total_size, start_time);
-	printf("\n"); // ��ɻ���
-
-	// ���þ�̬�����Ա��´�ʹ��
-	start_time = 0;
-}
-*/
 size_t send_file(spdio_t *io, const char *fn,
 	uint32_t start_addr, int end_data, unsigned step,
 	unsigned src_offs, unsigned src_size) {
@@ -2107,9 +2085,75 @@ void dump_partitions(spdio_t *io, const char *fn, int *nand_info, unsigned step)
 }
 
 int ab_compare_slots(const slot_metadata *a, const slot_metadata *b);
+static inline bool iequals(const std::string& a, const std::string& b) {
+    return a.size() == b.size() &&
+           std::equal(a.begin(), a.end(), b.begin(),
+               [](char a, char b) {
+                   return std::tolower(static_cast<unsigned char>(a)) ==
+                          std::tolower(static_cast<unsigned char>(b));
+               });
+}
+static inline bool istartswith(const std::string& str, const std::string& prefix) {
+    if (str.size() < prefix.size()) return false;
+    return std::equal(str.begin(), str.begin() + prefix.size(),
+                      prefix.begin(),
+                      [](char a, char b) {
+                          return std::tolower(static_cast<unsigned char>(a)) ==
+                                 std::tolower(static_cast<unsigned char>(b));
+                      });
+}
+
 bool hasPartition(const std::vector<std::string>& partitions, const std::string& partitionName)
 {
-    return std::find(partitions.begin(), partitions.end(), partitionName) != partitions.end();
+    return std::find_if(partitions.begin(), partitions.end(),
+        [&partitionName](const std::string& s) {
+            return iequals(s, partitionName);
+        }) != partitions.end();
+}
+std::string case_part(const std::vector<std::string>& partitions, 
+                      const std::string& partitionName,
+                      spdio_t* io) {
+    // 1. 先找精确匹配（区分大小写）
+    auto exact_it = std::find(partitions.begin(), partitions.end(), partitionName);
+    if (exact_it != partitions.end()) {
+        return partitionName;
+    }
+    
+    // 2. 精确匹配找不到，找不区分大小写的匹配
+    auto case_insensitive_it = std::find_if(partitions.begin(), partitions.end(),
+        [&partitionName](const std::string& s) {
+            return iequals(s, partitionName);
+        });
+    
+    if (case_insensitive_it != partitions.end()) {
+        return *case_insensitive_it;
+    }
+    
+    // 3. 从 io->ptable 中查找
+    for (int i = 0; i < io->part_count; ++i) {
+        if (partitionName == io->ptable[i].name) {
+            return partitionName;
+        }
+    }
+    for (int i = 0; i < io->part_count; ++i) {
+        if (iequals(partitionName, io->ptable[i].name)) {
+            return io->ptable[i].name;
+        }
+    }
+    
+    // 4. 从 io->Cptable 中查找
+    for (int i = 0; i < io->part_count_c; ++i) {
+        if (partitionName == io->Cptable[i].name) {
+            return partitionName;
+        }
+    }
+    for (int i = 0; i < io->part_count_c; ++i) {
+        if (iequals(partitionName, io->Cptable[i].name)) {
+            return io->Cptable[i].name;
+        }
+    }
+    
+    return "";
 }
 int get_nvlist_xml(spdio_t *io, const char *fn) {
     // 1. 解析 XML 文件
@@ -2334,35 +2378,35 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
         WideCharToMultiByte(CP_UTF8, 0, findData.cFileName, -1, fn_buffer, MAX_PATH, NULL, NULL);
 		fn = fn_buffer;
 		namelen = strlen(fn);
-		if (!strncmp(fn, primary_id, strlen(primary_id)))
+		if (!my_strnicmp(fn, primary_id, strlen(primary_id)))
 		{
 			primary_index = partition_count;
 		}
-		else if (!strncmp(fn, fallback_id, strlen(fallback_id)))
+		else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id)))
 		{
 			fallback_index = partition_count;
 		}
 		if (namelen >= 4) {
-			if (!strcmp(fn + namelen - 4, ".xml") ||
-				!strcmp(fn + namelen - 4, ".exe") ||
-				!strcmp(fn + namelen - 4, ".txt")) continue;
+			if (!my_stricmp(fn + namelen - 4, ".xml") ||
+				!my_stricmp(fn + namelen - 4, ".exe") ||
+				!my_stricmp(fn + namelen - 4, ".txt")) continue;
 		}
-		if (!strncmp(fn, "pgpt", 4) ||
-			!strncmp(fn, "sprdpart", 8) ||
-			!strncmp(fn, "fdl", 3) ||
-			!strncmp(fn, "lk", 2) ||
-			!strncmp(fn, "0x", 2) ||
-			!strncmp(fn, "custom_exec", 11) ||
-		    strstr(fn, "factorynv")) continue;
+		if (!my_strnicmp(fn, "pgpt", 4) ||
+			!my_strnicmp(fn, "sprdpart", 8) ||
+			!my_strnicmp(fn, "fdl", 3) ||
+			!my_strnicmp(fn, "lk", 2) ||
+			!my_strnicmp(fn, "0x", 2) ||
+			!my_strnicmp(fn, "custom_exec", 11) ||
+		    my_stristr(fn, "factorynv")) continue;
 		snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s", path, fn);
 		char *dot = strrchr(fn, '.');
 		if (dot != nullptr) *dot = '\0';
 		namelen = strlen(fn);
-		if (namelen >= 4 && strcmp(fn + namelen - 4, "_bak") == 0) continue;
-		if (!strcmp(fn, "misc")) snprintf(miscname, 1024, "%s", partitions[partition_count].file_path);
+		if (namelen >= 4 && my_stricmp(fn + namelen - 4, "_bak") == 0) continue;
+		if (!my_stricmp(fn, "misc")) snprintf(miscname, 1024, "%s", partitions[partition_count].file_path);
 		if (namelen > 2) {
-			if (!strcmp(fn + namelen - 2, "_a")) VAB |= 1;
-			else if (!strcmp(fn + namelen - 2, "_b")) VAB |= 2;
+			if (!my_stricmp(fn + namelen - 2, "_a")) VAB |= 1;
+			else if (!my_stricmp(fn + namelen - 2, "_b")) VAB |= 2;
 		}
 
 		strcpy(partitions[partition_count].name, fn);
@@ -2384,35 +2428,35 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		if (stat(fn, &st) == 0 && S_ISDIR(st.st_mode)) continue;
 		if (entry->d_type == DT_DIR) continue;
 		namelen = strlen(fn);
-		if (!strncmp(fn, primary_id, strlen(primary_id)))
+		if (!my_strnicmp(fn, primary_id, strlen(primary_id)))
 		{
 			primary_index = partition_count;
 		}
-		else if (!strncmp(fn, fallback_id, strlen(fallback_id)))
+		else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id)))
 		{
 			fallback_index = partition_count;
 		}
 		if (namelen >= 4) {
-			if (!strcmp(fn + namelen - 4, ".xml") ||
-				!strcmp(fn + namelen - 4, ".exe") ||
-				!strcmp(fn + namelen - 4, ".txt")) continue;
+			if (!my_stricmp(fn + namelen - 4, ".xml") ||
+				!my_stricmp(fn + namelen - 4, ".exe") ||
+				!my_stricmp(fn + namelen - 4, ".txt")) continue;
 		}
-		if (!strncmp(fn, "pgpt", 4) ||
-			!strncmp(fn, "sprdpart", 8) ||
-			!strncmp(fn, "fdl", 3) ||
-			!strncmp(fn, "lk", 2) ||
-			!strncmp(fn, "0x", 2) ||
-			!strncmp(fn, "custom_exec", 11) ||
-		    strstr(fn, "factorynv")) continue;
+		if (!my_strnicmp(fn, "pgpt", 4) ||
+			!my_strnicmp(fn, "sprdpart", 8) ||
+			!my_strnicmp(fn, "fdl", 3) ||
+			!my_strnicmp(fn, "lk", 2) ||
+			!my_strnicmp(fn, "0x", 2) ||
+			!my_strnicmp(fn, "custom_exec", 11) ||
+		    my_stristr(fn, "factorynv")) continue;
 		snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s", path, fn);
 		char *dot = strrchr(fn, '.');
 		if (dot != nullptr) *dot = '\0';
 		namelen = strlen(fn);
-		if (namelen >= 4 && strcmp(fn + namelen - 4, "_bak") == 0) continue;
-		if (!strcmp(fn, "misc")) snprintf(miscname, 1024, "%s", partitions[partition_count].file_path);
+		if (namelen >= 4 && my_stricmp(fn + namelen - 4, "_bak") == 0) continue;
+		if (!my_stricmp(fn, "misc")) snprintf(miscname, 1024, "%s", partitions[partition_count].file_path);
 		if (namelen > 2) {
-			if (!strcmp(fn + namelen - 2, "_a")) VAB |= 1;
-			else if (!strcmp(fn + namelen - 2, "_b")) VAB |= 2;
+			if (!my_stricmp(fn + namelen - 2, "_a")) VAB |= 1;
+			else if (!my_stricmp(fn + namelen - 2, "_b")) VAB |= 2;
 		}
 
 		strcpy(partitions[partition_count].name, fn);
@@ -2447,28 +2491,37 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 	for (int i = 0; i < partition_count; i++) {
 		if (isCancel) {  delete[](partitions); return; }
 		fn = partitions[i].name;
-		namelen = strlen(fn);
-		if (selected_ab == 1 && namelen > 2 && 0 == strcmp(fn + namelen - 2, "_b")) { partitions[i].written_flag = 1; continue; }
-		else if (selected_ab == 2 && namelen > 2 && 0 == strcmp(fn + namelen - 2, "_a")) { partitions[i].written_flag = 1; continue; }
-		if (!strcmp(fn, "miscdata") && g_app_state.flash.isPacFlashing)
+		std::string relfn;
+		if (g_app_state.flash.isPacFlashing)
+		{
+			relfn = case_part(pac_parts, fn, io);
+		}
+		else
+		{
+			relfn = case_part({}, fn, io);
+		}
+		namelen = strlen(relfn.empty() ? fn : relfn.c_str());
+		if (selected_ab == 1 && namelen > 2 && 0 == my_stricmp(fn + namelen - 2, "_b")) { partitions[i].written_flag = 1; continue; }
+		else if (selected_ab == 2 && namelen > 2 && 0 == my_stricmp(fn + namelen - 2, "_a")) { partitions[i].written_flag = 1; continue; }
+		if (!my_stricmp(fn, "miscdata") && g_app_state.flash.isPacFlashing)
 		{
 			partitions[i].written_flag = 1;
 			continue;
 		}
-		if (!strcmp(fn, "prodnv") && g_app_state.flash.isPacFlashing)
+		if (!my_stricmp(fn, "prodnv") && g_app_state.flash.isPacFlashing)
 		{
 			partitions[i].written_flag = 1;
 			continue;
 		}
-		if (!strcmp(fn, "userdata") && g_app_state.flash.isPacFlashing)
+		if (!my_stricmp(fn, "userdata") && g_app_state.flash.isPacFlashing)
 		{
 			partitions[i].written_flag = 1;
 			continue;
 		}
 		// NV Merge process for PAC flashing
-		if ((strstr(fn, "fixnv1") && g_app_state.flash.isPacFlashing))
+		if ((my_stristr(fn, "fixnv1") && g_app_state.flash.isPacFlashing))
 		{
-			if (strstr("nr_fixnv1", fn))
+			if (my_stristr(fn, "nr_fixnv1"))
 			{
 				get_partition_info(io, "nr_fixnv1", 1);
 				if (gPartInfo.size && hasPartition(pac_parts, std::string(gPartInfo.name))) 
@@ -2491,7 +2544,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 					load_partition_unify(io, gPartInfo.name, "nvmerged_nr_fixnv1.bin", step, CMethod);
 				}
 			}
-			else if (strstr("l_fixnv1", fn))
+			else if (my_stristr(fn, "l_fixnv1"))
 			{
 				get_partition_info(io, "l_fixnv1", 1);
 				if (gPartInfo.size && hasPartition(pac_parts, std::string(gPartInfo.name))) 
@@ -2523,7 +2576,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			load_partition(io, "splloader", partitions[spl_index].file_path, step, CMethod);
 			partitions[spl_index].written_flag = 1;
 			for (int j = 0; j < partition_count; j++) {
-				if (strncmp(partitions[j].name, "splloader", strlen("splloader")) == 0) {
+				if (my_strnicmp(partitions[j].name, "splloader", 9) == 0) {
 					partitions[j].written_flag = 1;
 					break;
 				}
@@ -2533,19 +2586,25 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		{
 			// Try "splloader" (following)
 		}
-		if (!strcmp(fn, "splloader") ||
-			!strcmp(fn, "uboot_a") ||
-			!strcmp(fn, "uboot_b") ||
-			!strcmp(fn, "vbmeta_a") ||
-			!strcmp(fn, "vbmeta_b")) {
+		if (!my_stricmp(fn, "splloader") ||
+			!my_stricmp(fn, "uboot_a") ||
+			!my_stricmp(fn, "uboot_b") ||
+			!my_stricmp(fn, "vbmeta_a") ||
+			!my_stricmp(fn, "vbmeta_b")) {
 			if ((!g_app_state.flash.isPacFlashing || hasPartition(pac_parts, fn)) && partitions[i].written_flag == 0) {
-				load_partition(io, fn, partitions[i].file_path, step, CMethod);
+				if (relfn.empty())
+					load_partition(io, fn, partitions[i].file_path, step, CMethod);
+				else
+					load_partition(io, relfn.c_str(), partitions[i].file_path, step, CMethod);
 				partitions[i].written_flag = 1;
 			}
 			continue;
 		}
-		if (strcmp(fn, "uboot") == 0 || strcmp(fn, "vbmeta") == 0) {
-			get_partition_info(io, fn, 0);
+		if (my_stricmp(fn, "uboot") == 0 || my_stricmp(fn, "vbmeta") == 0) {
+			if (relfn.empty())
+				get_partition_info(io, fn, 0);
+			else
+				get_partition_info(io, relfn.c_str(), 0);
 			if (!gPartInfo.size) continue;
 			if (!g_app_state.flash.isPacFlashing || hasPartition(pac_parts, fn)) {
 				load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
@@ -2553,16 +2612,19 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			}
 			continue;
 		}
-		if (strncmp(fn, "vbmeta_", 7) == 0) {
+		if (my_strnicmp(fn, "vbmeta_", 7) == 0) {
 		    if(g_app_state.flash.isPacFlashing)
 		    {
     			auto it = std::find_if(pac_parts.begin(), pac_parts.end(),
-    			[](const std::string& part) {
-    				return part.find("vbmeta_") == 0;
-    			});
-    			if (it == pac_parts.end()) continue;
+				[](const std::string& part) {
+					return istartswith(part, "vbmeta_");
+				});
+				if (it == pac_parts.end()) continue;
 			}
-			get_partition_info(io, fn, 0);
+			if (relfn.empty())
+				get_partition_info(io, fn, 0);
+			else
+				get_partition_info(io, relfn.c_str(), 0);
 			if (!gPartInfo.size) continue;
 
 			load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
@@ -2575,12 +2637,24 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		if (isCancel) { delete[](partitions); return; }
 		if (!partitions[i].written_flag) {
 			fn = partitions[i].name;
+			std::string relfn;
+			if (g_app_state.flash.isPacFlashing)
+			{
+				relfn = case_part(pac_parts, fn, io);
+			}
+			else
+			{
+				relfn = case_part({}, fn, io);
+			}
 			if (g_app_state.flash.isPacFlashing && !hasPartition(pac_parts, fn)) continue;
-			get_partition_info(io, fn, 0);
+			if (relfn.empty())
+				get_partition_info(io, fn, 0);
+			else
+				get_partition_info(io, relfn.c_str(), 0);
 			if (!gPartInfo.size) continue;
-			if (strstr(fn, "downloadnv")) {isHasDownloadNV = true; dlnv_id = i; continue; }
-			if (!strcmp(gPartInfo.name, "metadata")) { metadata_in_dump = 1; metadata_id = i; continue; }
-			if (!strcmp(gPartInfo.name, "super")) { super_in_dump = 1; super_id = i; continue; }
+			if (my_stristr(fn, "downloadnv")) {isHasDownloadNV = true; dlnv_id = i; continue; }
+			if (!my_stricmp(gPartInfo.name, "metadata")) { metadata_in_dump = 1; metadata_id = i; continue; }
+			if (!my_stricmp(gPartInfo.name, "super")) { super_in_dump = 1; super_id = i; continue; }
 			load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
 		}
 	}
@@ -2594,33 +2668,39 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 	selected_ab = selected_ab_bak;
 	if (isHasDownloadNV && dlnv_id)
 	{
-		get_partition_info(io, partitions[dlnv_id].name, 1);
-		if (gPartInfo.size) 
-		{
-			if (!g_app_state.flash.isPacFlashing) {
-				load_partition_unify(io, gPartInfo.name, partitions[dlnv_id].file_path, step, CMethod);
-			}
+		if (!g_app_state.flash.isPacFlashing) {
+			std::string relfn = case_part({}, std::string(partitions[dlnv_id].name), io);
+			if (relfn.empty())
+				get_partition_info(io, partitions[dlnv_id].name, 1);
 			else
+				get_partition_info(io, relfn.c_str(), 1);
+			load_partition_unify(io, gPartInfo.name, partitions[dlnv_id].file_path, step, CMethod);
+		}
+		else
+		{
+			std::string relfn = case_part(pac_parts, std::string(partitions[dlnv_id].name), io);
+			if (relfn.empty())
+				get_partition_info(io, partitions[dlnv_id].name, 1);
+			else
+				get_partition_info(io, relfn.c_str(), 1);
+			if (hasPartition(pac_parts, std::string(gPartInfo.name)))
 			{
-				if (hasPartition(pac_parts, std::string(gPartInfo.name)))
-				{
-					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
-						size_t a_size = 0, b_size = 0, c_size = 0;
-						uint8_t *a = loadfile("old_nv_downloadnv.bin", &a_size, 0);
-						uint8_t *b = loadfile(partitions[dlnv_id].file_path, &b_size, 0);
-						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
-						merge_nv(io, a, a_size, b, b_size, c, &c_size);
-						EnhancedFile fi = my_oxfopen_enhanced("nvmerged_downloadnv.bin", "wb");
-						if (!fi) ERR_EXIT("fopen failed\n");
-						if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-						if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
-						fi.close();
-						delete[](a); delete[](b); free(c);
-					}
-					delete[](io->nvid_list);
-					io->nvid_list = NULL;
-					load_partition_unify(io, gPartInfo.name, "nvmerged_downloadnv.bin", step, CMethod);
+				if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
+					size_t a_size = 0, b_size = 0, c_size = 0;
+					uint8_t *a = loadfile("old_nv_downloadnv.bin", &a_size, 0);
+					uint8_t *b = loadfile(partitions[dlnv_id].file_path, &b_size, 0);
+					uint8_t *c = (uint8_t*)malloc(a_size + b_size);
+					merge_nv(io, a, a_size, b, b_size, c, &c_size);
+					EnhancedFile fi = my_oxfopen_enhanced("nvmerged_downloadnv.bin", "wb");
+					if (!fi) ERR_EXIT("fopen failed\n");
+					if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+					if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
+					fi.close();
+					delete[](a); delete[](b); free(c);
 				}
+				delete[](io->nvid_list);
+				io->nvid_list = NULL;
+				load_partition_unify(io, gPartInfo.name, "nvmerged_downloadnv.bin", step, CMethod);
 			}
 		}
 	}

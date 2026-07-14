@@ -1115,6 +1115,7 @@ int main_console(int argc, char** argv) {
 					if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
 				}
 				fdl1_loaded = 1;
+				g_app_state.device.device_stage = FDL1;
 			}
 			argc -= argchange;
 			argv += argchange;
@@ -1233,6 +1234,7 @@ int main_console(int argc, char** argv) {
 					nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
 				}
 				fdl2_executed = 1;
+				g_app_state.device.device_stage = FDL2;
 				argc -= 1;
 				argv += 1;
 
@@ -1321,6 +1323,7 @@ int main_console(int argc, char** argv) {
 					if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
 				}
 				fdl1_loaded = 1;
+				g_app_state.device.device_mode = FDL1;
 				argc -= 2;
 				argv += 2;
 			}
