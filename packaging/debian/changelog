@@ -1,3 +1,9 @@
+sfd-tool (2.3.0-1-ltv) unstable; urgency=medium
+
+  * 修复了一些已知问题
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Tue, 14 Jul 2026 13:27:54 +0800
+
 sfd-tool (2.2.4-1-ltv) unstable; urgency=medium
 
   * 修复了FDL可能执行失败的问题
