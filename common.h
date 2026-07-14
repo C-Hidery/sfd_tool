@@ -310,10 +310,6 @@ void set_active(spdio_t *io, const char *arg, int CMethod);
 partition_t* partition_list_d(spdio_t* io);
 int set_bootloader_status(spdio_t* io,int status);
 void add_partition(spdio_t* io, const char* name, long long size);
-
-//void send_buf_1(spdio_t* io,
-//	uint32_t start_addr, int end_data,
-//	unsigned step, uint8_t* mem, unsigned size);
 int GetStage();
 double get_time();
 const char* get_bsl_enum_name(unsigned int value);
@@ -328,3 +324,6 @@ int get_nvlist_xml(spdio_t *io, const char *fn);
 int get_nvlist_cfg(spdio_t *io, char *fn);
 void merge_nv(spdio_t *io, const uint8_t *a, size_t a_size, const uint8_t *b, 
 			size_t b_size, uint8_t *c, size_t *c_size);
+static inline int my_stricmp(const char* s1, const char* s2);
+static inline char* my_stristr(const char* haystack, const char* needle);
+static inline int my_strnicmp(const char* s1, const char* s2, size_t len);
