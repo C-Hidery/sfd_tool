@@ -320,3 +320,5 @@ SFD Tool 在不同平台上使用 per-user 配置文件保存用户偏好，
 ```text
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="1782", ATTRS{idProduct}=="4d00", MODE="0666", TAG+="uaccess"
 ```
+
+`80-spd.rules`也在仓库中，可以直接使用

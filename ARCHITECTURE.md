@@ -37,7 +37,8 @@ sfd_tool/
 │   ├── pac_extract.h/.cpp    # PAC 固件解析与解包
 │   ├── result.h              # Result<T> / ErrorCode 等错误返回模型
 │   ├── spd_protocol.h/.cpp   # SPD/BSL 协议封装（编解码、消息收发）
-│   └── usb_transport.h/.cpp  # USB 传输抽象（libusb / Windows Wrapper）
+│   ├── usb_transport.h/.cpp  # USB 传输抽象（libusb / Windows Wrapper）
+│   └── XmlParser.hpp         # XML文件处理
 │
 ├── pages/                    # 各标签页（UI 层）的实现
 │   ├── page_connect.cpp/.h       # 连接页（Connect）
