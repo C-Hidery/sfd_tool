@@ -723,7 +723,6 @@ partition_t* pacptable;
 int pac_part_count = 0;
 bool pac_extract(const char* fn, const char* floder)
 {
-	int pac_part_count;
 	Unpac unpac;
 	unpac.setDirectory(floder);
 	if(!unpac.openPacFile(fn)) {
