@@ -632,7 +632,7 @@ int main_console(int argc, char** argv) {
 		}
 		DEG_LOG(I, "SPRD3 Current : %d", found);
 		if (found && g_app_state.device.device_mode != SPRD4) g_app_state.device.device_mode = SPRD3;
-		else g_app_state.device.device_mode = Nothing;
+		else if (g_app_state.device.device_mode != SPRD4) g_app_state.device.device_mode = Nothing;
 
 		if (fdl1_loaded == -1) argc += 2;
 		if (fdl2_executed == -1) argc += 1;
@@ -642,26 +642,26 @@ int main_console(int argc, char** argv) {
 			if (g_app_state.device.device_mode == SPRD3) {
 				DEG_LOG(I, "Device status: FDL2/SPRD3");
 			} 
-			else if (isKickMode) DEG_LOG(I, "Device status: FDL2/SPRD4(AutoD)");
+			else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: FDL2/SPRD4(AutoD)");
 			else DEG_LOG(I, "Device status: FDL2/Unknown");
 		} else if (fdl1_loaded > 0) {
 			if (g_app_state.device.device_mode == SPRD3) {
 				DEG_LOG(I, "Device status: FDL1/SPRD3");
 			} 
-			else if (isKickMode) DEG_LOG(I, "Device status: FDL1/SPRD4(AutoD)");
+			else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: FDL1/SPRD4(AutoD)");
 			else DEG_LOG(I, "Device status: FDL1/Unknown");
 		} else if (g_app_state.device.device_stage == BROM) {
 			if (g_app_state.device.device_mode == SPRD3) {
 				DEG_LOG(I, "Device status: BROM/SPRD3");
 			} 
-			else if (isKickMode) DEG_LOG(I, "Device status: BROM/SPRD4(AutoD)");
+			else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: BROM/SPRD4(AutoD)");
 			else DEG_LOG(I, "Device status: BROM/Unknown");
 		} else {
 			if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device status: Unknown/SPRD3");
-			else if (isKickMode) DEG_LOG(I, "Device status: Unknown/SPRD4(AutoD)");
+			else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: Unknown/SPRD4(AutoD)");
 			else DEG_LOG(I, "Device status: Unknown/Unknown");
 		}
-		if (isKickMode && g_app_state.device.device_mode == SPRD4 && g_app_state.device.device_stage != FDL2 && !no_fdl_mode) {
+		if (g_app_state.device.device_mode == SPRD4 && g_app_state.device.device_stage != FDL2 && !no_fdl_mode) {
 			DEG_LOG(I, "SPRD4 mode detected, but No-FDL mode not enabled.");
 			DEG_LOG(I, "You can get in FDL2 without FDL manually.");
 			DEG_LOG(I, "By execute following commands:");
@@ -833,7 +833,7 @@ int main_console(int argc, char** argv) {
 				}
 				fi.close();
 			}
-			DEG_LOG(I, "Current CVE address is 0x%x", exec_addr);
+			DEG_LOG(I, "Current exec_addr is 0x%x", exec_addr);
 			if (!strncmp(str2[1], "exec_addr2", 10)) exec_addr_v2 = 1;
 			argc -= 3, argv += 3;
 		}
@@ -990,7 +990,7 @@ int main_console(int argc, char** argv) {
 						continue;
 					}
 					fi.close();
-					if (!isKickMode) send_file(io, fn, addr, end_data, blk_size ? blk_size : 528, 0, 0);
+					if (g_app_state.device.device_mode == SPRD3) send_file(io, fn, addr, end_data, blk_size ? blk_size : 528, 0, 0);
 					else send_file(io, fn, addr, 0, 528, 0, 0);
 				}
 			}
@@ -2895,23 +2895,23 @@ rloop:
 				if (g_app_state.device.device_mode == SPRD3) {
 					DEG_LOG(I, "Device status: FDL2/SPRD3");
 				} 
-				else if (isKickMode) DEG_LOG(I, "Device status: FDL2/SPRD4(AutoD)");
+				else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: FDL2/SPRD4(AutoD)");
 				else DEG_LOG(I, "Device status: FDL2/Unknown");
 			} else if (fdl1_loaded > 0) {
 				if (g_app_state.device.device_mode == SPRD3) {
 					DEG_LOG(I, "Device status: FDL1/SPRD3");
 				} 
-				else if (isKickMode) DEG_LOG(I, "Device status: FDL1/SPRD4(AutoD)");
+				else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: FDL1/SPRD4(AutoD)");
 				else DEG_LOG(I, "Device status: FDL1/Unknown");
 			} else if (g_app_state.device.device_stage == BROM) {
 				if (g_app_state.device.device_mode == SPRD3) {
 					DEG_LOG(I, "Device status: BROM/SPRD3");
 				} 
-				else if (isKickMode) DEG_LOG(I, "Device status: BROM/SPRD4(AutoD)");
+				else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: BROM/SPRD4(AutoD)");
 				else DEG_LOG(I, "Device status: BROM/Unknown");
 			} else {
 				if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device status: Unknown/SPRD3");
-				else if (isKickMode) DEG_LOG(I, "Device status: Unknown/SPRD4(AutoD)");
+				else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: Unknown/SPRD4(AutoD)");
 				else DEG_LOG(I, "Device status: Unknown/Unknown");
 			}
 			DEG_LOG(I, "CMethod: %d", isCMethod);
