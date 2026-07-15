@@ -632,7 +632,7 @@ int main_console(int argc, char** argv) {
 		}
 		DEG_LOG(I, "SPRD3 Current : %d", found);
 		if (found && g_app_state.device.device_mode != SPRD4) g_app_state.device.device_mode = SPRD3;
-		else g_app_state.device.device_mode = Nothing;
+		else if (g_app_state.device.device_mode != SPRD4) g_app_state.device.device_mode = Nothing;
 
 		if (fdl1_loaded == -1) argc += 2;
 		if (fdl2_executed == -1) argc += 1;
@@ -833,7 +833,7 @@ int main_console(int argc, char** argv) {
 				}
 				fi.close();
 			}
-			DEG_LOG(I, "Current CVE address is 0x%x", exec_addr);
+			DEG_LOG(I, "Current exec_addr is 0x%x", exec_addr);
 			if (!strncmp(str2[1], "exec_addr2", 10)) exec_addr_v2 = 1;
 			argc -= 3, argv += 3;
 		}

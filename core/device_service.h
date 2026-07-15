@@ -132,12 +132,6 @@ public:
 
     // ===== 设备信息与状态 =====
 
-    // 探测设备信息（可能触发一次协议交互）
-    virtual DeviceStatus probeDevice(DeviceInfo& out_info) = 0;
-
-    // 获取最近一次探测结果（无 I/O）
-    virtual DeviceStatus getCachedDeviceInfo(DeviceInfo& out_info) const = 0;
-
     virtual DeviceStage getCurrentStage() const = 0;
     virtual DeviceMode  getCurrentMode() const = 0;
 
