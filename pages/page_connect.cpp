@@ -151,7 +151,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 				return;
 			}
 			fi.close();
-			if (g_app_state.device.device_mode != SPRD4 || !isKickMode) send_file(io, fdl_path, fdl_addr, end_data, blk_size ? blk_size : 528, 0, 0);
+			if (g_app_state.device.device_mode == SPRD3) send_file(io, fdl_path, fdl_addr, end_data, blk_size ? blk_size : 528, 0, 0);
 			else send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
 		} else {
 			bool result = showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Device can be booted without FDL in SPRD4 mode, continue?"));
@@ -806,23 +806,23 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		if (g_app_state.device.device_mode == SPRD3) {
 			DEG_LOG(I, "Device status: FDL2/SPRD3");
 		} 
-		else if (isKickMode) DEG_LOG(I, "Device status: FDL2/SPRD4(AutoD)");
+		else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: FDL2/SPRD4(AutoD)");
 		else DEG_LOG(I, "Device status: FDL2/Unknown");
 	} else if (fdl1_loaded > 0) {
 		if (g_app_state.device.device_mode == SPRD3) {
 			DEG_LOG(I, "Device status: FDL1/SPRD3");
 		} 
-		else if (isKickMode) DEG_LOG(I, "Device status: FDL1/SPRD4(AutoD)");
+		else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: FDL1/SPRD4(AutoD)");
 		else DEG_LOG(I, "Device status: FDL1/Unknown");
 	} else if (g_app_state.device.device_stage == BROM) {
 		if (g_app_state.device.device_mode == SPRD3) {
 			DEG_LOG(I, "Device status: BROM/SPRD3");
 		} 
-		else if (isKickMode) DEG_LOG(I, "Device status: BROM/SPRD4(AutoD)");
+		else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: BROM/SPRD4(AutoD)");
 		else DEG_LOG(I, "Device status: BROM/Unknown");
 	} else {
 		if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device status: Unknown/SPRD3");
-		else if (isKickMode) DEG_LOG(I, "Device status: Unknown/SPRD4(AutoD)");
+		else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: Unknown/SPRD4(AutoD)");
 		else DEG_LOG(I, "Device status: Unknown/Unknown");
 	}
 
