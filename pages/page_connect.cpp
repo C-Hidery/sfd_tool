@@ -231,8 +231,8 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 		} else if (Da_Info.dwStorageType == 0x102) { // emmc
 			io->ptable = partition_list(io, fn_partlist, &io->part_count);
 		} else if (Da_Info.dwStorageType == 0x101) {
-			DEG_LOG(I, "Device storage is nand.");
-			gui_idle_call([helper]() mutable {
+			DEG_LOG(I, "Storage is nand.");
+			gui_idle_call([&]() mutable {
 				helper.setLabelText(helper.getWidget("storage_mode"),"Nand");
 			});
 		}
@@ -241,7 +241,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 		// 让“数据块大小”滑块与数值直接反映统一后的默认步长（例如 63488）。
 		// 如果已经探测到设备默认块大小并成功刷新分区表，则允许用户调整数据块大小
 		if (io->part_count > 0 || io->part_count_c > 0) {
-			gui_idle_call([helper]() mutable {
+			gui_idle_call([&]() mutable {
 				auto cfg = MakeBlockSizeConfigFromGui();
 				uint32_t effective_step = cfg.manual_block_size;
 

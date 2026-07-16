@@ -1870,6 +1870,9 @@ uint64_t check_partition(spdio_t *io, const char *name, int need_size) {
 	{
 		Da_Info.dwStorageType = 0x101;
 		DEG_LOG(I, "Storage is nand.");
+		gui_idle_call([](){
+			helper.setLabelText(helper.getWidget("storage_mode"),"Nand");
+		});
 	}
 	if(io->verbose != -1) DEG_LOG(I,"Partition check: %s, size : 0x%llx", name, offset);
 	encode_msg_nocpy(io, BSL_CMD_READ_END, 0);

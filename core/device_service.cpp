@@ -362,21 +362,6 @@ public:
         return deduce_mode_from_globals();
     }
 
-    DeviceStatus rebootToNormalOs() override {
-        DEG_LOG(W, "DeviceService::rebootToNormalOs: not implemented yet");
-        return make_error(DeviceErrorCode::Unsupported, "rebootToNormalOs not implemented");
-    }
-
-    DeviceStatus rebootToDownloadMode() override {
-        DEG_LOG(W, "DeviceService::rebootToDownloadMode: not implemented yet");
-        return make_error(DeviceErrorCode::Unsupported, "rebootToDownloadMode not implemented");
-    }
-
-    DeviceStatus setKeepCharge(bool /*enabled*/) override {
-        DEG_LOG(W, "DeviceService::setKeepCharge: not implemented yet");
-        return make_error(DeviceErrorCode::Unsupported, "setKeepCharge not implemented");
-    }
-
     DeviceStatus startEventLoop() override {
 #if USE_LIBUSB
         // 当前事件循环由 startUsbEventHandle 控制

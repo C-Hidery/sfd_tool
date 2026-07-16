@@ -51,7 +51,7 @@ void print_help() {
 	        "\t-?|-h|--help\n"
 	        "\t\tShow help and usage information\n"
 	        "\t--sync\n"
-	        "\t\tSync flashing setting.\n"
+	        "\t\tSync flashing setting on Windows.\n"
 	        "\t--nor-bar\n"
 	        "\t\tShow original progress bar.\n"
 	        "\t--cptable\n"
