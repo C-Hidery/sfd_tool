@@ -4,10 +4,6 @@ SFD Tool is a cross‑platform GUI and CLI tool for working with Spreadtrum/UNIS
 It focuses on **safe partition backup/restore, PAC flashing, and advanced maintenance
 operations**, with first‑class support for modern 64‑bit platforms.
 
-> NOTE: This README is a high‑level English overview. The **Chinese user guide**
-> in [docs/USER_GUIDE_ZH.md](docs/USER_GUIDE_ZH.md) is the canonical, most
-> detailed end‑user documentation.
-
 ![Logo](icon.png)
 
 ![License](https://img.shields.io/github/license/C-Hidery/sfd_tool)
@@ -32,7 +28,6 @@ sfd_tool is a maintenance release for spreadtrum_flash
 Run this before making:
 
 ``` bash
-sudo apt update
 # Ubuntu/Debian
 sudo apt install libusb-1.0-0-dev gcc g++ libgtk-3-dev pkg-config make cmake gettext
 # Fedora/RHEL

@@ -58,7 +58,6 @@ Arch Linux 用户可以使用此AUR包：
 编译之前:
 
 ``` bash
-sudo apt update
 # Ubuntu/Debian
 sudo apt install libusb-1.0-0-dev gcc g++ libgtk-3-dev pkg-config make cmake gettext
 # Fedora/RHEL

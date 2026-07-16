@@ -135,14 +135,6 @@ public:
     virtual DeviceStage getCurrentStage() const = 0;
     virtual DeviceMode  getCurrentMode() const = 0;
 
-    // ===== 模式切换与重启 =====
-
-    virtual DeviceStatus rebootToNormalOs() = 0;
-    virtual DeviceStatus rebootToDownloadMode() = 0;
-
-    // 部分平台支持“保持充电”等扩展选项
-    virtual DeviceStatus setKeepCharge(bool enabled) = 0;
-
     // ===== 事件/监听控制（USB 热插拔等） =====
 
     virtual DeviceStatus startEventLoop() = 0;  // 启动 libusb hotplug / Win32 消息循环包装
