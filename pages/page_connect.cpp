@@ -368,18 +368,63 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 					return;
 				}
 				fi.close();
-				send_file(io, fdl_path, fdl_addr, end_data, 528, 0, 0);
-				if (exec_addr_addr && strlen(exec_addr_addr) > 0 && isExecAddr) {
-					bool isExecAddrV2 = helper.getSwitchState(helper.getWidget("exec_addr_v2"));
-					if(!isExecAddrV2){
+				bool isExecAddrV2 = helper.getSwitchState(helper.getWidget("exec_addr_v2"));
+				if(isExecAddrV2 && isExecAddr){
+					DEG_LOG(I, "Using EXECv2 binary: %s at address: %s", execfile, exec_addr_addr);
+					uint32_t exec_addr_val = strtoul(exec_addr_addr, nullptr, 0);
+					size_t execsize = send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
+					int n, gapsize = exec_addr - exec_addr_val - execsize;
+					for (int i = 0; i < gapsize; i += n) {
+						n = gapsize - i;
+						if (n > 528) n = 528;
+						encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
+						if (send_and_check(io)) ERR_EXIT("CVE v2 failed");;
+					}
+					EnhancedFile fi = oxfopen_enhanced(execfile, "rb");
+					if (fi) {
+						fi.seek(0, SEEK_END);
+						n = fi.tell();
+						fi.seek(0, SEEK_SET);
+						execsize = fi.read(io->temp_buf, 1, n);
+						fi.close();
+					}
+					encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
+					if (send_and_check(io)) ERR_EXIT("CVE v2 failed");
+				}
+				else {
+					send_file(io, fdl_path, fdl_addr, end_data, 528, 0, 0);
+					if (isExecAddr)
+					{
 						DEG_LOG(I, "Using EXEC binary: %s at address: %s", execfile, exec_addr_addr);
 						uint32_t exec_addr_val = strtoul(exec_addr_addr, nullptr, 0);
 						send_file(io, execfile, exec_addr_val, 0, 528, 0, 0);
 					}
-					else{
+					else
+					{
+						encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+						if (send_and_check(io)) ERR_EXIT("FDL exec failed");
+					}
+				}
+					
+				
+			} else {		
+				bool result = showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Device can be booted without FDL in SPRD4 mode, continue?"));
+				if (result) {
+					DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
+					encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+					if (send_and_check(io)) ERR_EXIT("FDL exec failed");
+				} else {
+					if (fi == nullptr) {
+						DEG_LOG(W, "File does not exist.\n");
+						showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
+						waitFDL1 = 1;
+						return;
+					}
+					bool isExecAddrV2 = helper.getSwitchState(helper.getWidget("exec_addr_v2"));
+					if(isExecAddrV2 && isExecAddr){
 						DEG_LOG(I, "Using EXECv2 binary: %s at address: %s", execfile, exec_addr_addr);
 						uint32_t exec_addr_val = strtoul(exec_addr_addr, nullptr, 0);
-						size_t execsize = send_file(io, execfile, exec_addr_val, 0, 528, 0, 0);
+						size_t execsize = send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
 						int n, gapsize = exec_addr - exec_addr_val - execsize;
 						for (int i = 0; i < gapsize; i += n) {
 							n = gapsize - i;
@@ -396,58 +441,21 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 							fi.close();
 						}
 						encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
-						if (send_and_check(io)) ERR_EXIT("CVE v2 failed");;
+						if (send_and_check(io)) ERR_EXIT("CVE v2 failed");
 					}
-					
-				} else {
-					encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-					if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
-				}
-			} else {		
-				bool result = showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Device can be booted without FDL in SPRD4 mode, continue?"));
-				if (result) {
-					DEG_LOG(I, "Skipping FDL send in SPRD4 mode.");
-					encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-					if (send_and_check(io)) ERR_EXIT("FDL exec failed");
-				} else {
-					if (fi == nullptr) {
-						DEG_LOG(W, "File does not exist.\n");
-						showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
-						waitFDL1 = 1;
-						return;
-					}
-					send_file(io, fdl_path, fdl_addr, end_data, 528, 0, 0);
-					if (exec_addr_addr && strlen(exec_addr_addr) > 0 && isExecAddr) {
-						bool isExecAddrV2 = helper.getSwitchState(helper.getWidget("exec_addr_v2"));
-						if(!isExecAddrV2){
+					else {
+						send_file(io, fdl_path, fdl_addr, end_data, 528, 0, 0);
+						if (isExecAddr)
+						{
 							DEG_LOG(I, "Using EXEC binary: %s at address: %s", execfile, exec_addr_addr);
 							uint32_t exec_addr_val = strtoul(exec_addr_addr, nullptr, 0);
 							send_file(io, execfile, exec_addr_val, 0, 528, 0, 0);
 						}
-						else{
-							DEG_LOG(I, "Using EXECv2 binary: %s at address: %s", execfile, exec_addr_addr);
-							uint32_t exec_addr_val = strtoul(exec_addr_addr, nullptr, 0);
-							size_t execsize = send_file(io, execfile, exec_addr_val, 0, 528, 0, 0);
-							int n, gapsize = exec_addr - exec_addr_val - execsize;
-							for (int i = 0; i < gapsize; i += n) {
-								n = gapsize - i;
-								if (n > 528) n = 528;
-								encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
-								if (send_and_check(io)) ERR_EXIT("CVE V2 failed");
-							}
-							EnhancedFile fi = oxfopen_enhanced(execfile, "rb");
-							if (fi) {
-								fi.seek(0, SEEK_END);
-								n = fi.tell();
-								fi.seek(0, SEEK_SET);
-								execsize = fi.read(io->temp_buf, 1, n);
-							}
-							encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
-							if (send_and_check(io)) ERR_EXIT("CVE V2 failed");;
+						else
+						{
+							encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+							if (send_and_check(io)) ERR_EXIT("FDL exec failed");
 						}
-					} else {
-						encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-						if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
 					}
 				}
 			}
