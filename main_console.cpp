@@ -1012,7 +1012,7 @@ int main_console(int argc, char** argv) {
 							n = gapsize - i;
 							if (n > 528) n = 528;
 							encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
-							if (send_and_check(io)) ERR_EXIT("CVE v2 failed");;
+							if (send_and_check(io)) ERR_EXIT("exec_addr v2 failed");;
 						}
 						fi = my_oxfopen_enhanced(execfile.c_str(), "rb");
 						if (fi) {
@@ -1022,7 +1022,7 @@ int main_console(int argc, char** argv) {
 							execsize = fi.read(io->temp_buf, 1, n);
 						}
 						encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
-						if (send_and_check(io)) ERR_EXIT("CVE v2 failed");
+						if (send_and_check(io)) ERR_EXIT("exec_addr v2 failed");
 						// if (execfile) delete[](execfile);
 					} else {
 						send_file(io, fn, addr, end_data, 528, 0, 0);
@@ -1031,7 +1031,7 @@ int main_console(int argc, char** argv) {
 							// if (execfile) delete[](execfile);
 						} else {
 							encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-							if (send_and_check(io)) ERR_EXIT("CVE v2 failed");
+							if (send_and_check(io)) ERR_EXIT("FDL exec failed");
 						}
 					}
 				} else {
