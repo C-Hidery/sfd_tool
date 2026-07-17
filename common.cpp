@@ -1930,6 +1930,24 @@ void get_partition_info(spdio_t *io, const char *name, int need_size) {
 		io->verbose = verbose;
 		return;
 	}
+	else if (io->part_count_c)
+	{
+		if (selected_ab > 0) snprintf(name_ab, sizeof(name_ab), "%s_%c", name, 96 + selected_ab);
+		for (i = 0; i < io->part_count_c; i++) {
+			if (!strcmp(name, (*(io->Cptable + i)).name)) break;
+			if (selected_ab > 0 && !strcmp(name_ab, (*(io->Cptable + i)).name)) {
+				name = name_ab;
+				break;
+			}
+		}
+		if (i < io->part_count_c) {
+			strcpy(gPartInfo.name, name);
+			gPartInfo.size = (*(io->Cptable + i)).size;
+		}
+		else gPartInfo.size = 0;
+		io->verbose = verbose;
+		return;
+	}
 
 	if (selected_ab < 0) select_ab(io);
 	gPartInfo.size = check_partition(io, name, need_size);
