@@ -154,8 +154,8 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     gtk_widget_set_margin_end(mainBox, 40);
     gtk_widget_set_margin_top(mainBox, 40);
     gtk_widget_set_margin_bottom(mainBox, 40);
-    gtk_widget_set_halign(mainBox, GTK_ALIGN_CENTER);
-    gtk_widget_set_size_request(mainBox, 520, -1);
+    gtk_widget_set_halign(mainBox, GTK_ALIGN_FILL);   // 改为 FILL 以填满
+	gtk_widget_set_valign(mainBox, GTK_ALIGN_FILL);
     helper.addWidget("mainBox", mainBox, "box");
 
     auto makeCardBox = [](int pad_h, int pad_v) -> GtkWidget* {
@@ -169,6 +169,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // ---- 0. UI 语言设置 ----
     GtkWidget* langFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(langFrame, TRUE);
     GtkWidget* langTitle = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(langTitle), (std::string("<b>") + _("UI language") + "</b>").c_str());
     gtk_widget_set_halign(langTitle, GTK_ALIGN_CENTER);
@@ -206,6 +207,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // ---- 1. 数据块大小 ----
     GtkWidget* blkFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(blkFrame, TRUE);
     GtkWidget* blkTitle = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(blkTitle), (std::string("<b>") + _("Data block size") + "</b>").c_str());
     gtk_widget_set_halign(blkTitle, GTK_ALIGN_CENTER);
@@ -227,6 +229,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     if (slider_step > static_cast<uint32_t>(slider_max)) slider_step = static_cast<uint32_t>(slider_max);
 
     GtkWidget* blkSlider = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, slider_min, slider_max, 10000);
+	gtk_widget_set_hexpand(blkSlider, TRUE);
     gtk_range_set_value(GTK_RANGE(blkSlider), slider_step);
     gtk_scale_set_draw_value(GTK_SCALE(blkSlider), TRUE);
     gtk_scale_set_value_pos(GTK_SCALE(blkSlider), GTK_POS_RIGHT);
@@ -241,6 +244,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     helper.addWidget("size_con", sizeCon, "label");
 
     GtkWidget* sliderBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+	gtk_widget_set_hexpand(sliderBox, TRUE);
     helper.addWidget("sliderBox", sliderBox, "box");
     gtkBoxPackStart(sliderBox, blkSlider, TRUE, TRUE, 0);
     gtkBoxPackStart(sliderBox, sizeConLabel, FALSE, FALSE, 0);
@@ -257,6 +261,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // ---- 2. Rawdata模式 ----
     GtkWidget* rawFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(rawFrame, TRUE);
     GtkWidget* rawTitle = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(rawTitle), (std::string("<b>") + _("Rawdata Mode --- Value support: {1, 2}") + "</b>").c_str());
     gtk_widget_set_halign(rawTitle, GTK_ALIGN_CENTER);
@@ -298,6 +303,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // ---- 3. 转码模式 ----
     GtkWidget* transcodeFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(transcodeFrame, TRUE);
     GtkWidget* transcodeTitle = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(transcodeTitle), (std::string("<b>") + _("Transcode --- FDL1/2") + "</b>").c_str());
     gtk_widget_set_halign(transcodeTitle, GTK_ALIGN_CENTER);
@@ -326,6 +332,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // ---- 4. 充电模式 ----
     GtkWidget* chargeFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(chargeFrame, TRUE);
     GtkWidget* chargeTitle = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(chargeTitle), (std::string("<b>") + _("Charging Mode --- BROM") + "</b>").c_str());
     gtk_widget_set_halign(chargeTitle, GTK_ALIGN_CENTER);
@@ -354,6 +361,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // ---- 5. 发送结束数据 ----
     GtkWidget* endDataFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(endDataFrame, TRUE);
     GtkWidget* endDataTitle = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(endDataTitle), (std::string("<b>") + _("Send End Data") + "</b>").c_str());
     gtk_widget_set_halign(endDataTitle, GTK_ALIGN_CENTER);
@@ -382,6 +390,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // ---- 6. 操作超时时间 ----
     GtkWidget* timeoutFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(timeoutFrame, TRUE);
     GtkWidget* timeoutTitle = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(timeoutTitle), (std::string("<b>") + _("Operation timeout") + "</b>").c_str());
     gtk_widget_set_halign(timeoutTitle, GTK_ALIGN_CENTER);
@@ -407,6 +416,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // ---- 7. A/B 分区手动设置 ----
     GtkWidget* abpartFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(abpartFrame, TRUE);
     GtkWidget* abpartTitle = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(abpartTitle), (std::string("<b>") + _("A/B Part read/flash manually set --- FDL2") + "</b>").c_str());
     gtk_widget_set_halign(abpartTitle, GTK_ALIGN_CENTER);
@@ -439,6 +449,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // ---- 8. 强制刷写设置 ----
     GtkWidget* forceFlashFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(forceFlashFrame, TRUE);
     GtkWidget* forceFlashTitle = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(forceFlashTitle), (std::string("<b>") + _("Auto Force flash Settings") + "</b>").c_str());
     gtk_widget_set_halign(forceFlashTitle, GTK_ALIGN_CENTER);

@@ -51,7 +51,6 @@ GtkWidget* LogPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     gtk_widget_set_margin_end(mainBox, 40);
     gtk_widget_set_margin_top(mainBox, 40);
     gtk_widget_set_margin_bottom(mainBox, 40);
-    gtk_widget_set_size_request(mainBox, 700, -1);
     helper.addWidget("mainBox", mainBox, "box");
 
     // 日志显示区域

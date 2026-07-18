@@ -253,8 +253,8 @@ GtkWidget* ManualPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     gtk_widget_set_margin_end(mainBox, 40);
     gtk_widget_set_margin_top(mainBox, 20);
     gtk_widget_set_margin_bottom(mainBox, 20);
-    gtk_widget_set_halign(mainBox, GTK_ALIGN_CENTER);
-    gtk_widget_set_size_request(mainBox, 520, -1);
+    gtk_widget_set_halign(mainBox, GTK_ALIGN_FILL);
+	gtk_widget_set_valign(mainBox, GTK_ALIGN_FILL);
     helper.addWidget("mainBox", mainBox, "box");
 
     auto makeCardBox = [](int pad_h, int pad_v) -> GtkWidget* {
@@ -268,6 +268,7 @@ GtkWidget* ManualPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // ---- Write partition ----
     GtkWidget* writeFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(writeFrame, TRUE);
     GtkWidget* writeTitle = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(writeTitle), (std::string("<b>") + _("Write partition") + "</b>").c_str());
     gtk_widget_set_halign(writeTitle, GTK_ALIGN_CENTER);
@@ -281,6 +282,7 @@ GtkWidget* ManualPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // Partition name
     GtkWidget* writePartBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+	gtk_widget_set_hexpand(writePartBox, TRUE);
     GtkWidget* writePartLabel = gtk_label_new(_("Partition name:"));
     gtk_widget_set_halign(writePartLabel, GTK_ALIGN_END);
     gtk_widget_set_size_request(writePartLabel, 120, -1);
@@ -295,12 +297,14 @@ GtkWidget* ManualPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // Image file path
     GtkWidget* filePathBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+	gtk_widget_set_hexpand(filePathBox, TRUE);
     GtkWidget* filePathLabel = gtk_label_new(_("Image file path:"));
     gtk_widget_set_halign(filePathLabel, GTK_ALIGN_END);
     gtk_widget_set_size_request(filePathLabel, 120, -1);
     helper.addWidget("file_path_label", filePathLabel, "label");
 
     GtkWidget* fileInputBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+	gtk_widget_set_hexpand(fileInputBox, TRUE);
     gtk_widget_add_css_class(fileInputBox, "linked");
     gtk_widget_set_hexpand(fileInputBox, TRUE);
     helper.addWidget("fileInputBox", fileInputBox, "box");
@@ -329,6 +333,7 @@ GtkWidget* ManualPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // ---- Extract partition ----
     GtkWidget* readFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(readFrame, TRUE);
     GtkWidget* readTitle = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(readTitle), (std::string("<b>") + _("Extract partition") + "</b>").c_str());
     gtk_widget_set_halign(readTitle, GTK_ALIGN_CENTER);
@@ -341,6 +346,7 @@ GtkWidget* ManualPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     gtkContainerAdd(readFrame, readCardBox);
 
     GtkWidget* readPartBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+	gtk_widget_set_hexpand(readPartBox, TRUE);
     GtkWidget* extractPartLabel = gtk_label_new(_("Partition name:"));
     gtk_widget_set_halign(extractPartLabel, GTK_ALIGN_END);
     gtk_widget_set_size_request(extractPartLabel, 120, -1);
@@ -362,6 +368,7 @@ GtkWidget* ManualPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // ---- Erase partition ----
     GtkWidget* eraseFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(eraseFrame, TRUE);
     GtkWidget* eraseTitle = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(eraseTitle), (std::string("<b>") + _("Erase partition") + "</b>").c_str());
     gtk_widget_set_halign(eraseTitle, GTK_ALIGN_CENTER);
@@ -370,6 +377,7 @@ GtkWidget* ManualPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     helper.addWidget("erase_label", eraseTitle, "label");
 
     GtkWidget* eraseCardBox = makeCardBox(32, 16);
+	gtk_widget_set_hexpand(eraseCardBox, TRUE);
     helper.addWidget("eraseCardBox", eraseCardBox, "box");
     gtkContainerAdd(eraseFrame, eraseCardBox);
 

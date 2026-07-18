@@ -118,9 +118,8 @@ GtkWidget* DebugPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     gtk_widget_set_margin_end(mainBox, 40);
     gtk_widget_set_margin_top(mainBox, 40);
     gtk_widget_set_margin_bottom(mainBox, 40);
-    gtk_widget_set_halign(mainBox, GTK_ALIGN_CENTER);
-    gtk_widget_set_valign(mainBox, GTK_ALIGN_CENTER);
-    gtk_widget_set_size_request(mainBox, 520, -1);
+    gtk_widget_set_halign(mainBox, GTK_ALIGN_FILL);
+	gtk_widget_set_valign(mainBox, GTK_ALIGN_FILL);
     helper.addWidget("mainBox", mainBox, "box");
 
     auto makeCardBox = [](int pad_h, int pad_v) -> GtkWidget* {
@@ -134,6 +133,7 @@ GtkWidget* DebugPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // 1. Pactime
     GtkWidget* pactimeFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(pactimeFrame, TRUE);
     GtkWidget* pactimeTitle = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(pactimeTitle), (std::string("<b>") + _("Pactime") + "</b>").c_str());
     gtk_widget_set_halign(pactimeTitle, GTK_ALIGN_CENTER);
@@ -153,6 +153,7 @@ GtkWidget* DebugPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // 2. Chip UID
     GtkWidget* uidFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(uidFrame, TRUE);
     GtkWidget* uidTitle = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(uidTitle), (std::string("<b>") + _("Chip UID") + "</b>").c_str());
     gtk_widget_set_halign(uidTitle, GTK_ALIGN_CENTER);
@@ -172,6 +173,7 @@ GtkWidget* DebugPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // 3. NAND Check
     GtkWidget* nandFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(nandFrame, TRUE);
     GtkWidget* nandTitle = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(nandTitle), (std::string("<b>") + _("Storage Check") + "</b>").c_str());
     gtk_widget_set_halign(nandTitle, GTK_ALIGN_CENTER);

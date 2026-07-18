@@ -138,8 +138,8 @@ GtkWidget* create_advanced_op_page(GtkWidgetHelper& helper, GtkWidget* notebook)
     gtk_widget_set_margin_end(mainBox, 40);
     gtk_widget_set_margin_top(mainBox, 40);
     gtk_widget_set_margin_bottom(mainBox, 40);
-    gtk_widget_set_halign(mainBox, GTK_ALIGN_CENTER);
-    gtk_widget_set_size_request(mainBox, 520, -1);
+    gtk_widget_set_halign(mainBox, GTK_ALIGN_FILL);
+	gtk_widget_set_valign(mainBox, GTK_ALIGN_FILL);
     helper.addWidget("mainBox", mainBox, "box");
 
     auto makeCardBox = [](int pad_h, int pad_v) -> GtkWidget* {
@@ -153,6 +153,7 @@ GtkWidget* create_advanced_op_page(GtkWidgetHelper& helper, GtkWidget* notebook)
 
     // ---- A/B partition ----
     GtkWidget* abFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(abFrame, TRUE);
     GtkWidget* abLabel = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(abLabel), (std::string("<b>") + _("Toggle the A/B partition boot settings") + "</b>").c_str());
     gtk_widget_set_halign(abLabel, GTK_ALIGN_CENTER);
@@ -182,6 +183,7 @@ GtkWidget* create_advanced_op_page(GtkWidgetHelper& helper, GtkWidget* notebook)
 
     // ---- Repartition ----
     GtkWidget* repartFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(repartFrame, TRUE);
     GtkWidget* repartLabel = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(repartLabel), (std::string("<b>") + _("Repartition") + "</b>").c_str());
     gtk_widget_set_halign(repartLabel, GTK_ALIGN_CENTER);

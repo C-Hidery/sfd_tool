@@ -1793,6 +1793,8 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
     gtk_widget_set_margin_end(mainBox, 16);
     gtk_widget_set_margin_top(mainBox, 10);
     gtk_widget_set_margin_bottom(mainBox, 10);
+	gtk_widget_set_halign(mainBox, GTK_ALIGN_FILL);
+	gtk_widget_set_valign(mainBox, GTK_ALIGN_FILL);
     helper.addWidget("mainBox", mainBox, "box");
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(outerScroll), mainBox);
 
@@ -1850,8 +1852,7 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // ---- 操作按钮外框 ----
     GtkWidget* opFrame = gtk_frame_new(NULL);
-	gtk_widget_set_hexpand(opFrame, TRUE);
-	gtk_widget_set_vexpand(opFrame, TRUE);	
+	gtk_widget_set_hexpand(opFrame, TRUE);	
     gtk_widget_set_margin_top(opFrame, 16);
     gtk_widget_set_margin_bottom(opFrame, 16);
     helper.addWidget("opFrame", opFrame, "frame");
@@ -1871,8 +1872,6 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
     auto createOpButton = [&](const std::string& label, const std::string& name, int width = -1, int height = 32) -> GtkWidget* {
         GtkWidget* btn = gtk_button_new_with_label(label.c_str());
         if (width > 0) gtk_widget_set_size_request(btn, width, height);
-		gtk_widget_set_hexpand(btn, TRUE);
-		gtk_widget_set_vexpand(btn, TRUE);	
         gtk_widget_set_halign(btn, GTK_ALIGN_FILL);
         helper.addWidget(name, btn, "button");
         return btn;
@@ -1893,12 +1892,9 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
     // 分组框架
     auto createGroupFrame = [&](const std::string& title) -> GtkWidget* {
         GtkWidget* frame = gtk_frame_new(NULL);
-		gtk_widget_set_hexpand(frame, TRUE);
-		gtk_widget_set_vexpand(frame, TRUE);	
         gtk_widget_set_margin_bottom(frame, 8);
         GtkWidget* label = gtk_label_new(NULL);
-		gtk_widget_set_hexpand(label, TRUE);
-		gtk_widget_set_vexpand(label, TRUE);	
+		gtk_widget_set_hexpand(label, TRUE);	
         gtk_label_set_markup(GTK_LABEL(label), ("<b>" + title + "</b>").c_str());
         gtk_frame_set_label_widget(GTK_FRAME(frame), label);
         gtkFrameSetLabelAlign(frame, 0.0, 0.5);
@@ -1963,12 +1959,12 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // ---- 第二部分：修改分区表 ----
     GtkWidget* modifyPageFrame = gtk_frame_new(NULL);
-	gtk_widget_set_hexpand(modifyPageFrame, TRUE);
-	gtk_widget_set_vexpand(modifyPageFrame, TRUE);	
+	gtk_widget_set_hexpand(modifyPageFrame, TRUE);	
     gtk_widget_set_margin_bottom(modifyPageFrame, 16);
     helper.addWidget("modifyPageFrame", modifyPageFrame, "frame");
 
     GtkWidget* modifyPageTitle = gtk_label_new(NULL);
+	gtk_widget_set_hexpand(modifyPageTitle, TRUE);
     gtk_label_set_markup(GTK_LABEL(modifyPageTitle), (std::string("<span size='large'><b>") + _("Modify Partition Table") + "</b></span>").c_str());
     helper.addWidget("modify_label", modifyPageTitle, "label");
     gtk_frame_set_label_widget(GTK_FRAME(modifyPageFrame), modifyPageTitle);
@@ -1980,8 +1976,10 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // 卡片1：修改大小
     GtkWidget* sizeFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(sizeFrame, TRUE);
     gtk_widget_set_margin_bottom(sizeFrame, 10);
     GtkWidget* sizeTitleLabel = gtk_label_new(NULL);
+	gtk_widget_set_hexpand(sizeTitleLabel, TRUE);
     gtk_label_set_markup(GTK_LABEL(sizeTitleLabel), (std::string("<b>") + _("Change size") + "</b>").c_str());
     helper.addWidget("fff_label", sizeTitleLabel, "label");
     gtk_frame_set_label_widget(GTK_FRAME(sizeFrame), sizeTitleLabel);
@@ -1996,6 +1994,7 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     GtkWidget* sizeCtrlRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
     GtkWidget* SeLabel = gtk_label_new(_("Second-change partition"));
+	gtk_widget_set_hexpand(SeLabel, TRUE);
     helper.addWidget("second_part_label", SeLabel, "label");
     GtkWidget* secondPart = gtk_entry_new();
     gtk_widget_set_size_request(secondPart, 180, 32);
@@ -2019,6 +2018,7 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // 卡片2：添加分区
     GtkWidget* addFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(addFrame, TRUE);
     gtk_widget_set_margin_bottom(addFrame, 10);
     GtkWidget* addTitleLabel = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(addTitleLabel), (std::string("<b>") + _("Add partition") + "</b>").c_str());
@@ -2065,8 +2065,10 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // 卡片3：移除分区
     GtkWidget* rmFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(rmFrame, TRUE);
     gtk_widget_set_margin_bottom(rmFrame, 10);
     GtkWidget* rmTitleLabel = gtk_label_new(NULL);
+	gtk_widget_set_hexpand(rmTitleLabel, TRUE);
     gtk_label_set_markup(GTK_LABEL(rmTitleLabel), (std::string("<b>") + _("Remove partition") + "</b>").c_str());
     helper.addWidget("ffff_label", rmTitleLabel, "label");
     gtk_frame_set_label_widget(GTK_FRAME(rmFrame), rmTitleLabel);
@@ -2090,8 +2092,10 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // 卡片4：重命名分区
     GtkWidget* renFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(renFrame, TRUE);
     gtk_widget_set_margin_bottom(renFrame, 10);
     GtkWidget* renTitleLabel = gtk_label_new(NULL);
+	gtk_widget_set_hexpand(renTitleLabel, TRUE);
     gtk_label_set_markup(GTK_LABEL(renTitleLabel), (std::string("<b>") + _("Rename partition") + "</b>").c_str());
     helper.addWidget("f2_label", renTitleLabel, "label");
     gtk_frame_set_label_widget(GTK_FRAME(renFrame), renTitleLabel);

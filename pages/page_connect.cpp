@@ -906,6 +906,8 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
     gtk_widget_set_margin_end(mainConnectBox, 20);
     gtk_widget_set_margin_top(mainConnectBox, 20);
     gtk_widget_set_margin_bottom(mainConnectBox, 20);
+	gtk_widget_set_halign(mainConnectBox, GTK_ALIGN_FILL);
+	gtk_widget_set_valign(mainConnectBox, GTK_ALIGN_FILL);
     helper.addWidget("mainConnectBox", mainConnectBox, "box");
 
     // ---- Header 部分 ----
@@ -940,7 +942,7 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
     helper.addWidget("fdlCenterBox", fdlCenterBox, "box");
 
     GtkWidget* fdlFrame = gtk_frame_new(NULL);
-    gtk_widget_set_size_request(fdlFrame, 600, -1);
+	gtk_widget_set_hexpand(fdlFrame, TRUE);
     helper.addWidget("fdlFrame", fdlFrame, "frame");
 
     GtkWidget* fdlLabelTitle = gtk_label_new(NULL);
@@ -955,6 +957,7 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
     gtk_widget_set_margin_end(fdlGrid, 15);
     gtk_widget_set_margin_top(fdlGrid, 15);
     gtk_widget_set_margin_bottom(fdlGrid, 15);
+	gtk_widget_set_hexpand(fdlGrid, TRUE);
     helper.addWidget("fdlGrid", fdlGrid, "grid");
 
     // FDL File Path
@@ -970,8 +973,12 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
     gtk_widget_set_size_request(selectFdlBtn, 40, 32);
     helper.addWidget("select_fdl", selectFdlBtn, "button");
 
-    // 从配置中恢复路径（这里省略，因为需要调用 ensure_config_service，你可以在外部做）
-    // 我们保留设置文本的代码在外部，这里不重复
+	auto hcfg = ensure_config_service();
+	if (hcfg)
+	{
+		sfd::ConfigService* cfg{};
+		
+	}
 
     gtk_grid_attach(GTK_GRID(fdlGrid), fdlLabel, 0, 0, 1, 1);
     gtk_grid_attach(GTK_GRID(fdlGrid), fdlFilePath, 1, 0, 1, 1);
@@ -1002,12 +1009,14 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // ---- Advanced Options Containers ----
     GtkWidget* advContainer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 20);
+	gtk_widget_set_hexpand(advContainer, TRUE);
     gtk_box_set_homogeneous(GTK_BOX(advContainer), TRUE);
     helper.addWidget("advContainer", advContainer, "box");
 
     // Left: EXEC_ADDR Options
     GtkWidget* cvFrame = gtk_frame_new(NULL);
     helper.addWidget("cvFrame", cvFrame, "frame");
+	gtk_widget_set_hexpand(cvFrame, TRUE);
     GtkWidget* cvLabelTitle = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(cvLabelTitle), (std::string("<b>") + _("EXEC_ADDR Options") + "</b>").c_str());
     gtk_frame_set_label_widget(GTK_FRAME(cvFrame), cvLabelTitle);
@@ -1016,6 +1025,7 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
     GtkWidget* cvGrid = gtk_grid_new();
     gtk_grid_set_row_spacing(GTK_GRID(cvGrid), 15);
     gtk_grid_set_column_spacing(GTK_GRID(cvGrid), 10);
+	gtk_widget_set_hexpand(cvGrid, TRUE);
     gtk_widget_set_margin_start(cvGrid, 15);
     gtk_widget_set_margin_end(cvGrid, 15);
     gtk_widget_set_margin_top(cvGrid, 15);
@@ -1081,6 +1091,7 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // Right: SPRD4 Options
     GtkWidget* sprdFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(sprdFrame, TRUE);
     helper.addWidget("sprdFrame", sprdFrame, "frame");
     GtkWidget* sprdLabelTitle = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(sprdLabelTitle), (std::string("<b>") + _("SPRD4 Options") + "</b>").c_str());
@@ -1090,6 +1101,7 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
     GtkWidget* sprdGrid = gtk_grid_new();
     gtk_grid_set_row_spacing(GTK_GRID(sprdGrid), 15);
     gtk_grid_set_column_spacing(GTK_GRID(sprdGrid), 10);
+	gtk_widget_set_hexpand(sprdGrid, TRUE);
     gtk_widget_set_margin_start(sprdGrid, 15);
     gtk_widget_set_margin_end(sprdGrid, 15);
     gtk_widget_set_margin_top(sprdGrid, 15);
@@ -1148,7 +1160,7 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // ---- Bottom Action Area ----
     GtkWidget* actionBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-    gtk_widget_set_halign(actionBox, GTK_ALIGN_CENTER);
+    gtk_widget_set_halign(actionBox, GTK_ALIGN_FILL);
     helper.addWidget("actionBox", actionBox, "box");
 
     GtkWidget* connectBtn = gtk_button_new_with_label(_("CONNECT"));
@@ -1183,14 +1195,6 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
     GtkWidget* btnPlus = gtk_button_new_with_label("+");
     gtk_widget_set_size_request(btnPlus, 32, 32);
 
-    // 信号连接使用 lambda，但按钮事件在 bind_connect_signals 中处理？这里我们保留信号连接，因为它们是独立的。
-    // 不过为了简洁，我们不在 create 函数中连接信号，信号绑定在 bind_connect_signals 中。
-    // 但这两个加减按钮需要连接信号，我们可以在 bind_connect_signals 中处理，或者在这里用 g_signal_connect。
-    // 为了保持一致，我们暂时保留原来的 g_signal_connect，它们不依赖 helper 的绑定。
-    // 但注意，在 GTK4 中 gtk_editable_get_text 可用，我们已在之前修改了。
-    // 这里直接写信号，但为了代码简洁，我们保留原来的信号连接，因为它们在原代码中已经存在。
-    // 但重写时我们保留这些信号连接，因为它们不依赖 helper。
-    // 我们复制原来的信号连接代码（稍加修改）。
     g_signal_connect(btnMinus, "clicked", G_CALLBACK(+[](GtkButton* btn, gpointer data) {
         (void)btn;
         GtkWidget* entry = GTK_WIDGET(data);
