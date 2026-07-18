@@ -74,6 +74,7 @@
 #include <dbghelp.h>
 #include <sys/stat.h>
 #endif
+#include "ui/layout/bottom_bar.h"
 
 #ifdef _WIN32
 #ifdef min
@@ -436,6 +437,34 @@ void crash_handler(int sig) {
 }
 
 // 全局快捷键处理：在 macOS 上支持 Command+Q，其他平台支持 Ctrl+Q 退出
+static void on_window_destroy(GtkWidget*, gpointer) {
+	gui_quit_main_loop();
+}
+
+#if GTK_CHECK_VERSION(4, 0, 0)
+static gboolean on_main_window_key_press_gtk4(GtkEventControllerKey* controller,
+                                              guint keyval,
+                                              guint keycode,
+                                              GdkModifierType state,
+                                              gpointer user_data) {
+    (void)controller;
+    (void)keycode;
+    (void)user_data;
+
+#if defined(__APPLE__)
+    if ((state & GDK_META_MASK) && keyval == GDK_KEY_q) {
+        gui_quit_main_loop();
+        return TRUE;
+    }
+#else
+    if ((state & GDK_CONTROL_MASK) && keyval == GDK_KEY_q) {
+        gui_quit_main_loop();
+        return TRUE;
+    }
+#endif
+    return FALSE;
+}
+#else
 static gboolean on_main_window_key_press(GtkWidget* widget, GdkEventKey* event, gpointer user_data) {
 	(void)widget;
 	(void)user_data;
@@ -453,177 +482,155 @@ static gboolean on_main_window_key_press(GtkWidget* widget, GdkEventKey* event, 
 #endif
 	return FALSE;
 }
+#endif
  //fdl exec
 std::string fdl1_path_json;
 std::string fdl2_path_json;
 uint32_t fdl1_addr_json;
 uint32_t fdl2_addr_json;
+
 int gtk_kmain(int argc, char** argv) {
-	DEG_LOG(I, "Starting GUI mode...");
-	gtk_init(&argc, &argv);
+    DEG_LOG(I, "Starting GUI mode...");
+#if GTK_CHECK_VERSION(4, 0, 0)
+    gtk_init();
+#else
+    gtk_init(&argc, &argv);
+#endif
 
-	g_about_text = load_about_text();
+    g_about_text = load_about_text();
 
-	// Initialization previously at file scope
-	io = spdio_init(0);
+    // 初始化 IO 和全局状态
+    io = spdio_init(0);
 #if USE_LIBUSB
-	ret = libusb_init(nullptr);
-	if (ret < 0) ERR_EXIT("libusb_init failed: %s\n", libusb_error_name(ret));
+    ret = libusb_init(nullptr);
+    if (ret < 0) ERR_EXIT("libusb_init failed: %s\n", libusb_error_name(ret));
 #else
-	io->handle = createClass();
-	call_Initialize(io->handle);
+    io->handle = createClass();
+    call_Initialize(io->handle);
 #endif
-	snprintf(fn_partlist, sizeof(fn_partlist), "partition_%lld.xml", (long long)time(nullptr));
+    snprintf(fn_partlist, sizeof(fn_partlist), "partition_%lld.xml", (long long)time(nullptr));
 
 #if defined(__APPLE__)
-	// macOS: 如果通过 .app Bundle 启动，默认将备份文件保存到 ~/Documents/sfd_tool
-	{
-		std::string exe_dir = get_executable_dir();
-#if defined(__APPLE__)
-    g_is_macos_bundle = (!exe_dir.empty() && exe_dir.find(".app/Contents/MacOS") != std::string::npos);
-#endif
-		if (!exe_dir.empty() && exe_dir.find(".app/Contents/MacOS") != std::string::npos) {
-			const char* home = std::getenv("HOME");
-			if (home && *home) {
-				std::string docs_dir = std::string(home) + "/Documents/sfd_tool";
-				struct stat st{};
-				if (stat(docs_dir.c_str(), &st) != 0) {
-					// 目录不存在则尝试创建，失败时静默忽略，退回到当前工作目录策略
-					mkdir(docs_dir.c_str(), 0755);
-				}
-				if (stat(docs_dir.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
-					if (docs_dir.size() < sizeof(savepath)) {
-						std::snprintf(savepath, sizeof(savepath), "%s", docs_dir.c_str());
-						DEG_LOG(I, "macOS bundle detected, savepath set to %s", savepath);
-					}
-				}
-			}
-		}
-	}
+    // macOS 保存路径设置
+    {
+        std::string exe_dir = get_executable_dir();
+        g_is_macos_bundle = (!exe_dir.empty() && exe_dir.find(".app/Contents/MacOS") != std::string::npos);
+        if (g_is_macos_bundle) {
+            const char* home = std::getenv("HOME");
+            if (home && *home) {
+                std::string docs_dir = std::string(home) + "/Documents/sfd_tool";
+                struct stat st{};
+                if (stat(docs_dir.c_str(), &st) != 0) {
+                    mkdir(docs_dir.c_str(), 0755);
+                }
+                if (stat(docs_dir.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
+                    if (docs_dir.size() < sizeof(savepath)) {
+                        std::snprintf(savepath, sizeof(savepath), "%s", docs_dir.c_str());
+                        DEG_LOG(I, "macOS bundle detected, savepath set to %s", savepath);
+                    }
+                }
+            }
+        }
+    }
 #endif
 
-	// Window Setup
-	GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-	gtk_window_set_title(GTK_WINDOW(window), "SFD Tool GUI By Ryan Crepa");
-	// 根据屏幕分辨率自适应默认窗口大小，给小屏幕留出边距
-	GdkScreen* screen = gdk_screen_get_default();
-	int screen_w = 0;
-	int screen_h = 0;
+    // 创建窗口
+    GtkWidget* window = gtk_window_new();
+    gtk_window_set_title(GTK_WINDOW(window), "SFD Tool GUI By Ryan Crepa");
 
-#if GTK_CHECK_VERSION(3, 22, 0)
-	GdkDisplay* display = gdk_display_get_default();
-	if (display) {
-		GdkMonitor* primary = gdk_display_get_primary_monitor(display);
-		if (primary) {
-			GdkRectangle geometry{};
-			gdk_monitor_get_geometry(primary, &geometry);
-			screen_w = geometry.width;
-			screen_h = geometry.height;
-		}
-	}
+    // 直接设置默认窗口尺寸，不再检测屏幕
+	gtk_window_set_default_size(GTK_WINDOW(window), 1174, 820);
+
+    // 快捷键
+#if GTK_CHECK_VERSION(4, 0, 0)
+    GtkEventController* controller = gtk_event_controller_key_new();
+    g_signal_connect(controller, "key-pressed", G_CALLBACK(on_main_window_key_press_gtk4), NULL);
+    gtk_widget_add_controller(window, controller);
 #else
-	if (screen) {
-		screen_w = gdk_screen_get_width(screen);
-		screen_h = gdk_screen_get_height(screen);
-	}
+    gtk_widget_add_events(window, GDK_KEY_PRESS_MASK);
+    g_signal_connect(window, "key-press-event", G_CALLBACK(on_main_window_key_press), NULL);
+#endif
+    g_signal_connect(window, "destroy", G_CALLBACK(on_window_destroy), NULL);
+
+    // 创建主网格
+    GtkWidget* mainGrid = gtk_grid_new();
+
+    // 初始化 helper（不再需要 setParent，因为不再使用自动添加）
+    helper = GtkWidgetHelper(window);
+    isHelperInit = true;
+    helper.addWidget("main_window", window);
+    initDragDetection(GTK_WINDOW(window));
+
+    // ---- 创建 Notebook ----
+    GtkWidget* notebook = gtk_notebook_new();
+    helper.addWidget("main_notebook", notebook, "notebook");
+    gtk_widget_set_hexpand(notebook, TRUE);
+    gtk_widget_set_vexpand(notebook, TRUE);
+
+    // ---- 创建各页面（使用页面模块提供的 create 函数） ----
+    create_connect_page(helper, notebook);
+    create_partition_page(helper, notebook);
+    create_manual_page(helper, notebook);
+    create_advanced_op_page(helper, notebook);
+    create_pac_flash_page(helper, notebook);
+    create_advanced_set_page(helper, notebook);
+    create_debug_page(helper, notebook);
+    create_log_page(helper, notebook);
+    create_about_page(helper, notebook);
+
+    // ---- 底部栏 ----
+    GtkWidget* bottomContainer = bottom_bar_create(helper);
+
+    // 将 notebook 和 bottomContainer 添加到 mainGrid
+    gtk_grid_attach(GTK_GRID(mainGrid), notebook, 0, 0, 10, 1);
+    gtk_grid_attach(GTK_GRID(mainGrid), bottomContainer, 0, 1, 10, 1);
+
+    // CSS 样式（保持不变）
+    GtkCssProvider* provider = gtk_css_provider_new();
+    const gchar* css =
+        "label.big-label { font-size: 20px; }"
+        "progressbar { min-height: 9px; }";
+#if GTK_CHECK_VERSION(4, 0, 0)
+    gtk_css_provider_load_from_data(provider, css, -1);
+    gtk_style_context_add_provider_for_display(gdk_display_get_default(),
+            GTK_STYLE_PROVIDER(provider),
+            GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    gtk_window_set_child(GTK_WINDOW(window), mainGrid);
+#else
+    gtk_css_provider_load_from_data(provider, css, -1, NULL);
+    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
+            GTK_STYLE_PROVIDER(provider),
+            GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    gtk_container_add(GTK_CONTAINER(window), mainGrid);
 #endif
 
-	const int target_w = 1174;
-	const int target_h = 820;
-	const int margin_w = 100;
+    // 显示窗口（GTK4 默认可见，但为了兼容 GTK3 保留）
+#if GTK_CHECK_VERSION(4, 0, 0)
+    gtk_widget_set_visible(window, TRUE);
+#else
+    gtk_widget_show_all(window);
+#endif
 
-	int win_w = target_w;
-	int win_h = target_h;
+    // 默认选中第一个标签页
+    gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), 0);
 
-	if (screen_w > 0) {
-		win_w = std::min(target_w, screen_w - margin_w);
-	}
-	if (screen_h > 0) {
-		win_h = (screen_h < target_h) ? screen_h : target_h;
-	}
+    // ---- 绑定信号（所有页面和底部栏） ----
+    bind_connect_signals(helper, argc, argv);
+    bind_partition_signals(helper);
+    bind_manual_signals(helper);
+    bind_advanced_op_signals(helper);
+    bind_pac_flash_signals(helper);
+    bind_advanced_set_signals(helper);
+    bind_debug_signals(helper);
+    bind_log_signals(helper);
+    bind_bottom_signals(helper, bottomContainer);
 
-	// 再兜底确保窗口不会太小
-	if (win_w < 800) win_w = 800;
-	if (win_h < 600) win_h = 600;
+    DisableWidgets(helper);
+    gui_run_main_loop();
 
-	gtk_window_set_default_size(GTK_WINDOW(window), win_w, win_h);
-
-	// 启用键盘事件（用于快捷键）
-	gtk_widget_add_events(window, GDK_KEY_PRESS_MASK);
-	g_signal_connect(window, "key-press-event", G_CALLBACK(on_main_window_key_press), NULL);
-
-	// 设置关闭信号
-	g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
-
-	// 创建主网格布局
-	GtkWidget* mainGrid = gtk_grid_new();
-
-	// 创建 GtkWidgetHelper
-	helper = GtkWidgetHelper(window);
-	isHelperInit = true;
-	helper.setParent(window, LayoutType::GRID);
-	helper.addWidget("main_window", window);
-	initDragDetection(GTK_WINDOW(window));
-
-	// 创建Notebook（标签页控件）
-	GtkWidget* notebook = helper.createNotebook("main_notebook", 0, 0, 1174, 0);
-	{
-		// ========== 模块化页面创建 ==========
-		create_connect_page(helper, notebook);
-		create_partition_page(helper, notebook);
-		create_manual_page(helper, notebook);
-		create_advanced_op_page(helper, notebook);
-		create_pac_flash_page(helper, notebook);
-		create_advanced_set_page(helper, notebook);
-		create_debug_page(helper, notebook);
-		create_log_page(helper, notebook);
-		create_about_page(helper, notebook);
-
-		// ========== 底部控制栏 ==========
-		GtkWidget* bottomContainer = create_bottom_controls(helper);
-
-		// Add notebook and bottom container to main grid
-		gtk_grid_attach(GTK_GRID(mainGrid), notebook, 0, 0, 10, 1);
-		gtk_grid_attach(GTK_GRID(mainGrid), bottomContainer, 0, 1, 10, 1);
-
-		// 创建CSS样式
-		GtkCssProvider* provider = gtk_css_provider_new();
-		const gchar* css =
-		    "label.big-label { font-size: 20px; }"
-		    "progressbar { min-height: 9px; }"
-		    "#wait_con_no_arrow button { min-width: 0px; padding: 0px; border: none; background: transparent; -gtk-icon-source: none; color: transparent; opacity: 0; }"
-		    "#wait_con_no_arrow entry, #wait_con_no_arrow spinbutton, #wait_con_no_arrow text, #wait_con_no_arrow * { background: transparent; box-shadow: none; border: none; }";
-		gtk_css_provider_load_from_data(provider, css, -1, NULL);
-		gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
-		        GTK_STYLE_PROVIDER(provider),
-		        GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-
-		gtk_container_add(GTK_CONTAINER(window), mainGrid);
-
-		// 显示所有组件
-		gtk_widget_show_all(window);
-
-		// 强制默认选中第一个标签页（“连接”页）
-		gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), 0);
-
-		// ========== 模块化信号绑定 ==========
-		bind_connect_signals(helper, argc, argv);
-
-		bind_partition_signals(helper);
-		bind_manual_signals(helper);
-		bind_advanced_op_signals(helper);
-		bind_pac_flash_signals(helper);
-		bind_advanced_set_signals(helper);
-		bind_debug_signals(helper);
-		bind_log_signals(helper);
-		bind_bottom_signals(helper, bottomContainer);
-	}
-	DisableWidgets(helper);
-	// 启动GTK主循环
-	gtk_main();
-
-	return 0;
+    return 0;
 }
+
 int main(int argc, char** argv) {
 	// 读取配置并根据 ui_language 设置 gettext 语言
 	sfd::AppConfig cfg;

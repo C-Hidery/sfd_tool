@@ -119,99 +119,123 @@ static void on_button_clicked_select_xml(GtkWidgetHelper helper) {
 
 
 GtkWidget* create_advanced_op_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
-	GtkWidget* advOpPage = helper.createGrid("adv_op_page", 5, 5);
-	helper.addNotebookPage(notebook, advOpPage, _("Advanced Operation"));
+    GtkWidget* advOpPage = gtk_grid_new();
+	gtk_widget_set_hexpand(advOpPage, TRUE);
+	gtk_widget_set_vexpand(advOpPage, TRUE);
+	helper.addWidget("adv_op_page", advOpPage, "grid");
+    helper.addNotebookPage(notebook, advOpPage, _("Advanced Operation"));
 
-	GtkWidget* advScroll = gtk_scrolled_window_new(NULL, NULL);
-	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(advScroll),
-	                               GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
-	gtk_widget_set_hexpand(advScroll, TRUE);
-	gtk_widget_set_vexpand(advScroll, TRUE);
+    GtkWidget* advScroll = gtk_scrolled_window_new();
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(advScroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+    gtk_widget_set_hexpand(advScroll, TRUE);
+    gtk_widget_set_vexpand(advScroll, TRUE);
+    helper.addWidget("advScroll", advScroll, "scrolledwindow");
 
-	GtkWidget* mainBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 32);
-	gtk_widget_set_margin_start(mainBox, 40);
-	gtk_widget_set_margin_end(mainBox, 40);
-	gtk_widget_set_margin_top(mainBox, 40);
-	gtk_widget_set_margin_bottom(mainBox, 40);
-	gtk_widget_set_halign(mainBox, GTK_ALIGN_CENTER);
-	gtk_widget_set_size_request(mainBox, 520, -1);
+    GtkWidget* mainBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 32);
+	gtk_widget_set_hexpand(mainBox, TRUE);
+    gtk_widget_set_vexpand(mainBox, TRUE);
+    gtk_widget_set_margin_start(mainBox, 40);
+    gtk_widget_set_margin_end(mainBox, 40);
+    gtk_widget_set_margin_top(mainBox, 40);
+    gtk_widget_set_margin_bottom(mainBox, 40);
+    gtk_widget_set_halign(mainBox, GTK_ALIGN_CENTER);
+    gtk_widget_set_size_request(mainBox, 520, -1);
+    helper.addWidget("mainBox", mainBox, "box");
 
-	auto makeCardBox = [](int pad_h, int pad_v) -> GtkWidget* {
-		GtkWidget* box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
-		gtk_widget_set_margin_start(box, pad_h);
-		gtk_widget_set_margin_end(box, pad_h);
-		gtk_widget_set_margin_top(box, pad_v);
-		gtk_widget_set_margin_bottom(box, pad_v);
-		return box;
-	};
+    auto makeCardBox = [](int pad_h, int pad_v) -> GtkWidget* {
+        GtkWidget* box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
+        gtk_widget_set_margin_start(box, pad_h);
+        gtk_widget_set_margin_end(box, pad_h);
+        gtk_widget_set_margin_top(box, pad_v);
+        gtk_widget_set_margin_bottom(box, pad_v);
+        return box;
+    };
 
-	// A/B partition
-	GtkWidget* abFrame = gtk_frame_new(NULL);
-	GtkWidget* abLabel = gtk_label_new(NULL);
-	gtk_label_set_markup(GTK_LABEL(abLabel), (std::string("<b>") + _("Toggle the A/B partition boot settings") + "</b>").c_str());
-	gtk_widget_set_halign(abLabel, GTK_ALIGN_CENTER);
-	gtk_frame_set_label_widget(GTK_FRAME(abFrame), abLabel);
-	gtk_frame_set_label_align(GTK_FRAME(abFrame), 0.5, 0.5);
-	helper.addWidget("ab_label", abLabel);
+    // ---- A/B partition ----
+    GtkWidget* abFrame = gtk_frame_new(NULL);
+    GtkWidget* abLabel = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(abLabel), (std::string("<b>") + _("Toggle the A/B partition boot settings") + "</b>").c_str());
+    gtk_widget_set_halign(abLabel, GTK_ALIGN_CENTER);
+    gtk_frame_set_label_widget(GTK_FRAME(abFrame), abLabel);
+    gtkFrameSetLabelAlign(abFrame, 0.5, 0.5);
+    helper.addWidget("ab_label", abLabel, "label");
 
-	GtkWidget* abBox = makeCardBox(32, 16);
-	gtk_container_add(GTK_CONTAINER(abFrame), abBox);
+    GtkWidget* abBox = makeCardBox(32, 16);
+    helper.addWidget("abBox", abBox, "box");
+    gtkContainerAdd(abFrame, abBox);
 
-	GtkWidget* abButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
-	gtk_widget_set_halign(abButtonBox, GTK_ALIGN_CENTER);
-	GtkWidget* setActiveA = helper.createButton(_("Boot A partitons"), "set_active_a", nullptr, 0, 0, 272, 36);
-	GtkWidget* setActiveB = helper.createButton(_("Boot B partitions"), "set_active_b", nullptr, 0, 0, 272, 36);
-	gtk_box_pack_start(GTK_BOX(abButtonBox), setActiveA, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(abButtonBox), setActiveB, FALSE, FALSE, 0);
+    GtkWidget* abButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+    gtk_widget_set_halign(abButtonBox, GTK_ALIGN_CENTER);
+    helper.addWidget("abButtonBox", abButtonBox, "box");
 
-	gtk_box_pack_start(GTK_BOX(abBox), abButtonBox, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(mainBox), abFrame, FALSE, FALSE, 0);
+    GtkWidget* setActiveA = gtk_button_new_with_label(_("Boot A partitons"));
+    gtk_widget_set_size_request(setActiveA, 272, 36);
+    helper.addWidget("set_active_a", setActiveA, "button");
+    GtkWidget* setActiveB = gtk_button_new_with_label(_("Boot B partitions"));
+    gtk_widget_set_size_request(setActiveB, 272, 36);
+    helper.addWidget("set_active_b", setActiveB, "button");
 
-	// Repartition
-	GtkWidget* repartFrame = gtk_frame_new(NULL);
-	GtkWidget* repartLabel = gtk_label_new(NULL);
-	gtk_label_set_markup(GTK_LABEL(repartLabel), (std::string("<b>") + _("Repartition") + "</b>").c_str());
-	gtk_widget_set_halign(repartLabel, GTK_ALIGN_CENTER);
-	gtk_frame_set_label_widget(GTK_FRAME(repartFrame), repartLabel);
-	gtk_frame_set_label_align(GTK_FRAME(repartFrame), 0.5, 0.5);
-	helper.addWidget("repart_label", repartLabel);
+    gtkBoxPackStart(abButtonBox, setActiveA, FALSE, FALSE, 0);
+    gtkBoxPackStart(abButtonBox, setActiveB, FALSE, FALSE, 0);
+    gtkBoxPackStart(abBox, abButtonBox, FALSE, FALSE, 0);
+    gtkBoxPackStart(mainBox, abFrame, FALSE, FALSE, 0);
 
-	GtkWidget* repartBox = makeCardBox(32, 16);
-	gtk_container_add(GTK_CONTAINER(repartFrame), repartBox);
+    // ---- Repartition ----
+    GtkWidget* repartFrame = gtk_frame_new(NULL);
+    GtkWidget* repartLabel = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(repartLabel), (std::string("<b>") + _("Repartition") + "</b>").c_str());
+    gtk_widget_set_halign(repartLabel, GTK_ALIGN_CENTER);
+    gtk_frame_set_label_widget(GTK_FRAME(repartFrame), repartLabel);
+    gtkFrameSetLabelAlign(repartFrame, 0.5, 0.5);
+    helper.addWidget("repart_label", repartLabel, "label");
 
-	GtkWidget* xmlLabel = gtk_label_new(_("XML part info file path"));
-	gtk_widget_set_halign(xmlLabel, GTK_ALIGN_CENTER);
-	helper.addWidget("xml_label", xmlLabel);
+    GtkWidget* repartBox = makeCardBox(32, 16);
+    helper.addWidget("repartBox", repartBox, "box");
+    gtkContainerAdd(repartFrame, repartBox);
 
-	GtkWidget* xmlInputWrap = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
-	gtk_widget_set_halign(xmlInputWrap, GTK_ALIGN_CENTER);
+    GtkWidget* xmlLabel = gtk_label_new(_("XML part info file path"));
+    gtk_widget_set_halign(xmlLabel, GTK_ALIGN_CENTER);
+    helper.addWidget("xml_label", xmlLabel, "label");
 
-	GtkWidget* xmlInputLinked = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-	gtk_style_context_add_class(gtk_widget_get_style_context(xmlInputLinked), "linked");
-	
-	GtkWidget* xmlPath = helper.createEntry("xml_path", "", false, 0, 0, 400, 36);
-	GtkWidget* selectXmlBtn = helper.createButton("...", "select_xml", nullptr, 0, 0, 48, 36);
-	
-	gtk_box_pack_start(GTK_BOX(xmlInputLinked), xmlPath, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(xmlInputLinked), selectXmlBtn, FALSE, FALSE, 0);
+    GtkWidget* xmlInputWrap = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+    gtk_widget_set_halign(xmlInputWrap, GTK_ALIGN_CENTER);
+    helper.addWidget("xmlInputWrap", xmlInputWrap, "box");
 
-	GtkWidget* startRepartBtn = helper.createButton(_("START"), "start_repart", nullptr, 0, 0, 96, 36);
+    GtkWidget* xmlInputLinked = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_widget_add_css_class(xmlInputLinked, "linked");
+    helper.addWidget("xmlInputLinked", xmlInputLinked, "box");
 
-	gtk_box_pack_start(GTK_BOX(xmlInputWrap), xmlInputLinked, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(xmlInputWrap), startRepartBtn, FALSE, FALSE, 0);
+    GtkWidget* xmlPath = gtk_entry_new();
+    gtk_widget_set_size_request(xmlPath, 400, 36);
+    helper.addWidget("xml_path", xmlPath, "entry");
+    GtkWidget* selectXmlBtn = gtk_button_new_with_label("...");
+    gtk_widget_set_size_request(selectXmlBtn, 48, 36);
+    helper.addWidget("select_xml", selectXmlBtn, "button");
 
-	GtkWidget* readXmlBtn = helper.createButton(_("Extract part info to a XML file (if support)"), "read_xml", nullptr, 0, 0, 560, 36);
-	gtk_widget_set_halign(readXmlBtn, GTK_ALIGN_CENTER);
+    gtkBoxPackStart(xmlInputLinked, xmlPath, FALSE, FALSE, 0);
+    gtkBoxPackStart(xmlInputLinked, selectXmlBtn, FALSE, FALSE, 0);
 
-	gtk_box_pack_start(GTK_BOX(repartBox), xmlLabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(repartBox), xmlInputWrap, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(repartBox), readXmlBtn, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(mainBox), repartFrame, FALSE, FALSE, 0);
+    GtkWidget* startRepartBtn = gtk_button_new_with_label(_("START"));
+    gtk_widget_set_size_request(startRepartBtn, 96, 36);
+    helper.addWidget("start_repart", startRepartBtn, "button");
 
-	gtk_container_add(GTK_CONTAINER(advScroll), mainBox);
-	helper.addToGrid(advOpPage, advScroll, 0, 0, 5, 5);
+    gtkBoxPackStart(xmlInputWrap, xmlInputLinked, FALSE, FALSE, 0);
+    gtkBoxPackStart(xmlInputWrap, startRepartBtn, FALSE, FALSE, 0);
 
-	return advOpPage;
+    GtkWidget* readXmlBtn = gtk_button_new_with_label(_("Extract part info to a XML file (if support)"));
+    gtk_widget_set_size_request(readXmlBtn, 560, 36);
+    gtk_widget_set_halign(readXmlBtn, GTK_ALIGN_CENTER);
+    helper.addWidget("read_xml", readXmlBtn, "button");
+
+    gtkBoxPackStart(repartBox, xmlLabel, FALSE, FALSE, 0);
+    gtkBoxPackStart(repartBox, xmlInputWrap, FALSE, FALSE, 0);
+    gtkBoxPackStart(repartBox, readXmlBtn, FALSE, FALSE, 0);
+    gtkBoxPackStart(mainBox, repartFrame, FALSE, FALSE, 0);
+
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(advScroll), mainBox);
+    helper.addToGrid(advOpPage, advScroll, 0, 0, 5, 5);
+
+    return advOpPage;
 }
 
 void bind_advanced_op_signals(GtkWidgetHelper& helper) {

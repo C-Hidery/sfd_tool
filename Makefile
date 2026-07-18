@@ -61,14 +61,14 @@ ifeq ($(UNAME_S), Darwin)  # macOS
     # macOS 上的 libusb 包名
     LIBUSB_PKG = libusb-1.0
     # macOS 上可能需要 Homebrew 安装的 GTK
-    GTK_PKG = gtk+-3.0
+    GTK_PKG = gtk4
     # macOS 上的编译器通常是 clang++
     CXX = clang++
 else ifeq ($(UNAME_S), Linux)  # Linux
     # Linux 特定配置
     CXXFLAGS += -DLINUX
     LIBUSB_PKG = libusb-1.0
-    GTK_PKG = gtk+-3.0
+    GTK_PKG = gtk4
     CXX = g++
 else
     $(error Unsupported operating system: $(UNAME_S))
@@ -176,7 +176,7 @@ check-deps:
 	@echo "Checking dependencies..."
 	@echo "OS: $(UNAME_S)"
 ifeq ($(GTK),1)
-	@pkg-config --exists $(GTK_PKG) && echo "GTK3: Found" || echo "GTK3: Not found"
+	@pkg-config --exists $(GTK_PKG) && echo "GTK4: Found" || echo "GTK4: Not found"
 endif
 ifeq ($(LIBUSB),1)
 	@pkg-config --exists $(LIBUSB_PKG) && echo "libusb: Found" || echo "libusb: Not found"

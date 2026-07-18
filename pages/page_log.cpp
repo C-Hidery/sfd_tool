@@ -31,56 +31,70 @@ static void on_button_clicked_log_clear(GtkWidgetHelper helper) {
 }
 
 GtkWidget* LogPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
-	GtkWidget* logPage = helper.createGrid("log_page", 5, 5);
-	helper.addNotebookPage(notebook, logPage, _("Log"));
+    GtkWidget* logPage = gtk_grid_new();
+    gtk_widget_set_hexpand(logPage, TRUE);
+    gtk_widget_set_vexpand(logPage, TRUE);
+    helper.addWidget("log_page", logPage, "grid");
+    helper.addNotebookPage(notebook, logPage, _("Log"));
 
-	// 最外层滚动以适应极小窗口
-	GtkWidget* pageScroll = gtk_scrolled_window_new(NULL, NULL);
-	gtk_widget_set_hexpand(pageScroll, TRUE);
-	gtk_widget_set_vexpand(pageScroll, TRUE);
+    GtkWidget* pageScroll = gtk_scrolled_window_new();
+    gtk_widget_set_hexpand(pageScroll, TRUE);
+    gtk_widget_set_vexpand(pageScroll, TRUE);
+    helper.addWidget("pageScroll", pageScroll, "scrolledwindow");
 
-	// 主居中盒子
-	GtkWidget* mainBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 24);
-	gtk_widget_set_halign(mainBox, GTK_ALIGN_CENTER);
-	gtk_widget_set_valign(mainBox, GTK_ALIGN_CENTER);
-	gtk_widget_set_margin_start(mainBox, 40);
-	gtk_widget_set_margin_end(mainBox, 40);
-	gtk_widget_set_margin_top(mainBox, 40);
-	gtk_widget_set_margin_bottom(mainBox, 40);
-	// 设定最小宽度，避免在小屏上撑死高度
-	gtk_widget_set_size_request(mainBox, 700, -1);
+    GtkWidget* mainBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 24);
+  	gtk_widget_set_hexpand(mainBox, TRUE);
+	gtk_widget_set_vexpand(mainBox, TRUE);
+	gtk_widget_set_halign(mainBox, GTK_ALIGN_FILL);   // 改为 FILL 以填满
+	gtk_widget_set_valign(mainBox, GTK_ALIGN_FILL);
+    gtk_widget_set_margin_start(mainBox, 40);
+    gtk_widget_set_margin_end(mainBox, 40);
+    gtk_widget_set_margin_top(mainBox, 40);
+    gtk_widget_set_margin_bottom(mainBox, 40);
+    gtk_widget_set_size_request(mainBox, 700, -1);
+    helper.addWidget("mainBox", mainBox, "box");
 
-	// 外框包裹日志显示区域
-	GtkWidget* logFrame = gtk_frame_new(NULL);
+    // 日志显示区域
+    GtkWidget* logFrame = gtk_frame_new(NULL);
+	gtk_widget_set_hexpand(logFrame, TRUE);
+	gtk_widget_set_vexpand(logFrame, TRUE);	
+    helper.addWidget("logFrame", logFrame, "frame");
 
-	GtkWidget* scrolledLog = gtk_scrolled_window_new(NULL, NULL);
-	gtk_widget_set_size_request(scrolledLog, -1, 500);
-	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolledLog),
-	                               GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    GtkWidget* scrolledLog = gtk_scrolled_window_new();
+    gtk_widget_set_size_request(scrolledLog, -1, 500);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolledLog), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+	gtk_widget_set_hexpand(scrolledLog, TRUE);
+	gtk_widget_set_vexpand(scrolledLog, TRUE);
+    helper.addWidget("scrolledLog", scrolledLog, "scrolledwindow");
 
-	GtkWidget* logTextView = gtk_text_view_new();
-	gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(logTextView), GTK_WRAP_WORD);
-	gtk_widget_set_name(logTextView, "txtOutput");
-	helper.addWidget("txtOutput", logTextView);
+    GtkWidget* logTextView = gtk_text_view_new();
+	gtk_widget_set_hexpand(logTextView, TRUE);
+	gtk_widget_set_vexpand(logTextView, TRUE);	
+    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(logTextView), GTK_WRAP_WORD);
+    gtk_widget_set_name(logTextView, "txtOutput");
+    helper.addWidget("txtOutput", logTextView, "textview");
 
-	gtk_container_add(GTK_CONTAINER(scrolledLog), logTextView);
-	gtk_container_add(GTK_CONTAINER(logFrame), scrolledLog);
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolledLog), logTextView);
+    gtkContainerAdd(logFrame, scrolledLog);
 
-	GtkWidget* expLogBtn = helper.createButton(_("Export"), "exp_log", nullptr, 0, 0, 120, 32);
-	GtkWidget* logClearBtn = helper.createButton(_("Clear"), "log_clear", nullptr, 0, 0, 120, 32);
+    GtkWidget* expLogBtn = gtk_button_new_with_label(_("Export"));
+    helper.addWidget("exp_log", expLogBtn, "button");
+    GtkWidget* logClearBtn = gtk_button_new_with_label(_("Clear"));
+    helper.addWidget("log_clear", logClearBtn, "button");
 
-	GtkWidget* logButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 20);
-	gtk_widget_set_halign(logButtonBox, GTK_ALIGN_START); // 左对齐按钮
-	gtk_box_pack_start(GTK_BOX(logButtonBox), expLogBtn, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(logButtonBox), logClearBtn, FALSE, FALSE, 0);
+    GtkWidget* logButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 20);
+    gtk_widget_set_halign(logButtonBox, GTK_ALIGN_START);
+    helper.addWidget("logButtonBox", logButtonBox, "box");
+    gtkBoxPackStart(logButtonBox, expLogBtn, FALSE, FALSE, 0);
+    gtkBoxPackStart(logButtonBox, logClearBtn, FALSE, FALSE, 0);
 
-	gtk_box_pack_start(GTK_BOX(mainBox), logFrame, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(mainBox), logButtonBox, FALSE, FALSE, 0);
+    gtkBoxPackStart(mainBox, logFrame, FALSE, FALSE, 0);
+    gtkBoxPackStart(mainBox, logButtonBox, FALSE, FALSE, 0);
 
-	gtk_container_add(GTK_CONTAINER(pageScroll), mainBox);
-	helper.addToGrid(logPage, pageScroll, 0, 0, 1, 1);
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(pageScroll), mainBox);
+    helper.addToGrid(logPage, pageScroll, 0, 0, 1, 1);
 
-	return logPage;
+    return logPage;
 }
 
 void LogPage::bindSignals(GtkWidgetHelper& helper) {
