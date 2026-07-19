@@ -108,11 +108,4 @@ foreach(tgt IN LISTS SFD_TEST_TARGETS)
             setupapi
         )
     endif()
-
-    # 确保不使用 BMPlatform 库
-    # 移除任何可能链接 BMPlatform 的语句
-    if(TARGET BMPlatform)
-        # 不链接 BMPlatform
-        # target_link_libraries(${tgt} PRIVATE BMPlatform)  # 注释掉
-    endif()
 endforeach()

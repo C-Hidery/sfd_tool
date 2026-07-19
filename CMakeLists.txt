@@ -287,7 +287,6 @@ if (USE_GTK)
         # Link against GTK4/glib import libraries from MSYS2
         set(_gtk_win_libs
             "${_gtk_root}/lib/libgtk-4.dll.a"
-            "${_gtk_root}/lib/libgdk-4.dll.a"
             "${_gtk_root}/lib/libglib-2.0.dll.a"
             "${_gtk_root}/lib/libgobject-2.0.dll.a"
             "${_gtk_root}/lib/libgio-2.0.dll.a"
