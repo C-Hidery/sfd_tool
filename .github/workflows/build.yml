@@ -50,16 +50,8 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
 
-      - name: Install gettext (libintl) via vcpkg
-        shell: pwsh
-        run: |
-          $vcpkgExe = "C:\vcpkg\vcpkg.exe"
-          if (-not (Test-Path $vcpkgExe)) {
-            Write-Error "vcpkg.exe not found at $vcpkgExe"
-            exit 1
-          }
-          Write-Host "Using vcpkg: $vcpkgExe"
-          & $vcpkgExe install "gettext:${{ matrix.vcpkg_triplet }}"
+    
+
       - name: Install MSYS2 and GTK4 (x64)
         if: matrix.arch == 'x64'
         shell: pwsh
