@@ -84,7 +84,8 @@ jobs:
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-i686-gtk4 mingw-w64-i686-toolchain mingw-w64-i686-pkg-config"
       
-          - name: Create Build Directory
+      - name: Create Build Directory
+        shell: pwsh
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.artifact_name }}/${{ matrix.config }}/ | Out-Null
 
       - name: Configure (CMake)
