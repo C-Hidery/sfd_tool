@@ -120,27 +120,23 @@ static void on_button_clicked_select_xml(GtkWidgetHelper helper) {
 
 GtkWidget* create_advanced_op_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
     GtkWidget* advOpPage = gtk_grid_new();
-	gtk_widget_set_hexpand(advOpPage, TRUE);
-	gtk_widget_set_vexpand(advOpPage, TRUE);
-	helper.addWidget("adv_op_page", advOpPage, "grid");
+    gtk_widget_set_name(advOpPage, "adv_op_page");
+    helper.addWidget("adv_op_page", advOpPage);
     helper.addNotebookPage(notebook, advOpPage, _("Advanced Operation"));
 
     GtkWidget* advScroll = gtk_scrolled_window_new();
-    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(advScroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(advScroll),
+                                   GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
     gtk_widget_set_hexpand(advScroll, TRUE);
     gtk_widget_set_vexpand(advScroll, TRUE);
-    helper.addWidget("advScroll", advScroll, "scrolledwindow");
 
     GtkWidget* mainBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 32);
-	gtk_widget_set_hexpand(mainBox, TRUE);
-    gtk_widget_set_vexpand(mainBox, TRUE);
     gtk_widget_set_margin_start(mainBox, 40);
     gtk_widget_set_margin_end(mainBox, 40);
     gtk_widget_set_margin_top(mainBox, 40);
     gtk_widget_set_margin_bottom(mainBox, 40);
-    gtk_widget_set_halign(mainBox, GTK_ALIGN_FILL);
-	gtk_widget_set_valign(mainBox, GTK_ALIGN_FILL);
-    helper.addWidget("mainBox", mainBox, "box");
+    gtk_widget_set_halign(mainBox, GTK_ALIGN_CENTER);
+    gtk_widget_set_size_request(mainBox, 520, -1);
 
     auto makeCardBox = [](int pad_h, int pad_v) -> GtkWidget* {
         GtkWidget* box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
@@ -151,91 +147,95 @@ GtkWidget* create_advanced_op_page(GtkWidgetHelper& helper, GtkWidget* notebook)
         return box;
     };
 
-    // ---- A/B partition ----
+    // ─── A/B partition ───
     GtkWidget* abFrame = gtk_frame_new(NULL);
-	gtk_widget_set_hexpand(abFrame, TRUE);
     GtkWidget* abLabel = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(abLabel), (std::string("<b>") + _("Toggle the A/B partition boot settings") + "</b>").c_str());
+    gtk_label_set_markup(GTK_LABEL(abLabel),
+        (std::string("<b>") + _("Toggle the A/B partition boot settings") + "</b>").c_str());
     gtk_widget_set_halign(abLabel, GTK_ALIGN_CENTER);
     gtk_frame_set_label_widget(GTK_FRAME(abFrame), abLabel);
     gtkFrameSetLabelAlign(abFrame, 0.5, 0.5);
-    helper.addWidget("ab_label", abLabel, "label");
+    helper.addWidget("ab_label", abLabel);
 
     GtkWidget* abBox = makeCardBox(32, 16);
-    helper.addWidget("abBox", abBox, "box");
-    gtkContainerAdd(abFrame, abBox);
+    gtk_frame_set_child(GTK_FRAME(abFrame), abBox);
 
     GtkWidget* abButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
     gtk_widget_set_halign(abButtonBox, GTK_ALIGN_CENTER);
-    helper.addWidget("abButtonBox", abButtonBox, "box");
 
     GtkWidget* setActiveA = gtk_button_new_with_label(_("Boot A partitons"));
+    gtk_widget_set_name(setActiveA, "set_active_a");
     gtk_widget_set_size_request(setActiveA, 272, 36);
-    helper.addWidget("set_active_a", setActiveA, "button");
+    helper.addWidget("set_active_a", setActiveA);
+
     GtkWidget* setActiveB = gtk_button_new_with_label(_("Boot B partitions"));
+    gtk_widget_set_name(setActiveB, "set_active_b");
     gtk_widget_set_size_request(setActiveB, 272, 36);
-    helper.addWidget("set_active_b", setActiveB, "button");
+    helper.addWidget("set_active_b", setActiveB);
 
-    gtkBoxPackStart(abButtonBox, setActiveA, FALSE, FALSE, 0);
-    gtkBoxPackStart(abButtonBox, setActiveB, FALSE, FALSE, 0);
-    gtkBoxPackStart(abBox, abButtonBox, FALSE, FALSE, 0);
-    gtkBoxPackStart(mainBox, abFrame, FALSE, FALSE, 0);
+    gtk_box_append(GTK_BOX(abButtonBox), setActiveA);
+    gtk_box_append(GTK_BOX(abButtonBox), setActiveB);
 
-    // ---- Repartition ----
+    gtk_box_append(GTK_BOX(abBox), abButtonBox);
+    gtk_box_append(GTK_BOX(mainBox), abFrame);
+
+    // ─── Repartition ───
     GtkWidget* repartFrame = gtk_frame_new(NULL);
-	gtk_widget_set_hexpand(repartFrame, TRUE);
     GtkWidget* repartLabel = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(repartLabel), (std::string("<b>") + _("Repartition") + "</b>").c_str());
+    gtk_label_set_markup(GTK_LABEL(repartLabel),
+        (std::string("<b>") + _("Repartition") + "</b>").c_str());
     gtk_widget_set_halign(repartLabel, GTK_ALIGN_CENTER);
     gtk_frame_set_label_widget(GTK_FRAME(repartFrame), repartLabel);
     gtkFrameSetLabelAlign(repartFrame, 0.5, 0.5);
-    helper.addWidget("repart_label", repartLabel, "label");
+    helper.addWidget("repart_label", repartLabel);
 
     GtkWidget* repartBox = makeCardBox(32, 16);
-    helper.addWidget("repartBox", repartBox, "box");
-    gtkContainerAdd(repartFrame, repartBox);
+    gtk_frame_set_child(GTK_FRAME(repartFrame), repartBox);
 
     GtkWidget* xmlLabel = gtk_label_new(_("XML part info file path"));
     gtk_widget_set_halign(xmlLabel, GTK_ALIGN_CENTER);
-    helper.addWidget("xml_label", xmlLabel, "label");
+    helper.addWidget("xml_label", xmlLabel);
 
     GtkWidget* xmlInputWrap = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
     gtk_widget_set_halign(xmlInputWrap, GTK_ALIGN_CENTER);
-    helper.addWidget("xmlInputWrap", xmlInputWrap, "box");
 
     GtkWidget* xmlInputLinked = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_widget_add_css_class(xmlInputLinked, "linked");
-    helper.addWidget("xmlInputLinked", xmlInputLinked, "box");
+    gtk_style_context_add_class(gtk_widget_get_style_context(xmlInputLinked), "linked");
 
     GtkWidget* xmlPath = gtk_entry_new();
+    gtk_widget_set_name(xmlPath, "xml_path");
     gtk_widget_set_size_request(xmlPath, 400, 36);
-    helper.addWidget("xml_path", xmlPath, "entry");
-    GtkWidget* selectXmlBtn = gtk_button_new_with_label("...");
-    gtk_widget_set_size_request(selectXmlBtn, 48, 36);
-    helper.addWidget("select_xml", selectXmlBtn, "button");
+    helper.addWidget("xml_path", xmlPath);
 
-    gtkBoxPackStart(xmlInputLinked, xmlPath, FALSE, FALSE, 0);
-    gtkBoxPackStart(xmlInputLinked, selectXmlBtn, FALSE, FALSE, 0);
+    GtkWidget* selectXmlBtn = gtk_button_new_with_label("...");
+    gtk_widget_set_name(selectXmlBtn, "select_xml");
+    gtk_widget_set_size_request(selectXmlBtn, 48, 36);
+    helper.addWidget("select_xml", selectXmlBtn);
+
+    gtk_box_append(GTK_BOX(xmlInputLinked), xmlPath);
+    gtk_box_append(GTK_BOX(xmlInputLinked), selectXmlBtn);
 
     GtkWidget* startRepartBtn = gtk_button_new_with_label(_("START"));
+    gtk_widget_set_name(startRepartBtn, "start_repart");
     gtk_widget_set_size_request(startRepartBtn, 96, 36);
-    helper.addWidget("start_repart", startRepartBtn, "button");
+    helper.addWidget("start_repart", startRepartBtn);
 
-    gtkBoxPackStart(xmlInputWrap, xmlInputLinked, FALSE, FALSE, 0);
-    gtkBoxPackStart(xmlInputWrap, startRepartBtn, FALSE, FALSE, 0);
+    gtk_box_append(GTK_BOX(xmlInputWrap), xmlInputLinked);
+    gtk_box_append(GTK_BOX(xmlInputWrap), startRepartBtn);
 
     GtkWidget* readXmlBtn = gtk_button_new_with_label(_("Extract part info to a XML file (if support)"));
+    gtk_widget_set_name(readXmlBtn, "read_xml");
     gtk_widget_set_size_request(readXmlBtn, 560, 36);
     gtk_widget_set_halign(readXmlBtn, GTK_ALIGN_CENTER);
-    helper.addWidget("read_xml", readXmlBtn, "button");
+    helper.addWidget("read_xml", readXmlBtn);
 
-    gtkBoxPackStart(repartBox, xmlLabel, FALSE, FALSE, 0);
-    gtkBoxPackStart(repartBox, xmlInputWrap, FALSE, FALSE, 0);
-    gtkBoxPackStart(repartBox, readXmlBtn, FALSE, FALSE, 0);
-    gtkBoxPackStart(mainBox, repartFrame, FALSE, FALSE, 0);
+    gtk_box_append(GTK_BOX(repartBox), xmlLabel);
+    gtk_box_append(GTK_BOX(repartBox), xmlInputWrap);
+    gtk_box_append(GTK_BOX(repartBox), readXmlBtn);
+    gtk_box_append(GTK_BOX(mainBox), repartFrame);
 
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(advScroll), mainBox);
-    helper.addToGrid(advOpPage, advScroll, 0, 0, 5, 5);
+    gtk_grid_attach(GTK_GRID(advOpPage), advScroll, 0, 0, 5, 5);
 
     return advOpPage;
 }

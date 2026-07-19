@@ -886,69 +886,70 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 }
 
 GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
+    // 1. 创建页面顶层 Grid（代替 helper.createGrid）
     GtkWidget* connectPage = gtk_grid_new();
-    gtk_widget_set_hexpand(connectPage, TRUE);
-    gtk_widget_set_vexpand(connectPage, TRUE);
-    helper.addWidget("connect_page", connectPage, "grid");
+    gtk_widget_set_name(connectPage, "connect_page");
+    helper.addWidget("connect_page", connectPage);
     helper.addNotebookPage(notebook, connectPage, _("Connect"));
 
     // 外层滚动窗口
     GtkWidget* connectScroll = gtk_scrolled_window_new();
-    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(connectScroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(connectScroll),
+                                   GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
     gtk_widget_set_hexpand(connectScroll, TRUE);
     gtk_widget_set_vexpand(connectScroll, TRUE);
 
-    // 主垂直盒子
+    // 主垂直容器
     GtkWidget* mainConnectBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 15);
-	gtk_widget_set_hexpand(mainConnectBox, TRUE);
-    gtk_widget_set_vexpand(mainConnectBox, TRUE);
     gtk_widget_set_margin_start(mainConnectBox, 20);
     gtk_widget_set_margin_end(mainConnectBox, 20);
     gtk_widget_set_margin_top(mainConnectBox, 20);
     gtk_widget_set_margin_bottom(mainConnectBox, 20);
-	gtk_widget_set_halign(mainConnectBox, GTK_ALIGN_FILL);
-	gtk_widget_set_valign(mainConnectBox, GTK_ALIGN_FILL);
-    helper.addWidget("mainConnectBox", mainConnectBox, "box");
 
-    // ---- Header 部分 ----
+    // ========== 1. Header ==========
     GtkWidget* headerBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
     gtk_widget_set_halign(headerBox, GTK_ALIGN_CENTER);
-    helper.addWidget("headerBox", headerBox, "box");
 
-    // 使用 markup 创建带样式的 Label
-    GtkWidget* welcomeLabel = gtk_label_new(nullptr);
-    gtk_label_set_markup(GTK_LABEL(welcomeLabel), std::string(std::string("<span size='20000'>") + std::string(_("Welcome to SFD Tool GUI!")) + std::string("</span>")).c_str());
-    helper.addWidget("welcome", welcomeLabel, "label");
-    gtk_widget_set_halign(welcomeLabel, GTK_ALIGN_CENTER);
+    // 欢迎标签
+    GtkWidget* welcomeLabel = gtk_label_new(_("Welcome to SFD Tool GUI!"));
+    gtk_widget_set_name(welcomeLabel, "welcome");
+    gtk_widget_set_size_request(welcomeLabel, 467, 28);
+    PangoAttrList* attr_list = pango_attr_list_new();
+    PangoAttribute* attr = pango_attr_size_new(20 * PANGO_SCALE);
+    pango_attr_list_insert(attr_list, attr);
+    gtk_label_set_attributes(GTK_LABEL(welcomeLabel), attr_list);
+    helper.addWidget("welcome", welcomeLabel);
 
-    GtkWidget* tiLabel = gtk_label_new(nullptr);
-    gtk_label_set_markup(GTK_LABEL(tiLabel), std::string(std::string("<span size='20000'>") + std::string(_("Please connect your device with BROM mode")) + std::string("</span>")).c_str());
-    helper.addWidget("ti", tiLabel, "label");
-    gtk_widget_set_halign(tiLabel, GTK_ALIGN_CENTER);
+    GtkWidget* tiLabel = gtk_label_new(_("Please connect your device with BROM mode"));
+    gtk_widget_set_name(tiLabel, "ti");
+    gtk_widget_set_size_request(tiLabel, 400, 28);
+    gtk_label_set_attributes(GTK_LABEL(tiLabel), attr_list);
+    helper.addWidget("ti", tiLabel);
+    // 释放 attr_list（但 pango_attr_list_unref 在 GTK4 中仍可用）
+    pango_attr_list_unref(attr_list);
 
     GtkWidget* instruction = gtk_label_new(_("Press and hold the volume up or down keys and the power key to connect"));
-    helper.addWidget("instruction", instruction, "label");
-    gtk_widget_set_halign(instruction, GTK_ALIGN_CENTER);
+    gtk_widget_set_name(instruction, "instruction");
+    gtk_widget_set_size_request(instruction, 600, 20);
+    helper.addWidget("instruction", instruction);
 
-    gtkBoxPackStart(headerBox, welcomeLabel, FALSE, FALSE, 0);
-    gtkBoxPackStart(headerBox, tiLabel, FALSE, FALSE, 0);
-    gtkBoxPackStart(headerBox, instruction, FALSE, FALSE, 0);
+    gtk_box_append(GTK_BOX(headerBox), welcomeLabel);
+    gtk_box_append(GTK_BOX(headerBox), tiLabel);
+    gtk_box_append(GTK_BOX(headerBox), instruction);
 
-    gtkBoxPackStart(mainConnectBox, headerBox, FALSE, FALSE, 10);
+    gtk_box_append(GTK_BOX(mainConnectBox), headerBox);
 
-    // ---- FDL Settings section ----
+    // ========== 2. FDL Settings ==========
     GtkWidget* fdlCenterBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     gtk_widget_set_halign(fdlCenterBox, GTK_ALIGN_CENTER);
-    helper.addWidget("fdlCenterBox", fdlCenterBox, "box");
 
     GtkWidget* fdlFrame = gtk_frame_new(NULL);
-	gtk_widget_set_hexpand(fdlFrame, TRUE);
-    helper.addWidget("fdlFrame", fdlFrame, "frame");
-
+    gtk_widget_set_size_request(fdlFrame, 600, -1);
     GtkWidget* fdlLabelTitle = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(fdlLabelTitle), (std::string("<b>") + _("FDL Send Settings") + "</b>").c_str());
+    gtk_label_set_markup(GTK_LABEL(fdlLabelTitle),
+                         (std::string("<b>") + _("FDL Send Settings") + "</b>").c_str());
     gtk_frame_set_label_widget(GTK_FRAME(fdlFrame), fdlLabelTitle);
-    gtkFrameSetLabelAlign(fdlFrame, 0.5, 0.5);
+    gtkFrameSetLabelAlign(fdlFrame, 0.5, 0.5);  // 辅助函数，GTK4 只使用 xalign
 
     GtkWidget* fdlGrid = gtk_grid_new();
     gtk_grid_set_row_spacing(GTK_GRID(fdlGrid), 10);
@@ -957,292 +958,334 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
     gtk_widget_set_margin_end(fdlGrid, 15);
     gtk_widget_set_margin_top(fdlGrid, 15);
     gtk_widget_set_margin_bottom(fdlGrid, 15);
-	gtk_widget_set_hexpand(fdlGrid, TRUE);
-    helper.addWidget("fdlGrid", fdlGrid, "grid");
 
-    // FDL File Path
+    // FDL 文件路径
     GtkWidget* fdlLabel = gtk_label_new(_("FDL File Path :"));
+    gtk_widget_set_name(fdlLabel, "fdl_label");
+    gtk_widget_set_size_request(fdlLabel, 100, 20);
     gtk_widget_set_halign(fdlLabel, GTK_ALIGN_START);
-    helper.addWidget("fdl_label", fdlLabel, "label");
+    helper.addWidget("fdl_label", fdlLabel);
 
     GtkWidget* fdlFilePath = gtk_entry_new();
+    gtk_widget_set_name(fdlFilePath, "fdl_file_path");
+    gtk_widget_set_size_request(fdlFilePath, 300, 32);
     gtk_widget_set_hexpand(fdlFilePath, TRUE);
-    helper.addWidget("fdl_file_path", fdlFilePath, "entry");
+    helper.addWidget("fdl_file_path", fdlFilePath);
 
     GtkWidget* selectFdlBtn = gtk_button_new_with_label("...");
+    gtk_widget_set_name(selectFdlBtn, "select_fdl");
     gtk_widget_set_size_request(selectFdlBtn, 40, 32);
-    helper.addWidget("select_fdl", selectFdlBtn, "button");
+    helper.addWidget("select_fdl", selectFdlBtn);
 
-	auto hcfg = ensure_config_service();
-	if (hcfg)
-	{
-		sfd::ConfigService* cfg{};
-		
-	}
+    // 恢复最近路径
+    auto* cfgSvc = ensure_config_service();
+    if (cfgSvc) {
+        sfd::AppConfig cfg{};
+        sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
+        if (status.success && !cfg.last_fdl1_path.empty()) {
+            gtk_editable_set_text(GTK_EDITABLE(fdlFilePath), cfg.last_fdl1_path.c_str());
+        }
+    }
 
     gtk_grid_attach(GTK_GRID(fdlGrid), fdlLabel, 0, 0, 1, 1);
     gtk_grid_attach(GTK_GRID(fdlGrid), fdlFilePath, 1, 0, 1, 1);
     gtk_grid_attach(GTK_GRID(fdlGrid), selectFdlBtn, 2, 0, 1, 1);
 
-    // FDL Address
+    // FDL 地址
     GtkWidget* fdlAddrLabel = gtk_label_new(_("FDL Send Address :"));
+    gtk_widget_set_name(fdlAddrLabel, "fdl_addr_label");
+    gtk_widget_set_size_request(fdlAddrLabel, 120, 20);
     gtk_widget_set_halign(fdlAddrLabel, GTK_ALIGN_START);
-    helper.addWidget("fdl_addr_label", fdlAddrLabel, "label");
+    helper.addWidget("fdl_addr_label", fdlAddrLabel);
 
     GtkWidget* fdlAddr = gtk_entry_new();
+    gtk_widget_set_name(fdlAddr, "fdl_addr");
+    gtk_widget_set_size_request(fdlAddr, 300, 32);
     gtk_widget_set_hexpand(fdlAddr, TRUE);
-    helper.addWidget("fdl_addr", fdlAddr, "entry");
+    helper.addWidget("fdl_addr", fdlAddr);
+
+    if (cfgSvc) {
+        sfd::AppConfig cfg{};
+        sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
+        if (status.success && !cfg.last_fdl1_addr.empty()) {
+            gtk_editable_set_text(GTK_EDITABLE(fdlAddr),
+                                  uint32_to_hex_string(static_cast<uint32_t>(std::stoul(cfg.last_fdl1_addr))).c_str());
+        }
+    }
 
     gtk_grid_attach(GTK_GRID(fdlGrid), fdlAddrLabel, 0, 1, 1, 1);
     gtk_grid_attach(GTK_GRID(fdlGrid), fdlAddr, 1, 1, 2, 1);
 
-    // Execute button
+    // Execute 按钮
     GtkWidget* fdlExecBtn = gtk_button_new_with_label(_("Execute"));
+    gtk_widget_set_name(fdlExecBtn, "fdl_exec");
+    gtk_widget_set_size_request(fdlExecBtn, 150, 32);
     gtk_widget_set_hexpand(fdlExecBtn, TRUE);
-    helper.addWidget("fdl_exec", fdlExecBtn, "button");
+    helper.addWidget("fdl_exec", fdlExecBtn);
 
     gtk_grid_attach(GTK_GRID(fdlGrid), fdlExecBtn, 0, 2, 3, 1);
 
-    gtkContainerAdd(fdlFrame, fdlGrid);
-    gtkBoxPackStart(fdlCenterBox, fdlFrame, FALSE, FALSE, 0);
-    gtkBoxPackStart(mainConnectBox, fdlCenterBox, FALSE, FALSE, 0);
+    // 将 fdlGrid 放入 frame
+    gtk_frame_set_child(GTK_FRAME(fdlFrame), fdlGrid);
+    gtk_box_append(GTK_BOX(fdlCenterBox), fdlFrame);
+    gtk_box_append(GTK_BOX(mainConnectBox), fdlCenterBox);
 
-    // ---- Advanced Options Containers ----
+    // ========== 3. Advanced Options (左右两列) ==========
     GtkWidget* advContainer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 20);
-	gtk_widget_set_hexpand(advContainer, TRUE);
     gtk_box_set_homogeneous(GTK_BOX(advContainer), TRUE);
-    helper.addWidget("advContainer", advContainer, "box");
 
-    // Left: EXEC_ADDR Options
-    GtkWidget* cvFrame = gtk_frame_new(NULL);
-    helper.addWidget("cvFrame", cvFrame, "frame");
-	gtk_widget_set_hexpand(cvFrame, TRUE);
-    GtkWidget* cvLabelTitle = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(cvLabelTitle), (std::string("<b>") + _("EXEC_ADDR Options") + "</b>").c_str());
-    gtk_frame_set_label_widget(GTK_FRAME(cvFrame), cvLabelTitle);
-    gtkFrameSetLabelAlign(cvFrame, 0.5, 0.5);
+    // ---- 左列：CVE Options ----
+    GtkWidget* cveFrame = gtk_frame_new(NULL);
+    GtkWidget* cveLabelTitle = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(cveLabelTitle),
+                         (std::string("<b>") + _("EXEC_ADDR Options") + "</b>").c_str());
+    gtk_frame_set_label_widget(GTK_FRAME(cveFrame), cveLabelTitle);
+    gtkFrameSetLabelAlign(cveFrame, 0.5, 0.5);
 
-    GtkWidget* cvGrid = gtk_grid_new();
-    gtk_grid_set_row_spacing(GTK_GRID(cvGrid), 15);
-    gtk_grid_set_column_spacing(GTK_GRID(cvGrid), 10);
-	gtk_widget_set_hexpand(cvGrid, TRUE);
-    gtk_widget_set_margin_start(cvGrid, 15);
-    gtk_widget_set_margin_end(cvGrid, 15);
-    gtk_widget_set_margin_top(cvGrid, 15);
-    gtk_widget_set_margin_bottom(cvGrid, 15);
-    helper.addWidget("cvGrid", cvGrid, "grid");
+    GtkWidget* cveGrid = gtk_grid_new();
+    gtk_grid_set_row_spacing(GTK_GRID(cveGrid), 15);
+    gtk_grid_set_column_spacing(GTK_GRID(cveGrid), 10);
+    gtk_widget_set_margin_start(cveGrid, 15);
+    gtk_widget_set_margin_end(cveGrid, 15);
+    gtk_widget_set_margin_top(cveGrid, 15);
+    gtk_widget_set_margin_bottom(cveGrid, 15);
+    gtk_frame_set_child(GTK_FRAME(cveFrame), cveGrid);
 
-    // Switch: EXEC_ADDR
-    GtkWidget* cvSwitchLabel = gtk_label_new(_("Try to use EXEC_ADDR"));
-    gtk_widget_set_halign(cvSwitchLabel, GTK_ALIGN_START);
-    gtk_label_set_xalign(GTK_LABEL(cvSwitchLabel), 0.0);
-    helper.addWidget("exec_addr_label", cvSwitchLabel, "label");
+    // 开关：exec_addr
+    GtkWidget* cveSwitchLabel = gtk_label_new(_("Try to use EXEC_ADDR"));
+    gtk_widget_set_name(cveSwitchLabel, "exec_addr_label");
+    gtk_widget_set_size_request(cveSwitchLabel, 200, 20);
+    gtk_widget_set_halign(cveSwitchLabel, GTK_ALIGN_START);
+    gtk_label_set_xalign(GTK_LABEL(cveSwitchLabel), 0.0);
+    helper.addWidget("exec_addr_label", cveSwitchLabel);
 
-    GtkWidget* cvSwitch = gtk_switch_new();
-    gtk_widget_set_name(cvSwitch, "exec_addr");
-    gtk_widget_set_halign(cvSwitch, GTK_ALIGN_END);
-    gtk_widget_set_hexpand(cvSwitch, TRUE);
-    helper.addWidget("exec_addr", cvSwitch, "switch");
+    GtkWidget* cveSwitch = gtk_switch_new();
+    gtk_widget_set_name(cveSwitch, "exec_addr");
+    gtk_widget_set_halign(cveSwitch, GTK_ALIGN_END);
+    gtk_widget_set_hexpand(cveSwitch, TRUE);
+    helper.addWidget("exec_addr", cveSwitch);
 
-    gtk_grid_attach(GTK_GRID(cvGrid), cvSwitchLabel, 0, 0, 1, 1);
-    gtk_grid_attach(GTK_GRID(cvGrid), cvSwitch, 1, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(cveGrid), cveSwitchLabel, 0, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(cveGrid), cveSwitch, 1, 0, 1, 1);
 
-    // Switch: EXEC_ADDR V2
+    // 开关：exec_addr_v2
     GtkWidget* execAddrV2Label = gtk_label_new(_("Enable EXEC_ADDR v2"));
+    gtk_widget_set_name(execAddrV2Label, "exec_addr_v2_label");
+    gtk_widget_set_size_request(execAddrV2Label, 100, 20);
     gtk_widget_set_halign(execAddrV2Label, GTK_ALIGN_START);
     gtk_label_set_xalign(GTK_LABEL(execAddrV2Label), 0.0);
-    helper.addWidget("exec_addr_v2_label", execAddrV2Label, "label");
+    helper.addWidget("exec_addr_v2_label", execAddrV2Label);
 
     GtkWidget* execAddrV2Switch = gtk_switch_new();
     gtk_widget_set_name(execAddrV2Switch, "exec_addr_v2");
     gtk_widget_set_halign(execAddrV2Switch, GTK_ALIGN_END);
     gtk_widget_set_hexpand(execAddrV2Switch, TRUE);
-    helper.addWidget("exec_addr_v2", execAddrV2Switch, "switch");
+    helper.addWidget("exec_addr_v2", execAddrV2Switch);
 
-    gtk_grid_attach(GTK_GRID(cvGrid), execAddrV2Label, 0, 1, 1, 1);
-    gtk_grid_attach(GTK_GRID(cvGrid), execAddrV2Switch, 1, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(cveGrid), execAddrV2Label, 0, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(cveGrid), execAddrV2Switch, 1, 1, 1, 1);
 
-    // File Entry for EXEC_ADDR Binary
+    // 文件选择行
     GtkWidget* execAddrLabel = gtk_label_new(_("EXEC_ADDR Binary File Address"));
+    gtk_widget_set_name(execAddrLabel, "exec_addr_label");
+    gtk_widget_set_size_request(execAddrLabel, 150, 20);
     gtk_widget_set_halign(execAddrLabel, GTK_ALIGN_START);
     gtk_label_set_xalign(GTK_LABEL(execAddrLabel), 0.0);
-    helper.addWidget("exec_addr_label2", execAddrLabel, "label");
+    helper.addWidget("exec_addr_label", execAddrLabel);
 
     GtkWidget* execAddrInputBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     gtk_widget_set_halign(execAddrInputBox, GTK_ALIGN_END);
     gtk_widget_set_hexpand(execAddrInputBox, TRUE);
-    helper.addWidget("execAddrInputBox", execAddrInputBox, "box");
 
-    GtkWidget* execAddrEntry = gtk_entry_new();
-    gtk_widget_set_hexpand(execAddrEntry, TRUE);
-    helper.addWidget("exec_addr_file", execAddrEntry, "entry");
+    GtkWidget* execAddr = gtk_entry_new();
+    gtk_widget_set_name(execAddr, "exec_addr_file");
+    gtk_widget_set_size_request(execAddr, 150, 32);
+    helper.addWidget("exec_addr_file", execAddr);
 
     GtkWidget* selectExecAddrBtn = gtk_button_new_with_label("...");
+    gtk_widget_set_name(selectExecAddrBtn, "select_exec_addr");
     gtk_widget_set_size_request(selectExecAddrBtn, 40, 32);
-    helper.addWidget("select_exec_addr", selectExecAddrBtn, "button");
+    helper.addWidget("select_exec_addr", selectExecAddrBtn);
 
-    gtkBoxPackStart(execAddrInputBox, execAddrEntry, TRUE, TRUE, 0);
-    gtkBoxPackStart(execAddrInputBox, selectExecAddrBtn, FALSE, FALSE, 0);
+    gtk_box_append(GTK_BOX(execAddrInputBox), execAddr);
+    gtk_box_append(GTK_BOX(execAddrInputBox), selectExecAddrBtn);
 
-    gtk_grid_attach(GTK_GRID(cvGrid), execAddrLabel, 0, 2, 1, 1);
-    gtk_grid_attach(GTK_GRID(cvGrid), execAddrInputBox, 1, 2, 1, 1);
+    gtk_grid_attach(GTK_GRID(cveGrid), execAddrLabel, 0, 2, 1, 1);
+    gtk_grid_attach(GTK_GRID(cveGrid), execAddrInputBox, 1, 2, 1, 1);
 
-    gtkContainerAdd(cvFrame, cvGrid);
-
-    // Right: SPRD4 Options
+    // ---- 右列：SPRD4 Options ----
     GtkWidget* sprdFrame = gtk_frame_new(NULL);
-	gtk_widget_set_hexpand(sprdFrame, TRUE);
-    helper.addWidget("sprdFrame", sprdFrame, "frame");
     GtkWidget* sprdLabelTitle = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(sprdLabelTitle), (std::string("<b>") + _("SPRD4 Options") + "</b>").c_str());
+    gtk_label_set_markup(GTK_LABEL(sprdLabelTitle),
+                         (std::string("<b>") + _("SPRD4 Options") + "</b>").c_str());
     gtk_frame_set_label_widget(GTK_FRAME(sprdFrame), sprdLabelTitle);
     gtkFrameSetLabelAlign(sprdFrame, 0.5, 0.5);
 
     GtkWidget* sprdGrid = gtk_grid_new();
     gtk_grid_set_row_spacing(GTK_GRID(sprdGrid), 15);
     gtk_grid_set_column_spacing(GTK_GRID(sprdGrid), 10);
-	gtk_widget_set_hexpand(sprdGrid, TRUE);
     gtk_widget_set_margin_start(sprdGrid, 15);
     gtk_widget_set_margin_end(sprdGrid, 15);
     gtk_widget_set_margin_top(sprdGrid, 15);
     gtk_widget_set_margin_bottom(sprdGrid, 15);
-    helper.addWidget("sprdGrid", sprdGrid, "grid");
+    gtk_frame_set_child(GTK_FRAME(sprdFrame), sprdGrid);
 
-    // SPRD4 Switch
+    // 开关：sprd4
     GtkWidget* sprd4Label = gtk_label_new(_("Kick device to SPRD4"));
+    gtk_widget_set_name(sprd4Label, "sprd4_label");
+    gtk_widget_set_size_request(sprd4Label, 150, 20);
     gtk_widget_set_halign(sprd4Label, GTK_ALIGN_START);
     gtk_label_set_xalign(GTK_LABEL(sprd4Label), 0.0);
-    helper.addWidget("sprd4_label", sprd4Label, "label");
+    helper.addWidget("sprd4_label", sprd4Label);
 
     GtkWidget* sprd4Switch = gtk_switch_new();
     gtk_widget_set_name(sprd4Switch, "sprd4");
     gtk_widget_set_halign(sprd4Switch, GTK_ALIGN_END);
     gtk_widget_set_hexpand(sprd4Switch, TRUE);
-    helper.addWidget("sprd4", sprd4Switch, "switch");
+    helper.addWidget("sprd4", sprd4Switch);
 
     gtk_grid_attach(GTK_GRID(sprdGrid), sprd4Label, 0, 0, 1, 1);
     gtk_grid_attach(GTK_GRID(sprdGrid), sprd4Switch, 1, 0, 1, 1);
 
-    // Kick One-time Mode
+    // 开关：sprd4_one_mode
     GtkWidget* sprd4OneLabel = gtk_label_new(_("Kick One-time Mode"));
+    gtk_widget_set_name(sprd4OneLabel, "sprd4_one_label");
+    gtk_widget_set_size_request(sprd4OneLabel, 150, 20);
     gtk_widget_set_halign(sprd4OneLabel, GTK_ALIGN_START);
     gtk_label_set_xalign(GTK_LABEL(sprd4OneLabel), 0.0);
-    helper.addWidget("sprd4_one_label", sprd4OneLabel, "label");
+    helper.addWidget("sprd4_one_label", sprd4OneLabel);
 
     GtkWidget* sprd4OneMode = gtk_switch_new();
     gtk_widget_set_name(sprd4OneMode, "sprd4_one_mode");
     gtk_widget_set_halign(sprd4OneMode, GTK_ALIGN_END);
     gtk_widget_set_hexpand(sprd4OneMode, TRUE);
-    helper.addWidget("sprd4_one_mode", sprd4OneMode, "switch");
+    helper.addWidget("sprd4_one_mode", sprd4OneMode);
 
     gtk_grid_attach(GTK_GRID(sprdGrid), sprd4OneLabel, 0, 1, 1, 1);
     gtk_grid_attach(GTK_GRID(sprdGrid), sprd4OneMode, 1, 1, 1, 1);
 
-    // Address entry
+    // 地址输入
     GtkWidget* execAddrLabel2 = gtk_label_new(_("EXEC_ADDR executable Addr"));
+    gtk_widget_set_name(execAddrLabel2, "exec_addr_label2");
+    gtk_widget_set_size_request(execAddrLabel2, 100, 20);
     gtk_widget_set_halign(execAddrLabel2, GTK_ALIGN_START);
     gtk_label_set_xalign(GTK_LABEL(execAddrLabel2), 0.0);
-    helper.addWidget("exec_addr_label3", execAddrLabel2, "label");
+    helper.addWidget("exec_addr_label2", execAddrLabel2);
 
     GtkWidget* execAddrC = gtk_entry_new();
+    gtk_widget_set_name(execAddrC, "exec_addr_c");
+    gtk_widget_set_size_request(execAddrC, 200, 32);
     gtk_widget_set_halign(execAddrC, GTK_ALIGN_END);
     gtk_widget_set_hexpand(execAddrC, TRUE);
-    helper.addWidget("exec_addr_c", execAddrC, "entry");
+    helper.addWidget("exec_addr_c", execAddrC);
 
     gtk_grid_attach(GTK_GRID(sprdGrid), execAddrLabel2, 0, 2, 1, 1);
     gtk_grid_attach(GTK_GRID(sprdGrid), execAddrC, 1, 2, 1, 1);
 
-    gtkContainerAdd(sprdFrame, sprdGrid);
+    // 将左右 frame 加入 advContainer
+    gtk_box_append(GTK_BOX(advContainer), cveFrame);
+    gtk_box_append(GTK_BOX(advContainer), sprdFrame);
 
-    gtkBoxPackStart(advContainer, cvFrame, TRUE, TRUE, 0);
-    gtkBoxPackStart(advContainer, sprdFrame, TRUE, TRUE, 0);
-    gtkBoxPackStart(mainConnectBox, advContainer, FALSE, FALSE, 0);
+    gtk_box_append(GTK_BOX(mainConnectBox), advContainer);
 
-    // ---- Bottom Action Area ----
+    // ========== 4. Bottom Action Area ==========
     GtkWidget* actionBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-    gtk_widget_set_halign(actionBox, GTK_ALIGN_FILL);
-    helper.addWidget("actionBox", actionBox, "box");
+    gtk_widget_set_halign(actionBox, GTK_ALIGN_CENTER);
 
+    // CONNECT 按钮
     GtkWidget* connectBtn = gtk_button_new_with_label(_("CONNECT"));
-    gtk_widget_set_size_request(connectBtn, 300, 48);
     gtk_widget_set_name(connectBtn, "connect_1");
-    helper.addWidget("connect_1", connectBtn, "button");
-    gtkBoxPackStart(actionBox, connectBtn, FALSE, FALSE, 5);
+    gtk_widget_set_size_request(connectBtn, 300, 48);
+    helper.addWidget("connect_1", connectBtn);
 
-    // Wait connection time
+    // 等待时间设置
     GtkWidget* waitBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     gtk_widget_set_halign(waitBox, GTK_ALIGN_CENTER);
-    helper.addWidget("waitBox", waitBox, "box");
 
     GtkWidget* waitLabel = gtk_label_new(_("Wait connection time (s):"));
-    helper.addWidget("wait_label", waitLabel, "label");
-    gtkBoxPackStart(waitBox, waitLabel, FALSE, FALSE, 0);
+    gtk_widget_set_name(waitLabel, "wait_label");
+    gtk_widget_set_size_request(waitLabel, 150, 20);
+    helper.addWidget("wait_label", waitLabel);
 
-    // Custom SpinBox
+    // 自定义 spinbox (entry + 按钮)
     GtkWidget* customSpinBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_widget_add_css_class(customSpinBox, "linked");
-    helper.addWidget("customSpinBox", customSpinBox, "box");
+    GtkStyleContext* styleCtx = gtk_widget_get_style_context(customSpinBox);
+    gtk_style_context_add_class(styleCtx, "linked");
 
     GtkWidget* waitCon = gtk_entry_new();
-    gtk_editable_set_text(GTK_EDITABLE(waitCon), "30");
-    gtk_entry_set_alignment(GTK_ENTRY(waitCon), 0.5);
-    gtk_widget_set_size_request(waitCon, 60, 32);
     gtk_widget_set_name(waitCon, "wait_con");
-    helper.addWidget("wait_con", waitCon, "entry");
+    gtk_widget_set_size_request(waitCon, 60, 32);
+    gtk_entry_set_alignment(GTK_ENTRY(waitCon), 0.5);
+    gtk_editable_set_text(GTK_EDITABLE(waitCon), "30");
+    helper.addWidget("wait_con", waitCon);
 
     GtkWidget* btnMinus = gtk_button_new_with_label("-");
     gtk_widget_set_size_request(btnMinus, 32, 32);
-    GtkWidget* btnPlus = gtk_button_new_with_label("+");
+    GtkWidget* btnPlus  = gtk_button_new_with_label("+");
     gtk_widget_set_size_request(btnPlus, 32, 32);
 
-    g_signal_connect(btnMinus, "clicked", G_CALLBACK(+[](GtkButton* btn, gpointer data) {
-        (void)btn;
+    g_signal_connect(btnMinus, "clicked", G_CALLBACK(+[](GtkButton*, gpointer data) {
         GtkWidget* entry = GTK_WIDGET(data);
         const char* text = gtk_editable_get_text(GTK_EDITABLE(entry));
         char* endptr = nullptr;
         long value = strtol(text, &endptr, 10);
         if (endptr == text) value = 30;
-        if (value > 1) value -= 1;
+        if (value > 1) --value;
         else value = 1;
         char buf[32];
         snprintf(buf, sizeof(buf), "%ld", value);
         gtk_editable_set_text(GTK_EDITABLE(entry), buf);
     }), waitCon);
-    g_signal_connect(btnPlus, "clicked", G_CALLBACK(+[](GtkButton* btn, gpointer data) {
-        (void)btn;
+
+    g_signal_connect(btnPlus, "clicked", G_CALLBACK(+[](GtkButton*, gpointer data) {
         GtkWidget* entry = GTK_WIDGET(data);
         const char* text = gtk_editable_get_text(GTK_EDITABLE(entry));
         char* endptr = nullptr;
         long value = strtol(text, &endptr, 10);
         if (endptr == text) value = 30;
-        if (value < 65535) value += 1;
+        if (value < 65535) ++value;
         else value = 65535;
         char buf[32];
         snprintf(buf, sizeof(buf), "%ld", value);
         gtk_editable_set_text(GTK_EDITABLE(entry), buf);
     }), waitCon);
 
-    gtkBoxPackStart(customSpinBox, waitCon, FALSE, FALSE, 0);
-    gtkBoxPackStart(customSpinBox, btnMinus, FALSE, FALSE, 0);
-    gtkBoxPackStart(customSpinBox, btnPlus, FALSE, FALSE, 0);
+    gtk_box_append(GTK_BOX(customSpinBox), waitCon);
+    gtk_box_append(GTK_BOX(customSpinBox), btnMinus);
+    gtk_box_append(GTK_BOX(customSpinBox), btnPlus);
 
-    gtkBoxPackStart(waitBox, customSpinBox, FALSE, FALSE, 0);
-    gtkBoxPackStart(actionBox, waitBox, FALSE, FALSE, 5);
+    gtk_box_append(GTK_BOX(waitBox), waitLabel);
+    gtk_box_append(GTK_BOX(waitBox), customSpinBox);
 
-    gtkBoxPackStart(mainConnectBox, actionBox, TRUE, FALSE, 15);
+    gtk_box_append(GTK_BOX(actionBox), connectBtn);
+    gtk_box_append(GTK_BOX(actionBox), waitBox);
+
+    gtk_box_append(GTK_BOX(mainConnectBox), actionBox);
 
     GtkWidget* statusLabel = gtk_label_new(_("Status: "));
-    helper.addWidget("status_label", statusLabel, "label");
-    GtkWidget* conStatus = gtk_label_new(_("Not connected"));
-    helper.addWidget("con", conStatus, "label");
-    GtkWidget* modeLabel = gtk_label_new(_("Mode: "));
-    helper.addWidget("mode_label", modeLabel, "label");
-    GtkWidget* modeStatus = gtk_label_new(_("BROM Not connected!!!"));
-    helper.addWidget("mode", modeStatus, "label");
+    gtk_widget_set_name(statusLabel, "status_label");
+    gtk_widget_set_size_request(statusLabel, 70, 24);
+    helper.addWidget("status_label", statusLabel);
 
-    // 最后将 mainConnectBox 放入滚动窗口并 attach 到页面 grid
+    GtkWidget* conStatus = gtk_label_new(_("Not connected"));
+    gtk_widget_set_name(conStatus, "con");
+    gtk_widget_set_size_request(conStatus, 150, 23);
+    helper.addWidget("con", conStatus);
+
+    GtkWidget* modeLabel = gtk_label_new(_("Mode: "));
+    gtk_widget_set_name(modeLabel, "mode_label");
+    gtk_widget_set_size_request(modeLabel, 50, 19);
+    helper.addWidget("mode_label", modeLabel);
+
+    GtkWidget* modeStatus = gtk_label_new(_("BROM Not connected!!!"));
+    gtk_widget_set_name(modeStatus, "mode");
+    gtk_widget_set_size_request(modeStatus, 140, 19);
+    helper.addWidget("mode", modeStatus);
+
+    // 将 mainConnectBox 放入滚动窗口
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(connectScroll), mainConnectBox);
-    helper.addToGrid(connectPage, connectScroll, 0, 0, 5, 5);
+    // 将滚动窗口放入 connectPage 网格
+    gtk_grid_attach(GTK_GRID(connectPage), connectScroll, 0, 0, 5, 5);
 
     return connectPage;
 }
