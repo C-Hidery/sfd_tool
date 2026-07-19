@@ -20,12 +20,12 @@ Source0:        %{name}-%{version}.tar.gz
 BuildRequires:  gcc-c++
 BuildRequires:  cmake
 BuildRequires:  ninja-build
-BuildRequires:  gtk3-devel
+BuildRequires:  gtk4-devel
 BuildRequires:  libusb1-devel
 BuildRequires:  pkgconf-pkg-config
 BuildRequires:  desktop-file-utils
 BuildRequires:  gtk-update-icon-cache
-Requires:       gtk3
+Requires:       gtk4
 Requires:       libusb1
 
 %description

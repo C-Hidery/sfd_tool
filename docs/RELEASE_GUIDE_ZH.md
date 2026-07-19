@@ -256,7 +256,7 @@ git push
 
 - `build-linux-rpm`
   - 运行环境：`ubuntu-latest`，在 `fedora:latest` 容器中执行；
-  - 安装 `rpm-build`, `gtk3-devel`, `libusb1-devel`, `cmake`,
+  - 安装 `rpm-build`, `gtk4-devel`, `libusb1-devel`, `cmake`,
     `ninja-build` 等；
   - 调用 [packaging/build-rpm.sh](../packaging/build-rpm.sh) 构建
     `.rpm` 包；
