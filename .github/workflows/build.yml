@@ -65,7 +65,10 @@ jobs:
         shell: pwsh
         run: |
           $msysPath = "C:\msys64"
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
+          # 正确的清华源配置 (x64)
+          & "$msysPath\usr\bin\bash.exe" -lc "echo 'Server = https://mirrors.tuna.tsinghua.edu.cn/msys2/mingw/mingw64' > /etc/pacman.d/mirrorlist.mingw64"
+          & "$msysPath\usr\bin\bash.exe" -lc "echo 'Server = https://mirrors.tuna.tsinghua.edu.cn/msys2/msys/\$arch' > /etc/pacman.d/mirrorlist.msys"
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Syy --noconfirm"
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk4 mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkg-config"
 
       - name: Install MSYS2 and GTK4 (x86)
@@ -73,15 +76,10 @@ jobs:
         shell: pwsh
         run: |
           $msysPath = "C:\msys64"
-
-          # --- 关键修正：在文件开头添加镜像源，而非覆盖 ---
-          & "$msysPath\usr\bin\bash.exe" -lc "echo 'Server = https://mirrors.tuna.tsinghua.edu.cn/msys2/mingw/i686' | cat - /etc/pacman.d/mirrorlist.mingw32 > /tmp/mirrorlist.mingw32 && mv /tmp/mirrorlist.mingw32 /etc/pacman.d/mirrorlist.mingw32"
-          & "$msysPath\usr\bin\bash.exe" -lc "echo 'Server = https://mirrors.tuna.tsinghua.edu.cn/msys2/msys/\$arch' | cat - /etc/pacman.d/mirrorlist.msys > /tmp/mirrorlist.msys && mv /tmp/mirrorlist.msys /etc/pacman.d/mirrorlist.msys"
-          # 如果也需要配置mingw64，可以类似操作
-          # & "$msysPath\usr\bin\bash.exe" -lc "echo 'Server = https://mirrors.tuna.tsinghua.edu.cn/msys2/mingw/x86_64' | cat - /etc/pacman.d/mirrorlist.mingw64 > /tmp/mirrorlist.mingw64 && mv /tmp/mirrorlist.mingw64 /etc/pacman.d/mirrorlist.mingw64"
-
-          # 更新并安装 GTK4
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
+          # 正确的清华源配置 (x86)
+          & "$msysPath\usr\bin\bash.exe" -lc "echo 'Server = https://mirrors.tuna.tsinghua.edu.cn/msys2/mingw/mingw32' > /etc/pacman.d/mirrorlist.mingw32"
+          & "$msysPath\usr\bin\bash.exe" -lc "echo 'Server = https://mirrors.tuna.tsinghua.edu.cn/msys2/msys/\$arch' > /etc/pacman.d/mirrorlist.msys"
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Syy --noconfirm"
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-i686-gtk4 mingw-w64-i686-toolchain mingw-w64-i686-pkg-config"
       
       - name: Create Build Directory
