@@ -68,16 +68,6 @@ jobs:
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk4 mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkg-config"
 
-      - name: Install MSYS2 and GTK4 (x86)
-        if: matrix.arch == 'x86'
-        shell: pwsh
-        run: |
-          $msysPath = "C:\msys64"
-          # 仅配置 MinGW 32 位仓库
-          & "$msysPath\usr\bin\bash.exe" -lc "echo 'Server = https://mirrors.tuna.tsinghua.edu.cn/msys2/mingw/mingw32' > /etc/pacman.d/mirrorlist.mingw32"
-          # 更新数据库并安装
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Syy --noconfirm"
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-i686-gtk4 mingw-w64-i686-toolchain mingw-w64-i686-pkg-config"
       
       - name: Create Build Directory
         shell: pwsh
