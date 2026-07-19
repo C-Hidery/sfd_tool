@@ -73,10 +73,15 @@ jobs:
         shell: pwsh
         run: |
           $msysPath = "C:\msys64"
+          
+          # 配置清华镜像源
+          & "$msysPath\usr\bin\bash.exe" -lc "echo 'Server = https://mirrors.tuna.tsinghua.edu.cn/msys2/mingw/mingw32' > /etc/pacman.d/mirrorlist.mingw32"
+          & "$msysPath\usr\bin\bash.exe" -lc "echo 'Server = https://mirrors.tuna.tsinghua.edu.cn/msys2/mingw/mingw64' > /etc/pacman.d/mirrorlist.mingw64"
+          & "$msysPath\usr\bin\bash.exe" -lc "echo 'Server = https://mirrors.tuna.tsinghua.edu.cn/msys2/msys/\$arch' > /etc/pacman.d/mirrorlist.msys"
+          
+          # 更新并安装 GTK4
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
-          # 32位版本直接使用官方源
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-i686-gtk4 mingw-w64-i686-toolchain mingw-w64-i686-pkg-config"
-                
 
       - name: Create Build Directory
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.artifact_name }}/${{ matrix.config }}/ | Out-Null
