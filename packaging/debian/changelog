@@ -1,3 +1,9 @@
+sfd-tool (2.5.0-1-ltv) unstable; urgency=medium
+
+  * 将GUI升级到GTK4
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sun, 19 Jul 2026 20:23:22 +0800
+
 sfd-tool (2.4.2-1-ltv) unstable; urgency=medium
 
   * 修复了FDL在exec_addr时的执行问题

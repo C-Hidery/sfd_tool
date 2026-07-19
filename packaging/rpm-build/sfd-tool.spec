@@ -9,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        2.4.2
+Version:        2.5.0
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -63,6 +63,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Sun Jul 19 2026 RyanCrepa <Ryan110413@outlook.com> - 2.5.0-1-ltv
+- 将GUI升级到GTK4
+
 * Fri Jul 17 2026 RyanCrepa <Ryan110413@outlook.com> - 2.4.2-1-ltv
 - 修复了FDL在exec_addr时的执行问题
 
