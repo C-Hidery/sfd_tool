@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: RyanCrepa <Ryan110413@outlook.com>
 Build-Depends: debhelper (>= 13),
                debhelper-compat (= 13),
-               libgtk-3-dev,
+               libgtk-4-dev,
                libusb-1.0-0-dev,
                pkg-config,
                g++,
@@ -17,7 +17,7 @@ Vcs-Git: https://github.com/C-Hidery/sfd_tool.git
 Package: sfd-tool
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends},
-         libgtk-3-0,
+         libgtk-4-dev,
          libusb-1.0-0,
          imagemagick
 Description: Serial Flash Device Programming Tool for Spreadtrum (UNISOC) devices

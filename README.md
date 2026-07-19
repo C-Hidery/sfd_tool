@@ -19,7 +19,7 @@ This is the modified version of tool 'spreadtrum_flash'
 
 sfd_tool is a maintenance release for spreadtrum_flash
 
-**(This version adds GTK3 graphical interface)**
+**(This version adds GTK4 graphical interface)**
 
 [spreadtrum_flash](https://github.com/TomKing062/spreadtrum_flash)
 
@@ -29,14 +29,14 @@ Run this before making:
 
 ``` bash
 # Ubuntu/Debian
-sudo apt install libusb-1.0-0-dev gcc g++ libgtk-3-dev pkg-config make cmake gettext
+sudo apt install libusb-1.0-0-dev gcc g++ libgtk-4-dev pkg-config make cmake gettext
 # Fedora/RHEL
-sudo dnf install gcc-c++ gtk3-devel libusb1-devel libusb1 pkgconf-pkg-config make cmake gettext
+sudo dnf install gcc-c++ gtk4-devel libusb1-devel libusb1 pkgconf-pkg-config make cmake gettext
 # macOS
-brew install libusb gtk+3 pkg-config make cmake gettext
+brew install libusb gtk4 pkg-config make cmake gettext
 # Android(Termux)
 pkg install x11-repo
-pkg install termux-api libusb clang git pkg-config gtk3 glib pango libcairo gdk-pixbuf at-spi2-core xorgproto xorg-util-macros make cmake attr gettext
+pkg install termux-api libusb clang git pkg-config gtk4 glib pango libcairo gdk-pixbuf at-spi2-core xorgproto xorg-util-macros make cmake attr gettext
 ```
 
 Then make:

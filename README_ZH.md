@@ -49,7 +49,7 @@ Arch Linux 用户可以使用此AUR包：
 这是工具'spreadtrum_flash'的维护
 
 
-**(这个版本添加了GTK3图形化)**
+**(这个版本添加了GTK4图形化)**
 
 [spreadtrum_flash](https://github.com/TomKing062/spreadtrum_flash)
 
@@ -59,14 +59,14 @@ Arch Linux 用户可以使用此AUR包：
 
 ``` bash
 # Ubuntu/Debian
-sudo apt install libusb-1.0-0-dev gcc g++ libgtk-3-dev pkg-config make cmake gettext
+sudo apt install libusb-1.0-0-dev gcc g++ libgtk-4-dev pkg-config make cmake gettext
 # Fedora/RHEL
-sudo dnf install gcc-c++ gtk3-devel libusb1-devel libusb1 pkgconf-pkg-config make cmake gettext
+sudo dnf install gcc-c++ gtk4-devel libusb1-devel libusb1 pkgconf-pkg-config make cmake gettext
 # macOS
-brew install libusb gtk+3 pkg-config make cmake gettext
+brew install libusb gtk4 pkg-config make cmake gettext
 # Android(Termux)
 pkg install x11-repo
-pkg install termux-api libusb clang git pkg-config gtk3 glib pango libcairo gdk-pixbuf at-spi2-core xorgproto xorg-util-macros make cmake attr gettext
+pkg install termux-api libusb clang git pkg-config gtk4 glib pango libcairo gdk-pixbuf at-spi2-core xorgproto xorg-util-macros make cmake attr gettext
 ```
 
 然后make:
