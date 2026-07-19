@@ -110,6 +110,7 @@ jobs:
             "mingw-w64-i686-gtk-update-icon-cache-3.24.43-1-any.pkg.tar.zst",
             "mingw-w64-i686-json-glib-1.10.8-2-any.pkg.tar.zst",
             "mingw-w64-i686-shared-mime-info-2.4-4-any.pkg.tar.zst",
+            "mingw-w64-i686-graphene-1.10.8-2-any.pkg.tar.zst",
             "mingw-w64-i686-gtk4-4.16.12-2-any.pkg.tar.zst"
           )
           $tempDir = Join-Path $env:TEMP "msys2_pkgs"
