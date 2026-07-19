@@ -226,7 +226,7 @@ git push
 - `build-windows`
   - 运行环境：`windows-latest`；
   - 使用 vcpkg (`C:\vcpkg`) 安装 `gettext` 以及可选的 `libusb`；
-  - 使用 MSYS2 (`C:\msys64`) 安装 GTK3 及依赖；
+  - 使用 MSYS2 (`C:\msys64`) 安装 GTK4 及依赖；
   - 使用 CMake 生成 Visual Studio 2022 工程（`build_cmake`），开启
     `SFD_ENABLE_TESTS=ON`；
   - 构建并运行 `ctest`；

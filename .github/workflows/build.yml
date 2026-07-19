@@ -191,7 +191,7 @@ jobs:
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           
-          # 确定 GTK3 bin 目录
+          # 确定 GTK4 bin 目录
           if ("${{ matrix.arch }}" -eq "x64") {
             $gtkBinPath = "C:\msys64\mingw64\bin"
           } else {
@@ -203,7 +203,7 @@ jobs:
           
           # 检查源目录是否存在
           if (-not (Test-Path $gtkBinPath)) {
-            Write-Error "GTK3 bin 目录不存在: $gtkBinPath"
+            Write-Error "GTK4 bin 目录不存在: $gtkBinPath"
             exit 1
           }
           

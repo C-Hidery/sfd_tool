@@ -145,7 +145,7 @@ For  `dis_avb_tos`, flash back `trustos-orig.bin`
 
 ## Features
 
-- **Cross‑platform GUI** (GTK3)
+- **Cross‑platform GUI** (GTK4)
   - Tabs for Connect, Partition Operation, PAC Flash, Manual Operation,
     Advanced Operation, Advanced Settings, Debug Options, Log, and About.
 - **Partition backup and restore**

@@ -70,7 +70,7 @@ sfd_tool --no-gui --help
 
 ## 3. 图形界面概览
 
-SFD Tool 的 GUI 使用 GTK3 实现，主要由多个标签页（Tab）组成：
+SFD Tool 的 GUI 使用 GTK4 实现，主要由多个标签页（Tab）组成：
 
 - **连接**（Connect）
 - **分区操作**（Partition Operation）
