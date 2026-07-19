@@ -17,7 +17,7 @@ Vcs-Git: https://github.com/C-Hidery/sfd_tool.git
 Package: sfd-tool
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends},
-         libgtk-4-0,
+         libgtk-4-dev,
          libusb-1.0-0,
          imagemagick
 Description: Serial Flash Device Programming Tool for Spreadtrum (UNISOC) devices
