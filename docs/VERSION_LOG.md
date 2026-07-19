@@ -143,10 +143,10 @@ UI Refactor, optimization code logic.
     - 添加并完善本地构建脚本，修复 dev 构建缺失 core/pages 子目录等问题，保证 `dev.sh` 能从零成功构建并运行。（fb08a6a, c92d28b, 8509744）
     - 本地构建默认打开单元测试，并对齐本地与 CI 的 CMake 配置与测试行为，修复 macOS CI 编译和测试路径问题，避免 blocksize 测试在 mac 下崩溃。（87a3602, 86d01f4, e9ff621, 6932efc）
     - 为测试目标提供 GUI/日志桩实现，并在 CI 中禁用对 GTK/GUI 的硬依赖，避免因缺少 GTK 头文件或运行环境导致的构建失败。（5aecb32, 8fcdd20）
-    - 修复 Fedora / RPM 构建环境下 GTK3、pango 链接错误（“DSO missing from command line”等），保证 RPM 构建在主流发行版上可用。（da7485e, b0f4ba4）
+    - 修复 Fedora / RPM 构建环境下 GTK4、pango 链接错误（“DSO missing from command line”等），保证 RPM 构建在主流发行版上可用。（da7485e, b0f4ba4）
     - 调整 Windows 平台支持：移除不再维护的 Windows x86 构建，仅保留 Windows x64 版本，简化维护面。（fca954b）
     - 修复 Windows x64 单元测试在 CI 中的链接与运行问题：
-        * 补全 GTK3 / libusb / libintl / savepath 等符号的链接配置，解决 LNK2019 与未解析符号错误。（ad79a86, b225ccc, e6544e4）
+        * 补全 GTK4 / libusb / libintl / savepath 等符号的链接配置，解决 LNK2019 与未解析符号错误。（ad79a86, b225ccc, e6544e4）
         * 解决 blocksize 相关单元测试在运行时缺少 DLL 导致的 0xc0000135 异常，并在 CI 中临时禁用该用例以保证流水线稳定通过。（12e9b25, 90be8ff）
 
 ---v 1.8.2.0---

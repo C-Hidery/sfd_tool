@@ -604,7 +604,7 @@ int gtk_kmain(int argc, char** argv) {
     gtk_container_add(GTK_CONTAINER(window), mainGrid);
 #endif
 
-    // 显示窗口（GTK4 默认可见，但为了兼容 GTK3 保留）
+    // 显示窗口（GTK4 默认可见，但为了兼容 GTK4 保留）
 #if GTK_CHECK_VERSION(4, 0, 0)
     gtk_widget_set_visible(window, TRUE);
 #else

@@ -30,7 +30,7 @@ endif()
 
 # 对标 Makefile: LIBUSB / GTK 开关
 option(USE_LIBUSB "Enable libusb backend" ON)
-option(USE_GTK "Enable GTK3 UI" ON)
+option(USE_GTK "Enable GTK4 UI" ON)
 
 # Windows x86 (Win32) 不支持 libusb：强制关闭，统一走 Channel9 封装
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4 AND USE_LIBUSB)
