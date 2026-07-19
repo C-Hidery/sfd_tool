@@ -257,7 +257,7 @@ endif()
 # ================= 依赖：GTK3 / libusb =================
 find_package(PkgConfig QUIET)
 
-# --- GTK3 ---
+# --- GTK4 ---
 if (USE_GTK)
     if (WIN32)
         # Windows: headers/libraries are provided by MSYS2 GTK in the CI image.
@@ -271,7 +271,7 @@ if (USE_GTK)
         foreach(tgt IN LISTS SFD_COMMON_TARGETS)
             target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
             target_include_directories(${tgt} PRIVATE
-                "${_gtk_root}/include/gtk-3.0"
+                "${_gtk_root}/include/gtk-4.0"
                 "${_gtk_root}/include/glib-2.0"
                 "${_gtk_root}/lib/glib-2.0/include"
                 "${_gtk_root}/include/pango-1.0"
@@ -279,19 +279,22 @@ if (USE_GTK)
                 "${_gtk_root}/include/gdk-pixbuf-2.0"
                 "${_gtk_root}/include/atk-1.0"
                 "${_gtk_root}/include/harfbuzz"
+                "${_gtk_root}/include/graphene-1.0"
+                "${_gtk_root}/lib/graphene-1.0/include"
             )
         endforeach()
 
-        # Link against GTK/glib import libraries from MSYS2
+        # Link against GTK4/glib import libraries from MSYS2
         set(_gtk_win_libs
-            "${_gtk_root}/lib/libgtk-3.dll.a"
-            "${_gtk_root}/lib/libgdk-3.dll.a"
+            "${_gtk_root}/lib/libgtk-4.dll.a"
+            "${_gtk_root}/lib/libgdk-4.dll.a"
             "${_gtk_root}/lib/libglib-2.0.dll.a"
             "${_gtk_root}/lib/libgobject-2.0.dll.a"
             "${_gtk_root}/lib/libgio-2.0.dll.a"
             "${_gtk_root}/lib/libharfbuzz.dll.a"
             "${_gtk_root}/lib/libpango-1.0.dll.a"
             "${_gtk_root}/lib/libpangocairo-1.0.dll.a"
+            "${_gtk_root}/lib/libgraphene-1.0.dll.a"
         )
 
         target_link_libraries(sfd_tool PRIVATE ${_gtk_win_libs})
@@ -303,7 +306,7 @@ if (USE_GTK)
             message(FATAL_ERROR "PkgConfig is required when USE_GTK=ON")
         endif()
 
-        pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
+        pkg_check_modules(GTK4 REQUIRED gtk4)
 
         # Fedora 等发行版在 RPM 构建环境中会默认启用 GNU ld 的 --as-needed/
         # --no-copy-dt-needed-entries，这在 GTK 这类有复杂依赖链的库上容易触发
@@ -316,14 +319,14 @@ if (USE_GTK)
 
         foreach(tgt IN LISTS SFD_COMMON_TARGETS)
             target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
-            target_include_directories(${tgt} PRIVATE ${GTK3_INCLUDE_DIRS})
-            target_link_directories(${tgt} PRIVATE ${GTK3_LIBRARY_DIRS})
+            target_include_directories(${tgt} PRIVATE ${GTK4_INCLUDE_DIRS})
+            target_link_directories(${tgt} PRIVATE ${GTK4_LIBRARY_DIRS})
         endforeach()
 
         # 在最终可执行文件和测试可执行文件上链接 GTK 库
-        target_link_libraries(sfd_tool PRIVATE ${GTK3_LIBRARIES})
+        target_link_libraries(sfd_tool PRIVATE ${GTK4_LIBRARIES})
         foreach(tgt IN LISTS SFD_TEST_TARGETS)
-            target_link_libraries(${tgt} PRIVATE ${GTK3_LIBRARIES})
+            target_link_libraries(${tgt} PRIVATE ${GTK4_LIBRARIES})
         endforeach()
 
         # Work around GNU ld "DSO missing from command line" on some distros
@@ -342,7 +345,6 @@ else()
         target_compile_definitions(${tgt} PRIVATE USE_GTK=0)
     endforeach()
 endif()
-
 # --- libusb ---
 if (USE_LIBUSB)
     if (WIN32)

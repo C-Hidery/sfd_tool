@@ -306,7 +306,7 @@ void showExitAfterDelayDialog(GtkWindow* parent,
             std::this_thread::sleep_for(std::chrono::seconds(seconds));
         }
         gui_idle_call([]() {
-            gtk_main_quit();
+            gui_quit_main_loop();
         });
     }).detach();
 }

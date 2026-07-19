@@ -3,8 +3,6 @@
  * SFDTool Copyright (C) 2026 Ryan Crepa
  */
 
-// GtkWidgetHelper.hpp
-
 #ifndef GTK_WIDGET_HELPER_HPP
 #define GTK_WIDGET_HELPER_HPP
 
@@ -13,6 +11,7 @@
 #endif
 
 #include <gtk/gtk.h>
+#include <glib.h>
 #include <string>
 #include <vector>
 #include <functional>
@@ -20,13 +19,21 @@
 #include <memory>
 #include <algorithm>
 
-// 全局变量声明（extern，定义在 cpp 中）
+// 全局变量声明
 extern bool g_window_is_dragging;
 extern guint g_drag_check_timeout;
 
 // 函数声明
 bool isWindowDragging(GtkWindow* window);
 void initDragDetection(GtkWindow* window);
+void gui_run_main_loop();
+void gui_quit_main_loop();
+void gtkBoxPackStart(GtkWidget* box, GtkWidget* child, bool expand, bool fill, int padding);
+void gtkContainerAdd(GtkWidget* container, GtkWidget* child);
+void gtkFrameSetLabelAlign(GtkWidget* frame, float xalign, float yalign);
+gint runDialog(GtkDialog* dialog);
+void destroyWidget(GtkWidget* widget);
+void addBoxChild(GtkWidget* box, GtkWidget* child);
 
 template<typename Func>
 void gui_idle_call(Func&& func) {
@@ -180,7 +187,7 @@ std::string showSaveFileDialog(GtkWindow* parent,
                                const std::string& default_filename = "",
                                const std::vector<std::pair<std::string, std::string>>& filters = {});
 
-// 线程安全对话框（修正：声明为外部函数，非 static）
+// 线程安全对话框
 void waitForDragEnd(GtkWindow* window);
 std::string showInputDialogSyncInThread(GtkWindow* parent, const char* title, const char* message);
 bool showConfirmDialogSyncInThread(GtkWindow* parent, const char* title, const char* message);
@@ -224,203 +231,19 @@ private:
     std::map<std::string, std::shared_ptr<WidgetInfo>> m_widgets;
     std::map<std::string, std::shared_ptr<CallbackData>> m_callbacks;
     LayoutType m_layoutType;
-
-    void setupWidget(const std::string& name, GtkWidget* widget,
-                    const std::string& type, int x, int y,
-                    int width, int height);
-    GtkWidget* createAndPlace(GtkWidget* widget, int x, int y,
-                             int width, int height);
-
+    
 public:
     explicit GtkWidgetHelper(GtkWidget* parent = nullptr);
+
     ~GtkWidgetHelper();
-
-    void setParent(GtkWidget* parent, LayoutType layoutType = LayoutType::FIXED);
-
-    // 基本组件创建
-    GtkWidget* createLabel(const std::string& text,
-                          const std::string& name = "",
-                          int x = -1, int y = -1,
-                          int width = -1, int height = -1,
-                          bool markup = false);
-
-    GtkWidget* createButton(const std::string& text,
-                           const std::string& name = "",
-                           std::function<void()> onClick = nullptr,
-                           int x = -1, int y = -1,
-                           int width = -1, int height = -1,
-                           const std::string& icon = "");
-
-    GtkWidget* createButtonWithIcon(const std::string& iconName,
-                                   const std::string& text,
-                                   const std::string& name = "",
-                                   std::function<void()> onClick = nullptr,
-                                   int x = -1, int y = -1,
-                                   int width = -1, int height = -1);
-
-    GtkWidget* createEntry(const std::string& name = "",
-                          const std::string& defaultText = "",
-                          bool password = false,
-                          int x = -1, int y = -1,
-                          int width = -1, int height = -1,
-                          int maxLength = 0);
-
-    GtkWidget* createTextArea(const std::string& name = "",
-                             const std::string& defaultText = "",
-                             int x = -1, int y = -1,
-                             int width = -1, int height = -1,
-                             bool editable = true,
-                             bool wrap = true);
-
-    GtkWidget* createCheckbox(const std::string& text,
-                             const std::string& name = "",
-                             bool defaultState = false,
-                             int x = -1, int y = -1,
-                             int width = -1, int height = -1);
-
-    GtkWidget* createRadioButtonGroup(const std::vector<std::string>& options,
-                                     const std::string& groupName = "",
-                                     int selectedIndex = 0,
-                                     int x = -1, int y = -1,
-                                     int spacing = 10);
-
-    GtkWidget* createComboBox(const std::vector<std::string>& items,
-                             const std::string& name = "",
-                             int selectedIndex = 0,
-                             int x = -1, int y = -1,
-                             int width = -1, int height = -1);
-
-    GtkWidget* createListView(const std::vector<std::string>& columns,
-                             const std::string& name = "",
-                             int x = -1, int y = -1,
-                             int width = -1, int height = -1);
-
-    GtkWidget* createProgressBar(const std::string& name = "",
-                                double fraction = 0.0,
-                                bool showText = false,
-                                int x = -1, int y = -1,
-                                int width = -1, int height = -1);
-
-    GtkWidget* createHScale(double min = 0.0, double max = 100.0,
-                           double step = 1.0, double value = 0.0,
-                           const std::string& name = "",
-                           int x = -1, int y = -1,
-                           int width = -1, int height = -1);
-
-    GtkWidget* createVScale(double min = 0.0, double max = 100.0,
-                           double step = 1.0, double value = 0.0,
-                           const std::string& name = "",
-                           int x = -1, int y = -1,
-                           int width = -1, int height = -1);
-
-    GtkWidget* createScrolledWindow(GtkWidget* child,
-                                   const std::string& name = "",
-                                   int x = -1, int y = -1,
-                                   int width = -1, int height = -1);
-
-    GtkWidget* createFrame(const std::string& label = "",
-                          GtkWidget* child = nullptr,
-                          const std::string& name = "",
-                          int x = -1, int y = -1,
-                          int width = -1, int height = -1);
-
-    GtkWidget* createPaned(GtkOrientation orientation = GTK_ORIENTATION_HORIZONTAL,
-                          GtkWidget* child1 = nullptr,
-                          GtkWidget* child2 = nullptr,
-                          const std::string& name = "",
-                          int x = -1, int y = -1,
-                          int width = -1, int height = -1);
-
-    GtkWidget* createNotebook(const std::string& name = "",
-                             int x = -1, int y = -1,
-                             int width = -1, int height = -1);
 
     void addNotebookPage(GtkWidget* notebook, GtkWidget* child,
                         const std::string& label,
                         bool closeable = false);
 
-    GtkWidget* createToolbar(const std::string& name = "",
-                            int x = -1, int y = -1,
-                            int width = -1, int height = -1);
-
-    void addToolbarButton(GtkWidget* toolbar, const std::string& iconName,
-                         const std::string& tooltip,
-                         std::function<void()> onClick = nullptr);
-
-    GtkWidget* createMenuBar(const std::string& name = "",
-                            int x = -1, int y = -1,
-                            int width = -1, int height = -1);
-
-    GtkWidget* createStatusBar(const std::string& name = "",
-                              int x = -1, int y = -1,
-                              int width = -1, int height = -1);
-
-    void showStatusMessage(GtkWidget* statusbar,
-                          const std::string& message,
-                          int contextId = 0);
-
-    GtkWidget* createBox(GtkOrientation orientation = GTK_ORIENTATION_VERTICAL,
-                        int spacing = 10,
-                        bool homogeneous = false,
-                        const std::string& name = "",
-                        int x = -1, int y = -1,
-                        int width = -1, int height = -1);
-
-    void addToBox(GtkWidget* box, GtkWidget* child,
-                 bool expand = false, bool fill = false,
-                 int padding = 0);
-
-    GtkWidget* createGrid(const std::string& name = "",
-                         int rowSpacing = 5,
-                         int columnSpacing = 5,
-                         int x = -1, int y = -1,
-                         int width = -1, int height = -1);
-
     void addToGrid(GtkWidget* grid, GtkWidget* child,
                   int left, int top,
                   int width = 1, int height = 1);
-
-    GtkWidget* createCalendar(const std::string& name = "",
-                             int x = -1, int y = -1,
-                             int width = -1, int height = -1);
-
-    GtkWidget* createColorButton(const std::string& name = "",
-                                const GdkRGBA* initialColor = nullptr,
-                                int x = -1, int y = -1,
-                                int width = -1, int height = -1);
-
-    GtkWidget* createFileChooserButton(const std::string& title,
-                                      GtkFileChooserAction action,
-                                      const std::string& name = "",
-                                      int x = -1, int y = -1,
-                                      int width = -1, int height = -1);
-
-    GtkWidget* createSpinButton(double min, double max, double step,
-                               const std::string& name = "",
-                               double value = 0,
-                               int x = -1, int y = -1,
-                               int width = -1, int height = -1);
-
-    GtkWidget* createSwitch(const std::string& name = "",
-                           bool active = false,
-                           int x = -1, int y = -1,
-                           int width = -1, int height = -1);
-
-    GtkWidget* createLinkButton(const std::string& url,
-                               const std::string& label,
-                               const std::string& name = "",
-                               int x = -1, int y = -1,
-                               int width = -1, int height = -1);
-
-    GtkWidget* createSearchEntry(const std::string& name = "",
-                                const std::string& placeholder = "",
-                                int x = -1, int y = -1,
-                                int width = -1, int height = -1);
-
-    GtkWidget* createTabBar(const std::vector<std::string>& tabs,
-                           const std::string& name = "",
-                           int x = -1, int y = -1,
-                           int width = -1, int height = -1);
 
     // 布局控制
     void setWidgetPosition(GtkWidget* widget, int x, int y);
@@ -440,7 +263,7 @@ public:
     void setEntryText(GtkWidget* entry, const std::string& text);
     void clearEntry(GtkWidget* entry);
 
-    std::string getTextAreaText(GtkWidget* textview) const; 
+    std::string getTextAreaText(GtkWidget* textview) const;
     void setTextAreaText(GtkWidget* textview, const std::string& text);
     void appendTextAreaText(GtkWidget* textview, const std::string& text);
 

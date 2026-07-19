@@ -1779,389 +1779,473 @@ void PartitionPage::bindSignals(GtkWidgetHelper& helper) {
 
 
 GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
-	// ── 页面根容器（垂直 Box，整体可滚动） ──
-	GtkWidget* outerScroll = gtk_scrolled_window_new(NULL, NULL);
-	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(outerScroll),
-	                               GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
-	gtk_widget_set_hexpand(outerScroll, TRUE);
-	gtk_widget_set_vexpand(outerScroll, TRUE);
+    // ── 页面根容器（垂直 Box，整体可滚动） ──
+    GtkWidget* outerScroll = gtk_scrolled_window_new();
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(outerScroll),
+                                   GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+    gtk_widget_set_hexpand(outerScroll, TRUE);
+    gtk_widget_set_vexpand(outerScroll, TRUE);
 
-	GtkWidget* mainBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-	gtk_widget_set_margin_start(mainBox, 16);
-	gtk_widget_set_margin_end(mainBox, 16);
-	gtk_widget_set_margin_top(mainBox, 10);
-	gtk_widget_set_margin_bottom(mainBox, 10);
-	gtk_container_add(GTK_CONTAINER(outerScroll), mainBox);
+    GtkWidget* mainBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_widget_set_margin_start(mainBox, 16);
+    gtk_widget_set_margin_end(mainBox, 16);
+    gtk_widget_set_margin_top(mainBox, 10);
+    gtk_widget_set_margin_bottom(mainBox, 10);
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(outerScroll), mainBox);
 
-	// 把 outerScroll 作为 notebook 的 page
-	helper.addWidget("part_page", outerScroll);
-	helper.addNotebookPage(notebook, outerScroll, _("Partition Operation"));
+    // 把 outerScroll 作为 notebook 的 page
+    helper.addWidget("part_page", outerScroll);
+    helper.addNotebookPage(notebook, outerScroll, _("Partition Operation"));
 
-	// ── 区块辅助 lambda：创建带内边距的垂直内容 box ──
-	auto makeCardBox = [](int pad_h, int pad_v) -> GtkWidget* {
-		GtkWidget* box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
-		gtk_widget_set_margin_start(box, pad_h);
-		gtk_widget_set_margin_end(box, pad_h);
-		gtk_widget_set_margin_top(box, pad_v);
-		gtk_widget_set_margin_bottom(box, pad_v);
-		return box;
-	};
+    // ── 区块辅助 lambda：创建带内边距的垂直内容 box ──
+    auto makeCardBox = [](int pad_h, int pad_v) -> GtkWidget* {
+        GtkWidget* box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+        gtk_widget_set_margin_start(box, pad_h);
+        gtk_widget_set_margin_end(box, pad_h);
+        gtk_widget_set_margin_top(box, pad_v);
+        gtk_widget_set_margin_bottom(box, pad_v);
+        return box;
+    };
 
-	// ══════════════════════════════════════════════
-	//  第一部分：请选择一个分区
-	// ══════════════════════════════════════════════
-	GtkWidget* selectTitle = gtk_label_new(_("Please check a partition"));
-	helper.addWidget("part_instruction", selectTitle);
-	gtk_widget_set_halign(selectTitle, GTK_ALIGN_CENTER);
-	gtk_widget_set_margin_bottom(selectTitle, 6);
-	gtk_box_pack_start(GTK_BOX(mainBox), selectTitle, FALSE, FALSE, 0);
+    // ══════════════════════════════════════════════
+    //  第一部分：请选择一个分区
+    // ══════════════════════════════════════════════
+    GtkWidget* selectTitle = gtk_label_new(_("Please check a partition"));
+    helper.addWidget("part_instruction", selectTitle);
+    gtk_widget_set_halign(selectTitle, GTK_ALIGN_CENTER);
+    gtk_widget_set_margin_bottom(selectTitle, 6);
+    gtk_box_append(GTK_BOX(mainBox), selectTitle);
 
-	GtkWidget* listScroll = gtk_scrolled_window_new(NULL, NULL);
-	// 为小屏幕保留更多垂直空间，适当降低默认高度
-	gtk_widget_set_size_request(listScroll, -1, 180);
-	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(listScroll),
-	                               GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-	// 添加边框(阴影)使其看起来像表格区块
-	gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(listScroll), GTK_SHADOW_IN);
-	gtk_widget_set_hexpand(listScroll, TRUE);
+    GtkWidget* listScroll = gtk_scrolled_window_new();
+    gtk_widget_set_size_request(listScroll, -1, 180);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(listScroll),
+                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+	// 阴影效果移除
+    gtk_widget_set_hexpand(listScroll, TRUE);
 
-	GtkListStore* store = gtk_list_store_new(3, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
-	GtkWidget* treeView = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
-	gtk_widget_set_name(treeView, "part_list");
-	helper.addWidget("part_list", treeView);
-	GtkCellRenderer* renderer = gtk_cell_renderer_text_new();
+    GtkListStore* store = gtk_list_store_new(3, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
+    GtkWidget* treeView = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+    gtk_widget_set_name(treeView, "part_list");
+    helper.addWidget("part_list", treeView);
+    GtkCellRenderer* renderer = gtk_cell_renderer_text_new();
 
-	GtkTreeViewColumn* col_name = gtk_tree_view_column_new_with_attributes(_("Partition Name"), renderer, "text", 0, NULL);
-	gtk_tree_view_append_column(GTK_TREE_VIEW(treeView), col_name);
-	gtk_tree_view_column_set_sort_column_id(col_name, 0);
+    GtkTreeViewColumn* col_name = gtk_tree_view_column_new_with_attributes(_("Partition Name"), renderer, "text", 0, NULL);
+    gtk_tree_view_append_column(GTK_TREE_VIEW(treeView), col_name);
+    gtk_tree_view_column_set_sort_column_id(col_name, 0);
 
-	GtkTreeViewColumn* col_size = gtk_tree_view_column_new_with_attributes(_("Size"), renderer, "text", 1, NULL);
-	gtk_tree_view_append_column(GTK_TREE_VIEW(treeView), col_size);
-	gtk_tree_view_column_set_sort_column_id(col_size, 1);
+    GtkTreeViewColumn* col_size = gtk_tree_view_column_new_with_attributes(_("Size"), renderer, "text", 1, NULL);
+    gtk_tree_view_append_column(GTK_TREE_VIEW(treeView), col_size);
+    gtk_tree_view_column_set_sort_column_id(col_size, 1);
 
-	GtkTreeViewColumn* col_type = gtk_tree_view_column_new_with_attributes(_("Type"), renderer, "text", 2, NULL);
-	gtk_tree_view_append_column(GTK_TREE_VIEW(treeView), col_type);
-	gtk_tree_view_column_set_sort_column_id(col_type, 2);
-	gtk_container_add(GTK_CONTAINER(listScroll), treeView);
-	gtk_box_pack_start(GTK_BOX(mainBox), listScroll, FALSE, FALSE, 0);
+    GtkTreeViewColumn* col_type = gtk_tree_view_column_new_with_attributes(_("Type"), renderer, "text", 2, NULL);
+    gtk_tree_view_append_column(GTK_TREE_VIEW(treeView), col_type);
+    gtk_tree_view_column_set_sort_column_id(col_type, 2);
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(listScroll), treeView);
+    gtk_box_append(GTK_BOX(mainBox), listScroll);
 
-	// ── 包含操作按钮的外框 ──
-	GtkWidget* opFrame = gtk_frame_new(NULL);
-	gtk_widget_set_margin_top(opFrame, 16);
-	gtk_widget_set_margin_bottom(opFrame, 16);
-	GtkWidget* opTitleLabel = gtk_label_new(NULL);
-	gtk_label_set_markup(GTK_LABEL(opTitleLabel),
-	    (std::string("<span size='large'><b>") + _("Operation") + "</b></span>").c_str());
-	helper.addWidget("op_label", opTitleLabel);
-	gtk_frame_set_label_widget(GTK_FRAME(opFrame), opTitleLabel);
-	gtk_frame_set_label_align(GTK_FRAME(opFrame), 0.5, 0.5);
+    // ── 包含操作按钮的外框 ──
+    GtkWidget* opFrame = gtk_frame_new(NULL);
+    gtk_widget_set_margin_top(opFrame, 16);
+    gtk_widget_set_margin_bottom(opFrame, 16);
+    GtkWidget* opTitleLabel = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(opTitleLabel),
+        (std::string("<span size='large'><b>") + _("Operation") + "</b></span>").c_str());
+    helper.addWidget("op_label", opTitleLabel);
+    gtk_frame_set_label_widget(GTK_FRAME(opFrame), opTitleLabel);
+    gtkFrameSetLabelAlign(opFrame, 0.5, 0.5);  // 辅助函数
 
-	GtkWidget* opContainerBox = makeCardBox(12, 10);
-	gtk_container_add(GTK_CONTAINER(opFrame), opContainerBox);
+    GtkWidget* opContainerBox = makeCardBox(12, 10);
+    gtk_frame_set_child(GTK_FRAME(opFrame), opContainerBox);
 
-	// ── 操作区按钮网格（三列对齐） ──
-	GtkWidget* writeBtn    = helper.createButton(_("WRITE"),       "list_write",            nullptr, 0, 0, -1, 32);
-	GtkWidget* writeFBtn   = helper.createButton(_("FORCE WRITE"), "list_force_write",      nullptr, 0, 0, -1, 32);
-	GtkWidget* eraseBtn    = helper.createButton(_("ERASE"),       "list_erase",            nullptr, 0, 0, -1, 32);
-	GtkWidget* readBtn     = helper.createButton(_("EXTRACT"),     "list_read",             nullptr, 0, 0, -1, 32);
-	GtkWidget* eraseAllBtn = helper.createButton(_("ERASE ALL"),   "erase_all_partitions",  nullptr, 0, 0, -1, 32);
-	GtkWidget* backupAllBtn = helper.createButton(_("Backup All"), "backup_all",            nullptr, 0, 0, -1, 32);
-	GtkWidget* backupCheckBtn = helper.createButton(_("Check Backup Integrity"), "check_backup_integrity", nullptr, 0, 0, -1, 32);
-	GtkWidget* restoreFolderBtn = helper.createButton(_("Restore From Folder"), "restore_from_folder", nullptr, 0, 0, -1, 32);
-	GtkWidget* xmlGetBtn = helper.createButton(_("Get partition table through scanning an Xml file"), "xml_get", nullptr, 0, 0, -1, 32);
-	GtkWidget* xmlExportBtn = helper.createButton(_("Extract part info to a XML file (if support)"), "export_part_xml", nullptr, 0, 0, -1, 32);
-	GtkWidget* cancelBtn = helper.createButton(_("Cancel"), "list_cancel", nullptr, 0, 0, 120, 32);
+    // ── 操作区按钮 ──
+    // 创建各个按钮（使用 GTK4 原生函数）
+    GtkWidget* writeBtn = gtk_button_new_with_label(_("WRITE"));
+    gtk_widget_set_name(writeBtn, "list_write");
+    gtk_widget_set_size_request(writeBtn, -1, 32);
+    helper.addWidget("list_write", writeBtn);
 
-	// 操作区域细分为写入/恢复、读取/备份、擦除三组，提升辨识度
+    GtkWidget* writeFBtn = gtk_button_new_with_label(_("FORCE WRITE"));
+    gtk_widget_set_name(writeFBtn, "list_force_write");
+    gtk_widget_set_size_request(writeFBtn, -1, 32);
+    helper.addWidget("list_force_write", writeFBtn);
 
-	// 所有按钮在各自分组内拉伸，占满可用宽度
-	gtk_widget_set_hexpand(writeBtn, TRUE);
-	gtk_widget_set_halign(writeBtn, GTK_ALIGN_FILL);
-	gtk_widget_set_hexpand(writeFBtn, TRUE);
-	gtk_widget_set_halign(writeFBtn, GTK_ALIGN_FILL);
-	gtk_widget_set_hexpand(restoreFolderBtn, TRUE);
-	gtk_widget_set_halign(restoreFolderBtn, GTK_ALIGN_FILL);
-	gtk_widget_set_hexpand(readBtn, TRUE);
-	gtk_widget_set_halign(readBtn, GTK_ALIGN_FILL);
-	gtk_widget_set_hexpand(backupAllBtn, TRUE);
-	gtk_widget_set_halign(backupAllBtn, GTK_ALIGN_FILL);
-	gtk_widget_set_hexpand(backupCheckBtn, TRUE);
-	gtk_widget_set_halign(backupCheckBtn, GTK_ALIGN_FILL);
-	gtk_widget_set_hexpand(xmlExportBtn, TRUE);
-	gtk_widget_set_halign(xmlExportBtn, GTK_ALIGN_FILL);
-	gtk_widget_set_hexpand(xmlGetBtn, TRUE);
-	gtk_widget_set_halign(xmlGetBtn, GTK_ALIGN_FILL);
-	gtk_widget_set_hexpand(eraseBtn, TRUE);
-	gtk_widget_set_halign(eraseBtn, GTK_ALIGN_FILL);
-	gtk_widget_set_hexpand(eraseAllBtn, TRUE);
-	gtk_widget_set_halign(eraseAllBtn, GTK_ALIGN_FILL);
-	gtk_widget_set_hexpand(cancelBtn, TRUE);
-	gtk_widget_set_halign(cancelBtn, GTK_ALIGN_FILL);
+    GtkWidget* eraseBtn = gtk_button_new_with_label(_("ERASE"));
+    gtk_widget_set_name(eraseBtn, "list_erase");
+    gtk_widget_set_size_request(eraseBtn, -1, 32);
+    helper.addWidget("list_erase", eraseBtn);
 
-	// 写入 / 恢复分组
-	GtkWidget* writeFrame = gtk_frame_new(NULL);
-	gtk_widget_set_margin_bottom(writeFrame, 8);
-	GtkWidget* writeTitleLabel = gtk_label_new(NULL);
-	{
-		std::string title = "<b>";
-		title += _("WRITE");
-		title += " / ";
-		title += _("Restore From Folder");
-		title += "</b>";
-		gtk_label_set_markup(GTK_LABEL(writeTitleLabel), title.c_str());
-	}
-	gtk_frame_set_label_widget(GTK_FRAME(writeFrame), writeTitleLabel);
-	gtk_frame_set_label_align(GTK_FRAME(writeFrame), 0.0, 0.5);
+    GtkWidget* readBtn = gtk_button_new_with_label(_("EXTRACT"));
+    gtk_widget_set_name(readBtn, "list_read");
+    gtk_widget_set_size_request(readBtn, -1, 32);
+    helper.addWidget("list_read", readBtn);
 
-	GtkWidget* writeBox = makeCardBox(8, 8);
-	gtk_container_add(GTK_CONTAINER(writeFrame), writeBox);
+    GtkWidget* eraseAllBtn = gtk_button_new_with_label(_("ERASE ALL"));
+    gtk_widget_set_name(eraseAllBtn, "erase_all_partitions");
+    gtk_widget_set_size_request(eraseAllBtn, -1, 32);
+    helper.addWidget("erase_all_partitions", eraseAllBtn);
 
-	GtkWidget* writeRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-	gtk_box_pack_start(GTK_BOX(writeBox), writeRow, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(writeRow), writeBtn, TRUE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX(writeRow), writeFBtn, TRUE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX(writeRow), restoreFolderBtn, TRUE, TRUE, 0);
+    GtkWidget* backupAllBtn = gtk_button_new_with_label(_("Backup All"));
+    gtk_widget_set_name(backupAllBtn, "backup_all");
+    gtk_widget_set_size_request(backupAllBtn, -1, 32);
+    helper.addWidget("backup_all", backupAllBtn);
 
-	gtk_box_pack_start(GTK_BOX(opContainerBox), writeFrame, FALSE, FALSE, 0);
+    GtkWidget* backupCheckBtn = gtk_button_new_with_label(_("Check Backup Integrity"));
+    gtk_widget_set_name(backupCheckBtn, "check_backup_integrity");
+    gtk_widget_set_size_request(backupCheckBtn, -1, 32);
+    helper.addWidget("check_backup_integrity", backupCheckBtn);
 
-	// 读取 / 备份分组
-	GtkWidget* readFrame = gtk_frame_new(NULL);
-	gtk_widget_set_margin_bottom(readFrame, 8);
-	GtkWidget* readTitleLabel = gtk_label_new(NULL);
-	{
-		std::string title = "<b>";
-		title += _("EXTRACT");
-		title += " / ";
-		title += _("Backup All");
-		title += "</b>";
-		gtk_label_set_markup(GTK_LABEL(readTitleLabel), title.c_str());
-	}
-	gtk_frame_set_label_widget(GTK_FRAME(readFrame), readTitleLabel);
-	gtk_frame_set_label_align(GTK_FRAME(readFrame), 0.0, 0.5);
+    GtkWidget* restoreFolderBtn = gtk_button_new_with_label(_("Restore From Folder"));
+    gtk_widget_set_name(restoreFolderBtn, "restore_from_folder");
+    gtk_widget_set_size_request(restoreFolderBtn, -1, 32);
+    helper.addWidget("restore_from_folder", restoreFolderBtn);
 
-	GtkWidget* readBox = makeCardBox(8, 8);
-	gtk_container_add(GTK_CONTAINER(readFrame), readBox);
+    GtkWidget* xmlGetBtn = gtk_button_new_with_label(_("Get partition table through scanning an Xml file"));
+    gtk_widget_set_name(xmlGetBtn, "xml_get");
+    gtk_widget_set_size_request(xmlGetBtn, -1, 32);
+    helper.addWidget("xml_get", xmlGetBtn);
 
-	GtkWidget* readRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-	gtk_box_pack_start(GTK_BOX(readBox), readRow, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(readRow), readBtn, TRUE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX(readRow), backupAllBtn, TRUE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX(readRow), xmlExportBtn, TRUE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX(readRow), xmlGetBtn, TRUE, TRUE, 0);
+    GtkWidget* xmlExportBtn = gtk_button_new_with_label(_("Extract part info to a XML file (if support)"));
+    gtk_widget_set_name(xmlExportBtn, "export_part_xml");
+    gtk_widget_set_size_request(xmlExportBtn, -1, 32);
+    helper.addWidget("export_part_xml", xmlExportBtn);
 
-	GtkWidget* readRow2 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-	gtk_box_pack_start(GTK_BOX(readBox), readRow2, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(readRow2), backupCheckBtn, TRUE, TRUE, 0);
+    GtkWidget* cancelBtn = gtk_button_new_with_label(_("Cancel"));
+    gtk_widget_set_name(cancelBtn, "list_cancel");
+    gtk_widget_set_size_request(cancelBtn, 120, 32);
+    helper.addWidget("list_cancel", cancelBtn);
 
-	gtk_box_pack_start(GTK_BOX(opContainerBox), readFrame, FALSE, FALSE, 0);
+    // 设置所有按钮的 hexpand 和 halign（按原代码）
+    gtk_widget_set_hexpand(writeBtn, TRUE);
+    gtk_widget_set_halign(writeBtn, GTK_ALIGN_FILL);
+    gtk_widget_set_hexpand(writeFBtn, TRUE);
+    gtk_widget_set_halign(writeFBtn, GTK_ALIGN_FILL);
+    gtk_widget_set_hexpand(restoreFolderBtn, TRUE);
+    gtk_widget_set_halign(restoreFolderBtn, GTK_ALIGN_FILL);
+    gtk_widget_set_hexpand(readBtn, TRUE);
+    gtk_widget_set_halign(readBtn, GTK_ALIGN_FILL);
+    gtk_widget_set_hexpand(backupAllBtn, TRUE);
+    gtk_widget_set_halign(backupAllBtn, GTK_ALIGN_FILL);
+    gtk_widget_set_hexpand(backupCheckBtn, TRUE);
+    gtk_widget_set_halign(backupCheckBtn, GTK_ALIGN_FILL);
+    gtk_widget_set_hexpand(xmlExportBtn, TRUE);
+    gtk_widget_set_halign(xmlExportBtn, GTK_ALIGN_FILL);
+    gtk_widget_set_hexpand(xmlGetBtn, TRUE);
+    gtk_widget_set_halign(xmlGetBtn, GTK_ALIGN_FILL);
+    gtk_widget_set_hexpand(eraseBtn, TRUE);
+    gtk_widget_set_halign(eraseBtn, GTK_ALIGN_FILL);
+    gtk_widget_set_hexpand(eraseAllBtn, TRUE);
+    gtk_widget_set_halign(eraseAllBtn, GTK_ALIGN_FILL);
+    gtk_widget_set_hexpand(cancelBtn, TRUE);
+    gtk_widget_set_halign(cancelBtn, GTK_ALIGN_FILL);
 
-	// 擦除分组
-	GtkWidget* eraseFrame = gtk_frame_new(NULL);
-	gtk_widget_set_margin_bottom(eraseFrame, 8);
-	GtkWidget* eraseTitleLabel = gtk_label_new(NULL);
-	{
-		std::string title = "<b>";
-		title += _("ERASE");
-		title += " / ";
-		title += _("ERASE ALL");
-		title += "</b>";
-		gtk_label_set_markup(GTK_LABEL(eraseTitleLabel), title.c_str());
-	}
-	gtk_frame_set_label_widget(GTK_FRAME(eraseFrame), eraseTitleLabel);
-	gtk_frame_set_label_align(GTK_FRAME(eraseFrame), 0.0, 0.5);
+    // 写入 / 恢复分组
+    GtkWidget* writeFrame = gtk_frame_new(NULL);
+    gtk_widget_set_margin_bottom(writeFrame, 8);
+    GtkWidget* writeTitleLabel = gtk_label_new(NULL);
+    {
+        std::string title = "<b>";
+        title += _("WRITE");
+        title += " / ";
+        title += _("Restore From Folder");
+        title += "</b>";
+        gtk_label_set_markup(GTK_LABEL(writeTitleLabel), title.c_str());
+    }
+    gtk_frame_set_label_widget(GTK_FRAME(writeFrame), writeTitleLabel);
+    gtkFrameSetLabelAlign(writeFrame, 0.0, 0.5);
 
-	GtkWidget* eraseBox = makeCardBox(8, 8);
-	gtk_container_add(GTK_CONTAINER(eraseFrame), eraseBox);
+    GtkWidget* writeBox = makeCardBox(8, 8);
+    gtk_frame_set_child(GTK_FRAME(writeFrame), writeBox);
 
-	GtkWidget* eraseRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-	gtk_box_pack_start(GTK_BOX(eraseBox), eraseRow, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(eraseRow), eraseBtn, TRUE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX(eraseRow), eraseAllBtn, TRUE, TRUE, 0);
+    GtkWidget* writeRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_box_append(GTK_BOX(writeBox), writeRow);
+    gtk_box_append(GTK_BOX(writeRow), writeBtn);
+    gtk_box_append(GTK_BOX(writeRow), writeFBtn);
+    gtk_box_append(GTK_BOX(writeRow), restoreFolderBtn);
 
-	gtk_box_pack_start(GTK_BOX(opContainerBox), eraseFrame, FALSE, FALSE, 0);
+    gtk_box_append(GTK_BOX(opContainerBox), writeFrame);
 
-	// 取消按钮单独占一行，方便快速点击
-	GtkWidget* cancelRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-	gtk_widget_set_margin_top(cancelRow, 4);
-	gtk_box_pack_start(GTK_BOX(cancelRow), cancelBtn, FALSE, FALSE, 0);
-	gtk_widget_set_halign(cancelBtn, GTK_ALIGN_CENTER);
-	gtk_box_pack_start(GTK_BOX(opContainerBox), cancelRow, FALSE, FALSE, 0);
+    // 读取 / 备份分组
+    GtkWidget* readFrame = gtk_frame_new(NULL);
+    gtk_widget_set_margin_bottom(readFrame, 8);
+    GtkWidget* readTitleLabel = gtk_label_new(NULL);
+    {
+        std::string title = "<b>";
+        title += _("EXTRACT");
+        title += " / ";
+        title += _("Backup All");
+        title += "</b>";
+        gtk_label_set_markup(GTK_LABEL(readTitleLabel), title.c_str());
+    }
+    gtk_frame_set_label_widget(GTK_FRAME(readFrame), readTitleLabel);
+    gtkFrameSetLabelAlign(readFrame, 0.0, 0.5);
 
+    GtkWidget* readBox = makeCardBox(8, 8);
+    gtk_frame_set_child(GTK_FRAME(readFrame), readBox);
 
-	gtk_box_pack_start(GTK_BOX(mainBox), opFrame, FALSE, FALSE, 0);
+    GtkWidget* readRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_box_append(GTK_BOX(readBox), readRow);
+    gtk_box_append(GTK_BOX(readRow), readBtn);
+    gtk_box_append(GTK_BOX(readRow), backupAllBtn);
+    gtk_box_append(GTK_BOX(readRow), xmlExportBtn);
+    gtk_box_append(GTK_BOX(readRow), xmlGetBtn);
 
-	// 设置按钮初始状态
-	gtk_widget_set_sensitive(writeBtn,    FALSE);
-	gtk_widget_set_sensitive(readBtn,     FALSE);
-	gtk_widget_set_sensitive(eraseBtn,    FALSE);
-	gtk_widget_set_sensitive(eraseAllBtn, FALSE);
-	gtk_widget_set_sensitive(backupAllBtn, FALSE);
-	gtk_widget_set_sensitive(backupCheckBtn, FALSE);
-	gtk_widget_set_sensitive(cancelBtn,   TRUE);
-	gtk_widget_set_sensitive(restoreFolderBtn, FALSE);
-	gtk_widget_set_sensitive(xmlExportBtn, FALSE);
+    GtkWidget* readRow2 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_box_append(GTK_BOX(readBox), readRow2);
+    gtk_box_append(GTK_BOX(readRow2), backupCheckBtn);
 
-	// ══════════════════════════════════════════════
-	//  第二部分：包含修改分区的最大外框
-	// ══════════════════════════════════════════════
-	GtkWidget* modifyPageFrame = gtk_frame_new(NULL);
-	gtk_widget_set_margin_bottom(modifyPageFrame, 16);
-	GtkWidget* modifyPageTitle = gtk_label_new(NULL);
-	gtk_label_set_markup(GTK_LABEL(modifyPageTitle),
-	    (std::string("<span size='large'><b>") + _("Modify Partition Table") + "</b></span>").c_str());
-	helper.addWidget("modify_label", modifyPageTitle);
-	gtk_frame_set_label_widget(GTK_FRAME(modifyPageFrame), modifyPageTitle);
-	gtk_frame_set_label_align(GTK_FRAME(modifyPageFrame), 0.5, 0.5);
+    gtk_box_append(GTK_BOX(opContainerBox), readFrame);
 
-	GtkWidget* modifyPageBox = makeCardBox(12, 10);
-	gtk_container_add(GTK_CONTAINER(modifyPageFrame), modifyPageBox);
+    // 擦除分组
+    GtkWidget* eraseFrame = gtk_frame_new(NULL);
+    gtk_widget_set_margin_bottom(eraseFrame, 8);
+    GtkWidget* eraseTitleLabel = gtk_label_new(NULL);
+    {
+        std::string title = "<b>";
+        title += _("ERASE");
+        title += " / ";
+        title += _("ERASE ALL");
+        title += "</b>";
+        gtk_label_set_markup(GTK_LABEL(eraseTitleLabel), title.c_str());
+    }
+    gtk_frame_set_label_widget(GTK_FRAME(eraseFrame), eraseTitleLabel);
+    gtkFrameSetLabelAlign(eraseFrame, 0.0, 0.5);
 
-	// ══════════════════════════════════════════════
-	//  卡片1：修改分区大小
-	// ══════════════════════════════════════════════
-	GtkWidget* sizeFrame = gtk_frame_new(NULL);
-	gtk_widget_set_margin_bottom(sizeFrame, 10);
-	GtkWidget* sizeTitleLabel = gtk_label_new(NULL);
-	gtk_label_set_markup(GTK_LABEL(sizeTitleLabel),
-	    (std::string("<b>") + _("Change size") + "</b>").c_str());
-	helper.addWidget("fff_label", sizeTitleLabel);
-	gtk_frame_set_label_widget(GTK_FRAME(sizeFrame), sizeTitleLabel);
-	gtk_frame_set_label_align(GTK_FRAME(sizeFrame), 0.5, 0.5);
+    GtkWidget* eraseBox = makeCardBox(8, 8);
+    gtk_frame_set_child(GTK_FRAME(eraseFrame), eraseBox);
 
-	GtkWidget* sizeCardBox = makeCardBox(12, 10);
-	gtk_container_add(GTK_CONTAINER(sizeFrame), sizeCardBox);
+    GtkWidget* eraseRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_box_append(GTK_BOX(eraseBox), eraseRow);
+    gtk_box_append(GTK_BOX(eraseRow), eraseBtn);
+    gtk_box_append(GTK_BOX(eraseRow), eraseAllBtn);
 
-	// 卡片说明
-	GtkWidget* sizeDescLabel = gtk_label_new(_("Please check a partition you want to change"));
-	gtk_widget_set_halign(sizeDescLabel, GTK_ALIGN_START);
-	gtk_widget_set_margin_bottom(sizeDescLabel, 6);
-	gtk_box_pack_start(GTK_BOX(sizeCardBox), sizeDescLabel, FALSE, FALSE, 0);
+    gtk_box_append(GTK_BOX(opContainerBox), eraseFrame);
 
-	// 控件行
-	GtkWidget* sizeCtrlRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-	GtkWidget* SeLabel     = gtk_label_new(_("Second-change partition"));
-	helper.addWidget("second_part_label", SeLabel);
-	GtkWidget* secondPart  = helper.createEntry("modify_second_part", "", false, 0, 0, 180, 32);
-	GtkWidget* newSizeLabel = gtk_label_new(_("New size (MB)"));
-	helper.addWidget("new_size_label", newSizeLabel);
-	GtkWidget* newSizeEntry = helper.createEntry("modify_new_size", "", false, 0, 0, 120, 32);
-	GtkWidget* modifyBtn    = helper.createButton(_("Modify"), "modify_part", nullptr, 0, 0, 80, 32);
-	gtk_box_pack_start(GTK_BOX(sizeCtrlRow), SeLabel,     FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(sizeCtrlRow), secondPart,  FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(sizeCtrlRow), newSizeLabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(sizeCtrlRow), newSizeEntry, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(sizeCtrlRow), modifyBtn,   FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(sizeCardBox), sizeCtrlRow, FALSE, FALSE, 0);
+    // 取消按钮单独占一行
+    GtkWidget* cancelRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_widget_set_margin_top(cancelRow, 4);
+    gtk_box_append(GTK_BOX(cancelRow), cancelBtn);
+    gtk_widget_set_halign(cancelBtn, GTK_ALIGN_CENTER);
+    gtk_box_append(GTK_BOX(opContainerBox), cancelRow);
 
-	gtk_box_pack_start(GTK_BOX(modifyPageBox), sizeFrame, FALSE, FALSE, 0);
+    gtk_box_append(GTK_BOX(mainBox), opFrame);
 
-	// ══════════════════════════════════════════════
-	//  卡片2：添加分区
-	// ══════════════════════════════════════════════
-	GtkWidget* addFrame = gtk_frame_new(NULL);
-	gtk_widget_set_margin_bottom(addFrame, 10);
-	GtkWidget* addTitleLabel = gtk_label_new(NULL);
-	gtk_label_set_markup(GTK_LABEL(addTitleLabel),
-	    (std::string("<b>") + _("Add partition") + "</b>").c_str());
-	helper.addWidget("ff_label", addTitleLabel);
-	gtk_frame_set_label_widget(GTK_FRAME(addFrame), addTitleLabel);
-	gtk_frame_set_label_align(GTK_FRAME(addFrame), 0.5, 0.5);
+    // 设置按钮初始敏感度
+    gtk_widget_set_sensitive(writeBtn,    FALSE);
+    gtk_widget_set_sensitive(readBtn,     FALSE);
+    gtk_widget_set_sensitive(eraseBtn,    FALSE);
+    gtk_widget_set_sensitive(eraseAllBtn, FALSE);
+    gtk_widget_set_sensitive(backupAllBtn, FALSE);
+    gtk_widget_set_sensitive(backupCheckBtn, FALSE);
+    gtk_widget_set_sensitive(cancelBtn,   TRUE);
+    gtk_widget_set_sensitive(restoreFolderBtn, FALSE);
+    gtk_widget_set_sensitive(xmlExportBtn, FALSE);
 
-	GtkWidget* addCardBox = makeCardBox(12, 10);
-	gtk_container_add(GTK_CONTAINER(addFrame), addCardBox);
+    // ══════════════════════════════════════════════
+    //  第二部分：包含修改分区的最大外框
+    // ══════════════════════════════════════════════
+    GtkWidget* modifyPageFrame = gtk_frame_new(NULL);
+    gtk_widget_set_margin_bottom(modifyPageFrame, 16);
+    GtkWidget* modifyPageTitle = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(modifyPageTitle),
+        (std::string("<span size='large'><b>") + _("Modify Partition Table") + "</b></span>").c_str());
+    helper.addWidget("modify_label", modifyPageTitle);
+    gtk_frame_set_label_widget(GTK_FRAME(modifyPageFrame), modifyPageTitle);
+    gtkFrameSetLabelAlign(modifyPageFrame, 0.5, 0.5);
 
-	GtkWidget* addDescLabel = gtk_label_new(_("Enter partition name:"));
-	gtk_widget_set_halign(addDescLabel, GTK_ALIGN_START);
-	gtk_widget_set_margin_bottom(addDescLabel, 6);
-	gtk_box_pack_start(GTK_BOX(addCardBox), addDescLabel, FALSE, FALSE, 0);
+    GtkWidget* modifyPageBox = makeCardBox(12, 10);
+    gtk_frame_set_child(GTK_FRAME(modifyPageFrame), modifyPageBox);
 
-	GtkWidget* addCtrlRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-	GtkWidget* Add2Label   = gtk_label_new(_("Part name:"));
-	helper.addWidget("f_label", Add2Label);
-	GtkWidget* newPartEntry = helper.createEntry("new_part", "", false, 0, 0, 160, 32);
-	GtkWidget* new2SizeLabel = gtk_label_new(_("Size (MB):"));
-	helper.addWidget("f3_label", new2SizeLabel);
-	GtkWidget* newPartSize = helper.createEntry("modify_add_size", "", false, 0, 0, 100, 32);
-	GtkWidget* afterPartLabel = gtk_label_new(_("Part after this new part:"));
-	helper.addWidget("after_part_label", afterPartLabel);
-	GtkWidget* afterPart      = helper.createEntry("before_new_part", "", false, 0, 0, 120, 32);
-	GtkWidget* addNewPartBtn  = helper.createButton(_("Modify"), "modify_new_part", nullptr, 0, 0, 80, 32);
-	gtk_box_pack_start(GTK_BOX(addCtrlRow), Add2Label,     FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(addCtrlRow), newPartEntry,  FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(addCtrlRow), new2SizeLabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(addCtrlRow), newPartSize,   FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(addCtrlRow), afterPartLabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(addCtrlRow), afterPart,     FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(addCtrlRow), addNewPartBtn, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(addCardBox), addCtrlRow, FALSE, FALSE, 0);
+    // ══════════════════════════════════════════════
+    //  卡片1：修改分区大小
+    // ══════════════════════════════════════════════
+    GtkWidget* sizeFrame = gtk_frame_new(NULL);
+    gtk_widget_set_margin_bottom(sizeFrame, 10);
+    GtkWidget* sizeTitleLabel = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(sizeTitleLabel),
+        (std::string("<b>") + _("Change size") + "</b>").c_str());
+    helper.addWidget("fff_label", sizeTitleLabel);
+    gtk_frame_set_label_widget(GTK_FRAME(sizeFrame), sizeTitleLabel);
+    gtkFrameSetLabelAlign(sizeFrame, 0.5, 0.5);
 
-	gtk_box_pack_start(GTK_BOX(modifyPageBox), addFrame, FALSE, FALSE, 0);
+    GtkWidget* sizeCardBox = makeCardBox(12, 10);
+    gtk_frame_set_child(GTK_FRAME(sizeFrame), sizeCardBox);
 
-	// ══════════════════════════════════════════════
-	//  卡片3：移除分区
-	// ══════════════════════════════════════════════
-	GtkWidget* rmFrame = gtk_frame_new(NULL);
-	gtk_widget_set_margin_bottom(rmFrame, 10);
-	GtkWidget* rmTitleLabel = gtk_label_new(NULL);
-	gtk_label_set_markup(GTK_LABEL(rmTitleLabel),
-	    (std::string("<b>") + _("Remove partition") + "</b>").c_str());
-	helper.addWidget("ffff_label", rmTitleLabel);
-	gtk_frame_set_label_widget(GTK_FRAME(rmFrame), rmTitleLabel);
-	gtk_frame_set_label_align(GTK_FRAME(rmFrame), 0.5, 0.5);
+    GtkWidget* sizeDescLabel = gtk_label_new(_("Please check a partition you want to change"));
+    gtk_widget_set_halign(sizeDescLabel, GTK_ALIGN_START);
+    gtk_widget_set_margin_bottom(sizeDescLabel, 6);
+    gtk_box_append(GTK_BOX(sizeCardBox), sizeDescLabel);
 
-	GtkWidget* rmCardBox = makeCardBox(12, 10);
-	gtk_container_add(GTK_CONTAINER(rmFrame), rmCardBox);
+    GtkWidget* sizeCtrlRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
 
-	GtkWidget* rmDescLabel = gtk_label_new(_("Please check a partition you want to remove"));
-	gtk_widget_set_halign(rmDescLabel, GTK_ALIGN_START);
-	gtk_widget_set_margin_bottom(rmDescLabel, 6);
-	gtk_box_pack_start(GTK_BOX(rmCardBox), rmDescLabel, FALSE, FALSE, 0);
+    GtkWidget* SeLabel = gtk_label_new(_("Second-change partition"));
+    helper.addWidget("second_part_label", SeLabel);
 
-	// 删除按钮（红色样式）
-	GtkWidget* RemvPartBtn = helper.createButton(_("Delete"), "modify_rm_part", nullptr, 0, 0, 80, 32);
-	gtk_widget_set_name(RemvPartBtn, "danger_button");
-	gtk_style_context_add_class(gtk_widget_get_style_context(RemvPartBtn), "destructive-action");
-	gtk_widget_set_halign(RemvPartBtn, GTK_ALIGN_START);
-	gtk_box_pack_start(GTK_BOX(rmCardBox), RemvPartBtn, FALSE, FALSE, 0);
+    GtkWidget* secondPart = gtk_entry_new();
+    gtk_widget_set_name(secondPart, "modify_second_part");
+    gtk_widget_set_size_request(secondPart, 180, 32);
+    helper.addWidget("modify_second_part", secondPart);
 
-	gtk_box_pack_start(GTK_BOX(modifyPageBox), rmFrame, FALSE, FALSE, 0);
+    GtkWidget* newSizeLabel = gtk_label_new(_("New size (MB)"));
+    helper.addWidget("new_size_label", newSizeLabel);
 
-	// ══════════════════════════════════════════════
-	//  卡片4：重命名分区
-	// ══════════════════════════════════════════════
-	GtkWidget* renFrame = gtk_frame_new(NULL);
-	gtk_widget_set_margin_bottom(renFrame, 10);
-	GtkWidget* renTitleLabel = gtk_label_new(NULL);
-	gtk_label_set_markup(GTK_LABEL(renTitleLabel),
-	    (std::string("<b>") + _("Rename partition") + "</b>").c_str());
-	helper.addWidget("f2_label", renTitleLabel);
-	gtk_frame_set_label_widget(GTK_FRAME(renFrame), renTitleLabel);
-	gtk_frame_set_label_align(GTK_FRAME(renFrame), 0.5, 0.5);
+    GtkWidget* newSizeEntry = gtk_entry_new();
+    gtk_widget_set_name(newSizeEntry, "modify_new_size");
+    gtk_widget_set_size_request(newSizeEntry, 120, 32);
+    helper.addWidget("modify_new_size", newSizeEntry);
 
-	GtkWidget* renCardBox = makeCardBox(12, 10);
-	gtk_container_add(GTK_CONTAINER(renFrame), renCardBox);
+    GtkWidget* modifyBtn = gtk_button_new_with_label(_("Modify"));
+    gtk_widget_set_name(modifyBtn, "modify_part");
+    gtk_widget_set_size_request(modifyBtn, 80, 32);
+    helper.addWidget("modify_part", modifyBtn);
 
-	GtkWidget* renDescLabel = gtk_label_new(_("Please check a partition you want to rename"));
-	gtk_widget_set_halign(renDescLabel, GTK_ALIGN_START);
-	gtk_widget_set_margin_bottom(renDescLabel, 6);
-	gtk_box_pack_start(GTK_BOX(renCardBox), renDescLabel, FALSE, FALSE, 0);
+    gtk_box_append(GTK_BOX(sizeCtrlRow), SeLabel);
+    gtk_box_append(GTK_BOX(sizeCtrlRow), secondPart);
+    gtk_box_append(GTK_BOX(sizeCtrlRow), newSizeLabel);
+    gtk_box_append(GTK_BOX(sizeCtrlRow), newSizeEntry);
+    gtk_box_append(GTK_BOX(sizeCtrlRow), modifyBtn);
 
-	GtkWidget* renCtrlRow   = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-	GtkWidget* RenmPartLabel = gtk_label_new(_("New name"));
-	helper.addWidget("f4_label", RenmPartLabel);
-	GtkWidget* RenmPartEntry = helper.createEntry("modify_rename_part", "", false, 0, 0, 200, 32);
-	GtkWidget* RenmPartBtn   = helper.createButton(_("Modify"), "modify_ren_part", nullptr, 0, 0, 80, 32);
-	gtk_box_pack_start(GTK_BOX(renCtrlRow), RenmPartLabel, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(renCtrlRow), RenmPartEntry, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(renCtrlRow), RenmPartBtn,   FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(renCardBox), renCtrlRow, FALSE, FALSE, 0);
+    gtk_box_append(GTK_BOX(sizeCardBox), sizeCtrlRow);
+    gtk_box_append(GTK_BOX(modifyPageBox), sizeFrame);
 
-	gtk_box_pack_start(GTK_BOX(modifyPageBox), renFrame, FALSE, FALSE, 0);
+    // ══════════════════════════════════════════════
+    //  卡片2：添加分区
+    // ══════════════════════════════════════════════
+    GtkWidget* addFrame = gtk_frame_new(NULL);
+    gtk_widget_set_margin_bottom(addFrame, 10);
+    GtkWidget* addTitleLabel = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(addTitleLabel),
+        (std::string("<b>") + _("Add partition") + "</b>").c_str());
+    helper.addWidget("ff_label", addTitleLabel);
+    gtk_frame_set_label_widget(GTK_FRAME(addFrame), addTitleLabel);
+    gtkFrameSetLabelAlign(addFrame, 0.5, 0.5);
 
-	gtk_box_pack_start(GTK_BOX(mainBox), modifyPageFrame, FALSE, FALSE, 0);
+    GtkWidget* addCardBox = makeCardBox(12, 10);
+    gtk_frame_set_child(GTK_FRAME(addFrame), addCardBox);
 
-	gtk_widget_show_all(outerScroll);
-	return outerScroll;
+    GtkWidget* addDescLabel = gtk_label_new(_("Enter partition name:"));
+    gtk_widget_set_halign(addDescLabel, GTK_ALIGN_START);
+    gtk_widget_set_margin_bottom(addDescLabel, 6);
+    gtk_box_append(GTK_BOX(addCardBox), addDescLabel);
+
+    GtkWidget* addCtrlRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+
+    GtkWidget* Add2Label = gtk_label_new(_("Part name:"));
+    helper.addWidget("f_label", Add2Label);
+
+    GtkWidget* newPartEntry = gtk_entry_new();
+    gtk_widget_set_name(newPartEntry, "new_part");
+    gtk_widget_set_size_request(newPartEntry, 160, 32);
+    helper.addWidget("new_part", newPartEntry);
+
+    GtkWidget* new2SizeLabel = gtk_label_new(_("Size (MB):"));
+    helper.addWidget("f3_label", new2SizeLabel);
+
+    GtkWidget* newPartSize = gtk_entry_new();
+    gtk_widget_set_name(newPartSize, "modify_add_size");
+    gtk_widget_set_size_request(newPartSize, 100, 32);
+    helper.addWidget("modify_add_size", newPartSize);
+
+    GtkWidget* afterPartLabel = gtk_label_new(_("Part after this new part:"));
+    helper.addWidget("after_part_label", afterPartLabel);
+
+    GtkWidget* afterPart = gtk_entry_new();
+    gtk_widget_set_name(afterPart, "before_new_part");
+    gtk_widget_set_size_request(afterPart, 120, 32);
+    helper.addWidget("before_new_part", afterPart);
+
+    GtkWidget* addNewPartBtn = gtk_button_new_with_label(_("Modify"));
+    gtk_widget_set_name(addNewPartBtn, "modify_new_part");
+    gtk_widget_set_size_request(addNewPartBtn, 80, 32);
+    helper.addWidget("modify_new_part", addNewPartBtn);
+
+    gtk_box_append(GTK_BOX(addCtrlRow), Add2Label);
+    gtk_box_append(GTK_BOX(addCtrlRow), newPartEntry);
+    gtk_box_append(GTK_BOX(addCtrlRow), new2SizeLabel);
+    gtk_box_append(GTK_BOX(addCtrlRow), newPartSize);
+    gtk_box_append(GTK_BOX(addCtrlRow), afterPartLabel);
+    gtk_box_append(GTK_BOX(addCtrlRow), afterPart);
+    gtk_box_append(GTK_BOX(addCtrlRow), addNewPartBtn);
+
+    gtk_box_append(GTK_BOX(addCardBox), addCtrlRow);
+    gtk_box_append(GTK_BOX(modifyPageBox), addFrame);
+
+    // ══════════════════════════════════════════════
+    //  卡片3：移除分区
+    // ══════════════════════════════════════════════
+    GtkWidget* rmFrame = gtk_frame_new(NULL);
+    gtk_widget_set_margin_bottom(rmFrame, 10);
+    GtkWidget* rmTitleLabel = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(rmTitleLabel),
+        (std::string("<b>") + _("Remove partition") + "</b>").c_str());
+    helper.addWidget("ffff_label", rmTitleLabel);
+    gtk_frame_set_label_widget(GTK_FRAME(rmFrame), rmTitleLabel);
+    gtkFrameSetLabelAlign(rmFrame, 0.5, 0.5);
+
+    GtkWidget* rmCardBox = makeCardBox(12, 10);
+    gtk_frame_set_child(GTK_FRAME(rmFrame), rmCardBox);
+
+    GtkWidget* rmDescLabel = gtk_label_new(_("Please check a partition you want to remove"));
+    gtk_widget_set_halign(rmDescLabel, GTK_ALIGN_START);
+    gtk_widget_set_margin_bottom(rmDescLabel, 6);
+    gtk_box_append(GTK_BOX(rmCardBox), rmDescLabel);
+
+    GtkWidget* RemvPartBtn = gtk_button_new_with_label(_("Delete"));
+    gtk_widget_set_name(RemvPartBtn, "modify_rm_part");
+    gtk_widget_set_size_request(RemvPartBtn, 80, 32);
+    helper.addWidget("modify_rm_part", RemvPartBtn);
+    gtk_widget_set_name(RemvPartBtn, "danger_button");
+    gtk_style_context_add_class(gtk_widget_get_style_context(RemvPartBtn), "destructive-action");
+    gtk_widget_set_halign(RemvPartBtn, GTK_ALIGN_START);
+
+    gtk_box_append(GTK_BOX(rmCardBox), RemvPartBtn);
+    gtk_box_append(GTK_BOX(modifyPageBox), rmFrame);
+
+    // ══════════════════════════════════════════════
+    //  卡片4：重命名分区
+    // ══════════════════════════════════════════════
+    GtkWidget* renFrame = gtk_frame_new(NULL);
+    gtk_widget_set_margin_bottom(renFrame, 10);
+    GtkWidget* renTitleLabel = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(renTitleLabel),
+        (std::string("<b>") + _("Rename partition") + "</b>").c_str());
+    helper.addWidget("f2_label", renTitleLabel);
+    gtk_frame_set_label_widget(GTK_FRAME(renFrame), renTitleLabel);
+    gtkFrameSetLabelAlign(renFrame, 0.5, 0.5);
+
+    GtkWidget* renCardBox = makeCardBox(12, 10);
+    gtk_frame_set_child(GTK_FRAME(renFrame), renCardBox);
+
+    GtkWidget* renDescLabel = gtk_label_new(_("Please check a partition you want to rename"));
+    gtk_widget_set_halign(renDescLabel, GTK_ALIGN_START);
+    gtk_widget_set_margin_bottom(renDescLabel, 6);
+    gtk_box_append(GTK_BOX(renCardBox), renDescLabel);
+
+    GtkWidget* renCtrlRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+
+    GtkWidget* RenmPartLabel = gtk_label_new(_("New name"));
+    helper.addWidget("f4_label", RenmPartLabel);
+
+    GtkWidget* RenmPartEntry = gtk_entry_new();
+    gtk_widget_set_name(RenmPartEntry, "modify_rename_part");
+    gtk_widget_set_size_request(RenmPartEntry, 200, 32);
+    helper.addWidget("modify_rename_part", RenmPartEntry);
+
+    GtkWidget* RenmPartBtn = gtk_button_new_with_label(_("Modify"));
+    gtk_widget_set_name(RenmPartBtn, "modify_ren_part");
+    gtk_widget_set_size_request(RenmPartBtn, 80, 32);
+    helper.addWidget("modify_ren_part", RenmPartBtn);
+
+    gtk_box_append(GTK_BOX(renCtrlRow), RenmPartLabel);
+    gtk_box_append(GTK_BOX(renCtrlRow), RenmPartEntry);
+    gtk_box_append(GTK_BOX(renCtrlRow), RenmPartBtn);
+
+    gtk_box_append(GTK_BOX(renCardBox), renCtrlRow);
+    gtk_box_append(GTK_BOX(modifyPageBox), renFrame);
+
+    gtk_box_append(GTK_BOX(mainBox), modifyPageFrame);
+
+    gtk_widget_show(outerScroll);
+    return outerScroll;
 }
 
 static std::vector<BatchPartitionWriteItem>
@@ -2179,21 +2263,24 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 
 	GtkWidget* content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
 
-	GtkWidget* button_box = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
-	gtk_button_box_set_layout(GTK_BUTTON_BOX(button_box), GTK_BUTTONBOX_START);
+	// 1. 使用 GtkBox 替代 GtkButtonBox
+	GtkWidget* button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);  // spacing = 8
+
+	// 2. 设置左对齐（等同于 GTK_BUTTONBOX_START）
+	gtk_widget_set_halign(button_box, GTK_ALIGN_START);
 	gtk_box_set_spacing(GTK_BOX(button_box), 6);
-	gtk_box_pack_start(GTK_BOX(content), button_box, FALSE, FALSE, 6);
+	gtkBoxPackStart((content), button_box, FALSE, FALSE, 6);
 
 	GtkWidget* select_all_btn = gtk_button_new_with_label(_("Select All"));
 	GtkWidget* unselect_all_btn = gtk_button_new_with_label(_("Unselect All"));
-	gtk_box_pack_start(GTK_BOX(button_box), select_all_btn, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(button_box), unselect_all_btn, FALSE, FALSE, 0);
+	gtkBoxPackStart((button_box), select_all_btn, FALSE, FALSE, 0);
+	gtkBoxPackStart((button_box), unselect_all_btn, FALSE, FALSE, 0);
 
-	GtkWidget* scrolled = gtk_scrolled_window_new(nullptr, nullptr);
+	GtkWidget* scrolled = gtk_scrolled_window_new();
 	// 在对话框中适当减小默认高度，避免在低分辨率屏幕上遮挡底部状态栏
 	gtk_widget_set_size_request(scrolled, 900, 560);
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-	gtk_box_pack_start(GTK_BOX(content), scrolled, TRUE, TRUE, 0);
+	gtkBoxPackStart((content), scrolled, TRUE, TRUE, 0);
 
 	GtkListStore* store = gtk_list_store_new(7,
 	                                         G_TYPE_BOOLEAN,  // 0: selected
@@ -2247,7 +2334,7 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 	}
 
 	GtkWidget* tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
-	gtk_container_add(GTK_CONTAINER(scrolled), tree);
+	gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), tree);
 	g_object_unref(store);
 
 	// 列 0: checkbox
@@ -2308,10 +2395,14 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 	GtkTreeViewColumn* col_critical = gtk_tree_view_column_new_with_attributes(_("Critical"), text_renderer, "text", 5, nullptr);
 	gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_critical);
 
+#if GTK_CHECK_VERSION(4, 0, 0)
+	gtk_widget_show(dialog);
+#else
 	gtk_widget_show_all(dialog);
+#endif
 
 	std::vector<BatchPartitionWriteItem> result;
-	if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+	if (runDialog(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
 		GtkTreeModel* model = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
 		GtkTreeIter iter;
 		gboolean valid = gtk_tree_model_get_iter_first(model, &iter);
@@ -2343,7 +2434,7 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 		}
 	}
 
-	gtk_widget_destroy(dialog);
+	destroyWidget(dialog);
 	return result;
 }
 
@@ -2382,12 +2473,12 @@ static void show_backup_inspection_dialog(GtkWidgetHelper& helper,
 	GtkWidget* summary_label = gtk_label_new(summary.c_str());
 	gtk_widget_set_halign(summary_label, GTK_ALIGN_START);
 	gtk_widget_set_margin_bottom(summary_label, 8);
-	gtk_box_pack_start(GTK_BOX(content), summary_label, FALSE, FALSE, 0);
+	gtkBoxPackStart((content), summary_label, FALSE, FALSE, 0);
 
-	GtkWidget* scrolled = gtk_scrolled_window_new(nullptr, nullptr);
+	GtkWidget* scrolled = gtk_scrolled_window_new();
 	gtk_widget_set_size_request(scrolled, 980, 560);
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-	gtk_box_pack_start(GTK_BOX(content), scrolled, TRUE, TRUE, 0);
+	gtkBoxPackStart((content), scrolled, TRUE, TRUE, 0);
 
 	GtkListStore* store = gtk_list_store_new(6,
 	                                         G_TYPE_STRING,
@@ -2418,7 +2509,7 @@ static void show_backup_inspection_dialog(GtkWidgetHelper& helper,
 	}
 
 	GtkWidget* tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
-	gtk_container_add(GTK_CONTAINER(scrolled), tree);
+	gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), tree);
 	g_object_unref(store);
 
 	GtkCellRenderer* text_renderer = gtk_cell_renderer_text_new();
@@ -2435,9 +2526,13 @@ static void show_backup_inspection_dialog(GtkWidgetHelper& helper,
 	gtk_tree_view_append_column(GTK_TREE_VIEW(tree),
 	                            gtk_tree_view_column_new_with_attributes(_("Note"), text_renderer, "text", 5, nullptr));
 
+#if GTK_CHECK_VERSION(4, 0, 0)
+	gtk_widget_show(dialog);
+#else
 	gtk_widget_show_all(dialog);
-	gtk_dialog_run(GTK_DIALOG(dialog));
-	gtk_widget_destroy(dialog);
+#endif
+	runDialog(GTK_DIALOG(dialog));
+	destroyWidget(dialog);
 }
 
 static void run_batch_partition_write(GtkWidgetHelper helper,
