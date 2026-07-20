@@ -1320,6 +1320,9 @@ void erase_partition(spdio_t *io, const char *name, int CMethod) {
 
 void load_partition(spdio_t *io, const char *name,
 	const char *fn, unsigned step, int CMethod) {
+	
+	get_partition_info(io, name, 1);
+	if (!gPartInfo.size) return;
 	uint64_t offset, len, n64;
 	unsigned mode64, n, step0 = step; int ret;
 	EnhancedFile fi;
@@ -1443,7 +1446,10 @@ void load_partition_force(spdio_t *io, const int id, const char *fn, unsigned st
 	uint8_t *buf = io->temp_buf;
 	double rtime = get_time();
 	char name[] = "w_force";
+	if (id >= CMethod ? io->part_count_c : io->part_count) return;
 	const char* part_name = CMethod ? (*(io->Cptable + id)).name : (*(io->ptable + id)).name;
+	get_partition_info(io, name, 0);
+	if (!gPartInfo.size) return;
 	if (strstr(part_name, "calinv") || strstr(part_name, "factorynv"))
 	{
 		DEG_LOG(W, "Partition %s is skipped for force write due to potential risks.", part_name);
@@ -1898,7 +1904,7 @@ void get_partition_info(spdio_t *io, const char *name, int need_size) {
 		}
 		if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 		if (i > io->part_count) {
-			DEG_LOG(E,"part not exist");
+			DEG_LOG(E,"part not exist: ", name);
 			gPartInfo.size = 0;
 			io->verbose = verbose;
 			return;
@@ -1959,7 +1965,7 @@ void get_partition_info(spdio_t *io, const char *name, int need_size) {
 		name = name_ab;
 	}
 	if (!gPartInfo.size) {
-		DEG_LOG(E,"part not exist");
+		DEG_LOG(E,"part not exist: %s", name);
 		io->verbose = verbose;
 		return;
 	}
@@ -2884,6 +2890,10 @@ void w_mem_to_part_offset(spdio_t *io, const char *name, size_t offset, uint8_t 
 int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned step, int CMethod) {
 	char name0[36], name1[40];
 	unsigned size0, size1;
+
+	get_partition_info(io, name, 1);
+	if (!gPartInfo.size) return 0;
+
 	if (strstr(name, "fixnv1") || 
 		strstr(name, "downloadnv"))
 		{
