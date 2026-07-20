@@ -8,7 +8,9 @@
 #include <functional>
 #if defined(__linux__) || defined(__APPLE__)
 #include <sys/stat.h>
+#ifndef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
+#endif
 #include <strings.h>
 #endif
 #include <algorithm>
