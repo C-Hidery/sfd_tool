@@ -49,15 +49,15 @@ FILE *my_fopen(const char *fn, const char *mode) {
     if (savepath[0]) {
         size_t fn_len = strlen(fn);
         size_t path_len = strlen(savepath);
-        char* fix_fn = new char[path_len + fn_len + 2];
+        char* fix_fn = new char[path_len + fn_len + 3];
         if (!fix_fn) return nullptr;
         char* ch;
         if ((ch = const_cast<char*>(strrchr(fn, '/')))) 
-            snprintf(fix_fn, path_len + fn_len + 2, "%s/%s", savepath, ch + 1);
+            snprintf(fix_fn, path_len + fn_len + 3, "%s/%s", savepath, ch + 1);
         else if ((ch = const_cast<char*>(strrchr(fn, '\\')))) 
-            snprintf(fix_fn, path_len + fn_len + 2, "%s/%s", savepath, ch + 1);
+            snprintf(fix_fn, path_len + fn_len + 3, "%s/%s", savepath, ch + 1);
         else 
-            snprintf(fix_fn, path_len + fn_len + 2, "%s/%s", savepath, fn);
+            snprintf(fix_fn, path_len + fn_len + 3, "%s/%s", savepath, fn);
         FILE* fe = fopen(fix_fn, mode);
         delete[] fix_fn;
         return fe;
@@ -73,7 +73,7 @@ FILE* my_xfopen(const char* fn, const char* mode) {
     if (savepath[0]) {
         size_t fn_len = strlen(fn);
         size_t path_len = strlen(savepath);
-        fix_fn = (char*)malloc(path_len + fn_len + 2);
+        fix_fn = (char*)malloc(path_len + fn_len + 3);
         if (!fix_fn) return nullptr;
         
         const char* filename_part;
@@ -86,7 +86,7 @@ FILE* my_xfopen(const char* fn, const char* mode) {
         else 
             filename_part = fn;
         
-        snprintf(fix_fn, path_len + fn_len + 2, "%s/%s", savepath, filename_part);
+        snprintf(fix_fn, path_len + fn_len + 3, "%s/%s", savepath, filename_part);
     }
     
     const char* path_to_open = fix_fn ? fix_fn : fn;
@@ -190,20 +190,34 @@ long EnhancedFile::tell() const noexcept {
     return -1L;
 }
 
-long EnhancedFile::tello() const noexcept {
+#ifdef _MSC_VER
+int64_t EnhancedFile::tello() const noexcept {
+    if (file) return ftello(file.get());
+    return -1LL;
+}
+#else
+off_t EnhancedFile::tello() const noexcept {
     if (file) return ftello(file.get());
     return -1L;
 }
+#endif
 
 int EnhancedFile::seek(long offset, int origin) noexcept {
     if (file) return fseek(file.get(), offset, origin);
     return -1;
 }
 
-int EnhancedFile::seeko(long offset, int origin) noexcept {
+#ifdef _MSC_VER 
+int EnhancedFile::seeko(int64_t offset, int origin) noexcept {
     if (file) return fseeko(file.get(), offset, origin);
     return -1;
 }
+#else
+int EnhancedFile::seeko(off_t offset, int origin) noexcept {
+    if (file) return fseeko(file.get(), offset, origin);
+    return -1;
+}
+#endif
 
 int EnhancedFile::eof() const noexcept {
     if (file) return feof(file.get());
@@ -522,7 +536,7 @@ EnhancedFile& operator>>(EnhancedFile& ef, std::string& str) {
         // 跳过空白字符
         if (ef.skipws()) {
             int ch;
-            while ((ch = fgetc(ef.get())) != EOF && std::isspace(ch));
+            while ((ch = fgetc(ef.get())) != EOF && std::isspace(static_cast<unsigned char>(ch)));
             if (ch != EOF) ungetc(ch, ef.get());
         }
         
@@ -620,7 +634,7 @@ EnhancedFile& operator>>(EnhancedFile& ef, char& c) {
     if (ef) {
         if (ef.skipws()) {
             int ch;
-            while ((ch = fgetc(ef.get())) != EOF && std::isspace(ch));
+            while ((ch = fgetc(ef.get())) != EOF && std::isspace(static_cast<unsigned char>(ch)));
             if (ch != EOF) {
                 c = static_cast<char>(ch);
                 return ef;

@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <memory>
 #include <string>
+#include <cstdint>
 #include <iostream>
 
 #ifndef __cplusplus
@@ -83,9 +84,17 @@ public:
     void close() noexcept;
     int flush() noexcept;
     long tell() const noexcept;
-    long tello() const noexcept;
+#ifdef _MSC_VER
+    int64_t tello() const noexcept;
+#else
+    off_t tello() const noexcept; // `-D_FILE_OFFSET_BITS=64` if on 32-bit Linux
+#endif
     int seek(long offset, int origin) noexcept;
-    int seeko(long offset, int origin) noexcept;
+#ifdef _MSC_VER
+    int seeko(int64_t offset, int origin) noexcept;
+#else
+    int seeko(off_t offset, int origin) noexcept; // `-D_FILE_OFFSET_BITS=64` if on 32-bit Linux
+#endif
     void rewind() noexcept;
     int eof() const noexcept;
     int error() const noexcept;
