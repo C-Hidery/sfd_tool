@@ -24,7 +24,7 @@
 #include <string.h>
 #include <ctype.h>
 
-inline int my_strnicmp(const char* s1, const char* s2, size_t len)
+int my_strnicmp(const char* s1, const char* s2, size_t len)
 {
 #ifdef _WIN32
 	return _strnicmp(s1, s2, len);
@@ -33,8 +33,7 @@ inline int my_strnicmp(const char* s1, const char* s2, size_t len)
 #endif
 }
 
-// 使用 inline 函数实现
-inline int my_stricmp(const char* s1, const char* s2) {
+int my_stricmp(const char* s1, const char* s2) {
 #ifdef _WIN32
     return _stricmp(s1, s2);
 #else
@@ -43,7 +42,7 @@ inline int my_stricmp(const char* s1, const char* s2) {
 }
 
 // 跨平台的不区分大小写子串查找
-inline char* my_stristr(const char* haystack, const char* needle) {
+char* my_stristr(const char* haystack, const char* needle) {
     if (!*needle) return (char*)haystack;
 
     size_t haystack_len = strlen(haystack);
