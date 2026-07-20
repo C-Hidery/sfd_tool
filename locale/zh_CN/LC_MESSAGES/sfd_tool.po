@@ -1069,9 +1069,6 @@ msgstr "确认从所选文件夹开始刷入勾选的分区吗？"
 
 # ===== Auto-appended entries from sfd_tool.pot =====
 
-msgid "No partition table loaded on the current device. Please read the partition list first, then try restoring from the folder again."
-msgstr "当前设备尚未加载分区表，请先读取分区列表后再尝试从文件夹恢复。"
-
 msgid "No partition images matching the current partition table were found in the selected folder."
 msgstr "在所选的文件夹中未找到可与当前分区表匹配的分区镜像。"
 
@@ -1123,8 +1120,8 @@ msgstr "擦除全部分区"
 msgid "Device context not ready."
 msgstr "设备上下文尚未就绪。"
 
-msgid "No partition table loaded on the current device. Please read the partition list first, then try again."
-msgstr "当前设备尚未加载分区表，请先读取分区列表后再试。"
+msgid "No partition table loaded on the current device."
+msgstr "当前设备尚未加载分区表。"
 
 msgid "Check Backup Integrity"
 msgstr "检查备份完整性"

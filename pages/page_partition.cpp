@@ -255,16 +255,16 @@ static bool starts_with(const std::string& value, const char* prefix) {
 }
 
 bool is_critical_partition_name(const std::string& name) {
-    if (name == "splloader") return true;
-    if (name == "super") return true;
-    if (name == "metadata") return true;
-    if (name == "sml") return true;
-    if (name == "trustos") return true;
-    if (name == "teecfg") return true;
-    if (name == "recovery") return true;
+    if (my_stricmp(name.c_str(), "splloader") == 0) return true;
+    if (my_stricmp(name.c_str(), "super") == 0) return true;
+    if (my_stricmp(name.c_str(), "metadata") == 0) return true;
+    if (my_stricmp(name.c_str(), "sml") == 0) return true;
+    if (my_stricmp(name.c_str(), "trustos") == 0) return true;
+    if (my_stricmp(name.c_str(), "teecfg") == 0) return true;
+    if (my_stricmp(name.c_str(), "recovery") == 0) return true;
     if (starts_with(name, "uboot")) return true;
-    if (starts_with(name, "boot")) return true;   // boot / boot_a / boot_b 等
-    if (starts_with(name, "vbmeta")) return true; // vbmeta / vbmeta_a / vbmeta_system 等
+    if (starts_with(name, "boot")) return true;   // boot / boot_a / boot_b
+    if (starts_with(name, "vbmeta")) return true; // vbmeta / vbmeta_a / vbmeta_system
     if (starts_with(name, "dtbo")) return true;
     return false;
 }
@@ -375,8 +375,8 @@ static bool collect_current_device_partitions_for_batch_ops(GtkWidgetHelper& hel
 
     if (!isCMethod) {
         if (io->part_count == 0) {
-            showErrorDialog(parent, _("Error"),
-                            _("No partition table loaded on the current device. Please read the partition list first, then try again."));
+            showWarningDialog(parent, _("Warning"),
+                            _("No partition table loaded on the current device."));
             return false;
         }
         partitions.reserve(static_cast<std::size_t>(io->part_count) + 1U);
@@ -391,7 +391,7 @@ static bool collect_current_device_partitions_for_batch_ops(GtkWidgetHelper& hel
     } else {
         if (io->part_count_c == 0) {
             showErrorDialog(parent, _("Error"),
-                            _("No partition table loaded on the current device. Please read the partition list first, then try again."));
+                            _("No partition table loaded on the current device."));
             return false;
         }
         partitions.reserve(static_cast<std::size_t>(io->part_count_c) + 1U);
@@ -465,18 +465,35 @@ inspect_backup_folder(const std::string& folder,
     std::vector<BackupInspectionItem> result;
     auto image_files = scan_backup_image_files(folder);
 
-    std::map<std::string, sfd::DevicePartitionInfo> partition_map;
+    // 构建设备分区的小写映射，用于快速查找和纠正
+    std::map<std::string, const sfd::DevicePartitionInfo*> partition_map_lower;
     for (const auto& part : partitions) {
-        partition_map[part.name] = part;
+        std::string lower = part.name;
+        std::transform(lower.begin(), lower.end(), lower.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        partition_map_lower[lower] = &part;
     }
 
+    // 1. 检查每个设备分区
     for (const auto& part : partitions) {
         BackupInspectionItem item;
         item.part = part;
         item.expected_size = expected_backup_image_size(part.name, part.size);
         item.is_critical = is_critical_partition_name(part.name);
 
-        auto file_it = image_files.find(part.name);
+        // 查找镜像文件（忽略大小写）
+        std::string part_lower = part.name;
+        std::transform(part_lower.begin(), part_lower.end(), part_lower.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+        auto file_it = std::find_if(image_files.begin(), image_files.end(),
+            [&part_lower](const auto& kv) {
+                std::string lower = kv.first;
+                std::transform(lower.begin(), lower.end(), lower.begin(),
+                               [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                return lower == part_lower;
+            });
+
         if (file_it == image_files.end()) {
             if (item.is_critical) {
                 item.note = _("Critical partition backup not found in folder.");
@@ -518,19 +535,31 @@ inspect_backup_folder(const std::string& folder,
         result.push_back(std::move(item));
     }
 
+    // 2. 处理多余的镜像文件（即设备表中没有匹配的分区）
     for (const auto& kv : image_files) {
-        if (partition_map.find(kv.first) != partition_map.end()) {
+        const std::string& image_name = kv.first;
+        // 判断该镜像名称是否在设备表中（忽略大小写）
+        std::string lower = image_name;
+        std::transform(lower.begin(), lower.end(), lower.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        if (partition_map_lower.find(lower) != partition_map_lower.end()) {
             continue;
         }
 
         BackupInspectionItem item;
-        item.part.name = kv.first;
+        // 使用文件名的分区名作为虚拟分区（原始大小写）
+        item.part.name = image_name;
+        item.part.size = 0;
+        item.part.readable = true;
+        item.part.writable = true;
         item.image_path = kv.second.path;
         item.image_size = kv.second.size;
+        item.matched = false;
         item.note = _("No matching partition exists on the current device.");
         result.push_back(std::move(item));
     }
 
+    // 排序（与原逻辑一致）
     std::stable_sort(result.begin(), result.end(), [](const BackupInspectionItem& lhs,
                                                       const BackupInspectionItem& rhs) {
         auto rank = [](const BackupInspectionItem& item) {
@@ -578,24 +607,54 @@ scan_folder_and_match_partitions(const std::string& folder,
     BatchPartitionWriteItem downloadnv_item;
     bool has_downloadnv = false;
 
+    // 1. 扫描文件夹，获取所有镜像文件（已按优先级去重）
     auto image_files = scan_backup_image_files(folder);
+
+    // 2. 构建设备分区表的忽略大小写映射（用于自动纠正名称）
+    std::map<std::string, sfd::DevicePartitionInfo> partition_map; // key 为小写
     for (const auto& part : partitions) {
-        auto it = image_files.find(part.name);
-        if (it == image_files.end()) {
-            continue;
-        }
+        std::string lower = part.name;
+        std::transform(lower.begin(), lower.end(), lower.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        partition_map[lower] = part; // 如有重复，保留最后一个（实际不会）
+    }
+
+    // 3. 遍历所有镜像文件，而不是遍历 partitions
+    for (const auto& kv : image_files) {
+        const std::string& image_part_name = kv.first;      // 从文件名解析出的分区名（原始大小写）
+        const BackupImageFileInfo& file_info = kv.second;
+
+        // 4. 尝试忽略大小写匹配设备分区表
+        std::string lower_name = image_part_name;
+        std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
         BatchPartitionWriteItem item;
-        item.part = part;
-        item.image_path = it->second.path;
-        item.image_size = it->second.size;
-        item.is_critical = is_critical_partition_name(item.part.name);
+        auto map_it = partition_map.find(lower_name);
+        if (map_it != partition_map.end()) {
+            // 匹配成功：使用设备表中的正确大小写和分区大小
+            item.part = map_it->second;
+        } else {
+            // 未匹配：创建虚拟分区项，仅保留文件名中的分区名（原始大小写），大小设为 0
+            sfd::DevicePartitionInfo virtual_part;
+            virtual_part.name = image_part_name;   // 保留原始大小写
+            virtual_part.size = 0;                 // 未知，刷入时会使用镜像实际大小
+            virtual_part.readable = true;
+            virtual_part.writable = true;
+            item.part = virtual_part;
+        }
+
+        // 5. 填充其它字段
+        item.image_path = file_info.path;
+        item.image_size = file_info.size;
+        item.is_critical = is_critical_partition_name(item.part.name); // 使用纠正后的名称判断
         item.selected = true;
-        DEG_LOG(I, "[restore-folder] matched partition=%s path=%s size=%llu critical=%d",
-                item.part.name.c_str(), item.image_path.c_str(),
+
+        DEG_LOG(I, "[restore-folder] matched partition=%s (from file), corrected=%s, path=%s size=%llu critical=%d",
+                image_part_name.c_str(), item.part.name.c_str(), item.image_path.c_str(),
                 static_cast<unsigned long long>(item.image_size), item.is_critical ? 1 : 0);
 
-        // 如果分区名包含 "downloadnv"，保存到临时变量，稍后追加到最后
+        // 6. 特殊处理 downloadnv 分区，置于最后
         if (item.part.name.find("downloadnv") != std::string::npos) {
             downloadnv_item = std::move(item);
             has_downloadnv = true;
@@ -604,13 +663,14 @@ scan_folder_and_match_partitions(const std::string& folder,
         }
     }
 
-    // 如果存在 downloadnv 分区，追加到末尾
+    // 7. 追加 downloadnv（如果存在）
     if (has_downloadnv) {
         result.push_back(std::move(downloadnv_item));
     }
 
     return result;
 }
+
 void on_button_clicked_list_write(GtkWidgetHelper helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
 	std::string filename = showFileChooser(parent, true);
@@ -2639,9 +2699,7 @@ void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
 	}
 
 	std::vector<sfd::DevicePartitionInfo> partitions;
-	if (!collect_current_device_partitions_for_batch_ops(helper, partitions)) {
-		return;
-	}
+	collect_current_device_partitions_for_batch_ops(helper, partitions);
 
 	std::string folder = showFolderChooser(parent);
 	if (folder.empty()) {
