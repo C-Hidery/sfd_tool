@@ -21,6 +21,10 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+if (UNIX AND NOT APPLE)
+    add_compile_definitions(_FILE_OFFSET_BITS=64)
+endif()
+
 # 对标 Makefile: -Wall -Wextra -pedantic -Wno-unused
 if (MSVC)
     # Windows 下使用 MSVC，保持告警级别，但不强行添加 GCC/Clang 专用选项
