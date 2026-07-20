@@ -1,3 +1,9 @@
+sfd-tool (2.5.2-1-ltv) unstable; urgency=medium
+
+  * 忽略大小写的GUI备份效验和批量刷写（恢复）
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Mon, 20 Jul 2026 22:35:50 +0800
+
 sfd-tool (2.5.1-1-ltv) unstable; urgency=medium
 
   * 修复Windows平台文件大小读取错误的问题
