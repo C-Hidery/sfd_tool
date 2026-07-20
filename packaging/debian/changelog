@@ -1,3 +1,9 @@
+sfd-tool (2.5.1-1-ltv) unstable; urgency=medium
+
+  * 修复Windows平台文件大小读取错误的问题
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Mon, 20 Jul 2026 17:41:04 +0800
+
 sfd-tool (2.5.0-1-ltv) unstable; urgency=medium
 
   * 将GUI升级到GTK4
