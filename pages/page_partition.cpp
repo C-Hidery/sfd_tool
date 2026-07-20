@@ -251,7 +251,7 @@ static bool starts_with(const std::string& value, const char* prefix) {
     if (!prefix) return false;
     const std::size_t prefix_len = std::strlen(prefix);
     if (value.size() < prefix_len) return false;
-    return std::memcmp(value.data(), prefix, prefix_len) == 0;
+    return my_strnicmp(value.c_str(), prefix, prefix_len) == 0;
 }
 
 bool is_critical_partition_name(const std::string& name) {
@@ -271,9 +271,12 @@ bool is_critical_partition_name(const std::string& name) {
 
 static std::uint64_t expected_backup_image_size(const std::string& partition_name,
                                                 std::uint64_t partition_size) {
-    if (partition_name.find("nv1") != std::string::npos && partition_size > 512ULL) {
-        return partition_size - 512ULL;
-    }
+    std::string lower = partition_name;
+	std::transform(lower.begin(), lower.end(), lower.begin(),
+				[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+	if (lower.find("nv1") != std::string::npos && partition_size > 512ULL) {
+		return partition_size - 512ULL;
+	}
     return partition_size;
 }
 
@@ -655,10 +658,10 @@ scan_folder_and_match_partitions(const std::string& folder,
                 static_cast<unsigned long long>(item.image_size), item.is_critical ? 1 : 0);
 
         // 6. 特殊处理 downloadnv 分区，置于最后
-        if (item.part.name.find("downloadnv") != std::string::npos) {
-            downloadnv_item = std::move(item);
-            has_downloadnv = true;
-        } else {
+        if (my_stristr(item.part.name.c_str(), "downloadnv") != nullptr) {
+			downloadnv_item = std::move(item);
+			has_downloadnv = true;
+		} else {
             result.push_back(std::move(item));
         }
     }
@@ -2604,7 +2607,7 @@ void on_button_clicked_restore_from_folder(GtkWidgetHelper helper) {
 	}
 
 	std::vector<sfd::DevicePartitionInfo> partitions;
-	collect_current_device_partitions_for_batch_ops(helper, partitions);
+	collect_current_device_partitions_for_batch_ops(helper, partitions); // 不强制要求分区表
 
 	std::string folder = showFolderChooser(parent);
 	if (folder.empty()) {
