@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 #include "../core/XmlParser.hpp"
+#include <set>
 
 extern spdio_t*& io;
 extern int ret;
@@ -466,103 +467,126 @@ static std::vector<BackupInspectionItem>
 inspect_backup_folder(const std::string& folder,
                       const std::vector<sfd::DevicePartitionInfo>& partitions) {
     std::vector<BackupInspectionItem> result;
+    if (partitions.empty()) return result;   // 无表则返回空
+
     auto image_files = scan_backup_image_files(folder);
 
-    // 构建设备分区的小写映射，用于快速查找和纠正
-    std::map<std::string, const sfd::DevicePartitionInfo*> partition_map_lower;
+    std::set<std::string> matched_partitions;
+    std::set<std::string> matched_files;
+
+    // ── 第一阶段：精确匹配 ──
     for (const auto& part : partitions) {
-        std::string lower = part.name;
-        std::transform(lower.begin(), lower.end(), lower.begin(),
-                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-        partition_map_lower[lower] = &part;
+        if (matched_partitions.count(part.name)) continue;
+        auto it = image_files.find(part.name);
+        if (it != image_files.end() && !matched_files.count(it->first)) {
+            // 构造 BackupInspectionItem
+            BackupInspectionItem item;
+            item.part = part;
+            item.expected_size = expected_backup_image_size(part.name, part.size);
+            item.is_critical = is_critical_partition_name(part.name);
+            item.matched = true;
+            item.image_path = it->second.path;
+            item.image_size = it->second.size;
+            item.size_match = (item.image_size == item.expected_size);
+            item.empty_file = (item.image_size == 0);
+
+            bool all_zero = false;
+            std::string error;
+            if (inspect_file_is_all_zero(item.image_path, all_zero, error)) {
+                item.all_zero = all_zero;
+            } else {
+                item.analysis_error = true;
+                item.note = std::move(error);
+            }
+
+            if (item.note.empty()) {
+                if (item.empty_file) item.note = _("Image file is empty.");
+                else if (!item.size_match) item.note = _("Image size does not match the current partition size.");
+                if (item.all_zero) {
+                    if (!item.note.empty()) item.note += " ";
+                    item.note += _("All bytes are 0x00; this may be normal for an empty or erased partition.");
+                }
+            }
+            result.push_back(std::move(item));
+            matched_partitions.insert(part.name);
+            matched_files.insert(it->first);
+        }
     }
 
-    // 1. 检查每个设备分区
-    for (const auto& part : partitions) {
-        BackupInspectionItem item;
-        item.part = part;
-        item.expected_size = expected_backup_image_size(part.name, part.size);
-        item.is_critical = is_critical_partition_name(part.name);
+    // ── 第二阶段：忽略大小写匹配（按分区循环，冲突放弃） ──
+    std::vector<sfd::DevicePartitionInfo> unmatched_parts;
+    for (const auto& part : partitions)
+        if (!matched_partitions.count(part.name))
+            unmatched_parts.push_back(part);
 
-        // 查找镜像文件（忽略大小写）
+    std::vector<std::string> unused_files;
+    for (const auto& kv : image_files)
+        if (!matched_files.count(kv.first))
+            unused_files.push_back(kv.first);
+
+    std::set<std::string> abandoned_partitions;
+
+    for (const auto& part : unmatched_parts) {
+        if (abandoned_partitions.count(part.name)) continue;
+
         std::string part_lower = part.name;
         std::transform(part_lower.begin(), part_lower.end(), part_lower.begin(),
-                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                       [](unsigned char c) { return std::tolower(c); });
 
-        auto file_it = std::find_if(image_files.begin(), image_files.end(),
-            [&part_lower](const auto& kv) {
-                std::string lower = kv.first;
-                std::transform(lower.begin(), lower.end(), lower.begin(),
-                               [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-                return lower == part_lower;
-            });
-
-        if (file_it == image_files.end()) {
-            if (item.is_critical) {
-                item.note = _("Critical partition backup not found in folder.");
-                result.push_back(std::move(item));
-            }
-            continue;
+        std::vector<std::string> matching_files;
+        for (const auto& fname : unused_files) {
+            if (matched_files.count(fname)) continue;
+            std::string f_lower = fname;
+            std::transform(f_lower.begin(), f_lower.end(), f_lower.begin(),
+                           [](unsigned char c) { return std::tolower(c); });
+            if (f_lower == part_lower)
+                matching_files.push_back(fname);
         }
 
-        item.matched = true;
-        item.image_path = file_it->second.path;
-        item.image_size = file_it->second.size;
-        item.size_match = (item.image_size == item.expected_size);
-        item.empty_file = (item.image_size == 0);
+        if (matching_files.size() == 1) {
+            // 唯一匹配 → 生成校验项
+            const std::string& fname = matching_files[0];
+            BackupInspectionItem item;
+            item.part = part;
+            item.expected_size = expected_backup_image_size(part.name, part.size);
+            item.is_critical = is_critical_partition_name(part.name);
+            item.matched = true;
+            item.image_path = image_files[fname].path;
+            item.image_size = image_files[fname].size;
+            item.size_match = (item.image_size == item.expected_size);
+            item.empty_file = (item.image_size == 0);
 
-        bool all_zero = false;
-        std::string error;
-        if (inspect_file_is_all_zero(item.image_path, all_zero, error)) {
-            item.all_zero = all_zero;
-        } else {
-            item.analysis_error = true;
-            item.note = std::move(error);
-        }
-
-        if (item.note.empty()) {
-            if (item.empty_file) {
-                item.note = _("Image file is empty.");
-            } else if (!item.size_match) {
-                item.note = _("Image size does not match the current partition size.");
+            bool all_zero = false;
+            std::string error;
+            if (inspect_file_is_all_zero(item.image_path, all_zero, error)) {
+                item.all_zero = all_zero;
+            } else {
+                item.analysis_error = true;
+                item.note = std::move(error);
             }
 
-            if (item.all_zero) {
-                if (!item.note.empty()) {
-                    item.note += " ";
+            if (item.note.empty()) {
+                if (item.empty_file) item.note = _("Image file is empty.");
+                else if (!item.size_match) item.note = _("Image size does not match the current partition size.");
+                if (item.all_zero) {
+                    if (!item.note.empty()) item.note += " ";
+                    item.note += _("All bytes are 0x00; this may be normal for an empty or erased partition.");
                 }
-                item.note += _("All bytes are 0x00; this may be normal for an empty or erased partition.");
             }
+            result.push_back(std::move(item));
+            matched_partitions.insert(part.name);
+            matched_files.insert(fname);
+        } else if (matching_files.size() > 1) {
+            // 冲突：多个文件匹配同一分区 → 放弃该分区，文件忽略（不加入结果）
+            DEG_LOG(W, "[inspect] conflict: partition '%s' matches multiple files (case-insensitive), abandoning partition.",
+                    part.name.c_str());
+            abandoned_partitions.insert(part.name);
+            // 这些文件不会被标记为 matched，但最终不会加入结果（因为不在表中）
         }
-
-        result.push_back(std::move(item));
+        // 无匹配 → 分区被丢弃，不加入结果
     }
 
-    // 2. 处理多余的镜像文件（即设备表中没有匹配的分区）
-    for (const auto& kv : image_files) {
-        const std::string& image_name = kv.first;
-        // 判断该镜像名称是否在设备表中（忽略大小写）
-        std::string lower = image_name;
-        std::transform(lower.begin(), lower.end(), lower.begin(),
-                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-        if (partition_map_lower.find(lower) != partition_map_lower.end()) {
-            continue;
-        }
-
-        BackupInspectionItem item;
-        // 使用文件名的分区名作为虚拟分区（原始大小写）
-        item.part.name = image_name;
-        item.part.size = 0;
-        item.part.readable = true;
-        item.part.writable = true;
-        item.image_path = kv.second.path;
-        item.image_size = kv.second.size;
-        item.matched = false;
-        item.note = _("No matching partition exists on the current device.");
-        result.push_back(std::move(item));
-    }
-
-    // 排序（与原逻辑一致）
+    // 排序（按状态严重程度）
     std::stable_sort(result.begin(), result.end(), [](const BackupInspectionItem& lhs,
                                                       const BackupInspectionItem& rhs) {
         auto rank = [](const BackupInspectionItem& item) {
@@ -574,12 +598,8 @@ inspect_backup_folder(const std::string& folder,
             if (item.all_zero) return 5;
             return 6;
         };
-
-        const int lhs_rank = rank(lhs);
-        const int rhs_rank = rank(rhs);
-        if (lhs_rank != rhs_rank) {
-            return lhs_rank < rhs_rank;
-        }
+        int lr = rank(lhs), rr = rank(rhs);
+        if (lr != rr) return lr < rr;
         return lhs.part.name < rhs.part.name;
     });
 
@@ -603,74 +623,144 @@ static int batch_write_priority(const BatchPartitionWriteItem& item) {
     return 0;
 }
 
+static void move_downloadnv_to_end(std::vector<BatchPartitionWriteItem>& items) {
+    std::vector<BatchPartitionWriteItem> normal, downloadnv;
+    for (auto& item : items) {
+        if (my_stristr(item.part.name.c_str(), "downloadnv") != nullptr)
+            downloadnv.push_back(std::move(item));
+        else
+            normal.push_back(std::move(item));
+    }
+    normal.insert(normal.end(), std::make_move_iterator(downloadnv.begin()),
+                  std::make_move_iterator(downloadnv.end()));
+    items = std::move(normal);
+}
+
 static std::vector<BatchPartitionWriteItem>
 scan_folder_and_match_partitions(const std::string& folder,
                                  const std::vector<sfd::DevicePartitionInfo>& partitions) {
     std::vector<BatchPartitionWriteItem> result;
-    BatchPartitionWriteItem downloadnv_item;
-    bool has_downloadnv = false;
-
-    // 1. 扫描文件夹，获取所有镜像文件（已按优先级去重）
     auto image_files = scan_backup_image_files(folder);
 
-    // 2. 构建设备分区表的忽略大小写映射（用于自动纠正名称）
-    std::map<std::string, sfd::DevicePartitionInfo> partition_map; // key 为小写
-    for (const auto& part : partitions) {
-        std::string lower = part.name;
-        std::transform(lower.begin(), lower.end(), lower.begin(),
-                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-        partition_map[lower] = part; // 如有重复，保留最后一个（实际不会）
-    }
-
-    // 3. 遍历所有镜像文件，而不是遍历 partitions
-    for (const auto& kv : image_files) {
-        const std::string& image_part_name = kv.first;      // 从文件名解析出的分区名（原始大小写）
-        const BackupImageFileInfo& file_info = kv.second;
-
-        // 4. 尝试忽略大小写匹配设备分区表
-        std::string lower_name = image_part_name;
-        std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(),
-                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-
-        BatchPartitionWriteItem item;
-        auto map_it = partition_map.find(lower_name);
-        if (map_it != partition_map.end()) {
-            // 匹配成功：使用设备表中的正确大小写和分区大小
-            item.part = map_it->second;
-        } else {
-            // 未匹配：创建虚拟分区项，仅保留文件名中的分区名（原始大小写），大小设为 0
-            sfd::DevicePartitionInfo virtual_part;
-            virtual_part.name = image_part_name;   // 保留原始大小写
-            virtual_part.size = 0;                 // 未知，刷入时会使用镜像实际大小
-            virtual_part.readable = true;
-            virtual_part.writable = true;
-            item.part = virtual_part;
-        }
-
-        // 5. 填充其它字段
-        item.image_path = file_info.path;
-        item.image_size = file_info.size;
-        item.is_critical = is_critical_partition_name(item.part.name); // 使用纠正后的名称判断
-        item.selected = true;
-
-        DEG_LOG(I, "[restore-folder] matched partition=%s (from file), corrected=%s, path=%s size=%llu critical=%d",
-                image_part_name.c_str(), item.part.name.c_str(), item.image_path.c_str(),
-                static_cast<unsigned long long>(item.image_size), item.is_critical ? 1 : 0);
-
-        // 6. 特殊处理 downloadnv 分区，置于最后
-        if (my_stristr(item.part.name.c_str(), "downloadnv") != nullptr) {
-			downloadnv_item = std::move(item);
-			has_downloadnv = true;
-		} else {
+    // 分区表为空 → 全部转为虚拟分区
+    if (partitions.empty()) {
+        for (const auto& kv : image_files) {
+            BatchPartitionWriteItem item;
+            sfd::DevicePartitionInfo vp;
+            vp.name = kv.first;
+            vp.size = 0;
+            vp.readable = vp.writable = true;
+            item.part = vp;
+            item.image_path = kv.second.path;
+            item.image_size = kv.second.size;
+            item.is_critical = is_critical_partition_name(item.part.name);
+            item.selected = true;
             result.push_back(std::move(item));
         }
+        move_downloadnv_to_end(result);
+        return result;
     }
 
-    // 7. 追加 downloadnv（如果存在）
-    if (has_downloadnv) {
-        result.push_back(std::move(downloadnv_item));
+    // 建立文件映射（原始 key → 信息）
+    std::map<std::string, BackupImageFileInfo> files = image_files;
+
+    std::set<std::string> matched_partitions; // 已匹配的分区（原始名）
+    std::set<std::string> matched_files;      // 已匹配的文件名（原始名）
+
+    // ── 第一阶段：精确匹配（区分大小写） ──
+    for (const auto& part : partitions) {
+        if (matched_partitions.count(part.name)) continue;
+        auto it = files.find(part.name);
+        if (it != files.end() && !matched_files.count(it->first)) {
+            BatchPartitionWriteItem item;
+            item.part = part;                     // 使用分区表原始大小写
+            item.image_path = it->second.path;
+            item.image_size = it->second.size;
+            item.is_critical = is_critical_partition_name(item.part.name);
+            item.selected = true;
+            result.push_back(std::move(item));
+            matched_partitions.insert(part.name);
+            matched_files.insert(it->first);
+        }
     }
 
+    // ── 第二阶段：忽略大小写匹配（按分区循环，处理“一个分区匹配多个文件”的冲突） ──
+    // 收集未匹配的分区（原始名）
+    std::vector<sfd::DevicePartitionInfo> unmatched_parts;
+    for (const auto& part : partitions)
+        if (!matched_partitions.count(part.name))
+            unmatched_parts.push_back(part);
+
+    // 收集未使用的文件（原始名）
+    std::vector<std::string> unused_files;
+    for (const auto& kv : files)
+        if (!matched_files.count(kv.first))
+            unused_files.push_back(kv.first);
+
+    std::set<std::string> abandoned_partitions; // 因冲突而放弃的分区
+
+    for (const auto& part : unmatched_parts) {
+        if (abandoned_partitions.count(part.name)) continue;
+
+        std::string part_lower = part.name;
+        std::transform(part_lower.begin(), part_lower.end(), part_lower.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+
+        // 找出所有忽略大小写等于该分区的未使用文件
+        std::vector<std::string> matching_files;
+        for (const auto& fname : unused_files) {
+            if (matched_files.count(fname)) continue;
+            std::string f_lower = fname;
+            std::transform(f_lower.begin(), f_lower.end(), f_lower.begin(),
+                           [](unsigned char c) { return std::tolower(c); });
+            if (f_lower == part_lower)
+                matching_files.push_back(fname);
+        }
+
+        if (matching_files.size() == 1) {
+            // 唯一匹配 → 成功
+            const std::string& fname = matching_files[0];
+            BatchPartitionWriteItem item;
+            item.part = part;
+            item.image_path = files[fname].path;
+            item.image_size = files[fname].size;
+            item.is_critical = is_critical_partition_name(item.part.name);
+            item.selected = true;
+            result.push_back(std::move(item));
+            matched_partitions.insert(part.name);
+            matched_files.insert(fname);
+        } else if (matching_files.size() > 1) {
+            // 多个文件匹配同一分区 → 放弃该分区，这些文件保持未使用（最终成为虚拟分区）
+            DEG_LOG(W, "[restore-folder] conflict: partition '%s' matches multiple files (case-insensitive): %s, abandoning partition.",
+                    part.name.c_str(), [&]() {
+                        std::string list;
+                        for (const auto& f : matching_files) { if (!list.empty()) list += ", "; list += f; }
+                        return list;
+                    }().c_str());
+            abandoned_partitions.insert(part.name);
+            // 文件不被标记为 matched，后续进入虚拟分区
+        }
+        // 无匹配文件 → 分区被丢弃（不加入结果）
+    }
+
+    // ── 所有未使用的文件（包括冲突文件、无匹配文件）转为虚拟分区 ──
+    for (const auto& kv : files) {
+        if (matched_files.count(kv.first)) continue;
+        BatchPartitionWriteItem item;
+        sfd::DevicePartitionInfo vp;
+        vp.name = kv.first;   // 使用文件名的原始大小写
+        vp.size = 0;
+        vp.readable = vp.writable = true;
+        item.part = vp;
+        item.image_path = kv.second.path;
+        item.image_size = kv.second.size;
+        item.is_critical = is_critical_partition_name(item.part.name);
+        item.selected = true;
+        result.push_back(std::move(item));
+    }
+
+    // 将 downloadnv* 移到末尾
+    move_downloadnv_to_end(result);
     return result;
 }
 
