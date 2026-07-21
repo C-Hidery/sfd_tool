@@ -24,7 +24,7 @@
 #include <string.h>
 #include <ctype.h>
 
-static inline int my_strnicmp(const char* s1, const char* s2, size_t len)
+int my_strnicmp(const char* s1, const char* s2, size_t len)
 {
 #ifdef _WIN32
 	return _strnicmp(s1, s2, len);
@@ -33,8 +33,7 @@ static inline int my_strnicmp(const char* s1, const char* s2, size_t len)
 #endif
 }
 
-// 使用 inline 函数实现
-static inline int my_stricmp(const char* s1, const char* s2) {
+int my_stricmp(const char* s1, const char* s2) {
 #ifdef _WIN32
     return _stricmp(s1, s2);
 #else
@@ -43,7 +42,7 @@ static inline int my_stricmp(const char* s1, const char* s2) {
 }
 
 // 跨平台的不区分大小写子串查找
-static inline char* my_stristr(const char* haystack, const char* needle) {
+char* my_stristr(const char* haystack, const char* needle) {
     if (!*needle) return (char*)haystack;
 
     size_t haystack_len = strlen(haystack);
@@ -1320,6 +1319,9 @@ void erase_partition(spdio_t *io, const char *name, int CMethod) {
 
 void load_partition(spdio_t *io, const char *name,
 	const char *fn, unsigned step, int CMethod) {
+	
+	get_partition_info(io, name, 1);
+	if (!gPartInfo.size) return;
 	uint64_t offset, len, n64;
 	unsigned mode64, n, step0 = step; int ret;
 	EnhancedFile fi;
@@ -1443,7 +1445,10 @@ void load_partition_force(spdio_t *io, const int id, const char *fn, unsigned st
 	uint8_t *buf = io->temp_buf;
 	double rtime = get_time();
 	char name[] = "w_force";
+	if (id >= CMethod ? io->part_count_c : io->part_count) return;
 	const char* part_name = CMethod ? (*(io->Cptable + id)).name : (*(io->ptable + id)).name;
+	get_partition_info(io, name, 0);
+	if (!gPartInfo.size) return;
 	if (strstr(part_name, "calinv") || strstr(part_name, "factorynv"))
 	{
 		DEG_LOG(W, "Partition %s is skipped for force write due to potential risks.", part_name);
@@ -1898,7 +1903,7 @@ void get_partition_info(spdio_t *io, const char *name, int need_size) {
 		}
 		if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
 		if (i > io->part_count) {
-			DEG_LOG(E,"part not exist");
+			DEG_LOG(E,"part not exist: ", name);
 			gPartInfo.size = 0;
 			io->verbose = verbose;
 			return;
@@ -1959,7 +1964,7 @@ void get_partition_info(spdio_t *io, const char *name, int need_size) {
 		name = name_ab;
 	}
 	if (!gPartInfo.size) {
-		DEG_LOG(E,"part not exist");
+		DEG_LOG(E,"part not exist: %s", name);
 		io->verbose = verbose;
 		return;
 	}
@@ -2511,6 +2516,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		}
 	}
 	if (selected_ab) DEG_LOG(I,"Flashing to slot %c.\n", 96 + selected_ab);
+	std::vector<std::string> flashed_parts;
 	for (int i = 0; i < partition_count; i++) {
 		if (isCancel) {  delete[](partitions); return; }
 		fn = partitions[i].name;
@@ -2523,21 +2529,42 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 		{
 			relfn = case_part({}, fn, io);
 		}
+		if (relfn.empty()) get_partition_info(io, fn, 1);
+		else get_partition_info(io, relfn.c_str(), 1);
+		bool isRejected = false;
+		for (auto& kv : flashed_parts)
+		{
+			if (!my_stricmp(kv.c_str(), gPartInfo.name))
+			{
+				DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: ", kv.c_str());
+				DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
+				isRejected = true;
+				continue;
+			}
+		}
+		if (isRejected)
+		{
+			partitions[i].written_flag = 1;
+			continue;
+		}
 		namelen = strlen(relfn.empty() ? fn : relfn.c_str());
 		if (selected_ab == 1 && namelen > 2 && 0 == my_stricmp(fn + namelen - 2, "_b")) { partitions[i].written_flag = 1; continue; }
 		else if (selected_ab == 2 && namelen > 2 && 0 == my_stricmp(fn + namelen - 2, "_a")) { partitions[i].written_flag = 1; continue; }
 		if (!my_stricmp(fn, "miscdata") && g_app_state.flash.isPacFlashing)
 		{
+			flashed_parts.emplace_back(gPartInfo.name);
 			partitions[i].written_flag = 1;
 			continue;
 		}
 		if (!my_stricmp(fn, "prodnv") && g_app_state.flash.isPacFlashing)
 		{
+			flashed_parts.emplace_back(gPartInfo.name);
 			partitions[i].written_flag = 1;
 			continue;
 		}
 		if (!my_stricmp(fn, "userdata") && g_app_state.flash.isPacFlashing)
 		{
+			flashed_parts.emplace_back(gPartInfo.name);
 			partitions[i].written_flag = 1;
 			continue;
 		}
@@ -2547,6 +2574,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			if (my_stristr(fn, "nr_fixnv1"))
 			{
 				get_partition_info(io, "nr_fixnv1", 1);
+				flashed_parts.emplace_back(gPartInfo.name);
 				if (gPartInfo.size && hasPartition(pac_parts, std::string(gPartInfo.name))) 
 				{
 					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
@@ -2570,6 +2598,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			else if (my_stristr(fn, "l_fixnv1"))
 			{
 				get_partition_info(io, "l_fixnv1", 1);
+				flashed_parts.emplace_back(gPartInfo.name);
 				if (gPartInfo.size && hasPartition(pac_parts, std::string(gPartInfo.name))) 
 				{
 					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
@@ -2604,6 +2633,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 					break;
 				}
 			}
+			flashed_parts.emplace_back("splloader");
 		}
 		else
 		{
@@ -2616,26 +2646,57 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			!my_stricmp(fn, "vbmeta_b")) {
 			if ((!g_app_state.flash.isPacFlashing || hasPartition(pac_parts, fn)) && partitions[i].written_flag == 0) {
 				if (relfn.empty())
-					load_partition(io, fn, partitions[i].file_path, step, CMethod);
+					get_partition_info(io, fn, 1);
 				else
-					load_partition(io, relfn.c_str(), partitions[i].file_path, step, CMethod);
+					get_partition_info(io, relfn.c_str(), 1);
+				if (!gPartInfo.size) continue;
+				bool isAllowed = true;
+				for (auto& kv : flashed_parts)
+				{
+					if (!my_stricmp(gPartInfo.name, kv.c_str()))
+					{
+						DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: ", kv.c_str());
+						DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
+						isAllowed = false;
+						continue;
+					}
+				}
+				if (isAllowed)
+				{
+					load_partition(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
+					flashed_parts.emplace_back(gPartInfo.name);
+				}
 				partitions[i].written_flag = 1;
 			}
 			continue;
 		}
-		if (my_stricmp(fn, "uboot") == 0 || my_stricmp(fn, "vbmeta") == 0) {
+		if (!my_stricmp(fn, "uboot") == 0 || my_stricmp(fn, "vbmeta") == 0) {
 			if (relfn.empty())
 				get_partition_info(io, fn, 0);
 			else
 				get_partition_info(io, relfn.c_str(), 0);
 			if (!gPartInfo.size) continue;
-			if (!g_app_state.flash.isPacFlashing || hasPartition(pac_parts, fn)) {
-				load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
-				partitions[i].written_flag = 1;
-			}
+			bool isAllowed = true;
+				for (auto& kv : flashed_parts)
+				{
+					if (!my_stricmp(gPartInfo.name, kv.c_str()))
+					{
+						DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: ", kv.c_str());
+						DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
+						isAllowed = false;
+						continue;
+					}
+				}
+			if (isAllowed)
+				if (!g_app_state.flash.isPacFlashing || hasPartition(pac_parts, fn)) 
+				{
+					load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
+					flashed_parts.emplace_back(gPartInfo.name);
+				}
+			partitions[i].written_flag = 1;
 			continue;
 		}
-		if (my_strnicmp(fn, "vbmeta_", 7) == 0) {
+		if (!my_strnicmp(fn, "vbmeta_", 7) == 0) {
 		    if(g_app_state.flash.isPacFlashing)
 		    {
     			auto it = std::find_if(pac_parts.begin(), pac_parts.end(),
@@ -2649,8 +2710,22 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			else
 				get_partition_info(io, relfn.c_str(), 0);
 			if (!gPartInfo.size) continue;
-
-			load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
+			bool isAllowed = true;
+				for (auto& kv : flashed_parts)
+				{
+					if (!my_stricmp(gPartInfo.name, kv.c_str()))
+					{
+						DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: ", kv.c_str());
+						DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
+						isAllowed = false;
+						continue;
+					}
+				}
+			if (isAllowed)
+			{
+				load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
+				flashed_parts.emplace_back(gPartInfo.name);
+			}
 			partitions[i].written_flag = 1;
 			continue;
 		}
@@ -2675,16 +2750,59 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			else
 				get_partition_info(io, relfn.c_str(), 0);
 			if (!gPartInfo.size) continue;
-			if (my_stristr(fn, "downloadnv")) {isHasDownloadNV = true; dlnv_id = i; continue; }
+			if (my_stristr(gPartInfo.name, "downloadnv")) {isHasDownloadNV = true; dlnv_id = i; continue; }
 			if (!my_stricmp(gPartInfo.name, "metadata")) { metadata_in_dump = 1; metadata_id = i; continue; }
 			if (!my_stricmp(gPartInfo.name, "super")) { super_in_dump = 1; super_id = i; continue; }
-			load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
+			bool isAllowed = true;
+			for (auto& kv : flashed_parts)
+			{
+				if (!my_stricmp(kv.c_str(), gPartInfo.name))
+				{
+					DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: ", kv.c_str());
+					DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
+					bool isAllowed = false;
+					continue;
+				}
+			}
+			if (isAllowed)
+			{
+				load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
+				flashed_parts.emplace_back(gPartInfo.name);
+			}
+			partitions[i].written_flag = 1;
+			
 		}
 	}
 	if (super_in_dump) {
-		load_partition(io, "super", partitions[super_id].file_path, step, CMethod);
-		if (metadata_in_dump) load_partition(io, "metadata", partitions[metadata_id].file_path, step, CMethod);
-		else erase_partition(io, "metadata", CMethod);
+		bool isAllowed = true;
+			for (auto& kv : flashed_parts)
+			{
+				if (!my_stricmp("super", kv.c_str()))
+				{
+					DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: ", kv.c_str());
+					DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
+					isAllowed = false;
+					continue;
+				}
+			}
+		if (isAllowed)
+			load_partition(io, "super", partitions[super_id].file_path, step, CMethod);
+		isAllowed = true;
+			for (auto& kv : flashed_parts)
+			{
+				if (!my_stricmp("metadata", kv.c_str()))
+				{
+					DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: ", kv.c_str());
+					DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
+					isAllowed = false;
+					continue;
+				}
+			}
+		if (isAllowed)
+		{
+			if (metadata_in_dump) load_partition(io, "metadata", partitions[metadata_id].file_path, step, CMethod);
+			else erase_partition(io, "metadata", CMethod);
+		}
 	}
 	if (selected_ab == 1) set_active(io, "a", CMethod);
 	else if (selected_ab == 2) set_active(io, "b", CMethod);
@@ -2697,7 +2815,19 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 				get_partition_info(io, partitions[dlnv_id].name, 1);
 			else
 				get_partition_info(io, relfn.c_str(), 1);
-			load_partition_unify(io, gPartInfo.name, partitions[dlnv_id].file_path, step, CMethod);
+			bool isAllowed = true;
+			for (auto& kv : flashed_parts)
+			{
+				if (!my_stricmp(gPartInfo.name, kv.c_str()))
+				{
+					DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: ", kv.c_str());
+					DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
+					isAllowed = false;
+					continue;
+				}
+			}
+			if (isAllowed)
+				load_partition_unify(io, gPartInfo.name, partitions[dlnv_id].file_path, step, CMethod);
 		}
 		else
 		{
@@ -2706,25 +2836,37 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 				get_partition_info(io, partitions[dlnv_id].name, 1);
 			else
 				get_partition_info(io, relfn.c_str(), 1);
-			if (hasPartition(pac_parts, std::string(gPartInfo.name)))
+			bool isAllowed = true;
+			for (auto& kv : flashed_parts)
 			{
-				if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
-					size_t a_size = 0, b_size = 0, c_size = 0;
-					uint8_t *a = loadfile("old_nv_downloadnv.bin", &a_size, 0);
-					uint8_t *b = loadfile(partitions[dlnv_id].file_path, &b_size, 0);
-					uint8_t *c = (uint8_t*)malloc(a_size + b_size);
-					merge_nv(io, a, a_size, b, b_size, c, &c_size);
-					EnhancedFile fi = my_oxfopen_enhanced("nvmerged_downloadnv.bin", "wb");
-					if (!fi) ERR_EXIT("fopen failed\n");
-					if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-					if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
-					fi.close();
-					delete[](a); delete[](b); free(c);
+				if (!my_stricmp(gPartInfo.name, kv.c_str()))
+				{
+					DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: ", kv.c_str());
+					DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
+					isAllowed = false;
+					continue;
 				}
-				delete[](io->nvid_list);
-				io->nvid_list = NULL;
-				load_partition_unify(io, gPartInfo.name, "nvmerged_downloadnv.bin", step, CMethod);
 			}
+			if (isAllowed)
+				if (hasPartition(pac_parts, std::string(gPartInfo.name)))
+				{
+					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
+						size_t a_size = 0, b_size = 0, c_size = 0;
+						uint8_t *a = loadfile("old_nv_downloadnv.bin", &a_size, 0);
+						uint8_t *b = loadfile(partitions[dlnv_id].file_path, &b_size, 0);
+						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
+						merge_nv(io, a, a_size, b, b_size, c, &c_size);
+						EnhancedFile fi = my_oxfopen_enhanced("nvmerged_downloadnv.bin", "wb");
+						if (!fi) ERR_EXIT("fopen failed\n");
+						if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+						if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
+						fi.close();
+						delete[](a); delete[](b); free(c);
+					}
+					delete[](io->nvid_list);
+					io->nvid_list = NULL;
+					load_partition_unify(io, gPartInfo.name, "nvmerged_downloadnv.bin", step, CMethod);
+				}
 		}
 	}
 	delete[](partitions);
@@ -2884,6 +3026,10 @@ void w_mem_to_part_offset(spdio_t *io, const char *name, size_t offset, uint8_t 
 int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned step, int CMethod) {
 	char name0[36], name1[40];
 	unsigned size0, size1;
+
+	get_partition_info(io, name, 1);
+	if (!gPartInfo.size) return 0;
+
 	if (strstr(name, "fixnv1") || 
 		strstr(name, "downloadnv"))
 		{
