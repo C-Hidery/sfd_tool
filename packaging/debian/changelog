@@ -1,3 +1,9 @@
+sfd-tool (2.5.2-1-ltv) unstable; urgency=medium
+
+  * 此分支为GTK3专版
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Tue, 21 Jul 2026 20:25:17 +0800
+
 sfd-tool (2.4.2-1-ltv) unstable; urgency=medium
 
   * 修复了FDL在exec_addr时的执行问题
