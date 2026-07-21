@@ -21,6 +21,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+if (WIN32)
+    add_compile_definitions(_WIN32_WINNT=0x0601)
+    add_compile_definitions(WINVER=0x0601)
+endif()
+
 if (UNIX AND NOT APPLE)
     add_compile_definitions(_FILE_OFFSET_BITS=64)
 endif()
