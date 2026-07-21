@@ -678,6 +678,8 @@ jobs:
           body: |
             ## sfd_tool Release ${{ env.RELEASE_TAG }}
             
+            ## 注意：此发布是GTK3专版，为旧的不支持GTK4的系统而准备，注意区分
+
             ### Windows 安装程序:
             - **sfd_tool_${{ env.RELEASE_TAG }}_x64.exe**: Windows x64 版本，使用 libusb 驱动
             - **sfd_tool_${{ env.RELEASE_TAG }}_x86.exe**: Windows x86 版本，使用 SPRD 原生驱动
