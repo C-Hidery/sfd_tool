@@ -174,6 +174,10 @@ SFD Tool is primarily tested and released for:
 - **macOS** (recent versions)
 - **Termux / Android** (CLI only, via `--no-gui`)
 
+Windows 7 users need to install `VxKex NEXT` to run the tool.
+
+[VxKex NEXT](https://github.com/YuZhouRen86/VxKex-NEXT)
+
 Prebuilt binaries and packages are provided on GitHub Releases, typically including:
 
 - Windows x64/x86 executables (LibUSB(x64) and/or SPRD(x86) driver builds).
