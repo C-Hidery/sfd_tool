@@ -16,10 +16,6 @@ typedef struct {
     std::mutex mtx;        // 线程安全锁
 } ClassHandle;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // ---------- Wrapper API ----------
 ClassHandle *createClass();
 void destroyClass(ClassHandle *handle);
@@ -38,9 +34,5 @@ BOOL call_SetProperty(ClassHandle *handle, LONG lFlags, DWORD dwPropertyID, LPCV
 
 void call_Clear(ClassHandle *handle);
 void call_FreeMem(ClassHandle *handle, LPVOID pMemBlock);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif // WRAPPER_H
