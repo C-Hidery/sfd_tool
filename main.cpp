@@ -537,9 +537,25 @@ int gtk_kmain(int argc, char** argv) {
     // 创建窗口
     GtkWidget* window = gtk_window_new();
     gtk_window_set_title(GTK_WINDOW(window), "SFD Tool GUI By Ryan Crepa");
-
-    // 直接设置默认窗口尺寸，不再检测屏幕
-	gtk_window_set_default_size(GTK_WINDOW(window), 1174, 820);
+    GdkRectangle geometry;
+    auto display = gdk_display_get_default();
+    auto monitors = gdk_display_get_monitors(display);
+    if (g_list_model_get_n_items(monitors) > 0)
+    {
+        auto monitor = GDK_MONITOR(g_list_model_get_item(monitors, 0));
+        if (monitor) {
+            gdk_monitor_get_geometry(monitor, &geometry);
+            int win_width = geometry.width * 0.8;
+            int win_height = geometry.height * 0.8;
+            printf("orig_w: %d\n", geometry.width);
+            printf("orig_h: %d\n", geometry.height);
+            printf("win_w: %d\n", win_width);
+            printf("win_h: %d\n", win_height);
+            gtk_window_set_default_size(GTK_WINDOW(window), win_width, win_height);
+            g_object_unref(monitor); // 释放引用
+        }
+    }
+    gtk_window_present(GTK_WINDOW(window));
 
     // 快捷键
 #if GTK_CHECK_VERSION(4, 0, 0)
