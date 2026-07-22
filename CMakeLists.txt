@@ -33,10 +33,8 @@ else()
 endif()
 
 if (WIN32)
-    target_compile_definitions(sfd_tool PRIVATE
-        WIN32_LEAN_AND_MEAN
-        _WINSOCKAPI_
-    )
+    add_compile_definitions(WIN32_LEAN_AND_MEAN)
+    add_compile_definitions( _WINSOCKAPI_)
 endif()
 
 # 对标 Makefile: LIBUSB / GTK 开关
