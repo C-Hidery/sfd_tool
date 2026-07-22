@@ -58,7 +58,7 @@ jobs:
           arch: ${{ matrix.arch }}
 
       - name: Install gettext (libintl) via vcpkg
-        if: matrix.config != 'Bridge'
+        if: matrix.artifact_name != 'Bridge'
         shell: pwsh
         run: |
           $vcpkgExe = "C:\vcpkg\vcpkg.exe"
@@ -78,7 +78,7 @@ jobs:
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk4 mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkg-config"
 
       - name: Install MSYS2 and GTK4 (x86)
-        if: matrix.arch == 'x86' && matrix.config != 'Bridge'
+        if: matrix.arch == 'x86' && matrix.artifact_name != 'Bridge'
         shell: pwsh
         run: |
           $msysPath = "C:\msys64"
@@ -140,7 +140,7 @@ jobs:
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.artifact_name }}/${{ matrix.config }}/ | Out-Null
 
       - name: Configure (CMake)
-        if: matrix.config != 'Bridge'
+        if: matrix.artifact_name != 'Bridge'
         shell: pwsh
         run: |
           $env:Path = "C:\msys64\usr\bin;" + $env:Path
@@ -164,7 +164,7 @@ jobs:
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON `
 
       - name: Build (${{ matrix.artifact_name }} - ${{ matrix.config }})
-        if: matrix.config != 'Bridge'
+        if: matrix.artifact_name != 'Bridge'
         shell: pwsh
         run: |
           $env:Path = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin;" + $env:Path
@@ -183,7 +183,7 @@ jobs:
           Copy-Item "build_cmake/${{ matrix.config }}/Bridge.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
 
       - name: Copy gettext runtime DLLs
-        if: matrix.config != 'Bridge'
+        if: matrix.artifact_name != 'Bridge'
         shell: pwsh
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
@@ -217,7 +217,7 @@ jobs:
           Copy-Item "docs/VERSION_LOG.md" -Destination $destDir -Force
 
       - name: Copy ALL DLLs from MSYS2 bin directory
-        if: matrix.config != 'Bridge'
+        if: matrix.artifact_name != 'Bridge'
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           
@@ -255,7 +255,7 @@ jobs:
             $dllFiles | Select-Object -First 10 Name | ForEach-Object { Write-Host "  - $($_.Name)" }
           }
       - name: Copy GTK Runtime Data Files
-        if: matrix.config != 'Bridge'
+        if: matrix.artifact_name != 'Bridge'
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           
@@ -319,7 +319,7 @@ jobs:
             Copy-Item -Path "$gdkPixbufSrc\*" -Destination $gdkPixbufDest -Recurse -Force
           }
       - name: Copy locale (.mo) files
-        if: matrix.config != 'Bridge'
+        if: matrix.artifact_name != 'Bridge'
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/locale/zh_CN/LC_MESSAGES"
           New-Item -ItemType Directory -Force -Path $destDir | Out-Null
