@@ -154,7 +154,7 @@ jobs:
             -DSFD_ENABLE_TESTS=ON
 
       - name: Configure (CMake) - Bridge
-        if: matrix.config == 'Bridge'
+        if: matrix.artifact_name == 'Bridge'
         shell: pwsh
         run: |
           $env:Path = "C:\msys64\usr\bin;" + $env:Path
@@ -176,7 +176,7 @@ jobs:
           Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
       
       - name: Build (${{ matrix.artifact_name }} - ${{ matrix.config }}) - Bridge
-        if: matrix.config == 'Bridge'
+        if: matrix.artifact_name == 'Bridge'
         shell: pwsh
         run: |
           cmake --build build_cmake --config ${{ matrix.config }} -- /m
