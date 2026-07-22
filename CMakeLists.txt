@@ -145,11 +145,9 @@ target_link_libraries(sfd_tool
 
 # Windows: 直接包含 BMPlatform 相关源文件
 if (WIN32)
-    if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-        target_sources(sfd_tool PRIVATE
-           Wrapper.cpp
-        )
-    endif()
+    target_sources(sfd_tool PRIVATE
+        Wrapper.cpp
+    )
 endif()
 
 # 链接子模块和公共 UI 库
