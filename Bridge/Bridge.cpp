@@ -26,7 +26,9 @@
 #pragma comment(lib, "ws2_32.lib")
 
 // ---------- 全局状态（独立管理，不依赖 app_state） ----------
-int m_bOpened = 0;          // 0=未连接, 1=连接成功, -1=已断开
+int real_bOpened = 0;
+int& m_bOpened = real_bOpened;          // 0=未连接, 1=连接成功, -1=已断开
+
 static std::mutex g_stateMutex;    // 保护 m_bOpened 的线程安全
 
 // ---------- 读取端口号配置 ----------
