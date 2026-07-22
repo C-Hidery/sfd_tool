@@ -6,8 +6,7 @@
  * Compile as 32-bit EXE.
  */
 
-#include "BMPlatform.h"          // 你的原始硬件操作类
-#include "../core/app_state.h"           // 提供 AppState 及 m_bOpened 引用
+#include "BMPlatform.h"          // 原始硬件操作类
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <thread>

@@ -7,7 +7,6 @@
  */
 
 #include "Wrapper.h"
-#include "core/app_state.h"          // 提供 AppState 及 m_bOpened 全局引用
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <mutex>
