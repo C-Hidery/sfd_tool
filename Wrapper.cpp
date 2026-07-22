@@ -20,8 +20,7 @@
 #pragma comment(lib, "ws2_32.lib")
 
 // ---------- 全局 m_bOpened ----------
-int real_bOpened = 0;
-int& m_bOpened = real_bOpened;
+extern int& m_bOpened;
 static std::mutex g_stateMutex;
 
 // ---------- Winsock 全局初始化（只执行一次） ----------
