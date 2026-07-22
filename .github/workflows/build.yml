@@ -32,14 +32,21 @@ jobs:
             vcpkg_triplet: x64-windows
             artifact_name: LibUSB
           
-          # x86 架构：SPRD 原生驱动版（不使用 vcpkg，从 MSYS2 手动获取 GTK+gettext）
+          # x64 架构：SPRD 原生驱动版（不使用 vcpkg，从 MSYS2 手动获取 GTK+gettext）
+          - arch: x64
+            config: Release
+            msys_gtk_arch: mingw64
+            cmake_platform: x64
+            use_libusb: OFF
+            vcpkg_triplet: x64-windows
+            artifact_name: SPRD
+          
+          # x86 架构：SPRD Bridge
           - arch: x86
             config: Release
-            msys_gtk_arch: mingw32
             cmake_platform: Win32
             use_libusb: OFF
-            vcpkg_triplet: x86-windows
-            artifact_name: SPRD
+            artifact_name: Bridge
 
     steps:
       - name: Checkout Repository
@@ -51,6 +58,7 @@ jobs:
           arch: ${{ matrix.arch }}
 
       - name: Install gettext (libintl) via vcpkg
+        if: matrix.config != 'Bridge'
         shell: pwsh
         run: |
           $vcpkgExe = "C:\vcpkg\vcpkg.exe"
@@ -70,7 +78,7 @@ jobs:
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk4 mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkg-config"
 
       - name: Install MSYS2 and GTK4 (x86)
-        if: matrix.arch == 'x86'
+        if: matrix.arch == 'x86' && matrix.config != 'Bridge'
         shell: pwsh
         run: |
           $msysPath = "C:\msys64"
@@ -125,12 +133,14 @@ jobs:
           $pkgCacheUnix = $pkgCache -replace '\\', '/' -replace '^C:', '/c'
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -U --noconfirm --overwrite='*' $pkgCacheUnix/mingw-w64-i686-*.pkg.tar.zst"
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-i686-tools"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }      
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } 
+
       - name: Create Build Directory
         shell: pwsh
         run: New-Item -ItemType Directory -Force -Path ./build/${{ matrix.artifact_name }}/${{ matrix.config }}/ | Out-Null
 
       - name: Configure (CMake)
+        if: matrix.config != 'Bridge'
         shell: pwsh
         run: |
           $env:Path = "C:\msys64\usr\bin;" + $env:Path
@@ -143,7 +153,18 @@ jobs:
             -DUSE_LIBUSB=${{ matrix.use_libusb }} `
             -DSFD_ENABLE_TESTS=ON
 
+      - name: Configure (CMake) - Bridge
+        if: matrix.config == 'Bridge'
+        shell: pwsh
+        run: |
+          $env:Path = "C:\msys64\usr\bin;" + $env:Path
+          cmake -S ./Bridge -B build_cmake `
+            -G "Visual Studio 18 2026" `
+            -A ${{ matrix.cmake_platform }} `
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON `
+
       - name: Build (${{ matrix.artifact_name }} - ${{ matrix.config }})
+        if: matrix.config != 'Bridge'
         shell: pwsh
         run: |
           $env:Path = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin;" + $env:Path
@@ -153,8 +174,16 @@ jobs:
           cmake --build build_cmake --config ${{ matrix.config }} -- /m
           ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
           Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
+      
+      - name: Build (${{ matrix.artifact_name }} - ${{ matrix.config }}) - Bridge
+        if: matrix.config == 'Bridge'
+        shell: pwsh
+        run: |
+          cmake --build build_cmake --config ${{ matrix.config }} -- /m
+          Copy-Item "build_cmake/${{ matrix.config }}/Bridge.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
 
       - name: Copy gettext runtime DLLs
+        if: matrix.config != 'Bridge'
         shell: pwsh
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
@@ -188,6 +217,7 @@ jobs:
           Copy-Item "docs/VERSION_LOG.md" -Destination $destDir -Force
 
       - name: Copy ALL DLLs from MSYS2 bin directory
+        if: matrix.config != 'Bridge'
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           
@@ -225,6 +255,7 @@ jobs:
             $dllFiles | Select-Object -First 10 Name | ForEach-Object { Write-Host "  - $($_.Name)" }
           }
       - name: Copy GTK Runtime Data Files
+        if: matrix.config != 'Bridge'
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           
@@ -288,6 +319,7 @@ jobs:
             Copy-Item -Path "$gdkPixbufSrc\*" -Destination $gdkPixbufDest -Recurse -Force
           }
       - name: Copy locale (.mo) files
+        if: matrix.config != 'Bridge'
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/locale/zh_CN/LC_MESSAGES"
           New-Item -ItemType Directory -Force -Path $destDir | Out-Null
@@ -300,7 +332,7 @@ jobs:
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           $unwantedExtensions = @(".a", ".la", ".def", ".sh", ".py", ".pl", ".exp")
-          $keepFiles = @("sfd_tool.exe", "sfd_tool.pdb", "BMPlatform.dll", "Channel9.dll", "Channel.ini", "libusb-1.0.dll")
+          $keepFiles = @("sfd_tool.exe", "Bridge.exe", "sfd_tool.pdb", "BMPlatform.dll", "Channel9.dll", "Channel.ini", "libusb-1.0.dll")
           foreach ($ext in $unwantedExtensions) {
             Get-ChildItem -Path $destDir -Filter "*$ext" -Exclude $keepFiles -ErrorAction SilentlyContinue | 
               Remove-Item -Force -ErrorAction SilentlyContinue
@@ -642,6 +674,8 @@ jobs:
               mv "$setup_dir"/*.exe "sfd_tool_${TAG}_${arch}.exe"
             fi
           done
+
+          cp ./sfd_tool_Bridge_Release/Bridge.exe ./sfd_tool_windows_x86_sprd/
   
           # 创建 Windows ZIP 包（绿色版）
           if [ -d "sfd_tool_windows_x86_sprd" ]; then
