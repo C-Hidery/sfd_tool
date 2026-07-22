@@ -22,7 +22,6 @@
 #include <mutex>
 
 #include "BMPlatform.h"
-#include "Wrapper.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
