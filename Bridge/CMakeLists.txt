@@ -28,5 +28,7 @@ target_include_directories(Bridge PRIVATE
 )
 
 target_compile_definitions(Bridge PRIVATE
+    WIN32_LEAN_AND_MEAN
+    _WINSOCKAPI_
     _CRT_SECURE_NO_WARNINGS
 )
