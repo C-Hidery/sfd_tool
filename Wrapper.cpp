@@ -3,13 +3,10 @@
  * SFDTool Copyright (C) 2026 Ryan Crepa
  * 
  * 64-bit proxy: forwards all Wrapper API calls via socket to 32-bit Bridge.exe.
- * Include this file instead of the original Wrapper.cpp in your 64-bit project.
+ * Thread-safe and reentrant.
  */
 
 #include "Wrapper.h"
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <mutex>
 #include <vector>
 #include <thread>
 #include <chrono>
@@ -22,8 +19,20 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
-extern int& m_bOpened;
+// ---------- 全局 m_bOpened ----------
+int real_bOpened = 0;
+int& m_bOpened = real_bOpened;
 static std::mutex g_stateMutex;
+
+// ---------- Winsock 全局初始化（只执行一次） ----------
+static std::once_flag g_wsaInitFlag;
+
+static void InitWinsock() {
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        // 初始化失败，但记录错误（不会崩溃）
+    }
+}
 
 // ---------- 线程安全读写 m_bOpened ----------
 static void SetOpened(int value) {
@@ -36,28 +45,22 @@ static int GetOpened() {
     return m_bOpened;
 }
 
-// ---------- 协议定义（与 Bridge 保持一致） ----------
+// ---------- 协议定义 ----------
 enum FuncID : uint32_t {
-    FID_CREATE      = 0,
-    FID_DESTROY     = 1,
-    FID_INITIALIZE  = 2,
-    FID_UNINITIALIZE= 3,
-    FID_READ        = 4,
-    FID_WRITE       = 5,
-    FID_CONNECT     = 6,
-    FID_DISCONNECT  = 7,
-    FID_GETPROP     = 8,
-    FID_SETPROP     = 9,
-    FID_CLEAR       = 10,
-    FID_FREEMEM     = 11,
-    FID_GET_OPENED  = 100     // 查询当前连接状态
+    FID_CREATE = 0,
+    FID_DESTROY = 1,
+    FID_INITIALIZE = 2,
+    FID_UNINITIALIZE = 3,
+    FID_READ = 4,
+    FID_WRITE = 5,
+    FID_CONNECT = 6,
+    FID_DISCONNECT = 7,
+    FID_GETPROP = 8,
+    FID_SETPROP = 9,
+    FID_CLEAR = 10,
+    FID_FREEMEM = 11,
+    FID_GET_OPENED = 100
 };
-
-// ---------- 全局变量 ----------
-static std::atomic<bool> g_monitorRunning{false};
-static std::thread g_monitorThread;
-static SOCKET g_monitorSock = INVALID_SOCKET;
-static std::mutex g_monitorMutex;
 
 // ---------- 读取端口号配置 ----------
 static int GetBridgePort() {
@@ -127,8 +130,8 @@ static bool LaunchBridge() {
 
 // ---------- Socket 连接 ----------
 static SOCKET ConnectToBridge() {
-    WSADATA wsaData;
-    WSAStartup(MAKEWORD(2,2), &wsaData);
+    std::call_once(g_wsaInitFlag, InitWinsock);  // 只初始化一次
+
     SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (s == INVALID_SOCKET) return INVALID_SOCKET;
 
@@ -151,8 +154,8 @@ static bool SendRequest(SOCKET s, FuncID fid, const std::vector<uint8_t>& reqDat
         return false;
 
     if (!reqData.empty()) {
-        if (send(s, reinterpret_cast<const char*>(reqData.data()), 
-                 static_cast<int>(reqData.size()), 0) != static_cast<int>(reqData.size()))
+        if (send(s, reinterpret_cast<const char*>(reqData.data()),
+            static_cast<int>(reqData.size()), 0) != static_cast<int>(reqData.size()))
             return false;
     }
 
@@ -164,8 +167,8 @@ static bool SendRequest(SOCKET s, FuncID fid, const std::vector<uint8_t>& reqDat
     respData.resize(len);
     size_t total = 0;
     while (total < len) {
-        int ret = recv(s, reinterpret_cast<char*>(respData.data()) + total, 
-                       static_cast<int>(len - total), 0);
+        int ret = recv(s, reinterpret_cast<char*>(respData.data()) + total,
+            static_cast<int>(len - total), 0);
         if (ret <= 0) return false;
         total += ret;
     }
@@ -181,25 +184,30 @@ static int QueryOpenedStatus(SOCKET s) {
     return *reinterpret_cast<int*>(resp.data());
 }
 
-// ---------- 后台监控线程 ----------
-static void MonitorThread(SOCKET s) {
-    g_monitorRunning = true;
-    while (g_monitorRunning) {
+// ---------- 监控线程（每个 ClassHandle 独立） ----------
+static void MonitorThread(ClassHandle* handle) {
+    while (handle->monitorRunning) {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-        std::lock_guard<std::mutex> lock(g_monitorMutex);
-        if (s == INVALID_SOCKET) break;
+        // 检查连接是否有效
+        if (handle->sock == INVALID_SOCKET) {
+            handle->monitorRunning = false;
+            break;
+        }
 
-        int state = QueryOpenedStatus(s);
-        SetOpened(state);   // 直接同步 Bridge 的状态（0, 1, -1）
+        int state = QueryOpenedStatus(handle->sock);
+        SetOpened(state);
     }
 }
 
 // ---------- Wrapper API 实现 ----------
 
 ClassHandle* createClass() {
+    // 先尝试连接 Bridge
     SOCKET s = ConnectToBridge();
+
     if (s == INVALID_SOCKET) {
+        // 启动 Bridge
         if (!LaunchBridge()) {
             SetOpened(-1);
             return nullptr;
@@ -216,6 +224,7 @@ ClassHandle* createClass() {
         }
     }
 
+    // 发送创建请求
     std::vector<uint8_t> req, resp;
     if (!SendRequest(s, FID_CREATE, req, resp)) {
         closesocket(s);
@@ -228,44 +237,45 @@ ClassHandle* createClass() {
         return nullptr;
     }
 
-    ClassHandle* h = new ClassHandle;
-    h->sock = s;
+    // 创建 ClassHandle
+    ClassHandle* handle = new ClassHandle();
+    handle->sock = s;
+    handle->monitorRunning = true;
+    handle->monitorThread = new std::thread(MonitorThread, handle);
 
-    // 初始状态：未连接
     SetOpened(0);
-
-    {
-        std::lock_guard<std::mutex> lock(g_monitorMutex);
-        if (!g_monitorRunning || !g_monitorThread.joinable()) {
-            g_monitorSock = s;
-            if (g_monitorThread.joinable()) g_monitorThread.join();
-            g_monitorThread = std::thread(MonitorThread, s);
-        }
-    }
-    return h;
+    return handle;
 }
 
 void destroyClass(ClassHandle* handle) {
     if (!handle) return;
 
-    g_monitorRunning = false;
-    if (g_monitorThread.joinable()) {
-        g_monitorThread.join();
+    // 停止监控线程
+    handle->monitorRunning = false;
+    if (handle->monitorThread && handle->monitorThread->joinable()) {
+        handle->monitorThread->join();
     }
+    delete handle->monitorThread;
 
+    // 关闭连接
     {
         std::lock_guard<std::mutex> lock(handle->mtx);
-        std::vector<uint8_t> req, resp;
-        SendRequest(handle->sock, FID_DESTROY, req, resp);
-        closesocket(handle->sock);
+        if (handle->sock != INVALID_SOCKET) {
+            std::vector<uint8_t> req, resp;
+            SendRequest(handle->sock, FID_DESTROY, req, resp);
+            closesocket(handle->sock);
+            handle->sock = INVALID_SOCKET;
+        }
     }
-    delete handle;
 
+    delete handle;
     SetOpened(0);
 }
 
 BOOL call_Initialize(ClassHandle* handle) {
     if (!handle) return FALSE;
+    if (handle->sock == INVALID_SOCKET) return FALSE;
+
     std::lock_guard<std::mutex> lock(handle->mtx);
     std::vector<uint8_t> req, resp;
     if (!SendRequest(handle->sock, FID_INITIALIZE, req, resp)) return FALSE;
@@ -274,17 +284,17 @@ BOOL call_Initialize(ClassHandle* handle) {
 
 void call_Uninitialize(ClassHandle* handle) {
     if (!handle) return;
+    if (handle->sock == INVALID_SOCKET) return;
+
     std::lock_guard<std::mutex> lock(handle->mtx);
     std::vector<uint8_t> req, resp;
     SendRequest(handle->sock, FID_UNINITIALIZE, req, resp);
-    // Bridge 端会自己更新 m_bOpened，监控线程会同步
 }
 
 int call_Read(ClassHandle* handle, UCHAR* m_RecvData, int max_len, int dwTimeout) {
     if (!handle || !m_RecvData || max_len <= 0) return 0;
-
-    // 快速检查：如果 m_bOpened != 1，直接返回 0
     if (GetOpened() != 1) return 0;
+    if (handle->sock == INVALID_SOCKET) return 0;
 
     std::lock_guard<std::mutex> lock(handle->mtx);
     std::vector<uint8_t> req(8);
@@ -309,9 +319,8 @@ int call_Read(ClassHandle* handle, UCHAR* m_RecvData, int max_len, int dwTimeout
 
 int call_Write(ClassHandle* handle, UCHAR* lpData, int iDataSize) {
     if (!handle || !lpData || iDataSize <= 0) return 0;
-
-    // 快速检查：如果 m_bOpened != 1，直接返回 0
     if (GetOpened() != 1) return 0;
+    if (handle->sock == INVALID_SOCKET) return 0;
 
     std::lock_guard<std::mutex> lock(handle->mtx);
     std::vector<uint8_t> req(4 + iDataSize);
@@ -329,6 +338,7 @@ int call_Write(ClassHandle* handle, UCHAR* lpData, int iDataSize) {
 
 BOOL call_ConnectChannel(ClassHandle* handle, DWORD dwPort, ULONG ulMsgId, DWORD Receiver) {
     if (!handle) return FALSE;
+    if (handle->sock == INVALID_SOCKET) return FALSE;
 
     std::lock_guard<std::mutex> lock(handle->mtx);
     std::vector<uint8_t> req(12);
@@ -342,10 +352,7 @@ BOOL call_ConnectChannel(ClassHandle* handle, DWORD dwPort, ULONG ulMsgId, DWORD
         return FALSE;
     }
     BOOL ok = (!resp.empty() && resp[0] != 0);
-    // 注意：Bridge 端已经更新了 m_bOpened，监控线程会在 500ms 内同步
-    // 但为了更实时，可以主动查询一次
     if (ok) {
-        // 立即查询最新状态
         int state = QueryOpenedStatus(handle->sock);
         SetOpened(state);
     } else {
@@ -356,6 +363,7 @@ BOOL call_ConnectChannel(ClassHandle* handle, DWORD dwPort, ULONG ulMsgId, DWORD
 
 BOOL call_DisconnectChannel(ClassHandle* handle) {
     if (!handle) return FALSE;
+    if (handle->sock == INVALID_SOCKET) return FALSE;
 
     std::lock_guard<std::mutex> lock(handle->mtx);
     std::vector<uint8_t> req, resp;
@@ -363,7 +371,6 @@ BOOL call_DisconnectChannel(ClassHandle* handle) {
         SetOpened(-1);
         return FALSE;
     }
-    // Bridge 端会更新 m_bOpened，主动查询一次同步
     int state = QueryOpenedStatus(handle->sock);
     SetOpened(state);
     return (!resp.empty() && resp[0] != 0);
@@ -371,6 +378,7 @@ BOOL call_DisconnectChannel(ClassHandle* handle) {
 
 BOOL call_GetProperty(ClassHandle* handle, LONG lFlags, DWORD dwPropertyID, LPVOID pValue) {
     if (!handle || !pValue) return FALSE;
+    if (handle->sock == INVALID_SOCKET) return FALSE;
 
     std::lock_guard<std::mutex> lock(handle->mtx);
     const DWORD MAX_PROP_SIZE = 1024;
@@ -396,6 +404,7 @@ BOOL call_GetProperty(ClassHandle* handle, LONG lFlags, DWORD dwPropertyID, LPVO
 
 BOOL call_SetProperty(ClassHandle* handle, LONG lFlags, DWORD dwPropertyID, LPCVOID pValue) {
     if (!handle || !pValue) return FALSE;
+    if (handle->sock == INVALID_SOCKET) return FALSE;
 
     std::lock_guard<std::mutex> lock(handle->mtx);
     const DWORD MAX_PROP_SIZE = 1024;
@@ -412,6 +421,8 @@ BOOL call_SetProperty(ClassHandle* handle, LONG lFlags, DWORD dwPropertyID, LPCV
 
 void call_Clear(ClassHandle* handle) {
     if (!handle) return;
+    if (handle->sock == INVALID_SOCKET) return;
+
     std::lock_guard<std::mutex> lock(handle->mtx);
     std::vector<uint8_t> req, resp;
     SendRequest(handle->sock, FID_CLEAR, req, resp);
@@ -420,6 +431,8 @@ void call_Clear(ClassHandle* handle) {
 void call_FreeMem(ClassHandle* handle, LPVOID pMemBlock) {
     if (!handle) return;
     (void)pMemBlock;
+    if (handle->sock == INVALID_SOCKET) return;
+
     std::lock_guard<std::mutex> lock(handle->mtx);
     std::vector<uint8_t> req, resp;
     SendRequest(handle->sock, FID_FREEMEM, req, resp);
