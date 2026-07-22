@@ -142,7 +142,6 @@ target_link_libraries(sfd_tool
 if (WIN32)
     if (CMAKE_SIZEOF_VOID_P EQUAL 4)
         target_sources(sfd_tool PRIVATE
-           BMPlatform.cpp
            Wrapper.cpp
         )
     endif()
