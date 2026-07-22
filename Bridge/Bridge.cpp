@@ -21,7 +21,7 @@
 #include <cstdlib>
 #include <mutex>
 
-#include "BMPlatform.h"
+#include "../BMPlatform.h"
 
 #pragma comment(lib, "ws2_32.lib")
 

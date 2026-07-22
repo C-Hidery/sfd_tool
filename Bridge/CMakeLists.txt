@@ -13,7 +13,7 @@ endif()
 add_executable(Bridge
     # ---------- Bridge 服务端主程序 ----------
     Bridge.cpp
-    BMPlatform.cpp       # 加载 Channel9.dll 的核心逻辑
+    ../BMPlatform.cpp       # 加载 Channel9.dll 的核心逻辑
 )
 
 # 链接必要的系统库
