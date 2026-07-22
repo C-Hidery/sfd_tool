@@ -21,12 +21,6 @@ target_link_libraries(Bridge
     ws2_32          # Winsock2
 )
 
-# 添加头文件搜索路径
-target_include_directories(Bridge PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    # 如果有额外的 include 目录，在这里添加
-)
-
 target_compile_definitions(Bridge PRIVATE
     WIN32_LEAN_AND_MEAN
     _WINSOCKAPI_

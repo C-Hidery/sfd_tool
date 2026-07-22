@@ -24,6 +24,18 @@
 #pragma comment(lib, "ws2_32.lib")
 
 extern int& m_bOpened;
+static std::mutex g_stateMutex;
+
+// ---------- 线程安全读写 m_bOpened ----------
+static void SetOpened(int value) {
+    std::lock_guard<std::mutex> lock(g_stateMutex);
+    m_bOpened = value;
+}
+
+static int GetOpened() {
+    std::lock_guard<std::mutex> lock(g_stateMutex);
+    return m_bOpened;
+}
 
 // ---------- 协议定义（与 Bridge 保持一致） ----------
 enum FuncID : uint32_t {
@@ -61,7 +73,6 @@ static int GetBridgePort() {
         if (pos == std::string::npos) continue;
         std::string key = line.substr(0, pos);
         std::string value = line.substr(pos + 1);
-        // 去除首尾空格
         while (!key.empty() && key.back() == ' ') key.pop_back();
         while (!value.empty() && value.front() == ' ') value.erase(0, 1);
         if (key == "Port") {
@@ -103,7 +114,7 @@ static bool LaunchBridge() {
 
     STARTUPINFOA si = { sizeof(STARTUPINFOA) };
     si.dwFlags = STARTF_USESHOWWINDOW;
-    si.wShowWindow = SW_HIDE;   // 隐藏窗口
+    si.wShowWindow = SW_HIDE;
 
     PROCESS_INFORMATION pi;
     if (!CreateProcessA(NULL, cmdLine, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, exePath, &si, &pi)) {
@@ -162,13 +173,13 @@ static bool SendRequest(SOCKET s, FuncID fid, const std::vector<uint8_t>& reqDat
     return true;
 }
 
-// ---------- 查询 Bridge 中的 isOpen 状态 ----------
-static bool QueryOpenedStatus(SOCKET s) {
+// ---------- 查询 Bridge 中的 m_bOpened 状态 ----------
+static int QueryOpenedStatus(SOCKET s) {
     std::vector<uint8_t> req, resp;
     if (!SendRequest(s, FID_GET_OPENED, req, resp))
-        return false;
-    if (resp.empty()) return false;
-    return resp[0] != 0;
+        return 0;
+    if (resp.size() < 4) return 0;
+    return *reinterpret_cast<int*>(resp.data());
 }
 
 // ---------- 后台监控线程 ----------
@@ -180,8 +191,8 @@ static void MonitorThread(SOCKET s) {
         std::lock_guard<std::mutex> lock(g_monitorMutex);
         if (s == INVALID_SOCKET) break;
 
-        bool opened = QueryOpenedStatus(s);
-        m_bOpened = opened ? 1 : 0;
+        int state = QueryOpenedStatus(s);
+        SetOpened(state);   // 直接同步 Bridge 的状态（0, 1, -1）
     }
 }
 
@@ -191,6 +202,7 @@ ClassHandle* createClass() {
     SOCKET s = ConnectToBridge();
     if (s == INVALID_SOCKET) {
         if (!LaunchBridge()) {
+            SetOpened(-1);
             return nullptr;
         }
         // 等待 Bridge 启动（最多3秒）
@@ -199,21 +211,29 @@ ClassHandle* createClass() {
             s = ConnectToBridge();
             if (s != INVALID_SOCKET) break;
         }
-        if (s == INVALID_SOCKET) return nullptr;
+        if (s == INVALID_SOCKET) {
+            SetOpened(-1);
+            return nullptr;
+        }
     }
 
     std::vector<uint8_t> req, resp;
     if (!SendRequest(s, FID_CREATE, req, resp)) {
         closesocket(s);
+        SetOpened(-1);
         return nullptr;
     }
     if (resp.size() < 1 || resp[0] == 0) {
         closesocket(s);
+        SetOpened(-1);
         return nullptr;
     }
 
     ClassHandle* h = new ClassHandle;
     h->sock = s;
+
+    // 初始状态：未连接
+    SetOpened(0);
 
     {
         std::lock_guard<std::mutex> lock(g_monitorMutex);
@@ -242,7 +262,7 @@ void destroyClass(ClassHandle* handle) {
     }
     delete handle;
 
-    m_bOpened = 0;
+    SetOpened(0);
 }
 
 BOOL call_Initialize(ClassHandle* handle) {
@@ -258,10 +278,14 @@ void call_Uninitialize(ClassHandle* handle) {
     std::lock_guard<std::mutex> lock(handle->mtx);
     std::vector<uint8_t> req, resp;
     SendRequest(handle->sock, FID_UNINITIALIZE, req, resp);
+    // Bridge 端会自己更新 m_bOpened，监控线程会同步
 }
 
 int call_Read(ClassHandle* handle, UCHAR* m_RecvData, int max_len, int dwTimeout) {
     if (!handle || !m_RecvData || max_len <= 0) return 0;
+
+    // 快速检查：如果 m_bOpened != 1，直接返回 0
+    if (GetOpened() != 1) return 0;
 
     std::lock_guard<std::mutex> lock(handle->mtx);
     std::vector<uint8_t> req(8);
@@ -269,7 +293,10 @@ int call_Read(ClassHandle* handle, UCHAR* m_RecvData, int max_len, int dwTimeout
     *reinterpret_cast<int*>(&req[4]) = dwTimeout;
 
     std::vector<uint8_t> resp;
-    if (!SendRequest(handle->sock, FID_READ, req, resp)) return 0;
+    if (!SendRequest(handle->sock, FID_READ, req, resp)) {
+        SetOpened(-1);
+        return 0;
+    }
     if (resp.size() < 4) return 0;
 
     int readLen = *reinterpret_cast<int*>(&resp[0]);
@@ -284,13 +311,19 @@ int call_Read(ClassHandle* handle, UCHAR* m_RecvData, int max_len, int dwTimeout
 int call_Write(ClassHandle* handle, UCHAR* lpData, int iDataSize) {
     if (!handle || !lpData || iDataSize <= 0) return 0;
 
+    // 快速检查：如果 m_bOpened != 1，直接返回 0
+    if (GetOpened() != 1) return 0;
+
     std::lock_guard<std::mutex> lock(handle->mtx);
     std::vector<uint8_t> req(4 + iDataSize);
     *reinterpret_cast<int*>(&req[0]) = iDataSize;
     memcpy(req.data() + 4, lpData, iDataSize);
 
     std::vector<uint8_t> resp;
-    if (!SendRequest(handle->sock, FID_WRITE, req, resp)) return 0;
+    if (!SendRequest(handle->sock, FID_WRITE, req, resp)) {
+        SetOpened(-1);
+        return 0;
+    }
     if (resp.size() < 4) return 0;
     return *reinterpret_cast<int*>(&resp[0]);
 }
@@ -305,8 +338,21 @@ BOOL call_ConnectChannel(ClassHandle* handle, DWORD dwPort, ULONG ulMsgId, DWORD
     *reinterpret_cast<DWORD*>(&req[8]) = Receiver;
 
     std::vector<uint8_t> resp;
-    if (!SendRequest(handle->sock, FID_CONNECT, req, resp)) return FALSE;
-    return (!resp.empty() && resp[0] != 0);
+    if (!SendRequest(handle->sock, FID_CONNECT, req, resp)) {
+        SetOpened(-1);
+        return FALSE;
+    }
+    BOOL ok = (!resp.empty() && resp[0] != 0);
+    // 注意：Bridge 端已经更新了 m_bOpened，监控线程会在 500ms 内同步
+    // 但为了更实时，可以主动查询一次
+    if (ok) {
+        // 立即查询最新状态
+        int state = QueryOpenedStatus(handle->sock);
+        SetOpened(state);
+    } else {
+        SetOpened(-1);
+    }
+    return ok;
 }
 
 BOOL call_DisconnectChannel(ClassHandle* handle) {
@@ -314,7 +360,13 @@ BOOL call_DisconnectChannel(ClassHandle* handle) {
 
     std::lock_guard<std::mutex> lock(handle->mtx);
     std::vector<uint8_t> req, resp;
-    if (!SendRequest(handle->sock, FID_DISCONNECT, req, resp)) return FALSE;
+    if (!SendRequest(handle->sock, FID_DISCONNECT, req, resp)) {
+        SetOpened(-1);
+        return FALSE;
+    }
+    // Bridge 端会更新 m_bOpened，主动查询一次同步
+    int state = QueryOpenedStatus(handle->sock);
+    SetOpened(state);
     return (!resp.empty() && resp[0] != 0);
 }
 

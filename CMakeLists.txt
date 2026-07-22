@@ -32,6 +32,13 @@ else()
     add_compile_options(-Wall -Wextra -pedantic -Wno-unused)
 endif()
 
+if (WIN32)
+    target_compile_definitions(sfd_tool PRIVATE
+        WIN32_LEAN_AND_MEAN
+        _WINSOCKAPI_
+    )
+endif()
+
 # 对标 Makefile: LIBUSB / GTK 开关
 option(USE_LIBUSB "Enable libusb backend" ON)
 option(USE_GTK "Enable GTK4 UI" ON)

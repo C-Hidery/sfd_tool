@@ -6,7 +6,10 @@
  * Compile as 32-bit EXE.
  */
 
-#include "BMPlatform.h"          // 原始硬件操作类
+#define WIN32_LEAN_AND_MEAN
+#define _WINSOCKAPI_
+
+#include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <thread>
@@ -16,25 +19,16 @@
 #include <fstream>
 #include <string>
 #include <cstdlib>
+#include <mutex>
+
+#include "BMPlatform.h"
+#include "Wrapper.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
-// ---------- 协议定义（与 WrapperProxy 完全相同） ----------
-enum FuncID : uint32_t {
-    FID_CREATE      = 0,
-    FID_DESTROY     = 1,
-    FID_INITIALIZE  = 2,
-    FID_UNINITIALIZE= 3,
-    FID_READ        = 4,
-    FID_WRITE       = 5,
-    FID_CONNECT     = 6,
-    FID_DISCONNECT  = 7,
-    FID_GETPROP     = 8,
-    FID_SETPROP     = 9,
-    FID_CLEAR       = 10,
-    FID_FREEMEM     = 11,
-    FID_GET_OPENED  = 100
-};
+// ---------- 全局状态（独立管理，不依赖 app_state） ----------
+static int m_bOpened = 0;          // 0=未连接, 1=连接成功, -1=已断开
+static std::mutex g_stateMutex;    // 保护 m_bOpened 的线程安全
 
 // ---------- 读取端口号配置 ----------
 static int GetBridgePort() {
@@ -58,12 +52,28 @@ static int GetBridgePort() {
     return defaultPort;
 }
 
+// ---------- 协议定义（与 WrapperProxy 保持一致） ----------
+enum FuncID : uint32_t {
+    FID_CREATE      = 0,
+    FID_DESTROY     = 1,
+    FID_INITIALIZE  = 2,
+    FID_UNINITIALIZE= 3,
+    FID_READ        = 4,
+    FID_WRITE       = 5,
+    FID_CONNECT     = 6,
+    FID_DISCONNECT  = 7,
+    FID_GETPROP     = 8,
+    FID_SETPROP     = 9,
+    FID_CLEAR       = 10,
+    FID_FREEMEM     = 11,
+    FID_GET_OPENED  = 100     // 查询 m_bOpened 状态
+};
+
 // ---------- 每个客户端连接对应一个 CBootModeOpr 对象 ----------
 struct ClientContext {
     SOCKET sock;
     CBootModeOpr* opr;
     bool initialized;
-    bool isOpen;          // 缓存通道状态，用于 FID_GET_OPENED
 };
 
 // ---------- 发送响应 ----------
@@ -76,13 +86,24 @@ static void SendResponse(SOCKET s, const std::vector<uint8_t>& data) {
     }
 }
 
+// ---------- 更新 m_bOpened（线程安全） ----------
+static void SetOpened(int value) {
+    std::lock_guard<std::mutex> lock(g_stateMutex);
+    m_bOpened = value;
+}
+
+// ---------- 读取 m_bOpened（线程安全） ----------
+static int GetOpened() {
+    std::lock_guard<std::mutex> lock(g_stateMutex);
+    return m_bOpened;
+}
+
 // ---------- 处理单个客户端（线程函数） ----------
 static void HandleClient(SOCKET clientSock) {
     ClientContext ctx{};
     ctx.sock = clientSock;
     ctx.opr = new CBootModeOpr();
     ctx.initialized = false;
-    ctx.isOpen = false;
 
     while (true) {
         uint32_t fid_net = 0;
@@ -100,6 +121,7 @@ static void HandleClient(SOCKET clientSock) {
         case FID_DESTROY: {
             delete ctx.opr;
             ctx.opr = nullptr;
+            SetOpened(0);   // 对象销毁，重置状态
             respData.push_back(1);
             SendResponse(clientSock, respData);
             closesocket(clientSock);
@@ -114,11 +136,13 @@ static void HandleClient(SOCKET clientSock) {
         case FID_UNINITIALIZE: {
             ctx.opr->Uninitialize();
             ctx.initialized = false;
+            SetOpened(0);
             respData.push_back(1);
             break;
         }
         case FID_READ: {
-            if (!ctx.isOpen) {
+            // 检查连接状态
+            if (GetOpened() == 0) {
                 respData.resize(4);
                 *reinterpret_cast<int*>(respData.data()) = 0;
                 break;
@@ -132,7 +156,7 @@ static void HandleClient(SOCKET clientSock) {
             std::vector<UCHAR> buffer(max_len);
             int len = ctx.opr->Read(buffer.data(), max_len, dwTimeout);
             if (len < 0) {
-                ctx.isOpen = false;
+                SetOpened(-1);   // 读取错误，设备已断开
                 len = 0;
             }
             respData.resize(4 + len);
@@ -143,7 +167,7 @@ static void HandleClient(SOCKET clientSock) {
             break;
         }
         case FID_WRITE: {
-            if (!ctx.isOpen) {
+            if (GetOpened() == 0) {
                 respData.resize(4);
                 *reinterpret_cast<int*>(respData.data()) = 0;
                 break;
@@ -161,7 +185,7 @@ static void HandleClient(SOCKET clientSock) {
             }
             int written = ctx.opr->Write(buffer.data(), dataSize);
             if (written < 0) {
-                ctx.isOpen = false;
+                SetOpened(-1);   // 写入错误，设备已断开
                 written = 0;
             }
             respData.resize(4);
@@ -178,16 +202,13 @@ static void HandleClient(SOCKET clientSock) {
             Receiver = ntohl(Receiver);
 
             BOOL ok = ctx.opr->ConnectChannel(dwPort, ulMsgId, Receiver);
-            ctx.isOpen = (ok == TRUE);
-            // 同步更新全局 m_bOpened（app_state.h）
-            m_bOpened = ctx.isOpen ? 1 : 0;
+            SetOpened(ok ? 1 : -1);   // 连接成功=1，失败=-1
             respData.push_back(ok ? 1 : 0);
             break;
         }
         case FID_DISCONNECT: {
             ctx.opr->DisconnectChannel();
-            ctx.isOpen = false;
-            m_bOpened = 0;
+            SetOpened(0);   // 主动断开，回到未连接状态
             respData.push_back(1);
             break;
         }
@@ -241,7 +262,10 @@ static void HandleClient(SOCKET clientSock) {
             break;
         }
         case FID_GET_OPENED: {
-            respData.push_back(ctx.isOpen ? 1 : 0);
+            // 返回当前 m_bOpened 值（1, 0, -1）
+            int state = GetOpened();
+            respData.resize(4);
+            *reinterpret_cast<int*>(respData.data()) = state;
             break;
         }
         default:
@@ -261,6 +285,7 @@ static void HandleClient(SOCKET clientSock) {
         ctx.opr->Uninitialize();
         delete ctx.opr;
     }
+    SetOpened(0);
     closesocket(clientSock);
 }
 
@@ -274,7 +299,7 @@ int main(int argc, char* argv[]) {
 
     int port = GetBridgePort();
     if (argc >= 2) {
-        port = std::stoi(argv[1]);  // 命令行参数优先
+        port = std::stoi(argv[1]);
     }
 
     SOCKET listenSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -304,6 +329,9 @@ int main(int argc, char* argv[]) {
     }
 
     std::cout << "Bridge listening on 127.0.0.1:" << port << " (32-bit)" << std::endl;
+    std::cout << "m_bOpened initial state: 0 (disconnected)" << std::endl;
+
+    SetOpened(0);  // 初始状态：未连接
 
     while (true) {
         SOCKET clientSock = accept(listenSock, nullptr, nullptr);
