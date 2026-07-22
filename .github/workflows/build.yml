@@ -460,19 +460,68 @@ jobs:
           - artifact_name: LibUSB
             arch_display: x64
           - artifact_name: SPRD
-            arch_display: x86
+            arch_display: x64
     steps:
       - uses: actions/checkout@v4
 
       - name: Checkout Repository
         uses: actions/checkout@v4
-  
+
       - name: Download Build Artifacts
         uses: actions/download-artifact@v4
         with:
           name: sfd_tool_${{ matrix.artifact_name }}_Release
           path: ./app
-  
+
+      - name: Download Bridge Artifact
+        if: matrix.artifact_name == 'SPRD'
+        uses: actions/download-artifact@v4
+        with:
+          name: sfd_tool_Bridge_Release
+          path: ./bridge
+
+      - name: Copy Bridge.exe into SPRD Release
+        if: matrix.artifact_name == 'SPRD'
+        shell: pwsh
+        run: |
+          $bridgeExe = "./bridge/Bridge.exe"
+          $destDir = "./app/"
+          
+          if (Test-Path $bridgeExe) {
+            Copy-Item $bridgeExe -Destination $destDir -Force
+            Write-Host "Bridge.exe copied successfully to $destDir"
+          } else {
+            Write-Warning "Bridge.exe not found at $bridgeExe"
+            # 尝试查找其他可能的位置
+            $found = Get-ChildItem -Path . -Filter "Bridge.exe" -Recurse | Select-Object -First 1
+            if ($found) {
+              Copy-Item $found.FullName -Destination $destDir -Force
+              Write-Host "Bridge.exe found at $($found.FullName) and copied"
+            } else {
+              Write-Error "Bridge.exe not found anywhere!"
+              exit 1
+            }
+          }
+
+      - name: Verify SPRD Release contents
+        if: matrix.artifact_name == 'SPRD'
+        shell: pwsh
+        run: |
+          Write-Host "SPRD Release contents:"
+          Get-ChildItem -Path ./app -Recurse | ForEach-Object {
+            Write-Host "  $($_.FullName)"
+          }
+          # 验证关键文件是否存在
+          $requiredFiles = @("sfd_tool.exe", "Channel9.dll", "Bridge.exe")
+          foreach ($file in $requiredFiles) {
+            $found = Get-ChildItem -Path ./app -Filter $file -Recurse
+            if ($found) {
+              Write-Host "$file found"
+            } else {
+              Write-Error "$file NOT found!"
+            }
+          }
+
       - name: Create Inno Setup Script
         shell: pwsh
         run: |
@@ -554,22 +603,18 @@ jobs:
             end;
           end;
           "@ | Out-File -FilePath ./installer.iss -Encoding UTF8
+
       - name: Install Chinese Language File for Inno Setup
         shell: pwsh
         run: |
-          # 1. 设定目标路径
           $outputPath = "./ChineseSimplified.isl"
-
-          # 2. 将完整的文件内容下载
           $islUrl = "https://raw.githubusercontent.com/C-Hidery/Inno-Setup-Chinese-Simplified-Translation/refs/heads/main/ChineseSimplified.isl"
-          Write-Host "正在下载中文语言文件..."
+          Write-Host "Downloading Chinese language file..."
           $content = Invoke-WebRequest -Uri $islUrl -UseBasicParsing | Select-Object -ExpandProperty Content
-
-          # 3. 写入文件
           $Utf8BomEncoding = New-Object System.Text.UTF8Encoding $true
           [System.IO.File]::WriteAllText($outputPath, $content, $Utf8BomEncoding)
+          Write-Host "Chinese language file created at: $outputPath"
 
-          Write-Host "中文语言文件已成功创建并放置到: $outputPath"
       - name: Package with Inno Setup
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
@@ -581,7 +626,6 @@ jobs:
         with:
           name: sfd_tool_setup_${{ matrix.artifact_name }}
           path: ./setup/*.exe
-              
   # ==================== Release Job ====================
   release:
     if: startsWith(github.ref, 'refs/tags/v')
