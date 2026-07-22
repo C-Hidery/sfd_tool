@@ -2397,7 +2397,7 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     gtk_box_append(GTK_BOX(mainBox), modifyPageFrame);
 
-    gtk_widget_show(outerScroll);
+    gtk_widget_set_visible(outerScroll, TRUE);
     return outerScroll;
 }
 
@@ -2549,7 +2549,7 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 	gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_critical);
 
 #if GTK_CHECK_VERSION(4, 0, 0)
-	gtk_widget_show(dialog);
+	gtk_widget_set_visible(dialog, TRUE);
 #else
 	gtk_widget_show_all(dialog);
 #endif
@@ -2680,7 +2680,7 @@ static void show_backup_inspection_dialog(GtkWidgetHelper& helper,
 	                            gtk_tree_view_column_new_with_attributes(_("Note"), text_renderer, "text", 5, nullptr));
 
 #if GTK_CHECK_VERSION(4, 0, 0)
-	gtk_widget_show(dialog);
+	gtk_widget_set_visible(dialog, TRUE);
 #else
 	gtk_widget_show_all(dialog);
 #endif

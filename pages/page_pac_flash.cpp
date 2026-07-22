@@ -329,7 +329,7 @@ GtkWidget* PacFlashPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     gtk_box_append(GTK_BOX(mainBox), flashFrame);
 
-    gtk_widget_show(outerScroll);
+    gtk_widget_set_visible(outerScroll, TRUE);
     return outerScroll;
 }
 
