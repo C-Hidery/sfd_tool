@@ -6,6 +6,7 @@
 #define WRAPPER_H
 #pragma once
 
+#include <windows.h>
 
 typedef struct {
 	void *obj;

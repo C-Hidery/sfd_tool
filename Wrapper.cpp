@@ -18,7 +18,6 @@
 #include <fstream>
 #include <string>
 #include <cstdlib>
-#include <windows.h>
 #include <tlhelp32.h>
 
 #pragma comment(lib, "ws2_32.lib")
