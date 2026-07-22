@@ -534,28 +534,50 @@ int gtk_kmain(int argc, char** argv) {
     }
 #endif
 
-    // 创建窗口
-    GtkWidget* window = gtk_window_new();
+    // GTK4 替代方案
+    GtkWidget *window = gtk_window_new();
     gtk_window_set_title(GTK_WINDOW(window), "SFD Tool GUI By Ryan Crepa");
-    GdkRectangle geometry;
-    auto display = gdk_display_get_default();
-    auto monitors = gdk_display_get_monitors(display);
-    if (g_list_model_get_n_items(monitors) > 0)
-    {
-        auto monitor = GDK_MONITOR(g_list_model_get_item(monitors, 0));
-        if (monitor) {
-            gdk_monitor_get_geometry(monitor, &geometry);
-            int win_width = geometry.width * 0.8;
-            int win_height = geometry.height * 0.8;
-            printf("orig_w: %d\n", geometry.width);
-            printf("orig_h: %d\n", geometry.height);
-            printf("win_w: %d\n", win_width);
-            printf("win_h: %d\n", win_height);
-            gtk_window_set_default_size(GTK_WINDOW(window), win_width, win_height);
-            g_object_unref(monitor); // 释放引用
+
+    // 获取默认显示
+    GdkDisplay *display = gdk_display_get_default();
+    int screen_w = 0, screen_h = 0;
+
+    if (display) {
+        // 获取所有显示器的列表（GListModel）
+        GListModel *monitors = gdk_display_get_monitors(display);
+        if (monitors) {
+            // 取第一个显示器（通常对应主屏幕）
+            GdkMonitor *primary = GDK_MONITOR(g_list_model_get_item(monitors, 0));
+            if (primary) {
+                GdkRectangle geometry;
+                gdk_monitor_get_geometry(primary, &geometry);
+                screen_w = geometry.width;
+                screen_h = geometry.height;
+                g_object_unref(primary);  // 释放引用
+            }
         }
     }
-    gtk_window_present(GTK_WINDOW(window));
+
+    // 以下计算逻辑完全不变
+    const int target_w = 1174;
+    const int target_h = 820;
+    const int margin_w = 100;
+
+    int win_w = target_w;
+    int win_h = target_h;
+
+    if (screen_w > 0) {
+        win_w = std::min(target_w, screen_w - margin_w);
+    }
+    if (screen_h > 0) {
+        win_h = (screen_h < target_h) ? screen_h : target_h;
+    }
+
+    // 兜底最小尺寸
+    if (win_w < 800) win_w = 800;
+    if (win_h < 600) win_h = 600;
+
+    gtk_window_set_default_size(GTK_WINDOW(window), win_w, win_h);
 
     // 快捷键
 #if GTK_CHECK_VERSION(4, 0, 0)
