@@ -64,15 +64,24 @@ void destroyWidget(GtkWidget* widget) {
 gint runDialog(GtkDialog* dialog) {
 #if GTK_CHECK_VERSION(4, 0, 0)
     DialogState state{GTK_RESPONSE_NONE, g_main_loop_new(nullptr, FALSE)};
-    g_signal_connect_data(dialog, "response",
+
+    // 1. 连接信号，记录 handler_id
+    gulong handler_id = g_signal_connect(dialog, "response",
         G_CALLBACK(+[](GtkDialog*, gint response_id, gpointer user_data) {
             auto* state = static_cast<DialogState*>(user_data);
             state->response = response_id;
-            g_main_loop_quit(state->loop);
-        }), &state, nullptr, G_CONNECT_DEFAULT);
+            if (g_main_loop_is_running(state->loop)) {
+                g_main_loop_quit(state->loop);
+            }
+        }), &state);
 
+    // 2. 显示并运行循环
     gtk_window_present(GTK_WINDOW(dialog));
     g_main_loop_run(state.loop);
+
+    // 3. 立即断开信号，确保 state 销毁后没有任何残留回调
+    g_signal_handler_disconnect(dialog, handler_id);
+
     g_main_loop_unref(state.loop);
     return state.response;
 #else
