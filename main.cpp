@@ -86,7 +86,7 @@
 #endif
 
 std::string g_about_text;
-
+extern guint g_drag_check_timeout;
 namespace {
 
 static std::string get_effective_lc_all_from_ui_language(const std::string& ui_language) {
@@ -436,6 +436,10 @@ void crash_handler(int sig) {
 
 // 全局快捷键处理：在 macOS 上支持 Command+Q，其他平台支持 Ctrl+Q 退出
 static void on_window_destroy(GtkWidget*, gpointer) {
+    if (g_drag_check_timeout != 0) {
+        g_source_remove(g_drag_check_timeout);
+        g_drag_check_timeout = 0;
+    }
 	gui_quit_main_loop();
 }
 
@@ -448,7 +452,11 @@ static gboolean on_main_window_key_press_gtk4(GtkEventControllerKey* controller,
     (void)controller;
     (void)keycode;
     (void)user_data;
-
+    
+    if (g_drag_check_timeout != 0) {
+        g_source_remove(g_drag_check_timeout);
+        g_drag_check_timeout = 0;
+    }
 #if defined(__APPLE__)
     if ((state & GDK_META_MASK) && keyval == GDK_KEY_q) {
         gui_quit_main_loop();
