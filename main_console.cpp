@@ -3296,7 +3296,7 @@ rloop:
 				DEG_LOG(E, "Non-tool mode does not support `exit` command, use `poweroff`, `reset`, etc. instead.");
 				argc -= 1;
 				argv += 1;
-				break;
+				continue;
 			}
 		}
 		else if (strlen(str2[1])) {
