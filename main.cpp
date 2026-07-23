@@ -510,7 +510,7 @@ static void on_window_map_adaptive(GtkWidget *widget, gpointer user_data) {
     GdkRectangle geometry;
     gdk_monitor_get_geometry(monitor, &geometry);
     
-    // 4. 计算窗口尺寸（复用你的逻辑）
+    // 4. 计算窗口尺寸（复用逻辑）
     const int target_w = 1174;
     const int target_h = 820;
     const int margin_w = 100;
