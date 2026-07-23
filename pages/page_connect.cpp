@@ -833,56 +833,55 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: Unknown/SPRD4(AutoD)");
 		else DEG_LOG(I, "Device status: Unknown/Unknown");
 	}
-
+	showInfoDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Successfully connected"), _("Device already connected! Some advanced settings opened!"));	
 	gui_idle_call_wait_drag([=]() mutable {
-		showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Successfully connected"), _("Device already connected! Some advanced settings opened!"));
-		if (!fdl2_executed) {
-			helper.enableWidget("fdl_exec");
-			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Please execute FDL file to continue!"));
-			if (g_app_state.device.device_mode == SPRD4) {
-				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Since your device is in SPRD4 mode, you can choose to skip FDL setting and directly execute FDL, but not all devices support that, please proceed with caution!"));
-			}
-			auto* cfgSvc = ensure_config_service();
-			sfd::AppConfig cfg{};
-			sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
-			if(status.success && !cfg.last_fdl1_path.empty() && !cfg.last_fdl2_path.empty() && !cfg.last_fdl1_addr.empty() && !cfg.last_fdl2_addr.empty() && g_app_state.device.device_stage == BROM && !isKickMode && !isExec)
-			{
-				bool i_is = false;
-				i_is = showConfirmDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"),_("FDL Info detected, do you want to load it?"));
-				if (i_is)
-				{
-					helper.setEntryText(helper.getWidget("fdl_file_path"), cfg.last_fdl1_path);
-					helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(static_cast<uint32_t>(std::stoul(cfg.last_fdl1_addr))));
-					DEG_LOG(I, "Loaded FDL info: %s at address: %s", cfg.last_fdl1_path.c_str(), uint32_to_hex_string(static_cast<uint32_t>(std::stoul(cfg.last_fdl1_addr))).c_str());
-					waitFDL1 = 0;
-					std::thread([helper]() mutable {
-						on_button_clicked_fdl_exec(helper);
-					}).detach();
-					while(1)
-					{
-						if(waitFDL1 == 1) break;
-						std::this_thread::sleep_for(std::chrono::milliseconds(100));
-						g_main_context_iteration(NULL, FALSE);
-					}
-					if (autoFDL1Suc)
-					{
-						helper.setEntryText(helper.getWidget("fdl_file_path"), cfg.last_fdl2_path);
-						helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(static_cast<uint32_t>(std::stoul(cfg.last_fdl2_addr))));
-						DEG_LOG(I, "Loaded FDL info: %s at address: %s", cfg.last_fdl2_path.c_str(), uint32_to_hex_string(static_cast<uint32_t>(std::stoul(cfg.last_fdl2_addr))).c_str());
-						std::thread([helper]() mutable {
-							on_button_clicked_fdl_exec(helper);
-						}).detach();
-					}
-					
-				}
-			}
-		}
 		if (g_app_state.device.device_stage == FDL2) bottom_bar_set_status("Ready");
 		else bottom_bar_set_status("Connected");
 		Enable_Startup(helper);
 		update_mode_label_from_device_service(helper);
 	},GTK_WINDOW(helper.getWidget("main_window")));
-
+	if (!fdl2_executed) {
+		helper.enableWidget("fdl_exec");
+		showInfoDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Please execute FDL file to continue!"));
+		if (g_app_state.device.device_mode == SPRD4) {
+			showInfoDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Tips"), _("Since your device is in SPRD4 mode, you can choose to skip FDL setting and directly execute FDL, but not all devices support that, please proceed with caution!"));
+		}
+		auto* cfgSvc = ensure_config_service();
+		sfd::AppConfig cfg{};
+		sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
+		if(status.success && !cfg.last_fdl1_path.empty() && !cfg.last_fdl2_path.empty() && !cfg.last_fdl1_addr.empty() && !cfg.last_fdl2_addr.empty() && g_app_state.device.device_stage == BROM && !isKickMode && !isExec)
+		{
+			bool i_is = false;
+			i_is = showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"),_("FDL Info detected, do you want to load it?"));
+			if (i_is)
+			{
+				helper.setEntryText(helper.getWidget("fdl_file_path"), cfg.last_fdl1_path);
+				helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(static_cast<uint32_t>(std::stoul(cfg.last_fdl1_addr))));
+				DEG_LOG(I, "Loaded FDL info: %s at address: %s", cfg.last_fdl1_path.c_str(), uint32_to_hex_string(static_cast<uint32_t>(std::stoul(cfg.last_fdl1_addr))).c_str());
+				waitFDL1 = 0;
+				ensure_device_attached_or_exit(helper);
+				std::thread([helper]() mutable {
+					on_button_clicked_fdl_exec(helper);
+				}).detach();
+				while(1)
+				{
+					if(waitFDL1 == 1) break;
+					std::this_thread::sleep_for(std::chrono::milliseconds(100));
+					g_main_context_iteration(NULL, FALSE);
+				}
+				if (autoFDL1Suc)
+				{
+					ensure_device_attached_or_exit(helper);
+					helper.setEntryText(helper.getWidget("fdl_file_path"), cfg.last_fdl2_path);
+					helper.setEntryText(helper.getWidget("fdl_addr"), uint32_to_hex_string(static_cast<uint32_t>(std::stoul(cfg.last_fdl2_addr))));
+					DEG_LOG(I, "Loaded FDL info: %s at address: %s", cfg.last_fdl2_path.c_str(), uint32_to_hex_string(static_cast<uint32_t>(std::stoul(cfg.last_fdl2_addr))).c_str());
+					std::thread([helper]() mutable {
+						on_button_clicked_fdl_exec(helper);
+					}).detach();
+				}
+			}
+		}
+	}
 }
 
 GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
