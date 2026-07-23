@@ -1338,6 +1338,14 @@ int main_console(int argc, char** argv) {
 			DEG_LOG(I, "Baudrate is %u", baudrate);
 			argc -= 2;
 			argv += 2;
+#else
+		} else if (!strcmp(str2[1], "baudrate")) {
+			if (argcount > 2) {
+				argc -= 2;
+				argv += 2;
+			}
+			else argc = 1;
+			DEG_LOG(E, "Only Windows Driver support this command.");
 #endif
 		} else if (!strcmp(str2[1], "path")) {
 			if (isToolMode)
