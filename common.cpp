@@ -2670,7 +2670,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			}
 			continue;
 		}
-		if (!my_stricmp(fn, "uboot") == 0 || my_stricmp(fn, "vbmeta") == 0) {
+		if (!my_stricmp(fn, "uboot") || !my_stricmp(fn, "vbmeta")) {
 			if (relfn.empty())
 				get_partition_info(io, fn, 0);
 			else
@@ -2696,7 +2696,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			partitions[i].written_flag = 1;
 			continue;
 		}
-		if (!my_strnicmp(fn, "vbmeta_", 7) == 0) {
+		if (!my_strnicmp(fn, "vbmeta_", 7)) {
 		    if(g_app_state.flash.isPacFlashing)
 		    {
     			auto it = std::find_if(pac_parts.begin(), pac_parts.end(),

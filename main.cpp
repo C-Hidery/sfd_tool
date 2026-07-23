@@ -490,6 +490,7 @@ bool isMaped = false;
 
 // 窗口尺寸适配回调（在 map 信号中触发）
 static void on_window_map_adaptive(GtkWidget *widget, gpointer user_data) {
+    (void)user_data;
     GtkWindow *window = GTK_WINDOW(widget);
     if (isMaped == true) return;
     isMaped = true;
