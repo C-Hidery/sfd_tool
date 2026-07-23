@@ -1,3 +1,9 @@
+sfd-tool (2.5.4-1-ltv) unstable; urgency=medium
+
+  * 修复可能的窗口卡死问题
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Thu, 23 Jul 2026 15:12:31 +0800
+
 sfd-tool (2.5.3-1-ltv) unstable; urgency=medium
 
   * 修复GUI窗口大小自适应的问题

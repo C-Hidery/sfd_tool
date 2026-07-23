@@ -64,15 +64,24 @@ void destroyWidget(GtkWidget* widget) {
 gint runDialog(GtkDialog* dialog) {
 #if GTK_CHECK_VERSION(4, 0, 0)
     DialogState state{GTK_RESPONSE_NONE, g_main_loop_new(nullptr, FALSE)};
-    g_signal_connect_data(dialog, "response",
+
+    // 1. 连接信号，记录 handler_id
+    gulong handler_id = g_signal_connect(dialog, "response",
         G_CALLBACK(+[](GtkDialog*, gint response_id, gpointer user_data) {
             auto* state = static_cast<DialogState*>(user_data);
             state->response = response_id;
-            g_main_loop_quit(state->loop);
-        }), &state, nullptr, G_CONNECT_DEFAULT);
+            if (g_main_loop_is_running(state->loop)) {
+                g_main_loop_quit(state->loop);
+            }
+        }), &state);
 
+    // 2. 显示并运行循环
     gtk_window_present(GTK_WINDOW(dialog));
     g_main_loop_run(state.loop);
+
+    // 3. 立即断开信号，确保 state 销毁后没有任何残留回调
+    g_signal_handler_disconnect(dialog, handler_id);
+
     g_main_loop_unref(state.loop);
     return state.response;
 #else
@@ -445,6 +454,10 @@ std::string showSaveFileDialog(GtkWindow* parent,
 // ==================== 线程安全对话框（Thread-Safe Dialogs） ====================
 
 bool showConfirmDialogSyncInThread(GtkWindow* parent, const char* title, const char* message) {
+    if (g_main_context_is_owner(g_main_context_default())) {
+        waitForDragEnd(parent);                // 若有拖拽则等待结束
+        return showConfirmDialog(parent, title, message);
+    }
     GMainContext* worker_ctx = g_main_context_new();
     g_main_context_push_thread_default(worker_ctx);
     GMainLoop* loop = g_main_loop_new(worker_ctx, FALSE);
@@ -476,6 +489,10 @@ bool showConfirmDialogSyncInThread(GtkWindow* parent, const char* title, const c
 }
 
 std::string showInputDialogSyncInThread(GtkWindow* parent, const char* title, const char* message) {
+    if (g_main_context_is_owner(g_main_context_default())) {
+        waitForDragEnd(parent);                // 若有拖拽则等待结束
+        return showInputDialog(parent, title, message);
+    }
     GMainContext* worker_ctx = g_main_context_new();
     g_main_context_push_thread_default(worker_ctx);
     GMainLoop* loop = g_main_loop_new(worker_ctx, FALSE);
@@ -507,6 +524,11 @@ std::string showInputDialogSyncInThread(GtkWindow* parent, const char* title, co
 }
 
 void showErrorDialogSyncInThread(GtkWindow* parent, const char* title, const char* message) {
+    if (g_main_context_is_owner(g_main_context_default())) {
+        waitForDragEnd(parent);                // 若有拖拽则等待结束
+        showErrorDialog(parent, title, message);
+        return;
+    }
     GMainContext* worker_ctx = g_main_context_new();
     g_main_context_push_thread_default(worker_ctx);
     GMainLoop* loop = g_main_loop_new(worker_ctx, FALSE);
@@ -535,6 +557,11 @@ void showErrorDialogSyncInThread(GtkWindow* parent, const char* title, const cha
 }
 
 void showInfoDialogSyncInThread(GtkWindow* parent, const char* title, const char* message) {
+    if (g_main_context_is_owner(g_main_context_default())) {
+        waitForDragEnd(parent);                // 若有拖拽则等待结束
+        showInfoDialog(parent, title, message);
+        return;
+    }
     GMainContext* worker_ctx = g_main_context_new();
     g_main_context_push_thread_default(worker_ctx);
     GMainLoop* loop = g_main_loop_new(worker_ctx, FALSE);
@@ -563,6 +590,11 @@ void showInfoDialogSyncInThread(GtkWindow* parent, const char* title, const char
 }
 
 void showWarningDialogSyncInThread(GtkWindow* parent, const char* title, const char* message) {
+    if (g_main_context_is_owner(g_main_context_default())) {
+        waitForDragEnd(parent);                // 若有拖拽则等待结束
+        showWarningDialog(parent, title, message);
+        return;
+    }
     GMainContext* worker_ctx = g_main_context_new();
     g_main_context_push_thread_default(worker_ctx);
     GMainLoop* loop = g_main_loop_new(worker_ctx, FALSE);
@@ -591,6 +623,10 @@ void showWarningDialogSyncInThread(GtkWindow* parent, const char* title, const c
 }
 
 std::string showFileChooserSyncInThread(GtkWindow* parent, bool open) {
+    if (g_main_context_is_owner(g_main_context_default())) {
+        waitForDragEnd(parent);                // 若有拖拽则等待结束
+        return showFileChooser(parent, open);
+    }
     GMainContext* worker_ctx = g_main_context_new();
     g_main_context_push_thread_default(worker_ctx);
     GMainLoop* loop = g_main_loop_new(worker_ctx, FALSE);
@@ -618,6 +654,10 @@ std::string showFileChooserSyncInThread(GtkWindow* parent, bool open) {
 }
 
 std::string showFolderChooserSyncInThread(GtkWindow* parent) {
+    if (g_main_context_is_owner(g_main_context_default())) {
+        waitForDragEnd(parent);                // 若有拖拽则等待结束
+        return showFolderChooser(parent);
+    }
     GMainContext* worker_ctx = g_main_context_new();
     g_main_context_push_thread_default(worker_ctx);
     GMainLoop* loop = g_main_loop_new(worker_ctx, FALSE);
@@ -646,6 +686,10 @@ std::string showFolderChooserSyncInThread(GtkWindow* parent) {
 std::string showSaveFileDialogSyncInThread(GtkWindow* parent,
                                        const std::string& default_filename,
                                        const std::vector<std::pair<std::string, std::string>>& filters) {
+    if (g_main_context_is_owner(g_main_context_default())) {
+        waitForDragEnd(parent);                // 若有拖拽则等待结束
+        return showSaveFileDialog(parent, default_filename, filters);
+    }
     GMainContext* worker_ctx = g_main_context_new();
     g_main_context_push_thread_default(worker_ctx);
     GMainLoop* loop = g_main_loop_new(worker_ctx, FALSE);

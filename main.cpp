@@ -394,14 +394,12 @@ void crash_handler(int sig) {
 	if (isHelperInit) {
         // 检测当前是否在主线程
         bool is_main_thread = g_main_context_is_owner(g_main_context_default());
-        
+        while (isWindowDragging(helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr)) {
+            g_main_context_iteration(g_main_context_default(), FALSE);
+            g_usleep(10000); // 10ms
+        }
         if (is_main_thread) {
             // 主线程中直接执行，无需等待（因为没有异步）
-            // 等待窗口拖动结束
-            while (isWindowDragging(helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr)) {
-                g_main_context_iteration(g_main_context_default(), FALSE);
-                g_usleep(10000); // 10ms
-            }
             // 禁用控件并显示对话框
             DisableWidgets(helper);
             GtkWidget* main_window = helper.getWidget("main_window");
