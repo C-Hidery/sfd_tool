@@ -392,15 +392,29 @@ void crash_handler(int sig) {
 
 #endif
 	if (isHelperInit) {
+        // 检测当前是否在主线程
+        bool is_main_thread = g_main_context_is_owner(g_main_context_default());
         while (isWindowDragging(helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr)) {
             g_main_context_iteration(g_main_context_default(), FALSE);
             g_usleep(10000); // 10ms
         }
-		gui_idle_call_wait_drag([](){ DisableWidgets(helper); }, GTK_WINDOW(helper.getWidget("main_window")));
-        showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), 
-					_("Program Crash"), 
-                    _("The program encountered an unhandled exception, which may be caused by device connection issues or a bug in the program.\n\nIt is recommended to check the device connection, ensure the correct options are used, and try running the tool again."));
-        
+        if (is_main_thread) {
+            // 主线程中直接执行，无需等待（因为没有异步）
+            // 禁用控件并显示对话框
+            DisableWidgets(helper);
+            GtkWidget* main_window = helper.getWidget("main_window");
+            if (main_window) {
+                showErrorDialog(GTK_WINDOW(main_window),
+				 _("Program Crash"),
+				 _("The program encountered an unhandled exception, which may be caused by device connection issues or a bug in the program.\n\nIt is recommended to check the device connection, ensure the correct options are used, and try running the tool again."));
+		
+            }
+        } else {
+			gui_idle_call_wait_drag([](){ DisableWidgets(helper); }, GTK_WINDOW(helper.getWidget("main_window")));
+            showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), 
+						_("Program Crash"), 
+                        _("The program encountered an unhandled exception, which may be caused by device connection issues or a bug in the program.\n\nIt is recommended to check the device connection, ensure the correct options are used, and try running the tool again."));
+        }
     } else {
         // 命令行模式
         fprintf(stderr, "Program crashed. Exiting...\n");

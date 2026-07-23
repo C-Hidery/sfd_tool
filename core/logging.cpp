@@ -21,14 +21,28 @@ void ERR_EXIT(const char* format, ...) {
     
     // 3. 在 GUI 模式下处理弹窗
     if (isHelperInit) {
+        // 检测当前是否在主线程
+        bool is_main_thread = g_main_context_is_owner(g_main_context_default());
         while (isWindowDragging(helper.getWidget("main_window") ? GTK_WINDOW(helper.getWidget("main_window")) : nullptr)) {
             g_main_context_iteration(g_main_context_default(), FALSE);
             g_usleep(10000); // 10ms
         }
-        gui_idle_call_wait_drag([](){ DisableWidgets(helper); }, GTK_WINDOW(helper.getWidget("main_window")));
-        showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), 
-                _("Error"), 
-                _("An error occurred. The application will now exit."));
+        if (is_main_thread) {
+            // 主线程中直接执行，无需等待（因为没有异步）
+            // 禁用控件并显示对话框
+            DisableWidgets(helper);
+            GtkWidget* main_window = helper.getWidget("main_window");
+            if (main_window) {
+                showErrorDialog(GTK_WINDOW(main_window), 
+                              _("Error"), 
+                              _("An error occurred. The application will now exit."));
+            }
+        } else {
+            gui_idle_call_wait_drag([](){ DisableWidgets(helper); }, GTK_WINDOW(helper.getWidget("main_window")));
+            showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), 
+                    _("Error"), 
+                    _("An error occurred. The application will now exit."));
+        }
     } else {
         // 命令行模式
         fprintf(stderr, "Fatal error. Exiting...\n");
