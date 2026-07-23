@@ -200,7 +200,7 @@ GtkWidget* create_advanced_op_page(GtkWidgetHelper& helper, GtkWidget* notebook)
     gtk_widget_set_halign(xmlInputWrap, GTK_ALIGN_CENTER);
 
     GtkWidget* xmlInputLinked = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_style_context_add_class(gtk_widget_get_style_context(xmlInputLinked), "linked");
+    gtk_widget_add_css_class(xmlInputLinked, "linked");
 
     GtkWidget* xmlPath = gtk_entry_new();
     gtk_widget_set_name(xmlPath, "xml_path");

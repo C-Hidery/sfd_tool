@@ -9,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        2.5.2
+Version:        2.5.3
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -63,6 +63,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Wed Jul 22 2026 RyanCrepa <Ryan110413@outlook.com> - 2.5.3-1-ltv
+- 修复GUI窗口大小自适应的问题
+
 * Mon Jul 20 2026 RyanCrepa <Ryan110413@outlook.com> - 2.5.2-1-ltv
 - 忽略大小写的GUI备份效验和批量刷写（恢复）
 

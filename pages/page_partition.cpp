@@ -2347,7 +2347,7 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
     gtk_widget_set_size_request(RemvPartBtn, 80, 32);
     helper.addWidget("modify_rm_part", RemvPartBtn);
     gtk_widget_set_name(RemvPartBtn, "danger_button");
-    gtk_style_context_add_class(gtk_widget_get_style_context(RemvPartBtn), "destructive-action");
+    gtk_widget_add_css_class((RemvPartBtn), "destructive-action");
     gtk_widget_set_halign(RemvPartBtn, GTK_ALIGN_START);
 
     gtk_box_append(GTK_BOX(rmCardBox), RemvPartBtn);
