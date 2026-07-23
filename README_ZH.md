@@ -45,7 +45,7 @@ Arch Linux 用户可以使用此AUR包：
 
 ![License](https://img.shields.io/github/license/C-Hidery/sfd_tool)
 
-**License: GPL-3.0-or-later**
+**GPL-3.0-or-later**
 
 ## 介绍
 
