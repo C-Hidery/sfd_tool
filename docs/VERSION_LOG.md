@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 2.5.4 LTV Edition
+Version 2.5.5 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -309,6 +309,9 @@ Enhanced partition list read
 
 ---v 2.5.4---
 修复可能的窗口卡死问题
+
+---v 2.5.5---
+修复CLI的命令参数
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool

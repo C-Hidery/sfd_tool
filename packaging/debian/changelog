@@ -1,3 +1,9 @@
+sfd-tool (2.5.5-1-ltv) unstable; urgency=medium
+
+  * 修复CLI的命令参数
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Thu, 23 Jul 2026 19:15:51 +0800
+
 sfd-tool (2.5.4-1-ltv) unstable; urgency=medium
 
   * 修复可能的窗口卡死问题
