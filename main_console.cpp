@@ -1331,6 +1331,19 @@ int main_console(int argc, char** argv) {
 
 #if !USE_LIBUSB
 		} else if (!strcmp(str2[1], "baudrate")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
 			if (argcount > 2) {
 				baudrate = strtoul(str2[2], nullptr, 0);
 				if (fdl2_executed) call_SetProperty(io->handle, 0, 100, (LPCVOID)&baudrate);
