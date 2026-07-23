@@ -1209,8 +1209,7 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     // 自定义 spinbox (entry + 按钮)
     GtkWidget* customSpinBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    GtkStyleContext* styleCtx = gtk_widget_get_style_context(customSpinBox);
-    gtk_style_context_add_class(styleCtx, "linked");
+    gtk_widget_add_css_class(customSpinBox, "linked");
 
     GtkWidget* waitCon = gtk_entry_new();
     gtk_widget_set_name(waitCon, "wait_con");

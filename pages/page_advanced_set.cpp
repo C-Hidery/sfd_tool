@@ -292,7 +292,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     gtk_box_append(GTK_BOX(rawDataButtonBox), rawDataDis);
 
     GtkWidget* rawValLinked = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_style_context_add_class(gtk_widget_get_style_context(rawValLinked), "linked");
+    gtk_widget_add_css_class((rawValLinked), "linked");
     gtk_box_append(GTK_BOX(rawValLinked), rlabel);
     gtk_box_append(GTK_BOX(rawValLinked), rawDataMk);
 

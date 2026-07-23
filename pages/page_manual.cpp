@@ -306,7 +306,7 @@ GtkWidget* ManualPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     gtk_widget_set_size_request(filePathLabel, 120, -1);
 
     GtkWidget* fileInputBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_style_context_add_class(gtk_widget_get_style_context(fileInputBox), "linked");
+    gtk_widget_add_css_class((fileInputBox), "linked");
     gtk_widget_set_hexpand(fileInputBox, TRUE);
 
     GtkWidget* mFilePath = gtk_entry_new();
