@@ -75,7 +75,7 @@ static void logMessageInternal(int type, const char* message) {
 	switch(type) {
 		case I:  prefix = "[i] ";  break;
 		case W:  prefix = "[!] ";  break;
-		case E:  prefix = "[x] ";  break;
+		case E:  prefix = "[X] ";  break;
 		case OP: prefix = "[+] ";  break;
 		case DE: prefix = "[&] "; break;
 		default: prefix = "[?] "; break;
