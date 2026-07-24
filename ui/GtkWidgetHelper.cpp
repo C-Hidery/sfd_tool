@@ -40,7 +40,8 @@ static GtkWidget* createScrolledWindowWidget() {
 }
 
 void destroyWidget(GtkWidget* widget) {
-    if (!widget) return;
+    if (!widget || !GTK_IS_WIDGET(widget))
+        return;
     if (GTK_IS_WINDOW(widget)) {
         gtk_window_destroy(GTK_WINDOW(widget));
     } else {
@@ -48,51 +49,12 @@ void destroyWidget(GtkWidget* widget) {
     }
 }
 
-struct DialogRunData {
-    GMainLoop* loop;
-    gint response;
-    gboolean destroyed;
-};
-
-static void dialog_response_cb(GtkDialog* dialog, gint response_id, gpointer user_data) {
-    auto* data = static_cast<DialogRunData*>(user_data);
-    data->response = response_id;
-
-    // 如果对话框尚未被销毁，立即销毁它（模拟 gtk_dialog_run 的行为）
-    if (!data->destroyed) {
-        data->destroyed = TRUE;
-        gtk_window_destroy(GTK_WINDOW(dialog));
-    }
-
-    // 退出循环
-    if (g_main_loop_is_running(data->loop))
-        g_main_loop_quit(data->loop);
-}
-
-static void dialog_destroy_cb(GtkDialog* dialog, gpointer user_data) {
-    auto* data = static_cast<DialogRunData*>(user_data);
-    data->destroyed = TRUE;
-
-    // 如果循环还在运行，退出
-    if (g_main_loop_is_running(data->loop))
-        g_main_loop_quit(data->loop);
-}
-
-// This func will destory widget automatically, DO NOT destory manually.
 gint runDialog(GtkDialog* dialog) {
-    DialogRunData data;
-    data.loop = g_main_loop_new(nullptr, FALSE);
-    data.response = GTK_RESPONSE_NONE;
-    data.destroyed = FALSE;
-
-    // 连接信号，不需要记录 handler id，因为对象销毁时会自动断开
-    g_signal_connect(dialog, "response", G_CALLBACK(dialog_response_cb), &data);
-    g_signal_connect(dialog, "destroy", G_CALLBACK(dialog_destroy_cb), &data);
+    GMainLoop* loop = g_main_loop_new(nullptr, FALSE);
 
     gtk_window_present(GTK_WINDOW(dialog));
     g_main_loop_run(data.loop);
 
-    // 循环结束后，对话框已被销毁，不需要做任何清理
     g_main_loop_unref(data.loop);
 
     return data.response;
@@ -325,7 +287,7 @@ void showInfoDialog(GtkWindow* parent, const char* title, const char* message) {
         GTK_MESSAGE_INFO, GTK_BUTTONS_OK, "%s", message);
     gtk_window_set_title(GTK_WINDOW(dialog), title);
     runDialog(GTK_DIALOG(dialog));
-    // destroyWidget(dialog);
+    destroyWidget(dialog);
 }
 
 void showWarningDialog(GtkWindow* parent, const char* title, const char* message) {
@@ -333,7 +295,7 @@ void showWarningDialog(GtkWindow* parent, const char* title, const char* message
         GTK_MESSAGE_WARNING, GTK_BUTTONS_OK, "%s", message);
     gtk_window_set_title(GTK_WINDOW(dialog), title);
     runDialog(GTK_DIALOG(dialog));
-    // destroyWidget(dialog);
+    destroyWidget(dialog);
 }
 
 void showErrorDialog(GtkWindow* parent, const char* title, const char* message) {
@@ -341,7 +303,7 @@ void showErrorDialog(GtkWindow* parent, const char* title, const char* message) 
         GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "%s", message);
     gtk_window_set_title(GTK_WINDOW(dialog), title);
     runDialog(GTK_DIALOG(dialog));
-    // destroyWidget(dialog);
+    destroyWidget(dialog);
 }
 
 bool showConfirmDialog(GtkWindow* parent, const char* title, const char* message) {
@@ -349,7 +311,7 @@ bool showConfirmDialog(GtkWindow* parent, const char* title, const char* message
         GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO, "%s", message);
     gtk_window_set_title(GTK_WINDOW(dialog), title);
     gint result = runDialog(GTK_DIALOG(dialog));
-    // destroyWidget(dialog);
+    destroyWidget(dialog);
     return result == GTK_RESPONSE_YES;
 }
 
@@ -383,7 +345,7 @@ std::string showInputDialog(GtkWindow* parent, const char* title, const char* me
         const gchar* text = gtk_editable_get_text(GTK_EDITABLE(entry));
         if (text) result = text;
     }
-    // destroyWidget(dialog);
+    destroyWidget(dialog);
     return result;
 }
 
@@ -412,7 +374,7 @@ std::string showSaveFileDialog(GtkWindow* parent,
     if (result == GTK_RESPONSE_ACCEPT) {
         filename = getFileChooserSelection(GTK_FILE_CHOOSER(dialog));
     }
-    // destroyWidget(dialog);
+    destroyWidget(dialog);
     return filename;
 }
 
