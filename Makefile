@@ -35,7 +35,7 @@ termux:
 # 调试构建
 .PHONY: debug
 debug:
-	cmake -S . -B $(BUILD_DIR) -G "$(GENERATOR)" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+	cmake -S . -B $(BUILD_DIR) -G "$(GENERATOR)" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DDEBUG_OP=ON
 	cmake --build $(BUILD_DIR) -j
 
 # 清理生成目录

@@ -36,6 +36,8 @@ endif()
 option(USE_LIBUSB "Enable libusb backend" ON)
 option(USE_GTK "Enable GTK4 UI" ON)
 
+option(DEBUG_OP "Debug mode" OFF)
+
 # Windows x86 (Win32) 不支持 libusb：强制关闭，统一走 Channel9 封装
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4 AND USE_LIBUSB)
     message(STATUS "USE_LIBUSB=ON is not supported on Win32 (x86); forcing USE_LIBUSB=OFF (Channel9 backend)")
@@ -48,6 +50,10 @@ option(TERMUX "Enable Termux specific build options" OFF)
 # 编译类型对应 make debug/release
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
+if (DEBUG_OP)
+    add_compile_definitions(_DEBUG=1)
 endif()
 
 # ================= 子目录模块 =================
