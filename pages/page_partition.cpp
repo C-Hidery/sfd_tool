@@ -2587,7 +2587,7 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
 		}
 	}
 
-	destroyWidget(dialog);
+	// destroyWidget(dialog);
 	return result;
 }
 
@@ -2685,7 +2685,7 @@ static void show_backup_inspection_dialog(GtkWidgetHelper& helper,
 	gtk_widget_show_all(dialog);
 #endif
 	runDialog(GTK_DIALOG(dialog));
-	destroyWidget(dialog);
+	// destroyWidget(dialog);
 }
 
 static void run_batch_partition_write(GtkWidgetHelper helper,

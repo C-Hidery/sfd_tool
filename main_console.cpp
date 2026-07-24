@@ -284,7 +284,7 @@ int main_console(int argc, char** argv) {
 	snprintf(fn_partlist, sizeof(fn_partlist), "partition_%lld.xml", (long long)time(nullptr));
 	printf("sfd_tool Long-time version %s Console mode\n", SFD_TOOL_VERSION);
 	printf("Copyright 2026 Ryan Crepa\n");
-#if _DEBUG
+#ifdef _DEBUG
 	DBG_LOG("version:debug, core version:%s\n", Version);
 #else
 	DBG_LOG("version:stable, core version:%s\n", Version);

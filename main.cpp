@@ -86,7 +86,7 @@
 #endif
 
 std::string g_about_text;
-
+extern guint g_drag_check_timeout;
 namespace {
 
 static std::string get_effective_lc_all_from_ui_language(const std::string& ui_language) {
@@ -281,6 +281,7 @@ std::string load_about_text() {
 	const char* candidates[] = {
 		"docs/VERSION_LOG.md",
 		"VERSION_LOG.md",
+        "../docs/VERSION_LOG.md"
 	};
 
 	for (auto path : candidates) {
@@ -436,6 +437,10 @@ void crash_handler(int sig) {
 
 // 全局快捷键处理：在 macOS 上支持 Command+Q，其他平台支持 Ctrl+Q 退出
 static void on_window_destroy(GtkWidget*, gpointer) {
+    if (g_drag_check_timeout != 0) {
+        g_source_remove(g_drag_check_timeout);
+        g_drag_check_timeout = 0;
+    }
 	gui_quit_main_loop();
 }
 
@@ -449,17 +454,27 @@ static gboolean on_main_window_key_press_gtk4(GtkEventControllerKey* controller,
     (void)keycode;
     (void)user_data;
 
+    // 统一在退出前清理定时器
+    bool should_quit = false;
 #if defined(__APPLE__)
     if ((state & GDK_META_MASK) && keyval == GDK_KEY_q) {
-        gui_quit_main_loop();
-        return TRUE;
+        should_quit = true;
     }
 #else
     if ((state & GDK_CONTROL_MASK) && keyval == GDK_KEY_q) {
+        should_quit = true;
+    }
+#endif
+
+    if (should_quit) {
+        // 先取消定时器，再退出
+        if (g_drag_check_timeout != 0) {
+            g_source_remove(g_drag_check_timeout);
+            g_drag_check_timeout = 0;
+        }
         gui_quit_main_loop();
         return TRUE;
     }
-#endif
     return FALSE;
 }
 #else
@@ -510,7 +525,7 @@ static void on_window_map_adaptive(GtkWidget *widget, gpointer user_data) {
     GdkRectangle geometry;
     gdk_monitor_get_geometry(monitor, &geometry);
     
-    // 4. 计算窗口尺寸（复用你的逻辑）
+    // 4. 计算窗口尺寸（复用逻辑）
     const int target_w = 1174;
     const int target_h = 820;
     const int margin_w = 100;

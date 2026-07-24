@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: GPL-3.0-or-later
  * SFDTool Copyright (C) 2026 Ryan Crepa
+ * GtkWidgetHelper v0.1.1 for GTK4
  */
 
 #ifndef GTK_WIDGET_HELPER_HPP
@@ -30,7 +31,7 @@ void gui_run_main_loop();
 void gui_quit_main_loop();
 void gtkBoxPackStart(GtkWidget* box, GtkWidget* child, bool expand, bool fill, int padding);
 void gtkContainerAdd(GtkWidget* container, GtkWidget* child);
-void gtkFrameSetLabelAlign(GtkWidget* frame, float xalign, float yalign);
+void gtkFrameSetLabelAlign(GtkWidget* frame, float xalign, float yalign = -1);
 gint runDialog(GtkDialog* dialog);
 void destroyWidget(GtkWidget* widget);
 void addBoxChild(GtkWidget* box, GtkWidget* child);

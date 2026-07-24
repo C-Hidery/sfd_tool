@@ -852,7 +852,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 		if(status.success && !cfg.last_fdl1_path.empty() && !cfg.last_fdl2_path.empty() && !cfg.last_fdl1_addr.empty() && !cfg.last_fdl2_addr.empty() && g_app_state.device.device_stage == BROM && !isKickMode && !isExec)
 		{
 			bool i_is = false;
-			i_is = showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"),_("FDL Info detected, do you want to load it?"));
+			i_is = showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"),_("Last FDL path and addr Info detected, do you want to load FDL to FDL2 mode automatically?"));
 			if (i_is)
 			{
 				helper.setEntryText(helper.getWidget("fdl_file_path"), cfg.last_fdl1_path);
