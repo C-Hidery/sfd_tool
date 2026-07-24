@@ -281,6 +281,7 @@ std::string load_about_text() {
 	const char* candidates[] = {
 		"docs/VERSION_LOG.md",
 		"VERSION_LOG.md",
+        "../docs/VERSION_LOG.md"
 	};
 
 	for (auto path : candidates) {
