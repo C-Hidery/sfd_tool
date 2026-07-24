@@ -231,6 +231,9 @@ static void setEntryTextCompat(GtkEntry* entry, const gchar* text) {
 
 // ---------- 修正：GTK4 无 gtk_widget_get_surface ----------
 bool isWindowDragging(GtkWindow* window) {
+    if (!window || !GTK_IS_WINDOW(window)) {
+        return false;
+    }
     GtkNative* native = gtk_widget_get_native(GTK_WIDGET(window));
     if (!native) return false;
     GdkSurface* surface = gtk_native_get_surface(native);
