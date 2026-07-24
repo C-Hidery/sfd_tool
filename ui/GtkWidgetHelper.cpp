@@ -50,14 +50,18 @@ void destroyWidget(GtkWidget* widget) {
 }
 
 gint runDialog(GtkDialog* dialog) {
-    GMainLoop* loop = g_main_loop_new(nullptr, FALSE);
+    DialogState state{GTK_RESPONSE_NONE, g_main_loop_new(nullptr, FALSE)};
+    g_signal_connect_data(dialog, "response",
+        G_CALLBACK(+[](GtkDialog*, gint response_id, gpointer user_data) {
+            auto* state = static_cast<DialogState*>(user_data);
+            state->response = response_id;
+            g_main_loop_quit(state->loop);
+        }), &state, nullptr, G_CONNECT_DEFAULT);
 
     gtk_window_present(GTK_WINDOW(dialog));
-    g_main_loop_run(data.loop);
-
-    g_main_loop_unref(data.loop);
-
-    return data.response;
+    g_main_loop_run(state.loop);
+    g_main_loop_unref(state.loop);
+    return state.response;
 }
 
 
@@ -264,7 +268,7 @@ std::string showFileChooser(GtkWindow* parent, bool open) {
     if (result == GTK_RESPONSE_ACCEPT) {
         filename = getFileChooserSelection(GTK_FILE_CHOOSER(dialog));
     }
-    // destroyWidget(dialog);
+    destroyWidget(dialog);
     return filename;
 }
 
@@ -278,7 +282,7 @@ std::string showFolderChooser(GtkWindow* parent) {
     if (result == GTK_RESPONSE_ACCEPT) {
         folder = getFileChooserSelection(GTK_FILE_CHOOSER(dialog));
     }
-    // destroyWidget(dialog);
+    destroyWidget(dialog);
     return folder;
 }
 
