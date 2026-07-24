@@ -560,6 +560,7 @@ int gtk_kmain(int argc, char** argv) {
 #else
     gtk_init(&argc, &argv);
 #endif
+    g_set_prgname("sfd_tool");
 
     g_about_text = load_about_text();
 
