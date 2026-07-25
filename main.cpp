@@ -501,55 +501,6 @@ std::string fdl1_path_json;
 std::string fdl2_path_json;
 uint32_t fdl1_addr_json;
 uint32_t fdl2_addr_json;
-bool isRealized = false;
-
-// 窗口尺寸适配回调（在 realize 信号中触发）
-static void on_window_realize_adaptive(GtkWidget *widget, gpointer user_data) {
-    (void)user_data;
-    GtkWindow *window = GTK_WINDOW(widget);
-    if (isRealized == true) return;
-    isRealized = true;
-    
-    // 1. 获取窗口所在的 GdkSurface
-    GdkSurface *surface = gtk_native_get_surface(GTK_NATIVE(window));
-    if (!surface) { gtk_window_set_default_size(window, 1024, 768); return; }
-    
-    // 2. 获取显示器
-    GdkDisplay *display = gdk_display_get_default();
-    if (!display) { gtk_window_set_default_size(window, 1024, 768); return; }
-    
-    GdkMonitor *monitor = gdk_display_get_monitor_at_surface(display, surface);
-    if (!monitor) { gtk_window_set_default_size(window, 1024, 768); return; }
-    
-    // 3. 获取显示器尺寸
-    GdkRectangle geometry;
-    gdk_monitor_get_geometry(monitor, &geometry);
-    
-    // 4. 计算窗口尺寸（复用逻辑）
-    const int target_w = 1174;
-    const int target_h = 820;
-    const int margin_w = 100;
-    const int min_w = 800;
-    const int min_h = 600;
-    
-    int win_w = target_w;
-    int win_h = target_h;
-    
-    if (geometry.width > 0) {
-        win_w = std::min(target_w, geometry.width - margin_w);
-    }
-    if (geometry.height > 0) {
-        win_h = std::min(target_h, geometry.height);
-    }
-    
-    win_w = std::max(win_w, min_w);
-    win_h = std::max(win_h, min_h);
-    
-    // 5. 调整窗口大小
-    gtk_window_set_default_size(window, win_w, win_h);
-    DEG_LOG(I, "win_w: %d", win_w);
-    DEG_LOG(I, "win_h: %d", win_h);
-}
 
 int gtk_kmain(int argc, char** argv) {
     DEG_LOG(I, "Starting GUI mode...");
@@ -601,6 +552,8 @@ int gtk_kmain(int argc, char** argv) {
     GtkWidget *window = gtk_window_new();
     gtk_window_set_title(GTK_WINDOW(window), "SFD Tool GUI By Ryan Crepa");
 
+    gtk_window_set_default_size(GTK_WINDOW(window), 800, 600);
+
     // 快捷键
 #if GTK_CHECK_VERSION(4, 0, 0)
     GtkEventController* controller = gtk_event_controller_key_new();
@@ -611,9 +564,6 @@ int gtk_kmain(int argc, char** argv) {
     g_signal_connect(window, "key-press-event", G_CALLBACK(on_main_window_key_press), NULL);
 #endif
     g_signal_connect(window, "destroy", G_CALLBACK(on_window_destroy), NULL);
-
-    // 连接 realize 信号，窗口映射后自动适配屏幕
-    g_signal_connect(window, "realize", G_CALLBACK(on_window_realize_adaptive), nullptr);
 
     // 创建主网格
     GtkWidget* mainGrid = gtk_grid_new();
