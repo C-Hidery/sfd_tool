@@ -501,25 +501,25 @@ std::string fdl1_path_json;
 std::string fdl2_path_json;
 uint32_t fdl1_addr_json;
 uint32_t fdl2_addr_json;
-bool isMaped = false;
+bool isRealized = false;
 
-// 窗口尺寸适配回调（在 map 信号中触发）
-static void on_window_map_adaptive(GtkWidget *widget, gpointer user_data) {
+// 窗口尺寸适配回调（在 realize 信号中触发）
+static void on_window_realize_adaptive(GtkWidget *widget, gpointer user_data) {
     (void)user_data;
     GtkWindow *window = GTK_WINDOW(widget);
-    if (isMaped == true) return;
-    isMaped = true;
+    if (isRealized == true) return;
+    isRealized = true;
     
     // 1. 获取窗口所在的 GdkSurface
     GdkSurface *surface = gtk_native_get_surface(GTK_NATIVE(window));
-    if (!surface) return;
+    if (!surface) { gtk_window_set_default_size(window, 1024, 768); return; }
     
     // 2. 获取显示器
     GdkDisplay *display = gdk_display_get_default();
-    if (!display) return;
+    if (!display) { gtk_window_set_default_size(window, 1024, 768); return; }
     
     GdkMonitor *monitor = gdk_display_get_monitor_at_surface(display, surface);
-    if (!monitor) return;
+    if (!monitor) { gtk_window_set_default_size(window, 1024, 768); return; }
     
     // 3. 获取显示器尺寸
     GdkRectangle geometry;
@@ -549,8 +549,6 @@ static void on_window_map_adaptive(GtkWidget *widget, gpointer user_data) {
     gtk_window_set_default_size(window, win_w, win_h);
     DEG_LOG(I, "win_w: %d", win_w);
     DEG_LOG(I, "win_h: %d", win_h);
-
-    gtk_window_present(window);
 }
 
 int gtk_kmain(int argc, char** argv) {
@@ -603,9 +601,6 @@ int gtk_kmain(int argc, char** argv) {
     GtkWidget *window = gtk_window_new();
     gtk_window_set_title(GTK_WINDOW(window), "SFD Tool GUI By Ryan Crepa");
 
-    // 先给一个合理的初始尺寸，让窗口能显示出来
-    gtk_window_set_default_size(GTK_WINDOW(window), 1024, 768);
-
     // 快捷键
 #if GTK_CHECK_VERSION(4, 0, 0)
     GtkEventController* controller = gtk_event_controller_key_new();
@@ -617,8 +612,8 @@ int gtk_kmain(int argc, char** argv) {
 #endif
     g_signal_connect(window, "destroy", G_CALLBACK(on_window_destroy), NULL);
 
-    // 连接 map 信号，窗口映射后自动适配屏幕
-    g_signal_connect(window, "map", G_CALLBACK(on_window_map_adaptive), nullptr);
+    // 连接 realize 信号，窗口映射后自动适配屏幕
+    g_signal_connect(window, "realize", G_CALLBACK(on_window_realize_adaptive), nullptr);
 
     // 创建主网格
     GtkWidget* mainGrid = gtk_grid_new();
