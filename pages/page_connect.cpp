@@ -9,7 +9,6 @@
 #include "../i18n.h"
 #include "ui/ui_common.h"
 #include "../core/device_service.h"
-#include "../core/config_service.h"
 #include "page_partition.h"
 #include <thread>
 #include <chrono>
@@ -72,10 +71,10 @@ static int& isCMethod = g_app_state.flash.isCMethod;
 using nlohmann::json;
 
 // 通过 Service 层封装设备与配置访问
-static std::unique_ptr<sfd::DeviceService> g_device_service;
-static std::unique_ptr<sfd::ConfigService> g_config_service;
+std::unique_ptr<sfd::DeviceService> g_device_service;
+std::unique_ptr<sfd::ConfigService> g_config_service;
 
-static sfd::DeviceService* ensure_device_service() {
+sfd::DeviceService* ensure_device_service() {
     if (!g_device_service) {
         g_device_service = sfd::createDeviceService();
     }
@@ -83,7 +82,7 @@ static sfd::DeviceService* ensure_device_service() {
     return g_device_service.get();
 }
 
-static sfd::ConfigService* ensure_config_service() {
+sfd::ConfigService* ensure_config_service() {
     if (!g_config_service) {
         g_config_service = sfd::createConfigService();
     }
@@ -109,7 +108,7 @@ static void update_mode_label_from_device_service(GtkWidgetHelper& helper) {
 // 前向声明 — 这些回调定义在本文件中
 extern void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv);
 static void on_button_clicked_select_fdl(GtkWidgetHelper helper);
-extern void on_button_clicked_fdl_exec(GtkWidgetHelper helper, char* execfile);
+extern void on_button_clicked_fdl_exec(GtkWidgetHelper helper);
 static void on_button_clicked_select_exec_addr(GtkWidgetHelper helper);
 
 static void on_button_clicked_select_exec_addr(GtkWidgetHelper helper) {

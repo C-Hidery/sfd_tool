@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 2.5.6 LTV Edition
+Version 2.5.7 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -315,6 +315,9 @@ Enhanced partition list read
 
 ---v 2.5.6---
 修复了一些已知问题
+
+---v 2.5.7---
+移除窗口大小设置的不稳定方案，合入上游chsize变更(a7a8b584c)
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool

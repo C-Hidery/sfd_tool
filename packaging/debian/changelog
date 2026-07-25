@@ -1,3 +1,9 @@
+sfd-tool (2.5.7-1-ltv) unstable; urgency=medium
+
+  * 移除窗口大小设置的不稳定方案，合入上游chsize变更(a7a8b584c)
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sat, 25 Jul 2026 19:28:13 +0800
+
 sfd-tool (2.5.6-1-ltv) unstable; urgency=medium
 
   * 修复了一些已知问题

@@ -14,6 +14,12 @@
 // 定义 max_size 宏
 #define max_size(x, y) ((x) > (y) ? (x) : (y))
 
+#define CHECK_SEG(s, o) do { \
+            uint64_t ss = (s), so = (o); \
+            if (ss && so && so + ss > max_end && so + ss <= max_rel) \
+                max_end = (size_t)(so + ss); \
+        } while (0)
+
 class TosPatcher {
 private:
     // 加载文件（与上游一致）
@@ -34,51 +40,50 @@ private:
         if (num) *num = j;
         return buf;
     }
+    static size_t dhtb_data_size(const uint8_t* base, uint32_t mImgSize, size_t max_rel) {
+        size_t raw_end = 0x200 + mImgSize;  // 头部 + 载荷
+        if (raw_end + sizeof(sprdsignedimageheader) > max_rel)
+            return raw_end;
+
+        const sprdsignedimageheader* pf = (const sprdsignedimageheader*)(base + raw_end);
+        size_t max_end = raw_end + sizeof(sprdsignedimageheader);
+
+        // 检查证书、私钥、调试证书段（不检查 payload 段，因为 raw_end 已覆盖）
+        CHECK_SEG(pf->cert_size, pf->cert_offset);
+        CHECK_SEG(pf->priv_size, pf->priv_offset);
+        CHECK_SEG(pf->cert_dbg_developer_size, pf->cert_dbg_developer_offset);
+        // 注意：不检查 cert_dbg_prim 和 payload，与新的 chsize 一致
+
+        #undef CHECK_SEG
+        return max_end;
+    }
     static size_t calculate_effective_size(uint8_t* mem, size_t file_size) {
         sys_img_header* header = (sys_img_header*)mem;
         size_t sizewithPostrom = 0;
-        size_t size_in_footer = 0;
 
-        // 1. 检查 postrom（与 bsp_chsize 完全一致）
+        // 1. 检查 postrom（如果存在）
         if (header->mPostromOffset && header->mPostromOffset + 0x200 < file_size) {
             postrom_main_header* postrom_hdr = (postrom_main_header*)(mem + header->mPostromOffset);
-            if (postrom_hdr->mImgSize && 
+            uint32_t pmagic = *(uint32_t*)postrom_hdr;
+            // 允许魔数 "BTHD" 或 "PSHD"（某些设备使用）
+            if ((pmagic == 0x42544844 || pmagic == 0x50534844) &&
+                postrom_hdr->mImgSize &&
                 (header->mPostromOffset + 0x200 + postrom_hdr->mImgSize <= file_size)) {
-                sizewithPostrom = header->mPostromOffset + 0x200 + postrom_hdr->mImgSize;
+                // 递归计算 postrom 的有效大小
+                sizewithPostrom = header->mPostromOffset +
+                    dhtb_data_size((uint8_t*)postrom_hdr, postrom_hdr->mImgSize,
+                                file_size - header->mPostromOffset);
             }
         }
 
-        // 2. 检查 signature footer（与 bsp_chsize 完全一致）
-        if (!header->mImgSize) {
+        // 2. 检查主体部分（使用新的 dhtb_data_size）
+        if (!header->mImgSize)
             return 0;
-        }
 
-        sprdsignedimageheader* footer = (sprdsignedimageheader*)&mem[header->mImgSize + 0x200];
-        
-        // 如果 footer 超出文件大小，返回文件大小
-        if (header->mImgSize + 0x200 + sizeof(sprdsignedimageheader) >= file_size) {
-            return file_size;
-        }
+        size_t main_size = dhtb_data_size(mem, header->mImgSize, file_size);
 
-        // 3. 取所有非零 offset+size 的最大值（与 bsp_chsize 完全一致）
-        if (footer->cert_dbg_developer_size && footer->cert_dbg_developer_offset)
-            size_in_footer = max_size(size_in_footer, 
-                (size_t)(footer->cert_dbg_developer_size + footer->cert_dbg_developer_offset));
-        if (footer->priv_size && footer->priv_offset)
-            size_in_footer = max_size(size_in_footer, 
-                (size_t)(footer->priv_size + footer->priv_offset));
-        if (footer->cert_size && footer->cert_offset)
-            size_in_footer = max_size(size_in_footer, 
-                (size_t)(footer->cert_size + footer->cert_offset));
-        if (footer->payload_size && footer->payload_offset)
-            size_in_footer = max_size(size_in_footer, 
-                (size_t)(footer->payload_size + footer->payload_offset));
-        else
-            size_in_footer = max_size(size_in_footer, 
-                (size_t)(header->mImgSize + 0x200));
-
-        // 4. 返回最大值（与 bsp_chsize 完全一致）
-        return max_size(size_in_footer, sizewithPostrom);
+        // 3. 取主体和 postrom 的最大值
+        return max_size(main_size, sizewithPostrom);
     }
     static uint8_t* dis_avb_in_memory(uint8_t* buf, size_t size, size_t* out_size) {
         size_t pmov[3] = {0};

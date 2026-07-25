@@ -9,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        2.5.6
+Version:        2.5.7
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -63,6 +63,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Sat Jul 25 2026 RyanCrepa <Ryan110413@outlook.com> - 2.5.7-1-ltv
+- 移除窗口大小设置的不稳定方案，合入上游chsize变更(a7a8b584c)
+
 * Fri Jul 24 2026 RyanCrepa <Ryan110413@outlook.com> - 2.5.6-1-ltv
 - 修复了一些已知问题
 
