@@ -1,3 +1,9 @@
+sfd-tool (2.5.10-1-ltv) unstable; urgency=medium
+
+  * 修复文件夹恢复分区功能（GUI）
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sun, 26 Jul 2026 20:50:15 +0800
+
 sfd-tool (2.5.9-1-ltv) unstable; urgency=medium
 
   * 修复了PAC读取问题

@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 2.5.9 LTV Edition
+Version 2.5.10 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -324,6 +324,9 @@ Enhanced partition list read
 
 ---v 2.5.9---
 修复了PAC读取问题
+
+---v 2.5.10---
+修复文件夹恢复分区功能（GUI）
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
