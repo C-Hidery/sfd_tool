@@ -1,3 +1,4 @@
+#include <cstdint>
 typedef struct
 {
     uint32_t mMagicNum;
