@@ -1321,7 +1321,7 @@ void load_partition(spdio_t *io, const char *name,
 	const char *fn, unsigned step, int CMethod) {
 	
 	get_partition_info(io, name, 1);
-	if (!gPartInfo.size) return;
+	if (!gPartInfo.size && strcmp(name, "w_force")) return;
 	uint64_t offset, len, n64;
 	unsigned mode64, n, step0 = step; int ret;
 	EnhancedFile fi;
@@ -1445,9 +1445,8 @@ void load_partition_force(spdio_t *io, const int id, const char *fn, unsigned st
 	uint8_t *buf = io->temp_buf;
 	double rtime = get_time();
 	char name[] = "w_force";
-	if (id >= CMethod ? io->part_count_c : io->part_count) return;
 	const char* part_name = CMethod ? (*(io->Cptable + id)).name : (*(io->ptable + id)).name;
-	get_partition_info(io, name, 0);
+	get_partition_info(io, part_name, 1);
 	if (!gPartInfo.size) return;
 	if (strstr(part_name, "calinv") || strstr(part_name, "factorynv"))
 	{
