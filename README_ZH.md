@@ -147,6 +147,18 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 
 这个选项将使工具尝试重连设备，等效于CLI模式中的`-r`参数
 
+## PAC刷写
+
+当你决定刷写PAC固件时，设备必须处于BROM模式
+
+ - 工具支持自定义FDL刷写
+
+ - 仅支持以分区名为单项的分区表 (UBIFS / GPT)
+
+ - 以前以ID为单项的分区表 (RDA) 不支持
+
+ - 厂商魔改的PAC固件 (比如OPPO、Realme) 不支持
+
 ## 警告 - 禁用 VERITY 与 AVB
 
 **命令：** `dis_avb_tos` / `verity 0`
