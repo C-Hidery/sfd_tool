@@ -9,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        2.5.8
+Version:        2.5.9
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -63,6 +63,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Sun Jul 26 2026 RyanCrepa <Ryan110413@outlook.com> - 2.5.9-1-ltv
+- 修复了PAC读取问题
+
 * Sun Jul 26 2026 RyanCrepa <Ryan110413@outlook.com> - 2.5.8-1-ltv
 - 修复了强制刷写失效的问题
 
