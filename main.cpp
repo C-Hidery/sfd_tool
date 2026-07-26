@@ -552,7 +552,7 @@ int gtk_kmain(int argc, char** argv) {
     GtkWidget *window = gtk_window_new();
     gtk_window_set_title(GTK_WINDOW(window), "SFD Tool GUI By Ryan Crepa");
 
-    gtk_window_set_default_size(GTK_WINDOW(window), 800, 600);
+    gtk_window_set_default_size(GTK_WINDOW(window), 800, 600); // 设定800x600为初始值（为大多数显示器作兼容）
 
     // 快捷键
 #if GTK_CHECK_VERSION(4, 0, 0)
