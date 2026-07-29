@@ -602,12 +602,7 @@ int gtk_kmain(int argc, char** argv) {
     GtkCssProvider* provider = gtk_css_provider_new();
     const gchar* css =
         "label.big-label { font-size: 20px; }"
-        "progressbar { min-height: 9px; }"
-		"scale slider {"
-		"    min-width: 14px;"
-		"    min-height: 14px;"
-		"    margin: 0px;"
-		"}";
+        "progressbar { min-height: 9px; }";
 #if GTK_CHECK_VERSION(4, 0, 0)
     gtk_css_provider_load_from_string(provider, css);
     gtk_style_context_add_provider_for_display(gdk_display_get_default(),
