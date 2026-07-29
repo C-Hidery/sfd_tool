@@ -604,8 +604,8 @@ int gtk_kmain(int argc, char** argv) {
         "label.big-label { font-size: 20px; }"
         "progressbar { min-height: 9px; }"
 		"scale slider {"
-		"    min-width: 14px;"
-		"    min-height: 14px;"
+		"    min-width: 4px;"
+		"    min-height: 4px;"
 		"    margin: 0px;"
 		"}";
 #if GTK_CHECK_VERSION(4, 0, 0)
