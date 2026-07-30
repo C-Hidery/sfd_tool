@@ -135,16 +135,11 @@ jobs:
       - name: Build (${{ matrix.artifact_name }} - ${{ matrix.config }})
         shell: pwsh
         run: |
-          # 添加 MSYS2 MinGW bin 到 PATH
           $env:Path = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin;C:\msys64\usr\bin;" + $env:Path
-
-          # 编译（MinGW Makefiles 使用 -j 并行）
-          cmake --build build_cmake -- -j$(nproc)
-
-          # 运行测试
+          $cores = $env:NUMBER_OF_PROCESSORS
+          if (-not $cores) { $cores = 1 }
+          cmake --build build_cmake -- -j$cores
           ctest --test-dir build_cmake --output-on-failure
-
-          # 复制生成的 exe（MinGW 输出直接在 build_cmake 目录下，没有 config 子目录）
           Copy-Item "build_cmake/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
          
       - name: Copy libusb DLL from project (x64 only)
