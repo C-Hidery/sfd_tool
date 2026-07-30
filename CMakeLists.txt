@@ -210,54 +210,10 @@ else()
     target_link_libraries(sfd_tool PRIVATE Threads::Threads)
 endif()
 
-# Windows: libintl (gettext) via vcpkg
 if (WIN32)
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        set(_vcpkg_triplet "x64-windows")
-    else()
-        # 32-bit (Win32) build
-        set(_vcpkg_triplet "x86-windows")
-    endif()
-
-    # Try to infer vcpkg root from toolchain file first, then env, then default C:/vcpkg
-    set(_vcpkg_root "")
-
-    if (DEFINED CMAKE_TOOLCHAIN_FILE)
-        get_filename_component(_tc_dir "${CMAKE_TOOLCHAIN_FILE}" DIRECTORY)
-        get_filename_component(_candidate_root "${_tc_dir}/../.." ABSOLUTE)
-        if (EXISTS "${_candidate_root}/installed")
-            set(_vcpkg_root "${_candidate_root}")
-        endif()
-    endif()
-
-    if (_vcpkg_root STREQUAL "" AND DEFINED ENV{VCPKG_ROOT})
-        set(_vcpkg_root "$ENV{VCPKG_ROOT}")
-    endif()
-
-    if (_vcpkg_root STREQUAL "")
-        set(_vcpkg_root "C:/vcpkg")
-    endif()
-
-    set(_vcpkg_include "${_vcpkg_root}/installed/${_vcpkg_triplet}/include")
-    set(_vcpkg_lib_dir "${_vcpkg_root}/installed/${_vcpkg_triplet}/lib")
-
-    foreach(tgt IN LISTS SFD_COMMON_TARGETS)
-        target_include_directories(${tgt} PRIVATE "${_vcpkg_include}")
-    endforeach()
-
-    find_library(INTL_LIBRARY NAMES intl PATHS "${_vcpkg_lib_dir}")
-    if (INTL_LIBRARY)
-        target_link_libraries(sfd_tool PRIVATE "${INTL_LIBRARY}")
-        foreach(tgt IN LISTS SFD_TEST_TARGETS)
-            target_link_libraries(${tgt} PRIVATE "${INTL_LIBRARY}")
-        endforeach()
-    else()
-        message(WARNING "intl library not found in ${_vcpkg_lib_dir}; gettext may fail to link")
-    endif()
-
     # Windows 平台：崩溃堆栈 (dbghelp) + 串口枚举 (setupapi)
     target_link_libraries(sfd_tool PRIVATE dbghelp setupapi)
-    
+
     # 同样为测试目标添加
     foreach(tgt IN LISTS SFD_TEST_TARGETS)
         target_link_libraries(${tgt} PRIVATE dbghelp setupapi)
@@ -519,6 +475,8 @@ if (GTK_UPDATE_ICON_CACHE)
 endif()
 
 # utf-8支持
-if(MSVC OR WIN32)
+if(MSVC)
     target_compile_options(sfd_tool PRIVATE /utf-8)
+elseif(MINGW)
+    target_compile_options(sfd_tool PRIVATE -finput-charset=UTF-8 -fexec-charset=UTF-8)
 endif()
