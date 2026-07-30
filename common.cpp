@@ -66,7 +66,7 @@ bool Err_Showed = false;
 static std::string g_progress_desc;
 
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 void usleep(unsigned int us) {
 	Sleep(us / 1000);
 }
