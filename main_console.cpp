@@ -363,8 +363,14 @@ int main_console(int argc, char** argv) {
 			async = 0;
 			argc -= 1;
 			argv += 1;
-		} else if (!strcmp(argv[1], "--tool-mode")) {
+		} else if (!strcmp(argv[1], "--tool-mode"))
+		{
 			isToolMode = true;
+			argc -= 1;
+			argv += 1;
+		} else if (!strcmp(argv[1], "--chnl-log"))
+		{
+			g_app_state.transport.channelLog = true;
 			argc -= 1;
 			argv += 1;
 		} else break;
