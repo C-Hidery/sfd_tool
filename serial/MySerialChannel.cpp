@@ -92,6 +92,8 @@ BOOL CMySerialChannel::Open(PCCHANNEL_ATTRIBUTE pOpenArgument) {
 
     Log("INFO", "Opening %s at %lu baud", portName, pOpenArgument->Com.dwBaudRate);
 
+    std::lock_guard<std::mutex> lock(m_comMutex);
+
     // 使用重叠 I/O 以支持超时和异步
     m_hCom = CreateFileA(portName,
                          GENERIC_READ | GENERIC_WRITE,
@@ -164,6 +166,8 @@ BOOL CMySerialChannel::Open(PCCHANNEL_ATTRIBUTE pOpenArgument) {
 void CMySerialChannel::Close() {
     Log("INFO", "Closing COM port");
     m_bRunning = false;
+
+    std::lock_guard<std::mutex> lock(m_comMutex);
 
     // 取消所有挂起的 I/O 操作（防止线程阻塞）
     if (m_hCom != INVALID_HANDLE_VALUE) {
@@ -340,7 +344,6 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
     CMySerialChannel* pThis = static_cast<CMySerialChannel*>(lpParam);
     pThis->Log("INFO", "ReadThread started");
 
-    // 使用 WaitCommEvent + 重叠 I/O
     OVERLAPPED ov = {0};
     ov.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
     if (!ov.hEvent) {
@@ -348,10 +351,19 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
         return 1;
     }
 
-    if (!SetCommMask(pThis->m_hCom, EV_RXCHAR)) {
-        pThis->Log("ERROR", "ReadThread: SetCommMask failed");
-        CloseHandle(ov.hEvent);
-        return 1;
+    // 加锁检查 m_hCom 是否有效
+    {
+        std::lock_guard<std::mutex> lock(pThis->m_comMutex);
+        if (pThis->m_hCom == INVALID_HANDLE_VALUE || !pThis->m_bRunning) {
+            pThis->Log("WARN", "ReadThread: COM port is invalid, exiting");
+            CloseHandle(ov.hEvent);
+            return 0;
+        }
+        if (!SetCommMask(pThis->m_hCom, EV_RXCHAR)) {
+            pThis->Log("ERROR", "ReadThread: SetCommMask failed");
+            CloseHandle(ov.hEvent);
+            return 1;
+        }
     }
 
     while (pThis->m_bRunning) {
@@ -361,18 +373,21 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                 HANDLE waitHandles[2] = { ov.hEvent, pThis->m_hStopEvent };
                 DWORD ret = WaitForMultipleObjects(2, waitHandles, FALSE, INFINITE);
                 if (ret == WAIT_OBJECT_0) {
+                    // 加锁检查 m_hCom 是否仍然有效
+                    std::lock_guard<std::mutex> lock(pThis->m_comMutex);
                     if (!pThis->m_bRunning || pThis->m_hCom == INVALID_HANDLE_VALUE) {
                         break;
                     }
-                    // 串口事件发生
                     GetOverlappedResult(pThis->m_hCom, &ov, NULL, FALSE);
-                    // 读取所有可用数据
+                    // 读取数据
                     BYTE buffer[4096];
                     DWORD bytesRead = 0;
                     if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, NULL) && bytesRead > 0) {
+                        // 释放锁，防止死锁（ProcessReceivedData 不会使用 m_hCom）
+                        lock.unlock();
                         pThis->ProcessReceivedData(buffer, bytesRead);
+                        // 重新锁定（循环结束时会自动释放）
                     }
-
                 } else {
                     // 停止事件触发
                     break;
@@ -385,8 +400,7 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
             // WaitCommEvent 立即成功（罕见）
             BYTE buffer[4096];
             DWORD bytesRead;
-            if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, NULL) &&
-                bytesRead > 0) {
+            if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, NULL) && bytesRead > 0) {
                 pThis->ProcessReceivedData(buffer, bytesRead);
             }
         }

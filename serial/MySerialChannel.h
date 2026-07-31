@@ -1,20 +1,18 @@
 // MySerialChannel.h
 // SPDX-License-Identifier: GPL-3.0-or-later
-// 完整替代 Channel9.dll 的串口通道实现，纯 MinGW/Windows API，无 MSVC 依赖
-
 #pragma once
 
 #include <windows.h>
 #include <atomic>
 #include <mutex>
-#include "BMPlatform.h"   // ICommChannel 接口定义
+#include "BMPlatform.h"
 
 class CMySerialChannel : public ICommChannel {
 public:
     CMySerialChannel();
     virtual ~CMySerialChannel();
 
-    // ---------- ICommChannel 接口 ----------
+    // ICommChannel 接口
     virtual BOOL InitLog(LPCWSTR pszLogName,
                          UINT uiLogType,
                          UINT uiLogLevel,
@@ -53,20 +51,18 @@ public:
                              LPCVOID pValue) override;
 
 private:
-    // ---------- 状态 ----------
-    HANDLE m_hCom;                 // 串口句柄
-    HANDLE m_hStopEvent;           // 用于通知线程退出
-    HANDLE m_hReadThread;          // 异步接收线程句柄
-    DWORD  m_dwThreadId;           // 线程 ID
+    HANDLE m_hCom;
+    HANDLE m_hStopEvent;
+    HANDLE m_hReadThread;
+    DWORD  m_dwThreadId;
 
-    HWND   m_hTargetWnd;           // 接收消息的窗口句柄
-    ULONG  m_ulMsgId;              // 消息 ID (如 WM_RCV_CHANNEL_DATA)
-    bool   m_bAsyncMode;           // 是否启用异步接收
+    HWND   m_hTargetWnd;
+    ULONG  m_ulMsgId;
+    bool   m_bAsyncMode;
 
-    std::atomic<bool> m_bRunning;  // 线程运行标志
-    std::mutex        m_mutex;     // 保护共享资源（如需）
+    std::atomic<bool> m_bRunning;
+    std::mutex        m_comMutex;   // 保护 m_hCom 的互斥锁
 
-    // ---------- 内部辅助 ----------
     static DWORD WINAPI ReadThreadProc(LPVOID lpParam);
     void ProcessReceivedData(const BYTE* data, DWORD len);
     void SetTimeouts(DWORD readInterval, DWORD readTotalConst);
