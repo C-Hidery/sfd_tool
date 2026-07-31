@@ -1,12 +1,17 @@
 // MySerialChannel.cpp
+// SPDX-License-Identifier: GPL-3.0-or-later
+// 完整替代 Channel9.dll 的串口通道实现，兼容异步/同步模式
+
 #include "MySerialChannel.h"
 #include "../core/app_state.h"
-#include "../core/usb_transport.h"
-#include "../core/spd_protocol.h"   // 声明 recv_transcode, recv_check_crc 等
+#include "../core/spd_protocol.h"   // recv_transcode, recv_check_crc 等
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <cstdarg>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
 
 extern AppState g_app_state;
 
@@ -48,12 +53,14 @@ BOOL CMySerialChannel::InitLog(LPCWSTR, UINT, UINT, ISpLog*, LPCWSTR) {
 }
 
 // ------------------------------------------------------------
-// SetReceiver（仅记录设置，不启动线程，线程在 Open 中由 m_bAsyncMode 决定）
+// SetReceiver：设置异步接收目标
 BOOL CMySerialChannel::SetReceiver(ULONG ulMsgId, BOOL bRcvThread, LPCVOID pReceiver) {
-    Log("INFO", "SetReceiver: MsgId=0x%08lX, bRcvThread=%d, pReceiver=%p", ulMsgId, bRcvThread, pReceiver);
+    Log("INFO", "SetReceiver: MsgId=0x%08lX, bRcvThread=%d, pReceiver=%p",
+        ulMsgId, bRcvThread, pReceiver);
+    // 我们统一使用窗口消息（忽略 bRcvThread，只支持窗口）
     m_hTargetWnd = (HWND)pReceiver;
     m_ulMsgId = ulMsgId;
-    m_bAsyncMode = true;  // 标记异步模式
+    m_bAsyncMode = (m_hTargetWnd != NULL && m_ulMsgId != 0);
     return TRUE;
 }
 
@@ -64,7 +71,7 @@ void CMySerialChannel::GetReceiver(ULONG &ulMsgId, BOOL &bRcvThread, LPVOID &pRe
 }
 
 // ------------------------------------------------------------
-// Open
+// 打开串口
 BOOL CMySerialChannel::Open(PCCHANNEL_ATTRIBUTE pOpenArgument) {
     if (pOpenArgument->ChannelType != CHANNEL_TYPE_COM) {
         Log("ERROR", "Open: not a COM channel (type=%d)", pOpenArgument->ChannelType);
@@ -110,7 +117,7 @@ BOOL CMySerialChannel::Open(PCCHANNEL_ATTRIBUTE pOpenArgument) {
         return FALSE;
     }
 
-    // 如果启用异步模式，启动接收线程
+    // 如果启用了异步模式，启动内部读取线程
     if (m_bAsyncMode) {
         m_bRunning = true;
         m_hReadThread = CreateThread(NULL, 0, ReadThreadProc, this, 0, &m_dwThreadId);
@@ -129,12 +136,11 @@ BOOL CMySerialChannel::Open(PCCHANNEL_ATTRIBUTE pOpenArgument) {
 }
 
 // ------------------------------------------------------------
-// Close
+// 关闭串口
 void CMySerialChannel::Close() {
     Log("INFO", "Closing COM port");
     m_bRunning = false;
 
-    // 取消挂起的 I/O
     if (m_hCom != INVALID_HANDLE_VALUE) {
         CancelIo(m_hCom);
     }
@@ -152,7 +158,7 @@ void CMySerialChannel::Close() {
         m_hStopEvent = NULL;
     }
 
-    // 清空队列
+    // 清空数据池
     {
         std::lock_guard<std::mutex> lock(m_queueMutex);
         while (!m_dataQueue.empty()) m_dataQueue.pop();
@@ -179,7 +185,7 @@ BOOL CMySerialChannel::Clear() {
 }
 
 // ------------------------------------------------------------
-// Read（同步读取，从数据池取数据）
+// 同步读取（从数据池取数据）
 DWORD CMySerialChannel::Read(LPVOID lpData, DWORD dwDataSize, DWORD dwTimeOut, DWORD /*dwReserved*/) {
     if (m_hCom == INVALID_HANDLE_VALUE || !lpData || dwDataSize == 0) {
         Log("WARN", "Read invalid parameters");
@@ -188,32 +194,27 @@ DWORD CMySerialChannel::Read(LPVOID lpData, DWORD dwDataSize, DWORD dwTimeOut, D
 
     Log("DEBUG", "Read: size=%lu, timeout=%lu ms", dwDataSize, dwTimeOut);
 
-    // 等待数据池有数据
     std::unique_lock<std::mutex> lock(m_queueMutex);
     bool hasData = m_dataAvailable.wait_for(lock, std::chrono::milliseconds(dwTimeOut),
         [this]() { return !m_dataQueue.empty() || !m_bRunning; });
 
-    if (!hasData || !m_bRunning) {
+    if (!hasData || !m_bRunning || m_dataQueue.empty()) {
         Log("DEBUG", "Read timeout or stopped");
         return 0;
     }
 
-    // 取出一块数据
     auto& front = m_dataQueue.front();
     DWORD bytesToCopy = (DWORD)front.size();
     if (bytesToCopy > dwDataSize) bytesToCopy = dwDataSize;
     memcpy(lpData, front.data(), bytesToCopy);
-
-    Log("DEBUG", "Read returned %lu bytes (total available %zu)", bytesToCopy, front.size());
     m_dataQueue.pop();
-    // 如果队列还有更多数据，继续通知（但本次已取出，后续读会再触发）
-    // 不额外通知，因为下次 Read 会再次等待
 
+    Log("DEBUG", "Read returned %lu bytes", bytesToCopy);
     return bytesToCopy;
 }
 
 // ------------------------------------------------------------
-// Write
+// 同步写入
 DWORD CMySerialChannel::Write(LPVOID lpData, DWORD dwDataSize, DWORD /*dwReserved*/) {
     if (m_hCom == INVALID_HANDLE_VALUE || !lpData || dwDataSize == 0) {
         Log("WARN", "Write invalid parameters");
@@ -274,7 +275,7 @@ void CMySerialChannel::SetTimeouts(DWORD readInterval, DWORD readTotalConst) {
 }
 
 // ------------------------------------------------------------
-// ReadThreadProc（异步读取线程，推入队列）
+// 内部读取线程过程
 DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
     CMySerialChannel* pThis = static_cast<CMySerialChannel*>(lpParam);
     pThis->Log("INFO", "ReadThread started");
@@ -300,10 +301,10 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                 if (ret == WAIT_OBJECT_0) {
                     if (!pThis->m_bRunning) break;
                     // 读取数据
-                    // 读取数据
                     BYTE buffer[4096];
                     DWORD bytesRead = 0;
-                    if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, NULL) && bytesRead > 0) {
+                    if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, NULL) &&
+                        bytesRead > 0) {
                         // 1. 推入队列（供同步 Read 使用）
                         {
                             std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
@@ -311,19 +312,33 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                             pThis->m_dataAvailable.notify_one();
                         }
 
-                        // 2. 如果外部使用异步模式，则解码并触发事件
+                        // 2. 如果外部使用异步路径（io->m_dwRecvThreadID != 0），
+                        //    则解码并触发事件，模拟 RcvDataThreadProc
                         spdio_t* io = g_app_state.transport.io;
                         if (io && io->m_dwRecvThreadID != 0) {
-                            // 解码 HDLC 数据到 io->raw_buf
                             int plen = 6;
                             io->raw_len = 0;
                             memcpy(io->recv_buf, buffer, bytesRead);
                             io->recv_len = bytesRead;
-                            if (recv_transcode(io, io->recv_buf, io->recv_len, &plen) && io->raw_len == plen) {
-                                SetEvent(io->m_hOprEvent);  // 唤醒 recv_msg_async
+                            if (recv_transcode(io, io->recv_buf, io->recv_len, &plen) &&
+                                io->raw_len == plen) {
+                                // 可选：校验 CRC，但 recv_msg_async 不校验，所以可以跳过
+                                // 设置事件，唤醒 recv_msg_async
+                                SetEvent(io->m_hOprEvent);
+                            } else {
+                                pThis->Log("WARN", "Transcode failed, data discarded");
                             }
                         }
-                    }
+
+                        // 3. 如果设置了窗口目标，发送消息（模拟 Channel9 行为）
+                        if (pThis->m_hTargetWnd && pThis->m_ulMsgId) {
+                            BYTE* copy = (BYTE*)malloc(bytesRead);
+                            if (copy) {
+                                memcpy(copy, buffer, bytesRead);
+                                PostMessage(pThis->m_hTargetWnd, pThis->m_ulMsgId,
+                                            (WPARAM)copy, (LPARAM)bytesRead);
+                            }
+                        }
                     }
                 } else {
                     break;
@@ -333,14 +348,36 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                 break;
             }
         } else {
-            // 立即成功（极少）
+            // 立即成功（罕见）
             BYTE buffer[4096];
             DWORD bytesRead;
             if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, NULL) &&
                 bytesRead > 0) {
-                std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
-                pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
-                pThis->m_dataAvailable.notify_one();
+                // 同上处理
+                {
+                    std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
+                    pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
+                    pThis->m_dataAvailable.notify_one();
+                }
+                spdio_t* io = g_app_state.transport.io;
+                if (io && io->m_dwRecvThreadID != 0) {
+                    int plen = 6;
+                    io->raw_len = 0;
+                    memcpy(io->recv_buf, buffer, bytesRead);
+                    io->recv_len = bytesRead;
+                    if (recv_transcode(io, io->recv_buf, io->recv_len, &plen) &&
+                        io->raw_len == plen) {
+                        SetEvent(io->m_hOprEvent);
+                    }
+                }
+                if (pThis->m_hTargetWnd && pThis->m_ulMsgId) {
+                    BYTE* copy = (BYTE*)malloc(bytesRead);
+                    if (copy) {
+                        memcpy(copy, buffer, bytesRead);
+                        PostMessage(pThis->m_hTargetWnd, pThis->m_ulMsgId,
+                                    (WPARAM)copy, (LPARAM)bytesRead);
+                    }
+                }
             }
         }
     }
