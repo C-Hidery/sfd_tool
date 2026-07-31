@@ -1,10 +1,11 @@
 // MySerialChannel.h
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
-
 #include <windows.h>
 #include <atomic>
 #include <mutex>
+#include <queue>
+#include <condition_variable>
 #include "BMPlatform.h"
 
 class CMySerialChannel : public ICommChannel {
@@ -51,20 +52,23 @@ public:
                              LPCVOID pValue) override;
 
 private:
+    // 原有成员
     HANDLE m_hCom;
     HANDLE m_hStopEvent;
     HANDLE m_hReadThread;
     DWORD  m_dwThreadId;
-
     HWND   m_hTargetWnd;
     ULONG  m_ulMsgId;
     bool   m_bAsyncMode;
-
     std::atomic<bool> m_bRunning;
-    std::mutex        m_comMutex;   // 保护 m_hCom 的互斥锁
 
+    // 新增数据池
+    std::queue<std::vector<BYTE>> m_dataQueue;  // 存储数据块
+    std::mutex                    m_queueMutex;
+    std::condition_variable       m_dataAvailable; // 用于通知有数据
+
+    // 辅助函数
     static DWORD WINAPI ReadThreadProc(LPVOID lpParam);
-    void ProcessReceivedData(const BYTE* data, DWORD len);
     void SetTimeouts(DWORD readInterval, DWORD readTotalConst);
     void Log(const char* level, const char* fmt, ...);
 };
