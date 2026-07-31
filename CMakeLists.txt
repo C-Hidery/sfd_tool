@@ -127,6 +127,13 @@ if(APPLE OR MSVC)
         pages_lib
         sfd_ui
     )
+elseif(MINGW AND WIN32)
+    set(SFD_TOOL_LIBS
+        core_lib
+        pages_lib
+        sfd_ui
+        core_lib
+    )
 else()
     # Linux 等使用静态库时，重复一遍以解决循环依赖链接顺序问题
     set(SFD_TOOL_LIBS
