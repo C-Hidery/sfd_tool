@@ -110,7 +110,6 @@ BOOL CMySerialChannel::Open(PCCHANNEL_ATTRIBUTE pOpenArgument) {
 
     // 1. 先获取当前配置
     if (!GetCommState(m_hCom, &dcb)) {
-        // 记录错误并返回
         Log("ERROR", "GetCommState failed, error %lu", GetLastError());
         Close();
         return FALSE;
@@ -126,7 +125,6 @@ BOOL CMySerialChannel::Open(PCCHANNEL_ATTRIBUTE pOpenArgument) {
 
     // 3. 应用新配置
     if (!SetCommState(m_hCom, &dcb)) {
-        // 记录错误并返回
         Log("ERROR", "SetCommState failed, error %lu", GetLastError());
         Close();
         return FALSE;
@@ -246,16 +244,30 @@ DWORD CMySerialChannel::Read(LPVOID lpData,
 }
 
 // ------------------------------------------------------------
-// 同步写入
+// 同步写入（加固版）
 DWORD CMySerialChannel::Write(LPVOID lpData,
                               DWORD dwDataSize,
                               DWORD /*dwReserved*/) {
-    if (m_hCom == INVALID_HANDLE_VALUE || !lpData || dwDataSize == 0) {
-        Log("WARN", "Write invalid parameters");
+    // === 严格参数检查 ===
+    if (m_hCom == INVALID_HANDLE_VALUE) {
+        Log("ERROR", "Write: invalid handle");
+        return 0;
+    }
+    if (!lpData) {
+        Log("ERROR", "Write: lpData is NULL");
+        return 0;
+    }
+    if (dwDataSize == 0) {
+        Log("WARN", "Write: dwDataSize is 0");
+        return 0;
+    }
+    // 检测指针是否可写（仅用于调试，Windows 10+ 中已弃用，但可帮助定位问题）
+    if (IsBadWritePtr(lpData, dwDataSize)) {
+        Log("ERROR", "Write: lpData is invalid (IsBadWritePtr)");
         return 0;
     }
 
-    Log("DEBUG", "Write: size=%lu", dwDataSize);
+    Log("DEBUG", "Write: size=%lu, ptr=%p", dwDataSize, lpData);
 
     DWORD bytesWritten = 0;
     OVERLAPPED ov = {0};
@@ -271,7 +283,7 @@ DWORD CMySerialChannel::Write(LPVOID lpData,
             WaitForSingleObject(ov.hEvent, INFINITE);
             GetOverlappedResult(m_hCom, &ov, &bytesWritten, FALSE);
         } else {
-            Log("ERROR", "WriteFile failed, error %lu", err);
+            Log("ERROR", "WriteFile failed, error %lu (0x%08X)", err, err);
             bytesWritten = 0;
         }
     }
