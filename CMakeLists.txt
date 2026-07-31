@@ -121,7 +121,7 @@ if (WIN32)
 endif()
 
 # 链接子模块和公共 UI 库
-if(APPLE OR WIN32)
+if(APPLE OR MSVC)
     set(SFD_TOOL_LIBS
         core_lib
         pages_lib
