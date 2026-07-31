@@ -141,6 +141,7 @@ jobs:
           Copy-Item "build_cmake/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
 
       - name: Copy docs
+        shell: pwsh
         run: |
           Copy-Item "docs/VERSION_LOG.md" -Destination $destDir -Force
 

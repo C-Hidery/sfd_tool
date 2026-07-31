@@ -163,14 +163,18 @@ BOOL CMySerialChannel::Open(PCCHANNEL_ATTRIBUTE pOpenArgument) {
 // 关闭串口
 void CMySerialChannel::Close() {
     Log("INFO", "Closing COM port");
-
     m_bRunning = false;
+
+    // 取消所有挂起的 I/O 操作（防止线程阻塞）
+    if (m_hCom != INVALID_HANDLE_VALUE) {
+        CancelIo(m_hCom);
+    }
 
     if (m_hStopEvent) {
         SetEvent(m_hStopEvent);
         if (m_hReadThread) {
             Log("DEBUG", "Waiting for receive thread to exit...");
-            WaitForSingleObject(m_hReadThread, 2000);
+            WaitForSingleObject(m_hReadThread, INFINITE); // 无限等待，确保线程退出
             CloseHandle(m_hReadThread);
             m_hReadThread = NULL;
             Log("DEBUG", "Receive thread exited");
@@ -357,14 +361,17 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                 HANDLE waitHandles[2] = { ov.hEvent, pThis->m_hStopEvent };
                 DWORD ret = WaitForMultipleObjects(2, waitHandles, FALSE, INFINITE);
                 if (ret == WAIT_OBJECT_0) {
-                    // 串口事件发生
-                    GetOverlappedResult(pThis->m_hCom, &ov, NULL, FALSE);
-                    // 读取所有可用数据
-                    BYTE buffer[4096];
-                    DWORD bytesRead = 0;
-                    if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, NULL) &&
-                        bytesRead > 0) {
-                        pThis->ProcessReceivedData(buffer, bytesRead);
+                    if (pThis->m_bRunning)
+                    {
+                        // 串口事件发生
+                        GetOverlappedResult(pThis->m_hCom, &ov, NULL, FALSE);
+                        // 读取所有可用数据
+                        BYTE buffer[4096];
+                        DWORD bytesRead = 0;
+                        if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, NULL) &&
+                            bytesRead > 0) {
+                            pThis->ProcessReceivedData(buffer, bytesRead);
+                            }
                     }
                 } else {
                     // 停止事件触发
