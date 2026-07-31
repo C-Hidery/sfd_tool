@@ -143,6 +143,7 @@ jobs:
       - name: Copy docs
         shell: pwsh
         run: |
+          $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           Copy-Item "docs/VERSION_LOG.md" -Destination $destDir -Force
 
       - name: Copy ALL DLLs from MSYS2 bin directory
