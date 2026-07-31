@@ -47,6 +47,7 @@ elseif (MINGW AND WIN32)
         core_lib
         pages_lib
         sfd_ui
+        pages_lib
         core_lib
     )
 else()
