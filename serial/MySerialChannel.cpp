@@ -3,6 +3,7 @@
 // 完整替代 Channel9.dll 的串口通道实现，兼容异步/同步模式
 
 #include "MySerialChannel.h"
+#include "../common.h"
 #include "../core/app_state.h"
 #include "../core/spd_protocol.h"   // recv_transcode, recv_check_crc 等
 #include <cstdio>
