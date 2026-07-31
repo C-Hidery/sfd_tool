@@ -118,3 +118,8 @@ void CBootModeOpr::Clear() {
 void CBootModeOpr::FreeMem(LPVOID pMemBlock) {
 	m_pChannel->FreeMem(pMemBlock);
 }
+
+// 提供 ICommChannel 纯虚析构函数的实现
+ICommChannel::~ICommChannel() {
+	// 基类析构，空实现即可
+}

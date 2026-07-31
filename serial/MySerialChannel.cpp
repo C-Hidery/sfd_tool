@@ -277,8 +277,9 @@ DWORD CMySerialChannel::Write(LPVOID lpData,
 // 释放内存（由异步接收分配）
 void CMySerialChannel::FreeMem(LPVOID pMemBlock) {
     if (pMemBlock) {
+        void* ptr = pMemBlock;
         free(pMemBlock);
-        Log("DEBUG", "FreeMem: freed %p", pMemBlock);
+        Log("DEBUG", "FreeMem: freed %p", ptr);
     }
 }
 
