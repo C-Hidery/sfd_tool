@@ -140,16 +140,8 @@ jobs:
           ctest --test-dir build_cmake --output-on-failure
           Copy-Item "build_cmake/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
 
-      - name: Copy SPRD Driver Files (x86 only)
-        if: matrix.use_libusb == 'OFF'
+      - name: Copy docs
         run: |
-          $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
-          if (Test-Path "third_party/Lib/Channel9.dll") {
-            Copy-Item "third_party/Lib/Channel9.dll" -Destination $destDir -Force
-          }
-          if (Test-Path "third_party/Lib/Channel.ini") {
-            Copy-Item "third_party/Lib/Channel.ini" -Destination $destDir -Force
-          }
           Copy-Item "docs/VERSION_LOG.md" -Destination $destDir -Force
 
       - name: Copy ALL DLLs from MSYS2 bin directory
