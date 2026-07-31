@@ -92,7 +92,7 @@ DWORD WINAPI ThrdFunc(LPVOID lpParam);
 #include "Wrapper.h"
 #endif
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 void usleep(unsigned int us);
 #endif
 
