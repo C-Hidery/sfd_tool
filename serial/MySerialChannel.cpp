@@ -361,18 +361,18 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                 HANDLE waitHandles[2] = { ov.hEvent, pThis->m_hStopEvent };
                 DWORD ret = WaitForMultipleObjects(2, waitHandles, FALSE, INFINITE);
                 if (ret == WAIT_OBJECT_0) {
-                    if (pThis->m_bRunning)
-                    {
-                        // 串口事件发生
-                        GetOverlappedResult(pThis->m_hCom, &ov, NULL, FALSE);
-                        // 读取所有可用数据
-                        BYTE buffer[4096];
-                        DWORD bytesRead = 0;
-                        if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, NULL) &&
-                            bytesRead > 0) {
-                            pThis->ProcessReceivedData(buffer, bytesRead);
-                            }
+                    if (!pThis->m_bRunning || pThis->m_hCom == INVALID_HANDLE_VALUE) {
+                        break;
                     }
+                    // 串口事件发生
+                    GetOverlappedResult(pThis->m_hCom, &ov, NULL, FALSE);
+                    // 读取所有可用数据
+                    BYTE buffer[4096];
+                    DWORD bytesRead = 0;
+                    if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, NULL) && bytesRead > 0) {
+                        pThis->ProcessReceivedData(buffer, bytesRead);
+                    }
+
                 } else {
                     // 停止事件触发
                     break;
