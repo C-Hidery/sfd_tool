@@ -42,6 +42,13 @@ if(APPLE OR MSVC)
         pages_lib
         sfd_ui
     )
+elseif (MINGW AND WIN32)
+    set(SFD_TEST_LIBS
+        core_lib
+        pages_lib
+        sfd_ui
+        core_lib
+    )
 else()
     set(SFD_TEST_LIBS
         core_lib
