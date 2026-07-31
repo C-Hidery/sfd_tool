@@ -1,6 +1,8 @@
 // MySerialChannel.cpp
 #include "MySerialChannel.h"
 #include "../core/app_state.h"
+#include "../core/usb_transport.h"
+#include "../core/spd_protocol.h"   // 声明 recv_transcode, recv_check_crc 等
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -298,14 +300,30 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                 if (ret == WAIT_OBJECT_0) {
                     if (!pThis->m_bRunning) break;
                     // 读取数据
+                    // 读取数据
                     BYTE buffer[4096];
                     DWORD bytesRead = 0;
-                    if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, NULL) &&
-                        bytesRead > 0) {
-                        // 推入队列
-                        std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
-                        pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
-                        pThis->m_dataAvailable.notify_one();
+                    if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, NULL) && bytesRead > 0) {
+                        // 1. 推入队列（供同步 Read 使用）
+                        {
+                            std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
+                            pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
+                            pThis->m_dataAvailable.notify_one();
+                        }
+
+                        // 2. 如果外部使用异步模式，则解码并触发事件
+                        spdio_t* io = g_app_state.transport.io;
+                        if (io && io->m_dwRecvThreadID != 0) {
+                            // 解码 HDLC 数据到 io->raw_buf
+                            int plen = 6;
+                            io->raw_len = 0;
+                            memcpy(io->recv_buf, buffer, bytesRead);
+                            io->recv_len = bytesRead;
+                            if (recv_transcode(io, io->recv_buf, io->recv_len, &plen) && io->raw_len == plen) {
+                                SetEvent(io->m_hOprEvent);  // 唤醒 recv_msg_async
+                            }
+                        }
+                    }
                     }
                 } else {
                     break;
