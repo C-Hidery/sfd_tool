@@ -105,20 +105,38 @@ BOOL CMySerialChannel::Open(PCCHANNEL_ATTRIBUTE pOpenArgument) {
         return FALSE;
     }
 
-    // 配置串口
     DCB dcb = {0};
     dcb.DCBlength = sizeof(DCB);
+
+    // 1. 获取当前串口配置
     if (!GetCommState(m_hCom, &dcb)) {
         Log("ERROR", "GetCommState failed, error %lu", GetLastError());
         Close();
         return FALSE;
     }
-    dcb.BaudRate = pOpenArgument->Com.dwBaudRate;
-    dcb.ByteSize = 8;
-    dcb.Parity   = NOPARITY;
-    dcb.StopBits = ONESTOPBIT;
+
+    // 2. 显式设置所有关键字段（防止垃圾值）
+    dcb.fBinary = TRUE;
+    dcb.fParity = FALSE;
+    dcb.fOutxCtsFlow = FALSE;
+    dcb.fOutxDsrFlow = FALSE;
     dcb.fDtrControl = DTR_CONTROL_ENABLE;
+    dcb.fDsrSensitivity = FALSE;
+    dcb.fTXContinueOnXoff = FALSE;
+    dcb.fOutX = FALSE;
+    dcb.fInX = FALSE;
+    dcb.fErrorChar = FALSE;
+    dcb.fNull = FALSE;
     dcb.fRtsControl = RTS_CONTROL_ENABLE;
+    dcb.fAbortOnError = FALSE;
+    dcb.ByteSize = 8;
+    dcb.Parity = NOPARITY;
+    dcb.StopBits = ONESTOPBIT;
+
+    // 3. 设置波特率
+    dcb.BaudRate = pOpenArgument->Com.dwBaudRate;
+
+    // 4. 应用配置
     if (!SetCommState(m_hCom, &dcb)) {
         Log("ERROR", "SetCommState failed, error %lu", GetLastError());
         Close();
