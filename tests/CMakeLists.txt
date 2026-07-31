@@ -36,7 +36,7 @@ add_executable(test_blocksize_and_backup_service
 # - 其他 UNIX（Linux 等）: 将 core_lib/pages_lib/sfd_ui 重复一遍，
 #   解决静态库 A 依赖 B、B 再依赖 C 的循环依赖问题。
 
-if(APPLE OR WIN32)
+if(APPLE OR MSVC)
     set(SFD_TEST_LIBS
         core_lib
         pages_lib
