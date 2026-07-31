@@ -39,7 +39,9 @@
 	#endif
 	#endif
 #endif
-
+#ifndef _MSC_VER
+#include <unistd.h>
+#endif
 #include <stdarg.h>
 #include <string.h>
 #include <signal.h>
