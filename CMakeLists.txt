@@ -237,6 +237,7 @@ if (USE_GTK)
         foreach(tgt IN LISTS SFD_COMMON_TARGETS)
             target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
             target_include_directories(${tgt} PRIVATE
+                "${_gtk_root}/include"
                 "${_gtk_root}/include/gtk-4.0"
                 "${_gtk_root}/include/glib-2.0"
                 "${_gtk_root}/lib/glib-2.0/include"
@@ -260,6 +261,7 @@ if (USE_GTK)
             "${_gtk_root}/lib/libpango-1.0.dll.a"
             "${_gtk_root}/lib/libpangocairo-1.0.dll.a"
             "${_gtk_root}/lib/libgraphene-1.0.dll.a"
+            "${_gtk_root}/lib/libintl.dll.a"
         )
 
         target_link_libraries(sfd_tool PRIVATE ${_gtk_win_libs})
