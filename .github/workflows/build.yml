@@ -386,7 +386,7 @@ jobs:
           - artifact_name: LibUSB
             arch_display: x64
           - artifact_name: SPRD
-            arch_display: x86
+            arch_display: x64
     steps:
       - uses: actions/checkout@v4
 
