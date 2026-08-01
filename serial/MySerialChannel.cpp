@@ -351,7 +351,6 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
         return 1;
     }
 
-    // 队列最大包数限制（防止内存无限增长）
     const size_t MAX_QUEUE_PACKETS = 128;
 
     while (pThis->m_bRunning) {
@@ -362,32 +361,39 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                 if (ret == WAIT_OBJECT_0) {
                     if (!pThis->m_bRunning) break;
 
-                    BYTE buffer[4096];
-                    DWORD bytesRead = 0;
-                    ResetEvent(pThis->m_hReadOvEvent);
+                    // ---- 循环读取直到缓冲区为空 ----
+                    while (pThis->m_bRunning) {
+                        BYTE buffer[4096];
+                        DWORD bytesRead = 0;
+                        ResetEvent(pThis->m_hReadOvEvent);
 
-                    if (!ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, &pThis->m_readOv)) {
-                        DWORD err = GetLastError();
-                        if (err == ERROR_IO_PENDING) {
-                            HANDLE readHandles[2] = { pThis->m_hReadOvEvent, pThis->m_hStopEvent };
-                            DWORD readRet = WaitForMultipleObjects(2, readHandles, FALSE, INFINITE);
-                            if (readRet == WAIT_OBJECT_0) {
-                                if (!GetOverlappedResult(pThis->m_hCom, &pThis->m_readOv, &bytesRead, FALSE)) {
-                                    pThis->Log("ERROR", "ReadThread: GetOverlappedResult failed, error=%lu", GetLastError());
+                        if (!ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, &pThis->m_readOv)) {
+                            DWORD err = GetLastError();
+                            if (err == ERROR_IO_PENDING) {
+                                HANDLE readHandles[2] = { pThis->m_hReadOvEvent, pThis->m_hStopEvent };
+                                DWORD readRet = WaitForMultipleObjects(2, readHandles, FALSE, INFINITE);
+                                if (readRet == WAIT_OBJECT_0) {
+                                    if (!GetOverlappedResult(pThis->m_hCom, &pThis->m_readOv, &bytesRead, FALSE)) {
+                                        pThis->Log("ERROR", "ReadThread: GetOverlappedResult failed, error=%lu", GetLastError());
+                                        break;
+                                    }
+                                } else {
+                                    CancelIo(pThis->m_hCom);
+                                    pThis->Log("DEBUG", "ReadThread: ReadFile cancelled by stop event");
+                                    break;
                                 }
                             } else {
-                                CancelIo(pThis->m_hCom);
-                                pThis->Log("DEBUG", "ReadThread: ReadFile cancelled by stop event");
-                                continue;
+                                pThis->Log("ERROR", "ReadThread: ReadFile failed, error=%lu", err);
+                                break;
                             }
-                        } else {
-                            pThis->Log("ERROR", "ReadThread: ReadFile failed, error=%lu", err);
-                            continue;
                         }
-                    }
 
-                    if (bytesRead > 0) {
-                        // 推入数据池，限制队列长度
+                        // 如果读到了 0 字节，说明缓冲区已空，退出循环
+                        if (bytesRead == 0) {
+                            break;
+                        }
+
+                        // ---- 处理数据 ----
                         {
                             std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
                             if (pThis->m_dataQueue.size() >= MAX_QUEUE_PACKETS) {
@@ -399,7 +405,6 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                             pThis->m_dataAvailable.notify_one();
                         }
 
-                        // 发送给外部（异步模式）
                         if (pThis->m_bAsyncMode) {
                             BYTE* copy = (BYTE*)malloc(bytesRead);
                             if (copy) {
@@ -416,8 +421,9 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                             }
                         }
                     }
+                    // ---- 循环结束 ----
                 } else {
-                    // 停止事件
+                    // 停止事件触发
                     break;
                 }
             } else {
@@ -426,20 +432,21 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
             }
         } else {
             // WaitCommEvent 立即成功（罕见）
-            BYTE buffer[4096];
-            DWORD bytesRead = 0;
-            ResetEvent(pThis->m_hReadOvEvent);
+            // 同样循环读取直到为空
+            while (pThis->m_bRunning) {
+                BYTE buffer[4096];
+                DWORD bytesRead = 0;
+                ResetEvent(pThis->m_hReadOvEvent);
 
-            if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, &pThis->m_readOv) ||
-                (GetLastError() == ERROR_IO_PENDING &&
-                 WaitForSingleObject(pThis->m_hReadOvEvent, INFINITE) == WAIT_OBJECT_0 &&
-                 GetOverlappedResult(pThis->m_hCom, &pThis->m_readOv, &bytesRead, FALSE))) {
-                if (bytesRead > 0) {
+                if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, &pThis->m_readOv) ||
+                    (GetLastError() == ERROR_IO_PENDING &&
+                     WaitForSingleObject(pThis->m_hReadOvEvent, INFINITE) == WAIT_OBJECT_0 &&
+                     GetOverlappedResult(pThis->m_hCom, &pThis->m_readOv, &bytesRead, FALSE))) {
+                    if (bytesRead == 0) break;
+                    // 处理数据
                     {
                         std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
                         if (pThis->m_dataQueue.size() >= MAX_QUEUE_PACKETS) {
-                            pThis->Log("WARN", "Queue overflow, dropping oldest packet (size=%zu)",
-                                       pThis->m_dataQueue.size());
                             pThis->m_dataQueue.pop();
                         }
                         pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
@@ -460,9 +467,10 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                             }
                         }
                     }
+                } else {
+                    pThis->Log("ERROR", "ReadThread: immediate ReadFile failed, error=%lu", GetLastError());
+                    break;
                 }
-            } else {
-                pThis->Log("ERROR", "ReadThread: immediate ReadFile failed, error=%lu", GetLastError());
             }
         }
     }
