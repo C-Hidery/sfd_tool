@@ -283,94 +283,103 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
     }
 
     if (!SetCommMask(pThis->m_hCom, EV_RXCHAR)) {
-        pThis->Log("ERROR", "ReadThread: SetCommMask failed");
+        pThis->Log("ERROR", "ReadThread: SetCommMask failed, error=%lu", GetLastError());
         CloseHandle(ov.hEvent);
         return 1;
     }
 
     while (pThis->m_bRunning) {
-        pThis->Log("DEBUG", "ReadThread: Loop: Waiting for communication event");
+        pThis->Log("DEBUG", "ReadThread: WaitCommEvent starting...");
         if (!WaitCommEvent(pThis->m_hCom, NULL, &ov)) {
-            if (GetLastError() == ERROR_IO_PENDING) {
+            DWORD err = GetLastError();
+            if (err == ERROR_IO_PENDING) {
+                pThis->Log("DEBUG", "ReadThread: WaitCommEvent pending, waiting...");
                 HANDLE waitHandles[2] = { ov.hEvent, pThis->m_hStopEvent };
                 DWORD ret = WaitForMultipleObjects(2, waitHandles, FALSE, INFINITE);
                 if (ret == WAIT_OBJECT_0) {
                     if (!pThis->m_bRunning) break;
-                    pThis->Log("DEBUG", "ReadThread: WaitForMultipleObjects completed");
+                    pThis->Log("DEBUG", "ReadThread: WaitCommEvent event signaled");
                     // 读取数据
                     BYTE buffer[4096];
                     DWORD bytesRead = 0;
-                    if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, NULL) &&
-                        bytesRead > 0) {
-                        // 1. 推入队列（供同步 Read 使用）
-                        {
-                            pThis->Log("DEBUG", "ReadThread: loop: bytesRead %lu", bytesRead);
-                            std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
-                            pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
-                            pThis->m_dataAvailable.notify_one();
-                        }
-
-                        // 2. 如果设置了接收目标，发送原始数据给外部
-                        if (pThis->m_bAsyncMode) {
-                            // 分配内存供外部释放（模拟 Channel9 行为）
-                            BYTE* copy = (BYTE*)malloc(bytesRead);
-                            if (copy) {
-                                memcpy(copy, buffer, bytesRead);
-                                // 根据 bRcvThread 选择发送方式
-                                if (pThis->m_bRcvThread) {
-                                    // 发送到线程
-                                    PostThreadMessage((DWORD)(ULONG_PTR)pThis->m_hTargetWnd,
-                                                      pThis->m_ulMsgId,
-                                                      (WPARAM)copy, (LPARAM)bytesRead);
-                                    pThis->Log("DEBUG", "ReadThread: PostThreadMessage completed");
-                                } else {
-                                    // 发送到窗口
-                                    PostMessage(pThis->m_hTargetWnd,
-                                                pThis->m_ulMsgId,
-                                                (WPARAM)copy, (LPARAM)bytesRead);
-                                    pThis->Log("DEBUG", "ReadThread: PostMessage completed");
+                    pThis->Log("DEBUG", "ReadThread: calling ReadFile (overlapped)");
+                    if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, NULL)) {
+                        pThis->Log("DEBUG", "ReadThread: ReadFile succeeded, bytesRead=%lu", bytesRead);
+                        if (bytesRead > 0) {
+                            // 处理数据...
+                            // 1. 推入队列
+                            {
+                                std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
+                                pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
+                                pThis->m_dataAvailable.notify_one();
+                            }
+                            // 2. 异步发送给外部
+                            if (pThis->m_bAsyncMode) {
+                                BYTE* copy = (BYTE*)malloc(bytesRead);
+                                if (copy) {
+                                    memcpy(copy, buffer, bytesRead);
+                                    if (pThis->m_bRcvThread) {
+                                        PostThreadMessage((DWORD)(ULONG_PTR)pThis->m_hTargetWnd,
+                                                          pThis->m_ulMsgId,
+                                                          (WPARAM)copy, (LPARAM)bytesRead);
+                                        pThis->Log("DEBUG", "ReadThread: PostThreadMessage sent");
+                                    } else {
+                                        PostMessage(pThis->m_hTargetWnd,
+                                                    pThis->m_ulMsgId,
+                                                    (WPARAM)copy, (LPARAM)bytesRead);
+                                        pThis->Log("DEBUG", "ReadThread: PostMessage sent");
+                                    }
                                 }
                             }
                         }
+                    } else {
+                        DWORD readErr = GetLastError();
+                        pThis->Log("ERROR", "ReadThread: ReadFile failed, error=%lu", readErr);
                     }
                 } else {
-                    // 停止事件触发
+                    pThis->Log("DEBUG", "ReadThread: WaitForMultipleObjects returned stop event");
                     break;
                 }
             } else {
-                pThis->Log("ERROR", "ReadThread: WaitCommEvent failed, error %lu", GetLastError());
+                pThis->Log("ERROR", "ReadThread: WaitCommEvent fatal error=%lu", err);
                 break;
             }
         } else {
-            pThis->Log("ERROR", "ReadThread: WaitCommEvent completed immediately");
             // WaitCommEvent 立即成功（罕见）
+            pThis->Log("DEBUG", "ReadThread: WaitCommEvent immediate success");
             BYTE buffer[4096];
-            DWORD bytesRead;
-            if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, NULL) &&
-                bytesRead > 0) {
-                {
-                    pThis->Log("DEBUG", "ReadThread: loop: immediately: bytesRead %lu", bytesRead);
-                    std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
-                    pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
-                    pThis->m_dataAvailable.notify_one();
-                }
-                if (pThis->m_bAsyncMode) {
-                    BYTE* copy = (BYTE*)malloc(bytesRead);
-                    if (copy) {
-                        memcpy(copy, buffer, bytesRead);
-                        if (pThis->m_bRcvThread) {
-                            PostThreadMessage((DWORD)(ULONG_PTR)pThis->m_hTargetWnd,
-                                              pThis->m_ulMsgId,
-                                              (WPARAM)copy, (LPARAM)bytesRead);
-                            pThis->Log("DEBUG", "ReadThread: immediately: PostThreadMessage completed");
-                        } else {
-                            PostMessage(pThis->m_hTargetWnd,
-                                        pThis->m_ulMsgId,
-                                        (WPARAM)copy, (LPARAM)bytesRead);
-                            pThis->Log("DEBUG", "ReadThread: immediately: PostMessage completed");
+            DWORD bytesRead = 0;
+            pThis->Log("DEBUG", "ReadThread: calling ReadFile (immediate)");
+            if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, NULL)) {
+                pThis->Log("DEBUG", "ReadThread: ReadFile immediate succeeded, bytesRead=%lu", bytesRead);
+                if (bytesRead > 0) {
+                    // 处理数据...
+                    {
+                        std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
+                        pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
+                        pThis->m_dataAvailable.notify_one();
+                    }
+                    if (pThis->m_bAsyncMode) {
+                        BYTE* copy = (BYTE*)malloc(bytesRead);
+                        if (copy) {
+                            memcpy(copy, buffer, bytesRead);
+                            if (pThis->m_bRcvThread) {
+                                PostThreadMessage((DWORD)(ULONG_PTR)pThis->m_hTargetWnd,
+                                                  pThis->m_ulMsgId,
+                                                  (WPARAM)copy, (LPARAM)bytesRead);
+                                pThis->Log("DEBUG", "ReadThread: immediate PostThreadMessage sent");
+                            } else {
+                                PostMessage(pThis->m_hTargetWnd,
+                                            pThis->m_ulMsgId,
+                                            (WPARAM)copy, (LPARAM)bytesRead);
+                                pThis->Log("DEBUG", "ReadThread: immediate PostMessage sent");
+                            }
                         }
                     }
                 }
+            } else {
+                DWORD readErr = GetLastError();
+                pThis->Log("ERROR", "ReadThread: ReadFile immediate failed, error=%lu", readErr);
             }
         }
     }
