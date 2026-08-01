@@ -275,7 +275,6 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
     CMySerialChannel* pThis = static_cast<CMySerialChannel*>(lpParam);
     pThis->Log("INFO", "ReadThread started");
 
-    // ---------- 用于 WaitCommEvent 的重叠结构 ----------
     OVERLAPPED ov = {0};
     ov.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
     if (!ov.hEvent) {
@@ -297,18 +296,11 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                 HANDLE waitHandles[2] = { ov.hEvent, pThis->m_hStopEvent };
                 DWORD ret = WaitForMultipleObjects(2, waitHandles, FALSE, INFINITE);
                 if (ret == WAIT_OBJECT_0) {
-                    // WaitCommEvent 完成
+                    // WaitCommEvent 完成，无需调用 GetOverlappedResult
                     pThis->Log("DEBUG", "ReadThread: WaitCommEvent event signaled");
-                    // 获取事件结果（可选）
-                    DWORD dwMask = 0;
-                    if (!GetOverlappedResult(pThis->m_hCom, &ov, &dwMask, FALSE)) {
-                        pThis->Log("ERROR", "ReadThread: GetOverlappedResult for WaitCommEvent failed, error=%lu", GetLastError());
-                        continue;
-                    }
-                    // 检查是否停止
                     if (!pThis->m_bRunning) break;
 
-                    // ---------- 读取数据：使用独立的 OVERLAPPED ----------
+                    // 准备读取数据
                     BYTE buffer[4096];
                     DWORD bytesRead = 0;
                     OVERLAPPED readOv = {0};
@@ -322,7 +314,6 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                     if (!ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, &readOv)) {
                         DWORD err = GetLastError();
                         if (err == ERROR_IO_PENDING) {
-                            // 等待读取完成
                             pThis->Log("DEBUG", "ReadThread: ReadFile pending, waiting...");
                             HANDLE readHandles[2] = { readOv.hEvent, pThis->m_hStopEvent };
                             DWORD readRet = WaitForMultipleObjects(2, readHandles, FALSE, INFINITE);
@@ -333,9 +324,8 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                                     pThis->Log("DEBUG", "ReadThread: ReadFile completed, bytesRead=%lu", bytesRead);
                                 }
                             } else {
-                                // 停止事件触发
                                 CancelIo(pThis->m_hCom);
-                                pThis->Log("DEBUG", "ReadThread: ReadFile cancelled due to stop event");
+                                pThis->Log("DEBUG", "ReadThread: ReadFile cancelled by stop event");
                             }
                         } else {
                             pThis->Log("ERROR", "ReadThread: ReadFile failed, error=%lu", err);
@@ -345,16 +335,14 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                     }
                     CloseHandle(readOv.hEvent);
 
-                    // 如果读取到数据，处理它
                     if (bytesRead > 0) {
-                        // 1. 推入队列（供同步 Read 使用）
+                        // 推入队列
                         {
                             std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
                             pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
                             pThis->m_dataAvailable.notify_one();
                         }
-
-                        // 2. 如果设置了接收目标，发送原始数据给外部
+                        // 发送原始数据给外部
                         if (pThis->m_bAsyncMode) {
                             BYTE* copy = (BYTE*)malloc(bytesRead);
                             if (copy) {
@@ -372,7 +360,6 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                         }
                     }
                 } else {
-                    // 停止事件触发
                     pThis->Log("DEBUG", "ReadThread: WaitCommEvent cancelled by stop event");
                     break;
                 }
@@ -381,9 +368,8 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                 break;
             }
         } else {
-            // WaitCommEvent 立即成功（罕见情况）
+            // WaitCommEvent 立即成功（罕见）
             pThis->Log("DEBUG", "ReadThread: WaitCommEvent completed immediately");
-            // 立即读取数据（需要提供 OVERLAPPED）
             BYTE buffer[4096];
             DWORD bytesRead = 0;
             OVERLAPPED readOv = {0};
@@ -393,9 +379,7 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                     (GetLastError() == ERROR_IO_PENDING &&
                      WaitForSingleObject(readOv.hEvent, INFINITE) == WAIT_OBJECT_0 &&
                      GetOverlappedResult(pThis->m_hCom, &readOv, &bytesRead, FALSE))) {
-                    // 读取成功
                     pThis->Log("DEBUG", "ReadThread: immediate read completed, bytesRead=%lu", bytesRead);
-                    // 处理数据（同上）
                     if (bytesRead > 0) {
                         {
                             std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
