@@ -559,7 +559,7 @@ void DestroyRecvThread(spdio_t *io) {
 	io->m_dwRecvThreadID = 0;
 }
 #else
-#ifndef _MSC_VER
+#ifndef _WIN32
 pthread_t gUsbEventThrd;
 libusb_hotplug_callback_handle gHotplugCbHandle = 0;
 volatile int g_usb_thread_running = 0;
@@ -644,11 +644,11 @@ void stopUsbEventHandle(void) {
 }
 #else
 void startUsbEventHandle(void) {
-	DEG_LOG(I,"startUsbEventHandle() is not supported in MSVC. Please use MSYS2 if you need it.");
+	DEG_LOG(E,"startUsbEventHandle() is not stable in Windows.");
 }
 
 void stopUsbEventHandle(void) {
-	DEG_LOG(I,"stopUsbEventHandle() is not supported in MSVC. Please use MSYS2 if you need it.");
+	DEG_LOG(E,"stopUsbEventHandle() is not stable in Windows.");
 }
 #endif
 

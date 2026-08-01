@@ -3,6 +3,7 @@
  * SFDTool Copyright (C) 2026 Ryan Crepa
  */
 #include "BMPlatform.h"
+#include "serial/MySerialChannel.h"
 #include <iostream>
 
 
@@ -15,33 +16,26 @@ CBMPlatformApp::CBMPlatformApp() {
 }
 
 BOOL CBMPlatformApp::InitInstance() {
-	m_hChannelLib = LoadLibrary(_T("Channel9.dll"));
-
-	if (m_hChannelLib == NULL) {
-		std::cout << "Failed to load Channel9.dll. Error code: " << GetLastError() << std::endl;
-		return FALSE;
-	}
-
-	m_pfCreateChannel = (pfCreateChannel)GetProcAddress(m_hChannelLib, "CreateChannel");
-	m_pfReleaseChannel = (pfReleaseChannel)GetProcAddress(m_hChannelLib, "ReleaseChannel");
-
-	if (m_pfCreateChannel == NULL || m_pfReleaseChannel == NULL) {
-		return FALSE;
-	}
-
+	// 不再加载 Channel9.dll，直接使用我们的类
+	m_pfCreateChannel = [](ICommChannel** ppChannel, CHANNEL_TYPE type) -> BOOL {
+		if (type != CHANNEL_TYPE_COM) {
+			return FALSE;
+		}
+		*ppChannel = new CMySerialChannel();
+		return (*ppChannel != NULL);
+	};
+	m_pfReleaseChannel = [](ICommChannel* pChannel) {
+		delete pChannel;
+	};
 	return TRUE;
 }
 
 int CBMPlatformApp::ExitInstance() {
-	// TODO: Add your specialized code here and/or call the base class
-	if (m_hChannelLib) {
-		FreeLibrary(m_hChannelLib);
-		m_hChannelLib = NULL;
-
-		//m_pfCreateChannel = NULL;
-		//m_pfReleaseChannel = NULL;
-	}
-
+	// 无需释放 DLL
+	// 如果 m_hChannelLib 还在，可清掉
+	m_hChannelLib = NULL;
+	m_pfCreateChannel = NULL;
+	m_pfReleaseChannel = NULL;
 	return TRUE;
 }
 
@@ -123,4 +117,9 @@ void CBootModeOpr::Clear() {
 
 void CBootModeOpr::FreeMem(LPVOID pMemBlock) {
 	m_pChannel->FreeMem(pMemBlock);
+}
+
+// 提供 ICommChannel 纯虚析构函数的实现
+ICommChannel::~ICommChannel() {
+	// 基类析构，空实现即可
 }

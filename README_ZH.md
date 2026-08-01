@@ -19,7 +19,7 @@ SFD Tool 是一个面向 Spreadtrum / UNISOC 设备的跨平台刷机与维护�
 
 当前主要支持并测试的运行平台：
 
-- **Windows 10/11 x64/x86**
+- **Windows 10/11 x64**
 - **Linux x86_64**（如 Debian/Ubuntu、部分 RPM 系发行版）
 - **macOS**（近期版本）
 - **Termux / Android**（仅命令行模式，通过 `--no-gui`）
