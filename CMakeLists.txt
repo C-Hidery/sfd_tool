@@ -21,7 +21,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-if (UNIX AND NOT APPLE)
+if ((UNIX AND NOT APPLE) OR (WIN32 AND MINGW))
     add_compile_definitions(_FILE_OFFSET_BITS=64)
 endif()
 
@@ -121,14 +121,14 @@ if (WIN32)
 endif()
 
 # 链接子模块和公共 UI 库
-if(APPLE OR WIN32)
+if(APPLE OR MSVC)
     set(SFD_TOOL_LIBS
         core_lib
         pages_lib
         sfd_ui
     )
 else()
-    # Linux 等使用静态库时，重复一遍以解决循环依赖链接顺序问题
+    # Linux，mingw-w64等使用静态库时，重复一遍以解决循环依赖链接顺序问题
     set(SFD_TOOL_LIBS
         core_lib
         pages_lib
@@ -145,13 +145,12 @@ target_link_libraries(sfd_tool
 )
 
 # Windows: 直接包含 BMPlatform 相关源文件
-if (WIN32)
-    if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+if (WIN32 AND NOT USE_LIBUSB)
         target_sources(sfd_tool PRIVATE
            BMPlatform.cpp
+           serial/MySerialChannel.cpp
            Wrapper.cpp
         )
-    endif()
 endif()
 
 # 链接子模块和公共 UI 库
@@ -210,54 +209,10 @@ else()
     target_link_libraries(sfd_tool PRIVATE Threads::Threads)
 endif()
 
-# Windows: libintl (gettext) via vcpkg
 if (WIN32)
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-        set(_vcpkg_triplet "x64-windows")
-    else()
-        # 32-bit (Win32) build
-        set(_vcpkg_triplet "x86-windows")
-    endif()
-
-    # Try to infer vcpkg root from toolchain file first, then env, then default C:/vcpkg
-    set(_vcpkg_root "")
-
-    if (DEFINED CMAKE_TOOLCHAIN_FILE)
-        get_filename_component(_tc_dir "${CMAKE_TOOLCHAIN_FILE}" DIRECTORY)
-        get_filename_component(_candidate_root "${_tc_dir}/../.." ABSOLUTE)
-        if (EXISTS "${_candidate_root}/installed")
-            set(_vcpkg_root "${_candidate_root}")
-        endif()
-    endif()
-
-    if (_vcpkg_root STREQUAL "" AND DEFINED ENV{VCPKG_ROOT})
-        set(_vcpkg_root "$ENV{VCPKG_ROOT}")
-    endif()
-
-    if (_vcpkg_root STREQUAL "")
-        set(_vcpkg_root "C:/vcpkg")
-    endif()
-
-    set(_vcpkg_include "${_vcpkg_root}/installed/${_vcpkg_triplet}/include")
-    set(_vcpkg_lib_dir "${_vcpkg_root}/installed/${_vcpkg_triplet}/lib")
-
-    foreach(tgt IN LISTS SFD_COMMON_TARGETS)
-        target_include_directories(${tgt} PRIVATE "${_vcpkg_include}")
-    endforeach()
-
-    find_library(INTL_LIBRARY NAMES intl PATHS "${_vcpkg_lib_dir}")
-    if (INTL_LIBRARY)
-        target_link_libraries(sfd_tool PRIVATE "${INTL_LIBRARY}")
-        foreach(tgt IN LISTS SFD_TEST_TARGETS)
-            target_link_libraries(${tgt} PRIVATE "${INTL_LIBRARY}")
-        endforeach()
-    else()
-        message(WARNING "intl library not found in ${_vcpkg_lib_dir}; gettext may fail to link")
-    endif()
-
     # Windows 平台：崩溃堆栈 (dbghelp) + 串口枚举 (setupapi)
     target_link_libraries(sfd_tool PRIVATE dbghelp setupapi)
-    
+
     # 同样为测试目标添加
     foreach(tgt IN LISTS SFD_TEST_TARGETS)
         target_link_libraries(${tgt} PRIVATE dbghelp setupapi)
@@ -281,6 +236,7 @@ if (USE_GTK)
         foreach(tgt IN LISTS SFD_COMMON_TARGETS)
             target_compile_definitions(${tgt} PRIVATE USE_GTK=1)
             target_include_directories(${tgt} PRIVATE
+                "${_gtk_root}/include"
                 "${_gtk_root}/include/gtk-4.0"
                 "${_gtk_root}/include/glib-2.0"
                 "${_gtk_root}/lib/glib-2.0/include"
@@ -304,6 +260,7 @@ if (USE_GTK)
             "${_gtk_root}/lib/libpango-1.0.dll.a"
             "${_gtk_root}/lib/libpangocairo-1.0.dll.a"
             "${_gtk_root}/lib/libgraphene-1.0.dll.a"
+            "${_gtk_root}/lib/libintl.dll.a"
         )
 
         target_link_libraries(sfd_tool PRIVATE ${_gtk_win_libs})
@@ -356,21 +313,38 @@ else()
 endif()
 # --- libusb ---
 if (USE_LIBUSB)
-    if (WIN32)
-        # Windows 下 libusb 由 third_party/Lib 提供
+    if (WIN32 AND MINGW)
+        # MinGW: 使用 MSYS2 的 libusb
+        if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+            set(_libusb_root "C:/msys64/mingw64")
+        else()
+            set(_libusb_root "C:/msys64/mingw32")
+        endif()
+
+        foreach(tgt IN LISTS SFD_COMMON_TARGETS)
+            target_compile_definitions(${tgt} PRIVATE USE_LIBUSB=1)
+            target_include_directories(${tgt} PRIVATE "${_libusb_root}/include/libusb-1.0")
+        endforeach()
+
+        # 链接 MSYS2 的 libusb 导入库
+        set(_libusb_win_lib "${_libusb_root}/lib/libusb-1.0.dll.a")
+        target_link_libraries(sfd_tool PRIVATE ${_libusb_win_lib})
+        foreach(tgt IN LISTS SFD_TEST_TARGETS)
+            target_link_libraries(${tgt} PRIVATE ${_libusb_win_lib})
+        endforeach()
+    elseif (WIN32)
+        # MSVC: 保持原样使用 third_party（如果需要）
         foreach(tgt IN LISTS SFD_COMMON_TARGETS)
             target_compile_definitions(${tgt} PRIVATE USE_LIBUSB=1)
             target_include_directories(${tgt} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/Lib)
         endforeach()
-
-        # 链接本地提供的 libusb-1.0.lib
         set(_libusb_win_lib "${CMAKE_CURRENT_SOURCE_DIR}/third_party/Lib/libusb-1.0.lib")
-
         target_link_libraries(sfd_tool PRIVATE ${_libusb_win_lib})
         foreach(tgt IN LISTS SFD_TEST_TARGETS)
             target_link_libraries(${tgt} PRIVATE ${_libusb_win_lib})
         endforeach()
     else()
+        # Linux/macOS: 使用 pkg-config
         if (NOT PKG_CONFIG_FOUND)
             message(FATAL_ERROR "PkgConfig is required when USE_LIBUSB=ON")
         endif()
@@ -383,8 +357,6 @@ if (USE_LIBUSB)
             target_link_directories(${tgt} PRIVATE ${LIBUSB_LIBRARY_DIRS})
         endforeach()
 
-        # 由 core_lib 统一链接 libusb，其他可执行文件和测试通过依赖 core_lib
-        # 获得正确的链接顺序，避免在 GNU ld 下出现未解析的 libusb 符号。
         target_link_libraries(core_lib PUBLIC ${LIBUSB_LIBRARIES})
     endif()
 else()
@@ -519,6 +491,8 @@ if (GTK_UPDATE_ICON_CACHE)
 endif()
 
 # utf-8支持
-if(MSVC OR WIN32)
+if(MSVC)
     target_compile_options(sfd_tool PRIVATE /utf-8)
+elseif(MINGW)
+    target_compile_options(sfd_tool PRIVATE -finput-charset=UTF-8 -fexec-charset=UTF-8)
 endif()

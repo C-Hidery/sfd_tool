@@ -18,48 +18,28 @@ jobs:
   build-windows:
     runs-on: windows-latest
     timeout-minutes: 40
-    env:
-      VCPKG_ROOT: C:\vcpkg
     strategy:
       matrix:
         include:
-          # x64 架构：libusb 驱动版（vcpkg 只安装 gettext，libusb 使用项目自带）
+          # x64 架构：libusb 驱动版
           - arch: x64
             config: Release
             msys_gtk_arch: mingw64
             cmake_platform: x64
             use_libusb: ON
-            vcpkg_triplet: x64-windows
             artifact_name: LibUSB
           
-          # x86 架构：SPRD 原生驱动版（不使用 vcpkg，从 MSYS2 手动获取 GTK+gettext）
-          - arch: x86
+          # x64 架构：SPRD 原生驱动版
+          - arch: x64
             config: Release
-            msys_gtk_arch: mingw32
-            cmake_platform: Win32
+            msys_gtk_arch: mingw64
+            cmake_platform: x64
             use_libusb: OFF
-            vcpkg_triplet: x86-windows
             artifact_name: SPRD
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
-      - name: Setup MSVS
-        uses: TheMrMilchmann/setup-msvc-dev@v3
-        with:
-          arch: ${{ matrix.arch }}
-
-      - name: Install gettext (libintl) via vcpkg
-        shell: pwsh
-        run: |
-          $vcpkgExe = "C:\vcpkg\vcpkg.exe"
-          if (-not (Test-Path $vcpkgExe)) {
-            Write-Error "vcpkg.exe not found at $vcpkgExe"
-            exit 1
-          }
-          Write-Host "Using vcpkg: $vcpkgExe"
-          & $vcpkgExe install "gettext:${{ matrix.vcpkg_triplet }}"
 
       - name: Install MSYS2 and GTK4 (x64)
         if: matrix.arch == 'x64'
@@ -67,14 +47,19 @@ jobs:
         run: |
           $msysPath = "C:\msys64"
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-gtk4 mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkg-config"
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-cmake mingw-w64-x86_64-libusb mingw-w64-x86_64-gtk4 mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkg-config"
 
       - name: Install MSYS2 and GTK4 (x86)
         if: matrix.arch == 'x86'
         shell: pwsh
         run: |
           $msysPath = "C:\msys64"
-
+          # 确保 mingw32 目录存在
+          if (-not (Test-Path "$msysPath\mingw32")) {
+            Write-Host "创建 mingw32 目录..."
+            New-Item -ItemType Directory -Force -Path "$msysPath\mingw32" | Out-Null
+          }
+          
           Write-Host "安装 GTK4 开发包..."
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -124,7 +109,7 @@ jobs:
           Move-Item "$tempDir\*.pkg.tar.zst" $pkgCache -Force
           $pkgCacheUnix = $pkgCache -replace '\\', '/' -replace '^C:', '/c'
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -U --noconfirm --overwrite='*' $pkgCacheUnix/mingw-w64-i686-*.pkg.tar.zst"
-          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-i686-tools"
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-i686-pkg-config mingw-w64-i686-tools mingw-w64-i686-toolchain mingw-w64-i686-cmake"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }      
       - name: Create Build Directory
         shell: pwsh
@@ -133,58 +118,31 @@ jobs:
       - name: Configure (CMake)
         shell: pwsh
         run: |
-          $env:Path = "C:\msys64\usr\bin;" + $env:Path
+          # 将 MSYS2 的 MinGW bin 目录加入 PATH（优先）
+          $env:Path = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin;C:\msys64\usr\bin;" + $env:Path
+
+          # 设置编译器为 MinGW GCC
           cmake -S . -B build_cmake `
-            -G "Visual Studio 18 2026" `
-            -A ${{ matrix.cmake_platform }} `
-            -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+            -G "MinGW Makefiles" `
+            -DCMAKE_CXX_COMPILER=g++ `
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON `
             -DUSE_GTK=ON `
             -DUSE_LIBUSB=${{ matrix.use_libusb }} `
-            -DSFD_ENABLE_TESTS=ON
+            -DSFD_ENABLE_TESTS=ON `
+            -DCMAKE_BUILD_TYPE=Release
 
       - name: Build (${{ matrix.artifact_name }} - ${{ matrix.config }})
         shell: pwsh
         run: |
-          $env:Path = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin;" + $env:Path
-          if ("${{ matrix.arch }}" -eq "x64") {
-            $env:Path = "C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin;" + $env:Path
-          }
-          cmake --build build_cmake --config ${{ matrix.config }} -- /m
-          ctest --test-dir build_cmake -C ${{ matrix.config }} --output-on-failure
-          Copy-Item "build_cmake/${{ matrix.config }}/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
+          $env:Path = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin;C:\msys64\usr\bin;" + $env:Path
+          cmake --build build_cmake -- -j1
+          ctest --test-dir build_cmake --output-on-failure
+          Copy-Item "build_cmake/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
 
-      - name: Copy gettext runtime DLLs
+      - name: Copy docs
         shell: pwsh
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
-          $vcpkgBin = "C:\vcpkg\installed\${{ matrix.vcpkg_triplet }}\bin"
-          if (Test-Path $vcpkgBin) {
-            Get-ChildItem $vcpkgBin -Filter "*.dll" | ForEach-Object {
-              Copy-Item $_.FullName -Destination $destDir -Force
-            }
-          }
-         
-      - name: Copy libusb DLL from project (x64 only)
-        if: matrix.use_libusb == 'ON'
-        run: |
-          $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
-          $libusbPath = "third_party/Lib/libusb-1.0.dll"
-          if (Test-Path $libusbPath) {
-            Copy-Item $libusbPath -Destination $destDir -Force
-            Copy-Item "docs/VERSION_LOG.md" -Destination $destDir -Force
-          }
-
-      - name: Copy SPRD Driver Files (x86 only)
-        if: matrix.use_libusb == 'OFF'
-        run: |
-          $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
-          if (Test-Path "third_party/Lib/Channel9.dll") {
-            Copy-Item "third_party/Lib/Channel9.dll" -Destination $destDir -Force
-          }
-          if (Test-Path "third_party/Lib/Channel.ini") {
-            Copy-Item "third_party/Lib/Channel.ini" -Destination $destDir -Force
-          }
           Copy-Item "docs/VERSION_LOG.md" -Destination $destDir -Force
 
       - name: Copy ALL DLLs from MSYS2 bin directory
@@ -300,7 +258,7 @@ jobs:
         run: |
           $destDir = "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/"
           $unwantedExtensions = @(".a", ".la", ".def", ".sh", ".py", ".pl", ".exp")
-          $keepFiles = @("sfd_tool.exe", "sfd_tool.pdb", "BMPlatform.dll", "Channel9.dll", "Channel.ini", "libusb-1.0.dll")
+          $keepFiles = @("sfd_tool.exe", "BMPlatform.dll", "Channel9.dll", "Channel.ini", "libusb-1.0.dll")
           foreach ($ext in $unwantedExtensions) {
             Get-ChildItem -Path $destDir -Filter "*$ext" -Exclude $keepFiles -ErrorAction SilentlyContinue | 
               Remove-Item -Force -ErrorAction SilentlyContinue
@@ -428,7 +386,7 @@ jobs:
           - artifact_name: LibUSB
             arch_display: x64
           - artifact_name: SPRD
-            arch_display: x86
+            arch_display: x64
     steps:
       - uses: actions/checkout@v4
 
@@ -612,7 +570,7 @@ jobs:
           fi
   
           if [ -d "sfd_tool_SPRD_Release" ]; then
-            mv sfd_tool_SPRD_Release sfd_tool_windows_x86_sprd
+            mv sfd_tool_SPRD_Release sfd_tool_windows_x64_sprd
           fi
   
           # 复制文档
@@ -645,7 +603,7 @@ jobs:
   
           # 创建 Windows ZIP 包（绿色版）
           if [ -d "sfd_tool_windows_x86_sprd" ]; then
-            zip -r sfd_tool_windows_x86_sprd_${TAG}.zip sfd_tool_windows_x86_sprd
+            zip -r sfd_tool_windows_x64_sprd_${TAG}.zip sfd_tool_windows_x64_sprd
           fi
   
           if [ -d "sfd_tool_windows_x64_libusb" ]; then
@@ -659,7 +617,7 @@ jobs:
           cp *.deb all_in_one/ 2>/dev/null || true
           cp *.rpm all_in_one/ 2>/dev/null || true
           cp sfd_tool_macos_${TAG}.dmg all_in_one/ 2>/dev/null || true
-          cp sfd_tool_windows_x86_sprd_${TAG}.zip all_in_one/ 2>/dev/null || true
+          cp sfd_tool_windows_x64_sprd_${TAG}.zip all_in_one/ 2>/dev/null || true
           cp sfd_tool_windows_x64_libusb_${TAG}.zip all_in_one/ 2>/dev/null || true
           cp sfd_tool_${TAG}_*.exe all_in_one/ 2>/dev/null || true
   
@@ -681,10 +639,10 @@ jobs:
             
             ### Windows 安装程序:
             - **sfd_tool_${{ env.RELEASE_TAG }}_x64.exe**: Windows x64 版本，使用 libusb 驱动
-            - **sfd_tool_${{ env.RELEASE_TAG }}_x86.exe**: Windows x86 版本，使用 SPRD 原生驱动
+            - **sfd_tool_${{ env.RELEASE_TAG }}_x86.exe**: Windows x64 版本，使用 SPRD 原生驱动
   
             ### Windows 绿色版 (ZIP):
-            - **sfd_tool_windows_x86_sprd_${{ env.RELEASE_TAG }}.zip**: x86 绿色版，SPRD 驱动
+            - **sfd_tool_windows_x64_sprd_${{ env.RELEASE_TAG }}.zip**: x64 绿色版，SPRD 驱动
             - **sfd_tool_windows_x64_libusb_${{ env.RELEASE_TAG }}.zip**: x64 绿色版，libusb 驱动
   
             ### 其他平台:
@@ -693,11 +651,11 @@ jobs:
             - **Linux RPM 包**: Fedora/RPM-Based 系统
   
             ### 使用说明:
-            1. **Windows x86 (SPRD)**: 使用 SPRD 驱动
+            1. **Windows x64 (SPRD)**: 使用 SPRD 驱动
             2. **Windows x64 (libusb)**: 需要安装 libusb 驱动（可使用 Zadig 工具）
           files: |
             sfd_tool_all_${{ env.RELEASE_TAG }}.zip
-            output/sfd_tool_windows_x86_sprd_${{ env.RELEASE_TAG }}.zip
+            output/sfd_tool_windows_x64_sprd_${{ env.RELEASE_TAG }}.zip
             output/sfd_tool_windows_x64_libusb_${{ env.RELEASE_TAG }}.zip
             output/sfd_tool_${{ env.RELEASE_TAG }}_x64.exe
             output/sfd_tool_${{ env.RELEASE_TAG }}_x86.exe

@@ -66,7 +66,7 @@ bool Err_Showed = false;
 static std::string g_progress_desc;
 
 
-#if (defined(_MSC_VER) || defined(_WIN32)) && !defined(__MINGW32__)
+#ifdef _MSC_VER
 void usleep(unsigned int us) {
 	Sleep(us / 1000);
 }

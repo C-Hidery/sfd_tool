@@ -25,23 +25,23 @@
 #include <stdint.h>
 
 #ifdef _MSC_VER
-    #include <stdlib.h>
-    // Windows 为小端，直接返回原值，无需转换
-    #ifndef htole32
-    #define htole32(x) (x)
-    #endif
-#elif defined(__GNUC__) || defined(__clang__)
-    #ifndef htole32
-    #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-        #define htole32(x) (x)
-    #else
-        #define htole32(x) __builtin_bswap32(x)
-    #endif
-    #endif
+	#include <stdlib.h>
+	#ifndef htole32
+	#define htole32(x) (x)
+	#endif
 #else
-    #error "Unsupported compiler"
+	// GCC, Clang, MinGW 都走这里
+	#ifndef htole32
+	#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+		#define htole32(x) (x)
+	#else
+		#define htole32(x) __builtin_bswap32(x)
+	#endif
+	#endif
 #endif
-
+#ifndef _MSC_VER
+#include <unistd.h>
+#endif
 #include <stdarg.h>
 #include <string.h>
 #include <signal.h>
@@ -82,7 +82,11 @@ DWORD WINAPI ThrdFunc(LPVOID lpParam);
 #pragma clang diagnostic ignored "-Wzero-length-array"
 #pragma clang diagnostic ignored "-Wc99-extensions"
 #endif
+#ifdef _MSC_VER
 #include "third_party/Lib/libusb-1.0/libusb.h"
+#else
+#include "libusb.h"
+#endif
 #if defined(__clang__)
 #pragma clang diagnostic pop
 #endif
