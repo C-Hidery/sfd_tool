@@ -351,8 +351,10 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
         return 1;
     }
 
+    // 队列最大包数限制（防止内存无限增长）
+    const size_t MAX_QUEUE_PACKETS = 128;
+
     while (pThis->m_bRunning) {
-        // 等待串口事件
         if (!WaitCommEvent(pThis->m_hCom, NULL, &waitOv)) {
             if (GetLastError() == ERROR_IO_PENDING) {
                 HANDLE waitHandles[2] = { waitOv.hEvent, pThis->m_hStopEvent };
@@ -360,7 +362,6 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                 if (ret == WAIT_OBJECT_0) {
                     if (!pThis->m_bRunning) break;
 
-                    // 读取数据（复用读取重叠事件）
                     BYTE buffer[4096];
                     DWORD bytesRead = 0;
                     ResetEvent(pThis->m_hReadOvEvent);
@@ -385,16 +386,20 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                         }
                     }
 
-                    // 处理数据
                     if (bytesRead > 0) {
-                        // 1. 推入数据池
+                        // 推入数据池，限制队列长度
                         {
                             std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
+                            if (pThis->m_dataQueue.size() >= MAX_QUEUE_PACKETS) {
+                                pThis->Log("WARN", "Queue overflow, dropping oldest packet (size=%zu)",
+                                           pThis->m_dataQueue.size());
+                                pThis->m_dataQueue.pop();
+                            }
                             pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
                             pThis->m_dataAvailable.notify_one();
                         }
 
-                        // 2. 发送给外部（如果设置了异步模式）
+                        // 发送给外部（异步模式）
                         if (pThis->m_bAsyncMode) {
                             BYTE* copy = (BYTE*)malloc(bytesRead);
                             if (copy) {
@@ -429,10 +434,14 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                 (GetLastError() == ERROR_IO_PENDING &&
                  WaitForSingleObject(pThis->m_hReadOvEvent, INFINITE) == WAIT_OBJECT_0 &&
                  GetOverlappedResult(pThis->m_hCom, &pThis->m_readOv, &bytesRead, FALSE))) {
-                // 成功读取
                 if (bytesRead > 0) {
                     {
                         std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
+                        if (pThis->m_dataQueue.size() >= MAX_QUEUE_PACKETS) {
+                            pThis->Log("WARN", "Queue overflow, dropping oldest packet (size=%zu)",
+                                       pThis->m_dataQueue.size());
+                            pThis->m_dataQueue.pop();
+                        }
                         pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
                         pThis->m_dataAvailable.notify_one();
                     }
