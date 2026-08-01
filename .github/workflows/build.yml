@@ -558,58 +558,58 @@ jobs:
           path: output
           pattern: sfd_tool_rpm_package
           merge-multiple: false
-  
+
       - name: Prepare Release Files
         run: |
           cd output
           TAG="${{ env.RELEASE_TAG }}"
-  
+
           # 重命名 Windows 绿色版目录
           if [ -d "sfd_tool_LibUSB_Release" ]; then
             mv sfd_tool_LibUSB_Release sfd_tool_windows_x64_libusb
           fi
-  
+
           if [ -d "sfd_tool_SPRD_Release" ]; then
             mv sfd_tool_SPRD_Release sfd_tool_windows_x64_sprd
           fi
-  
+
           # 复制文档
           cp ../master/*.md . 2>/dev/null || true
-  
+
           # 复制 Linux 包
           cp -r sfd_tool_linux_deb/*.deb . 2>/dev/null || true
           cp -r sfd_tool_rpm_package/*/*.rpm . 2>/dev/null || true
-  
+
           # 复制 macOS DMG
           for dmg in sfd_tool_macos_dmg/*.dmg; do
             [ -f "$dmg" ] || continue
             cp "$dmg" "sfd_tool_macos_${TAG}.dmg"
           done
-  
+
           # ===== 处理 Windows 安装程序 =====
-          # 重命名 Setup 文件：sfd_tool_标签_架构.exe
+          # 根据目录名保留架构标识
           for setup_dir in sfd_tool_setup_*; do
             if [ -d "$setup_dir" ] && [ -f "$setup_dir"/*.exe ]; then
               # 从目录名提取架构标识
               case "$setup_dir" in
-                *LibUSB*) arch="x64" ;;
-                *SPRD*) arch="x86" ;;
-                *) arch="unknown" ;;
+                *LibUSB*) suffix="libusb" ;;
+                *SPRD*) suffix="sprd" ;;
+                *) suffix="x64" ;;
               esac
               # 重命名并移动到根目录
-              mv "$setup_dir"/*.exe "sfd_tool_${TAG}_${arch}.exe"
+              mv "$setup_dir"/*.exe "sfd_tool_${TAG}_x64_${suffix}.exe"
             fi
           done
-  
+
           # 创建 Windows ZIP 包（绿色版）
-          if [ -d "sfd_tool_windows_x86_sprd" ]; then
+          if [ -d "sfd_tool_windows_x64_sprd" ]; then
             zip -r sfd_tool_windows_x64_sprd_${TAG}.zip sfd_tool_windows_x64_sprd
           fi
-  
+
           if [ -d "sfd_tool_windows_x64_libusb" ]; then
             zip -r sfd_tool_windows_x64_libusb_${TAG}.zip sfd_tool_windows_x64_libusb
           fi
-  
+
           # 创建完整包
           mkdir -p all_in_one
           cp ARCHITECTURE.md all_in_one/ 2>/dev/null || true
@@ -619,8 +619,8 @@ jobs:
           cp sfd_tool_macos_${TAG}.dmg all_in_one/ 2>/dev/null || true
           cp sfd_tool_windows_x64_sprd_${TAG}.zip all_in_one/ 2>/dev/null || true
           cp sfd_tool_windows_x64_libusb_${TAG}.zip all_in_one/ 2>/dev/null || true
-          cp sfd_tool_${TAG}_*.exe all_in_one/ 2>/dev/null || true
-  
+          cp sfd_tool_${TAG}_x64_*.exe all_in_one/ 2>/dev/null || true
+
           cd all_in_one
           zip -r ../../sfd_tool_all_${TAG}.zip .
           cd ..
@@ -638,8 +638,8 @@ jobs:
             ## sfd_tool Release ${{ env.RELEASE_TAG }}
             
             ### Windows 安装程序:
-            - **sfd_tool_${{ env.RELEASE_TAG }}_x64.exe**: Windows x64 版本，使用 libusb 驱动
-            - **sfd_tool_${{ env.RELEASE_TAG }}_x86.exe**: Windows x64 版本，使用 SPRD 原生驱动
+            - **sfd_tool_${{ env.RELEASE_TAG }}_x64_libusb.exe**: Windows x64 版本，使用 libusb 驱动
+            - **sfd_tool_${{ env.RELEASE_TAG }}_x64_sprd.exe**: Windows x64 版本，使用 SPRD 原生驱动
   
             ### Windows 绿色版 (ZIP):
             - **sfd_tool_windows_x64_sprd_${{ env.RELEASE_TAG }}.zip**: x64 绿色版，SPRD 驱动
@@ -657,8 +657,8 @@ jobs:
             sfd_tool_all_${{ env.RELEASE_TAG }}.zip
             output/sfd_tool_windows_x64_sprd_${{ env.RELEASE_TAG }}.zip
             output/sfd_tool_windows_x64_libusb_${{ env.RELEASE_TAG }}.zip
-            output/sfd_tool_${{ env.RELEASE_TAG }}_x64.exe
-            output/sfd_tool_${{ env.RELEASE_TAG }}_x86.exe
+            output/sfd_tool_${{ env.RELEASE_TAG }}_x64_libusb.exe
+            output/sfd_tool_${{ env.RELEASE_TAG }}_x64_sprd.exe
             output/*.dmg
             output/*.deb
             output/*.rpm
