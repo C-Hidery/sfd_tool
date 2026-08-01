@@ -1,3 +1,9 @@
+sfd-tool (2.6.0-1-ltv) unstable; urgency=medium
+
+  * 使用新的SPRD端口驱动而非Channel9，提升用户体验
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sat, 01 Aug 2026 17:54:01 +0800
+
 sfd-tool (2.5.10-1-ltv) unstable; urgency=medium
 
   * 修复文件夹恢复分区功能（GUI）
