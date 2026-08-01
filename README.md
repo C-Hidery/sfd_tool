@@ -181,7 +181,7 @@ For  `dis_avb_tos`, flash back `trustos-orig.bin`
 
 SFD Tool is primarily tested and released for:
 
-- **Windows 10/11 x64/x86**
+- **Windows 10/11 x64**
 - **Linux x86_64** (e.g. Debian/Ubuntu, RPM‑based distros)
 - **macOS** (recent versions)
 - **Termux / Android** (CLI only, via `--no-gui`)
@@ -192,7 +192,7 @@ Windows 7 users need to install `VxKex NEXT` to run the tool.
 
 Prebuilt binaries and packages are provided on GitHub Releases, typically including:
 
-- Windows x64/x86 executables (LibUSB(x64) and/or SPRD(x86) driver builds).
+- Windows x64 executables (LibUSB and/or SPRD driver builds).
 - `.deb` packages for popular Debian/Ubuntu versions.
 - `.rpm` packages for RPM‑based distributions.
 - macOS `.dmg` application bundles.

@@ -18,7 +18,7 @@ SFD Tool 是一款针对 **Spreadtrum / UNISOC 平台设备** 的刷机与维护
 
 本工具支持：
 
-- Windows 10/11 x64/x86；
+- Windows 10/11 x64；
 - Linux x86_64（常见 Debian/Ubuntu、部分 RPM 系发行版）；
 - macOS（近期版本）；
 - Termux / Android（仅 CLI 模式，通过 `--no-gui`）。
