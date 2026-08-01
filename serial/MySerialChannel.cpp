@@ -312,7 +312,7 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                             pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
                             pThis->m_dataAvailable.notify_one();
                         }
-
+#if !USE_LIBUSB
                         // 2. 如果外部使用异步路径（io->m_dwRecvThreadID != 0），
                         //    则解码并触发事件，模拟 RcvDataThreadProc
                         spdio_t* io = g_app_state.transport.io;
@@ -330,7 +330,7 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                                 pThis->Log("WARN", "Transcode failed, data discarded");
                             }
                         }
-
+#endif
                         // 3. 如果设置了窗口目标，发送消息（模拟 Channel9 行为）
                         if (pThis->m_hTargetWnd && pThis->m_ulMsgId) {
                             BYTE* copy = (BYTE*)malloc(bytesRead);
@@ -360,6 +360,7 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                     pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
                     pThis->m_dataAvailable.notify_one();
                 }
+#if !USE_LIBUSB
                 spdio_t* io = g_app_state.transport.io;
                 if (io && io->m_dwRecvThreadID != 0) {
                     int plen = 6;
@@ -371,6 +372,7 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                         SetEvent(io->m_hOprEvent);
                     }
                 }
+#endif
                 if (pThis->m_hTargetWnd && pThis->m_ulMsgId) {
                     BYTE* copy = (BYTE*)malloc(bytesRead);
                     if (copy) {
