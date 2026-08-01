@@ -107,7 +107,7 @@ BOOL CMySerialChannel::Open(PCCHANNEL_ATTRIBUTE pOpenArgument) {
         return FALSE;
     }
 
-    SetTimeouts(50, 100);
+    SetTimeouts(0, 5000);
 
     m_hStopEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
     if (!m_hStopEvent) {
