@@ -1,6 +1,12 @@
-// MySerialChannel.cpp
+/*
+* SPDX-License-Identifier: GPL-3.0-or-later
+ * SFDTool Copyright (C) 2026 Ryan Crepa
+ * MySerialChannel - SPRD VCOM Channel
+ */
+
 #include "MySerialChannel.h"
 #include "../core/app_state.h"
+#include "../common.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -9,7 +15,7 @@
 extern AppState g_app_state;
 
 // ------------------------------------------------------------
-// 构造 / 析构
+// 构造
 CMySerialChannel::CMySerialChannel()
     : m_hCom(INVALID_HANDLE_VALUE)
     , m_hStopEvent(NULL)
@@ -19,15 +25,22 @@ CMySerialChannel::CMySerialChannel()
     , m_ulMsgId(0)
     , m_bRcvThread(FALSE)
     , m_bAsyncMode(false)
-    , m_bRunning(false) {
+    , m_bRunning(false)
+    , m_hReadOvEvent(NULL)
+    , m_hWriteOvEvent(NULL)
+    , m_bOvInitialized(false) {
+    ZeroMemory(&m_readOv, sizeof(m_readOv));
+    ZeroMemory(&m_writeOv, sizeof(m_writeOv));
 }
 
+// ------------------------------------------------------------
+// 析构
 CMySerialChannel::~CMySerialChannel() {
     Close();
 }
 
 // ------------------------------------------------------------
-// 日志
+// 日志函数
 void CMySerialChannel::Log(const char* level, const char* fmt, ...) {
     if (!g_app_state.transport.channelLog) return;
     va_list args;
@@ -41,7 +54,11 @@ void CMySerialChannel::Log(const char* level, const char* fmt, ...) {
 
 // ------------------------------------------------------------
 // InitLog 空实现
-BOOL CMySerialChannel::InitLog(LPCWSTR, UINT, UINT, ISpLog*, LPCWSTR) {
+BOOL CMySerialChannel::InitLog(LPCWSTR /*pszLogName*/,
+                               UINT /*uiLogType*/,
+                               UINT /*uiLogLevel*/,
+                               ISpLog* /*pLogUtil*/,
+                               LPCWSTR /*pszBinLogFileExt*/) {
     Log("INFO", "InitLog called (no-op)");
     return TRUE;
 }
@@ -54,8 +71,7 @@ BOOL CMySerialChannel::SetReceiver(ULONG ulMsgId, BOOL bRcvThread, LPCVOID pRece
     m_ulMsgId = ulMsgId;
     m_bRcvThread = bRcvThread;
     if (bRcvThread) {
-        // pReceiver 是线程 ID (DWORD)，强制转换为 DWORD 存储为句柄
-        m_hTargetWnd = (HWND)(ULONG_PTR)pReceiver; // 为了存储方便，实际使用时强制转换
+        m_hTargetWnd = (HWND)(ULONG_PTR)pReceiver;
     } else {
         m_hTargetWnd = (HWND)pReceiver;
     }
@@ -63,10 +79,26 @@ BOOL CMySerialChannel::SetReceiver(ULONG ulMsgId, BOOL bRcvThread, LPCVOID pRece
     return TRUE;
 }
 
+// ------------------------------------------------------------
 void CMySerialChannel::GetReceiver(ULONG &ulMsgId, BOOL &bRcvThread, LPVOID &pReceiver) {
     ulMsgId = m_ulMsgId;
     bRcvThread = m_bRcvThread;
     pReceiver = (LPVOID)m_hTargetWnd;
+}
+
+// ------------------------------------------------------------
+// 设置超时（非阻塞读取 + 长写入超时）
+void CMySerialChannel::SetTimeouts() {
+    if (m_hCom == INVALID_HANDLE_VALUE) return;
+    COMMTIMEOUTS ct = {0};
+    // 读取：立即返回（非阻塞），让内部线程快速循环
+    ct.ReadIntervalTimeout = MAXDWORD;
+    ct.ReadTotalTimeoutMultiplier = 0;
+    ct.ReadTotalTimeoutConstant = 0;
+    // 写入：5 秒超时，避免大块传输中断
+    ct.WriteTotalTimeoutMultiplier = 10;
+    ct.WriteTotalTimeoutConstant = 5000;
+    SetCommTimeouts(m_hCom, &ct);
 }
 
 // ------------------------------------------------------------
@@ -81,13 +113,18 @@ BOOL CMySerialChannel::Open(PCCHANNEL_ATTRIBUTE pOpenArgument) {
     snprintf(portName, sizeof(portName), "\\\\.\\COM%lu", pOpenArgument->Com.dwPortNum);
     Log("INFO", "Opening %s at %lu baud", portName, pOpenArgument->Com.dwBaudRate);
 
-    m_hCom = CreateFileA(portName, GENERIC_READ | GENERIC_WRITE, 0, NULL,
-                         OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+    m_hCom = CreateFileA(portName,
+                         GENERIC_READ | GENERIC_WRITE,
+                         0, NULL,
+                         OPEN_EXISTING,
+                         FILE_FLAG_OVERLAPPED,
+                         NULL);
     if (m_hCom == INVALID_HANDLE_VALUE) {
         Log("ERROR", "CreateFile failed, error %lu", GetLastError());
         return FALSE;
     }
 
+    // 配置串口
     DCB dcb = {0};
     dcb.DCBlength = sizeof(DCB);
     if (!GetCommState(m_hCom, &dcb)) {
@@ -107,16 +144,32 @@ BOOL CMySerialChannel::Open(PCCHANNEL_ATTRIBUTE pOpenArgument) {
         return FALSE;
     }
 
-    SetTimeouts(0, 5000);
+    // 设置超时
+    SetTimeouts();
 
+    // 停止事件
     m_hStopEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
     if (!m_hStopEvent) {
-        Log("ERROR", "CreateEvent failed, error %lu", GetLastError());
+        Log("ERROR", "CreateEvent for stop failed, error %lu", GetLastError());
         Close();
         return FALSE;
     }
 
-    // 如果启用了异步模式，启动内部读取线程
+    // 创建重叠 I/O 事件（复用，避免频繁创建销毁）
+    m_hReadOvEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+    m_hWriteOvEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+    if (!m_hReadOvEvent || !m_hWriteOvEvent) {
+        Log("ERROR", "CreateEvent for overlap failed, error %lu", GetLastError());
+        Close();
+        return FALSE;
+    }
+    ZeroMemory(&m_readOv, sizeof(m_readOv));
+    ZeroMemory(&m_writeOv, sizeof(m_writeOv));
+    m_readOv.hEvent = m_hReadOvEvent;
+    m_writeOv.hEvent = m_hWriteOvEvent;
+    m_bOvInitialized = true;
+
+    // 启动内部读取线程（异步模式）
     if (m_bAsyncMode) {
         m_bRunning = true;
         m_hReadThread = CreateThread(NULL, 0, ReadThreadProc, this, 0, &m_dwThreadId);
@@ -157,7 +210,18 @@ void CMySerialChannel::Close() {
         m_hStopEvent = NULL;
     }
 
-    // 清空队列
+    // 清理重叠事件
+    if (m_hReadOvEvent) {
+        CloseHandle(m_hReadOvEvent);
+        m_hReadOvEvent = NULL;
+    }
+    if (m_hWriteOvEvent) {
+        CloseHandle(m_hWriteOvEvent);
+        m_hWriteOvEvent = NULL;
+    }
+    m_bOvInitialized = false;
+
+    // 清空数据池
     {
         std::lock_guard<std::mutex> lock(m_queueMutex);
         while (!m_dataQueue.empty()) m_dataQueue.pop();
@@ -184,7 +248,7 @@ BOOL CMySerialChannel::Clear() {
 }
 
 // ------------------------------------------------------------
-// Read（同步读取，从数据池取数据）
+// Read（从数据池取数据）
 DWORD CMySerialChannel::Read(LPVOID lpData, DWORD dwDataSize, DWORD dwTimeOut, DWORD /*dwReserved*/) {
     if (m_hCom == INVALID_HANDLE_VALUE || !lpData || dwDataSize == 0) {
         Log("WARN", "Read invalid parameters");
@@ -211,32 +275,35 @@ DWORD CMySerialChannel::Read(LPVOID lpData, DWORD dwDataSize, DWORD dwTimeOut, D
 }
 
 // ------------------------------------------------------------
-// Write
+// Write（复用重叠事件，支持大块写入）
 DWORD CMySerialChannel::Write(LPVOID lpData, DWORD dwDataSize, DWORD /*dwReserved*/) {
     if (m_hCom == INVALID_HANDLE_VALUE || !lpData || dwDataSize == 0) {
         Log("WARN", "Write invalid parameters");
         return 0;
     }
 
-    DWORD bytesWritten = 0;
-    OVERLAPPED ov = {0};
-    ov.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-    if (!ov.hEvent) {
-        Log("ERROR", "Write CreateEvent failed");
+    if (!m_bOvInitialized) {
+        Log("ERROR", "Write: overlap not initialized");
         return 0;
     }
 
-    if (!WriteFile(m_hCom, lpData, dwDataSize, &bytesWritten, &ov)) {
+    DWORD bytesWritten = 0;
+    ResetEvent(m_hWriteOvEvent);
+
+    if (!WriteFile(m_hCom, lpData, dwDataSize, &bytesWritten, &m_writeOv)) {
         DWORD err = GetLastError();
         if (err == ERROR_IO_PENDING) {
-            WaitForSingleObject(ov.hEvent, INFINITE);
-            GetOverlappedResult(m_hCom, &ov, &bytesWritten, FALSE);
+            WaitForSingleObject(m_hWriteOvEvent, INFINITE);
+            if (!GetOverlappedResult(m_hCom, &m_writeOv, &bytesWritten, FALSE)) {
+                Log("ERROR", "Write GetOverlappedResult failed, error=%lu", GetLastError());
+                bytesWritten = 0;
+            }
         } else {
-            Log("ERROR", "WriteFile failed, error %lu", err);
+            Log("ERROR", "WriteFile failed, error=%lu", err);
             bytesWritten = 0;
         }
     }
-    CloseHandle(ov.hEvent);
+
     Log("DEBUG", "Write returned %lu bytes", bytesWritten);
     return bytesWritten;
 }
@@ -252,97 +319,82 @@ void CMySerialChannel::FreeMem(LPVOID pMemBlock) {
 }
 
 // ------------------------------------------------------------
-// GetProperty / SetProperty
-BOOL CMySerialChannel::GetProperty(LONG, DWORD, LPVOID) { return FALSE; }
-BOOL CMySerialChannel::SetProperty(LONG, DWORD, LPCVOID) { return FALSE; }
-
-// ------------------------------------------------------------
-// SetTimeouts
-void CMySerialChannel::SetTimeouts(DWORD readInterval, DWORD readTotalConst) {
-    if (m_hCom == INVALID_HANDLE_VALUE) return;
-    COMMTIMEOUTS ct = {0};
-    ct.ReadIntervalTimeout = readInterval;
-    ct.ReadTotalTimeoutMultiplier = 0;
-    ct.ReadTotalTimeoutConstant = readTotalConst;
-    ct.WriteTotalTimeoutMultiplier = 10;
-    ct.WriteTotalTimeoutConstant = readTotalConst;
-    SetCommTimeouts(m_hCom, &ct);
+// GetProperty / SetProperty（空实现）
+BOOL CMySerialChannel::GetProperty(LONG /*lFlags*/, DWORD /*dwPropertyID*/, LPVOID /*pValue*/) {
+    return FALSE;
+}
+BOOL CMySerialChannel::SetProperty(LONG /*lFlags*/, DWORD /*dwPropertyID*/, LPCVOID /*pValue*/) {
+    return FALSE;
 }
 
 // ------------------------------------------------------------
-// 内部读取线程过程
+// ReadThreadProc（异步读取线程，复用读取重叠事件）
 DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
     CMySerialChannel* pThis = static_cast<CMySerialChannel*>(lpParam);
     pThis->Log("INFO", "ReadThread started");
 
-    OVERLAPPED ov = {0};
-    ov.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-    if (!ov.hEvent) {
+    if (!pThis->m_bOvInitialized) {
+        pThis->Log("ERROR", "ReadThread: overlap not initialized");
+        return 1;
+    }
+
+    OVERLAPPED waitOv = {0};
+    waitOv.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+    if (!waitOv.hEvent) {
         pThis->Log("ERROR", "ReadThread: CreateEvent for WaitCommEvent failed");
         return 1;
     }
 
     if (!SetCommMask(pThis->m_hCom, EV_RXCHAR)) {
         pThis->Log("ERROR", "ReadThread: SetCommMask failed");
-        CloseHandle(ov.hEvent);
+        CloseHandle(waitOv.hEvent);
         return 1;
     }
 
     while (pThis->m_bRunning) {
-        pThis->Log("DEBUG", "ReadThread: WaitCommEvent starting...");
-        if (!WaitCommEvent(pThis->m_hCom, NULL, &ov)) {
+        // 等待串口事件
+        if (!WaitCommEvent(pThis->m_hCom, NULL, &waitOv)) {
             if (GetLastError() == ERROR_IO_PENDING) {
-                pThis->Log("DEBUG", "ReadThread: WaitCommEvent pending, waiting...");
-                HANDLE waitHandles[2] = { ov.hEvent, pThis->m_hStopEvent };
+                HANDLE waitHandles[2] = { waitOv.hEvent, pThis->m_hStopEvent };
                 DWORD ret = WaitForMultipleObjects(2, waitHandles, FALSE, INFINITE);
                 if (ret == WAIT_OBJECT_0) {
-                    // WaitCommEvent 完成，无需调用 GetOverlappedResult
-                    pThis->Log("DEBUG", "ReadThread: WaitCommEvent event signaled");
                     if (!pThis->m_bRunning) break;
 
-                    // 准备读取数据
+                    // 读取数据（复用读取重叠事件）
                     BYTE buffer[4096];
                     DWORD bytesRead = 0;
-                    OVERLAPPED readOv = {0};
-                    readOv.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-                    if (!readOv.hEvent) {
-                        pThis->Log("ERROR", "ReadThread: CreateEvent for ReadFile failed");
-                        break;
-                    }
+                    ResetEvent(pThis->m_hReadOvEvent);
 
-                    pThis->Log("DEBUG", "ReadThread: calling ReadFile (overlapped)");
-                    if (!ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, &readOv)) {
+                    if (!ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, &pThis->m_readOv)) {
                         DWORD err = GetLastError();
                         if (err == ERROR_IO_PENDING) {
-                            pThis->Log("DEBUG", "ReadThread: ReadFile pending, waiting...");
-                            HANDLE readHandles[2] = { readOv.hEvent, pThis->m_hStopEvent };
+                            HANDLE readHandles[2] = { pThis->m_hReadOvEvent, pThis->m_hStopEvent };
                             DWORD readRet = WaitForMultipleObjects(2, readHandles, FALSE, INFINITE);
                             if (readRet == WAIT_OBJECT_0) {
-                                if (!GetOverlappedResult(pThis->m_hCom, &readOv, &bytesRead, FALSE)) {
-                                    pThis->Log("ERROR", "ReadThread: GetOverlappedResult for ReadFile failed, error=%lu", GetLastError());
-                                } else {
-                                    pThis->Log("DEBUG", "ReadThread: ReadFile completed, bytesRead=%lu", bytesRead);
+                                if (!GetOverlappedResult(pThis->m_hCom, &pThis->m_readOv, &bytesRead, FALSE)) {
+                                    pThis->Log("ERROR", "ReadThread: GetOverlappedResult failed, error=%lu", GetLastError());
                                 }
                             } else {
                                 CancelIo(pThis->m_hCom);
                                 pThis->Log("DEBUG", "ReadThread: ReadFile cancelled by stop event");
+                                continue;
                             }
                         } else {
                             pThis->Log("ERROR", "ReadThread: ReadFile failed, error=%lu", err);
+                            continue;
                         }
-                    } else {
-                        pThis->Log("DEBUG", "ReadThread: ReadFile completed immediately, bytesRead=%lu", bytesRead);
                     }
-                    CloseHandle(readOv.hEvent);
 
+                    // 处理数据
                     if (bytesRead > 0) {
-                        // 推入队列
+                        // 1. 推入数据池
                         {
                             std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
                             pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
                             pThis->m_dataAvailable.notify_one();
                         }
-                        // 发送原始数据给外部
+
+                        // 2. 发送给外部（如果设置了异步模式）
                         if (pThis->m_bAsyncMode) {
                             BYTE* copy = (BYTE*)malloc(bytesRead);
                             if (copy) {
@@ -360,7 +412,7 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                         }
                     }
                 } else {
-                    pThis->Log("DEBUG", "ReadThread: WaitCommEvent cancelled by stop event");
+                    // 停止事件
                     break;
                 }
             } else {
@@ -369,50 +421,44 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
             }
         } else {
             // WaitCommEvent 立即成功（罕见）
-            pThis->Log("DEBUG", "ReadThread: WaitCommEvent completed immediately");
             BYTE buffer[4096];
             DWORD bytesRead = 0;
-            OVERLAPPED readOv = {0};
-            readOv.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-            if (readOv.hEvent) {
-                if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, &readOv) ||
-                    (GetLastError() == ERROR_IO_PENDING &&
-                     WaitForSingleObject(readOv.hEvent, INFINITE) == WAIT_OBJECT_0 &&
-                     GetOverlappedResult(pThis->m_hCom, &readOv, &bytesRead, FALSE))) {
-                    pThis->Log("DEBUG", "ReadThread: immediate read completed, bytesRead=%lu", bytesRead);
-                    if (bytesRead > 0) {
-                        {
-                            std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
-                            pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
-                            pThis->m_dataAvailable.notify_one();
-                        }
-                        if (pThis->m_bAsyncMode) {
-                            BYTE* copy = (BYTE*)malloc(bytesRead);
-                            if (copy) {
-                                memcpy(copy, buffer, bytesRead);
-                                if (pThis->m_bRcvThread) {
-                                    PostThreadMessage((DWORD)(ULONG_PTR)pThis->m_hTargetWnd,
-                                                      pThis->m_ulMsgId,
-                                                      (WPARAM)copy, (LPARAM)bytesRead);
-                                } else {
-                                    PostMessage(pThis->m_hTargetWnd,
-                                                pThis->m_ulMsgId,
-                                                (WPARAM)copy, (LPARAM)bytesRead);
-                                }
+            ResetEvent(pThis->m_hReadOvEvent);
+
+            if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, &pThis->m_readOv) ||
+                (GetLastError() == ERROR_IO_PENDING &&
+                 WaitForSingleObject(pThis->m_hReadOvEvent, INFINITE) == WAIT_OBJECT_0 &&
+                 GetOverlappedResult(pThis->m_hCom, &pThis->m_readOv, &bytesRead, FALSE))) {
+                // 成功读取
+                if (bytesRead > 0) {
+                    {
+                        std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
+                        pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
+                        pThis->m_dataAvailable.notify_one();
+                    }
+                    if (pThis->m_bAsyncMode) {
+                        BYTE* copy = (BYTE*)malloc(bytesRead);
+                        if (copy) {
+                            memcpy(copy, buffer, bytesRead);
+                            if (pThis->m_bRcvThread) {
+                                PostThreadMessage((DWORD)(ULONG_PTR)pThis->m_hTargetWnd,
+                                                  pThis->m_ulMsgId,
+                                                  (WPARAM)copy, (LPARAM)bytesRead);
+                            } else {
+                                PostMessage(pThis->m_hTargetWnd,
+                                            pThis->m_ulMsgId,
+                                            (WPARAM)copy, (LPARAM)bytesRead);
                             }
                         }
                     }
-                } else {
-                    pThis->Log("ERROR", "ReadThread: immediate ReadFile failed, error=%lu", GetLastError());
                 }
-                CloseHandle(readOv.hEvent);
             } else {
-                pThis->Log("ERROR", "ReadThread: CreateEvent for immediate read failed");
+                pThis->Log("ERROR", "ReadThread: immediate ReadFile failed, error=%lu", GetLastError());
             }
         }
     }
 
-    CloseHandle(ov.hEvent);
+    CloseHandle(waitOv.hEvent);
     pThis->Log("INFO", "ReadThread exiting");
     return 0;
 }

@@ -1,4 +1,8 @@
-// MySerialChannel.h
+/*
+* SPDX-License-Identifier: GPL-3.0-or-later
+ * SFDTool Copyright (C) 2026 Ryan Crepa
+ * MySerialChannel - SPRD VCOM Channel
+ */
 #pragma once
 #include <windows.h>
 #include <atomic>
@@ -27,27 +31,29 @@ public:
     virtual BOOL SetProperty(LONG lFlags, DWORD dwPropertyID, LPCVOID pValue) override;
 
 private:
-    // 串口句柄
     HANDLE m_hCom;
-    // 停止事件（用于通知读取线程退出）
     HANDLE m_hStopEvent;
-    // 读取线程句柄和 ID
     HANDLE m_hReadThread;
     DWORD  m_dwThreadId;
-    // 接收目标（窗口或线程）
     HWND   m_hTargetWnd;
     ULONG  m_ulMsgId;
-    BOOL   m_bRcvThread;         // TRUE 表示线程，FALSE 表示窗口
-    bool   m_bAsyncMode;         // 是否启用异步推送
+    BOOL   m_bRcvThread;
+    bool   m_bAsyncMode;
     std::atomic<bool> m_bRunning;
 
-    // 数据池（用于同步 Read）
+    // 数据池
     std::queue<std::vector<BYTE>> m_dataQueue;
     std::mutex                    m_queueMutex;
     std::condition_variable       m_dataAvailable;
 
-    // 辅助函数
+    // 重叠 I/O 复用
+    OVERLAPPED m_readOv;
+    OVERLAPPED m_writeOv;
+    HANDLE     m_hReadOvEvent;
+    HANDLE     m_hWriteOvEvent;
+    bool       m_bOvInitialized;
+
     static DWORD WINAPI ReadThreadProc(LPVOID lpParam);
-    void SetTimeouts(DWORD readInterval, DWORD readTotalConst);
+    void SetTimeouts();
     void Log(const char* level, const char* fmt, ...);
 };
