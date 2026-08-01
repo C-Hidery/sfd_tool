@@ -351,7 +351,7 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
         return 1;
     }
 
-    const size_t MAX_QUEUE_PACKETS = 128;
+    const size_t MAX_QUEUE_PACKETS = 1024;
 
     while (pThis->m_bRunning) {
         if (!WaitCommEvent(pThis->m_hCom, NULL, &waitOv)) {
