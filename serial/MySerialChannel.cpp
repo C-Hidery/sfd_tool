@@ -262,7 +262,7 @@ void CMySerialChannel::SetTimeouts(DWORD readInterval, DWORD readTotalConst) {
     if (m_hCom == INVALID_HANDLE_VALUE) return;
     COMMTIMEOUTS ct = {0};
     ct.ReadIntervalTimeout = readInterval;
-    ct.ReadTotalTimeoutMultiplier = 10;
+    ct.ReadTotalTimeoutMultiplier = 0;
     ct.ReadTotalTimeoutConstant = readTotalConst;
     ct.WriteTotalTimeoutMultiplier = 10;
     ct.WriteTotalTimeoutConstant = readTotalConst;
@@ -289,12 +289,14 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
     }
 
     while (pThis->m_bRunning) {
+        pThis->Log("DEBUG", "ReadThread: Loop: Waiting for communication event");
         if (!WaitCommEvent(pThis->m_hCom, NULL, &ov)) {
             if (GetLastError() == ERROR_IO_PENDING) {
                 HANDLE waitHandles[2] = { ov.hEvent, pThis->m_hStopEvent };
                 DWORD ret = WaitForMultipleObjects(2, waitHandles, FALSE, INFINITE);
                 if (ret == WAIT_OBJECT_0) {
                     if (!pThis->m_bRunning) break;
+                    pThis->Log("DEBUG", "ReadThread: WaitForMultipleObjects completed");
                     // 读取数据
                     BYTE buffer[4096];
                     DWORD bytesRead = 0;
@@ -302,6 +304,7 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                         bytesRead > 0) {
                         // 1. 推入队列（供同步 Read 使用）
                         {
+                            pThis->Log("DEBUG", "ReadThread: loop: bytesRead %lu", bytesRead);
                             std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
                             pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
                             pThis->m_dataAvailable.notify_one();
@@ -319,11 +322,13 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                                     PostThreadMessage((DWORD)(ULONG_PTR)pThis->m_hTargetWnd,
                                                       pThis->m_ulMsgId,
                                                       (WPARAM)copy, (LPARAM)bytesRead);
+                                    pThis->Log("DEBUG", "ReadThread: PostThreadMessage completed");
                                 } else {
                                     // 发送到窗口
                                     PostMessage(pThis->m_hTargetWnd,
                                                 pThis->m_ulMsgId,
                                                 (WPARAM)copy, (LPARAM)bytesRead);
+                                    pThis->Log("DEBUG", "ReadThread: PostMessage completed");
                                 }
                             }
                         }
@@ -337,12 +342,14 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                 break;
             }
         } else {
+            pThis->Log("ERROR", "ReadThread: WaitCommEvent completed immediately");
             // WaitCommEvent 立即成功（罕见）
             BYTE buffer[4096];
             DWORD bytesRead;
             if (ReadFile(pThis->m_hCom, buffer, sizeof(buffer), &bytesRead, NULL) &&
                 bytesRead > 0) {
                 {
+                    pThis->Log("DEBUG", "ReadThread: loop: immediately: bytesRead %lu", bytesRead);
                     std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
                     pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
                     pThis->m_dataAvailable.notify_one();
@@ -355,10 +362,12 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                             PostThreadMessage((DWORD)(ULONG_PTR)pThis->m_hTargetWnd,
                                               pThis->m_ulMsgId,
                                               (WPARAM)copy, (LPARAM)bytesRead);
+                            pThis->Log("DEBUG", "ReadThread: immediately: PostThreadMessage completed");
                         } else {
                             PostMessage(pThis->m_hTargetWnd,
                                         pThis->m_ulMsgId,
                                         (WPARAM)copy, (LPARAM)bytesRead);
+                            pThis->Log("DEBUG", "ReadThread: immediately: PostMessage completed");
                         }
                     }
                 }
