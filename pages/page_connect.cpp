@@ -318,7 +318,8 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 				if (slider && GTK_IS_RANGE(slider)) {
 					gdouble min = 4096.0;
 					gdouble max = std::max(min, static_cast<gdouble>(effective_step));
-					if (max > 60000.0) gtk_range_set_range(GTK_RANGE(slider), min, max);
+					if (max <= min) max = 60000.0;
+					gtk_range_set_range(GTK_RANGE(slider), min, max);
 
 					gdouble value = static_cast<gdouble>(effective_step);
 					if (value < min) value = min;
@@ -876,12 +877,25 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 					if (sizeCon && GTK_IS_LABEL(sizeCon)) {
 						gtk_label_set_text(GTK_LABEL(sizeCon), std::to_string(effective_step).c_str());
 					}
-
+					if (io->part_count)
+					{
+						if (Da_Info.dwStorageType)
+						{
+							if (Da_Info.dwStorageType == 0x102 || Da_Info.dwStorageType == 0x103)
+							{
+								auto& s = GetGuiIoSettings();
+								s.manual_block_size = 0xf800;
+								blk_size = 0xf800;
+								effective_step = 0xf800;
+							}
+						}
+					}
 					GtkWidget* slider = helper.getWidget("blk_size");
 					if (slider && GTK_IS_RANGE(slider)) {
 						gdouble min = 4096.0;
 						gdouble max = std::max(min, static_cast<gdouble>(effective_step));
-						if (max > 60000.0) gtk_range_set_range(GTK_RANGE(slider), min, max);
+						if (max <= min) max = 60000.0;
+						gtk_range_set_range(GTK_RANGE(slider), min, max);
 
 						gdouble value = static_cast<gdouble>(effective_step);
 						if (value < min) value = min;

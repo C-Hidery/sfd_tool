@@ -524,7 +524,8 @@ void AdvancedSetPage::bindSignals(GtkWidgetHelper& helper) {
 		if (slider && GTK_IS_RANGE(slider)) {
 			gdouble min = 4096.0;
 			gdouble max = std::max(min, static_cast<gdouble>(s.manual_block_size));
-			if (max > 60000.0) gtk_range_set_range(GTK_RANGE(slider), min, max);
+			if (max <= min) max = 60000.0;
+			gtk_range_set_range(GTK_RANGE(slider), min, max);
 			gtk_range_set_value(GTK_RANGE(slider), s.manual_block_size);
 		}
 		LogBlkState("adv_set blk_reset");

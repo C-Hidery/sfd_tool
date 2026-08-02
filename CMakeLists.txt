@@ -54,6 +54,7 @@ endif()
 
 if (DEBUG_OP)
     add_compile_definitions(_DEBUG=1)
+    add_compile_options(-g)
 endif()
 
 # ================= 子目录模块 =================
