@@ -174,8 +174,11 @@ BOOL CMySerialChannel::Open(PCCHANNEL_ATTRIBUTE pOpenArgument) {
 
     // ----- 根据 m_bAsyncMode 和 io->m_dwRecvThreadID 决定同步/异步模式 -----
     spdio_t* io = g_app_state.transport.io;
-    // 异步条件：SetReceiver 被调用 且 外部有接收线程 (m_dwRecvThreadID != 0)
+#if !USE_LIBUSB
     bool asyncEnabled = (m_bAsyncMode && io && io->m_dwRecvThreadID != 0);
+#else
+    bool asyncEnabled = false; // libusb 模式下没有外部接收线程，始终同步
+#endif
     m_syncMode = !asyncEnabled;
 
     if (asyncEnabled) {
