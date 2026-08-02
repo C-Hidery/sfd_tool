@@ -1,3 +1,9 @@
+sfd-tool (2.6.5-1-ltv) unstable; urgency=medium
+
+  * 修复了一些已知问题
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sun, 02 Aug 2026 22:05:23 +0800
+
 sfd-tool (2.6.4-1-ltv) unstable; urgency=medium
 
   * Remove unstable blk_size detection

@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 2.6.4 LTV Edition
+Version 2.6.5 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -342,6 +342,9 @@ Enhanced partition list read
 
 ---v 2.6.4---
 Remove unstable blk_size detection
+
+---v 2.6.5---
+修复了一些已知问题
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
