@@ -318,6 +318,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 				if (slider && GTK_IS_RANGE(slider)) {
 					gdouble min = 4096.0;
 					gdouble max = std::max(min, static_cast<gdouble>(effective_step));
+					if (max > 60000.0) gtk_range_set_range(GTK_RANGE(slider), min, max);
 
 					gdouble value = static_cast<gdouble>(effective_step);
 					if (value < min) value = min;
@@ -880,6 +881,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 					if (slider && GTK_IS_RANGE(slider)) {
 						gdouble min = 4096.0;
 						gdouble max = std::max(min, static_cast<gdouble>(effective_step));
+						if (max > 60000.0) gtk_range_set_range(GTK_RANGE(slider), min, max);
 
 						gdouble value = static_cast<gdouble>(effective_step);
 						if (value < min) value = min;
