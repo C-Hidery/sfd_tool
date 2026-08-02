@@ -60,7 +60,7 @@ private:
     HANDLE     m_hWriteOvEvent;
     bool       m_bOvInitialized;
 
-    static const size_t MAX_QUEUE_PACKETS = 512; // 最大队列包数
+    static const size_t MAX_QUEUE_PACKETS = 1024; // 最大队列包数
 
     // 辅助函数
     static DWORD WINAPI ReadThreadProc(LPVOID lpParam);
