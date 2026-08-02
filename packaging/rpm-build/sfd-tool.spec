@@ -9,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        2.6.1
+Version:        2.6.2
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -63,6 +63,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Sun Aug 02 2026 RyanCrepa <Ryan110413@outlook.com> - 2.6.2-1-ltv
+- 修复Channel同步读写功能
+
 * Sat Aug 01 2026 RyanCrepa <Ryan110413@outlook.com> - 2.6.1-1-ltv
 - 修复Serial可能丢包的问题
 
