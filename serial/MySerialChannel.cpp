@@ -4,6 +4,7 @@
  * MySerialChannel - SPRD VCOM Channel
  */
 
+// MySerialChannel.cpp
 #include "MySerialChannel.h"
 #include "../core/app_state.h"
 #include "../common.h"
@@ -25,6 +26,7 @@ CMySerialChannel::CMySerialChannel()
     , m_ulMsgId(0)
     , m_bRcvThread(FALSE)
     , m_bAsyncMode(false)
+    , m_syncMode(true)   // 默认同步，直到 Open 时确定
     , m_bRunning(false)
     , m_hReadOvEvent(NULL)
     , m_hWriteOvEvent(NULL)
@@ -71,6 +73,7 @@ BOOL CMySerialChannel::SetReceiver(ULONG ulMsgId, BOOL bRcvThread, LPCVOID pRece
     m_ulMsgId = ulMsgId;
     m_bRcvThread = bRcvThread;
     if (bRcvThread) {
+        // pReceiver 是线程 ID (DWORD)
         m_hTargetWnd = (HWND)(ULONG_PTR)pReceiver;
     } else {
         m_hTargetWnd = (HWND)pReceiver;
@@ -169,8 +172,17 @@ BOOL CMySerialChannel::Open(PCCHANNEL_ATTRIBUTE pOpenArgument) {
     m_writeOv.hEvent = m_hWriteOvEvent;
     m_bOvInitialized = true;
 
-    // 启动内部读取线程（异步模式）
-    if (m_bAsyncMode) {
+    // ----- 根据 m_bAsyncMode 和 io->m_dwRecvThreadID 决定同步/异步模式 -----
+    spdio_t* io = g_app_state.transport.io;
+#if !USE_LIBUSB
+    bool asyncEnabled = (m_bAsyncMode && io && io->m_dwRecvThreadID != 0);
+#else
+    bool asyncEnabled = false; // libusb 模式下没有外部接收线程，始终同步
+#endif
+    m_syncMode = !asyncEnabled;
+
+    if (asyncEnabled) {
+        Log("INFO", "Async mode enabled (SetReceiver called, m_dwRecvThreadID=%lu)", io->m_dwRecvThreadID);
         m_bRunning = true;
         m_hReadThread = CreateThread(NULL, 0, ReadThreadProc, this, 0, &m_dwThreadId);
         if (!m_hReadThread) {
@@ -180,7 +192,12 @@ BOOL CMySerialChannel::Open(PCCHANNEL_ATTRIBUTE pOpenArgument) {
         }
         Log("INFO", "Async receive thread started (ID=%lu)", m_dwThreadId);
     } else {
-        Log("WARN", "Async mode not enabled, no receiver thread");
+        if (m_bAsyncMode) {
+            Log("WARN", "SetReceiver called but no external receiver thread (m_dwRecvThreadID=0), falling back to sync mode");
+        } else {
+            Log("INFO", "Sync mode (SetReceiver not called)");
+        }
+        // 不启动线程，Read 将使用同步读取
     }
 
     Log("INFO", "Open successful");
@@ -248,13 +265,66 @@ BOOL CMySerialChannel::Clear() {
 }
 
 // ------------------------------------------------------------
-// Read（从数据池取数据）
+// 同步读取（直接调用 ReadFile，用于同步模式）
+DWORD CMySerialChannel::SyncRead(LPVOID lpData, DWORD dwDataSize, DWORD dwTimeOut) {
+    if (m_hCom == INVALID_HANDLE_VALUE || !lpData || dwDataSize == 0) {
+        Log("WARN", "SyncRead invalid parameters");
+        return 0;
+    }
+
+    DWORD bytesRead = 0;
+    OVERLAPPED ov = {0};
+    ov.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+    if (!ov.hEvent) {
+        Log("ERROR", "SyncRead CreateEvent failed");
+        return 0;
+    }
+
+    if (!ReadFile(m_hCom, lpData, dwDataSize, &bytesRead, &ov)) {
+        DWORD err = GetLastError();
+        if (err == ERROR_IO_PENDING) {
+            DWORD wait = WaitForSingleObject(ov.hEvent, dwTimeOut);
+            if (wait == WAIT_OBJECT_0) {
+                if (!GetOverlappedResult(m_hCom, &ov, &bytesRead, FALSE)) {
+                    Log("ERROR", "SyncRead GetOverlappedResult failed, error=%lu", GetLastError());
+                    bytesRead = 0;
+                }
+            } else {
+                CancelIo(m_hCom);
+                WaitForSingleObject(ov.hEvent, INFINITE);
+                GetOverlappedResult(m_hCom, &ov, &bytesRead, FALSE);
+                bytesRead = 0;
+                Log("DEBUG", "SyncRead timeout after %lu ms", dwTimeOut);
+            }
+        } else {
+            Log("ERROR", "SyncRead ReadFile failed, error=%lu", err);
+            bytesRead = 0;
+        }
+    } else {
+        Log("DEBUG", "SyncRead completed immediately, bytesRead=%lu", bytesRead);
+    }
+
+    CloseHandle(ov.hEvent);
+    Log("DEBUG", "SyncRead returned %lu bytes", bytesRead);
+    return bytesRead;
+}
+
+// ------------------------------------------------------------
+// Read（根据同步/异步模式选择读取方式）
 DWORD CMySerialChannel::Read(LPVOID lpData, DWORD dwDataSize, DWORD dwTimeOut, DWORD /*dwReserved*/) {
     if (m_hCom == INVALID_HANDLE_VALUE || !lpData || dwDataSize == 0) {
         Log("WARN", "Read invalid parameters");
         return 0;
     }
 
+    // 同步模式：直接读取
+    if (m_syncMode) {
+        Log("DEBUG", "Read (sync) size=%lu, timeout=%lu", dwDataSize, dwTimeOut);
+        return SyncRead(lpData, dwDataSize, dwTimeOut);
+    }
+
+    // 异步模式：从数据池取数据
+    Log("DEBUG", "Read (async) size=%lu, timeout=%lu", dwDataSize, dwTimeOut);
     std::unique_lock<std::mutex> lock(m_queueMutex);
     bool hasData = m_dataAvailable.wait_for(lock, std::chrono::milliseconds(dwTimeOut),
         [this]() { return !m_dataQueue.empty() || !m_bRunning; });
@@ -351,8 +421,6 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
         return 1;
     }
 
-    const size_t MAX_QUEUE_PACKETS = 1024;
-
     while (pThis->m_bRunning) {
         if (!WaitCommEvent(pThis->m_hCom, NULL, &waitOv)) {
             if (GetLastError() == ERROR_IO_PENDING) {
@@ -361,7 +429,7 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                 if (ret == WAIT_OBJECT_0) {
                     if (!pThis->m_bRunning) break;
 
-                    // ---- 循环读取直到缓冲区为空 ----
+                    // 循环读取直到缓冲区为空
                     while (pThis->m_bRunning) {
                         BYTE buffer[4096];
                         DWORD bytesRead = 0;
@@ -388,12 +456,9 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                             }
                         }
 
-                        // 如果读到了 0 字节，说明缓冲区已空，退出循环
-                        if (bytesRead == 0) {
-                            break;
-                        }
+                        if (bytesRead == 0) break;
 
-                        // ---- 处理数据 ----
+                        // 推入数据池
                         {
                             std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
                             if (pThis->m_dataQueue.size() >= MAX_QUEUE_PACKETS) {
@@ -405,6 +470,7 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                             pThis->m_dataAvailable.notify_one();
                         }
 
+                        // 发送给外部（如果设置了异步模式）
                         if (pThis->m_bAsyncMode) {
                             BYTE* copy = (BYTE*)malloc(bytesRead);
                             if (copy) {
@@ -421,7 +487,6 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                             }
                         }
                     }
-                    // ---- 循环结束 ----
                 } else {
                     // 停止事件触发
                     break;
@@ -432,7 +497,6 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
             }
         } else {
             // WaitCommEvent 立即成功（罕见）
-            // 同样循环读取直到为空
             while (pThis->m_bRunning) {
                 BYTE buffer[4096];
                 DWORD bytesRead = 0;
@@ -443,10 +507,11 @@ DWORD WINAPI CMySerialChannel::ReadThreadProc(LPVOID lpParam) {
                      WaitForSingleObject(pThis->m_hReadOvEvent, INFINITE) == WAIT_OBJECT_0 &&
                      GetOverlappedResult(pThis->m_hCom, &pThis->m_readOv, &bytesRead, FALSE))) {
                     if (bytesRead == 0) break;
-                    // 处理数据
                     {
                         std::lock_guard<std::mutex> lock(pThis->m_queueMutex);
                         if (pThis->m_dataQueue.size() >= MAX_QUEUE_PACKETS) {
+                        pThis->Log("WARN", "Queue overflow, dropping oldest packet (size=%zu)",
+                                           pThis->m_dataQueue.size());
                             pThis->m_dataQueue.pop();
                         }
                         pThis->m_dataQueue.emplace(buffer, buffer + bytesRead);
