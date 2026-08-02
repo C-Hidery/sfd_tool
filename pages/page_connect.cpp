@@ -235,38 +235,6 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 				helper.setLabelText(helper.getWidget("storage_mode"),"Nand");
 			});
 		}
-
-		// 如果已经探测到设备默认块大小（如 UFS 上的 0xF800），同步更新高级设置页中的显示，
-		// 让“数据块大小”滑块与数值直接反映统一后的默认步长（例如 63488）。
-		// 如果已经探测到设备默认块大小并成功刷新分区表，则允许用户调整数据块大小
-		if (io->part_count > 0 || io->part_count_c > 0) {
-			gui_idle_call([&]() mutable {
-				auto cfg = MakeBlockSizeConfigFromGui();
-				uint32_t effective_step = cfg.manual_block_size;
-
-				GtkWidget* sizeCon = helper.getWidget("size_con");
-				if (sizeCon && GTK_IS_LABEL(sizeCon)) {
-					gtk_label_set_text(GTK_LABEL(sizeCon), std::to_string(effective_step).c_str());
-				}
-
-				GtkWidget* slider = helper.getWidget("blk_size");
-				if (slider && GTK_IS_RANGE(slider)) {
-					gdouble min = 10000.0;
-					gdouble max = std::max(min, static_cast<gdouble>(effective_step));
-					gtk_range_set_range(GTK_RANGE(slider), min, max);
-
-					gdouble value = static_cast<gdouble>(effective_step);
-					if (value < min) value = min;
-					if (value > max) value = max;
-					gtk_range_set_value(GTK_RANGE(slider), value);
-				}
-
-				helper.enableWidget("blk_size");
-				helper.enableWidget("blk_reset");
-
-				LogBlkState("connect_update_blk_ui");
-			});
-		}
 		if (g_app_state.flash.gpt_failed != 1) {
 			if (g_app_state.flash.selected_ab == 2) {
 
@@ -311,11 +279,57 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 		if (!io->part_count && !io->part_count_c) {
 			DEG_LOG(W, "No partition table found on current device");
 			confirm_partition_c(helper);
+			if (!io->Cptable && io->part_count)
+			{
+				std::vector<sfd::DevicePartitionInfo> partitions;
+				partitions.reserve(io->part_count);
+				for (int i = 0; i < io->part_count; i++) {
+					sfd::DevicePartitionInfo info{};
+					info.name = io->ptable[i].name;
+					info.size = (std::uint64_t)io->ptable[i].size;
+					info.readable = true;
+					info.writable = true;
+					partitions.push_back(info);
+				}
+				gui_idle_call_wait_drag([helper, partitions]() mutable {
+					populatePartitionList(helper, partitions);
+				},GTK_WINDOW(helper.getWidget("main_window")));
+			}
 		}
 		if (nand_id == DEFAULT_NAND_ID) {
 			nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
 			nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
 			nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+		}
+		// 如果已经探测到设备默认块大小（如 UFS 上的 0xF800），同步更新高级设置页中的显示，
+		// 让“数据块大小”滑块与数值直接反映统一后的默认步长（例如 63488）。
+		// 如果已经探测到设备默认块大小并成功刷新分区表，则允许用户调整数据块大小
+		if (io->part_count > 0 || io->part_count_c > 0) {
+			gui_idle_call([&]() mutable {
+				auto cfg = MakeBlockSizeConfigFromGui();
+				uint32_t effective_step = cfg.manual_block_size;
+
+				GtkWidget* sizeCon = helper.getWidget("size_con");
+				if (sizeCon && GTK_IS_LABEL(sizeCon)) {
+					gtk_label_set_text(GTK_LABEL(sizeCon), std::to_string(effective_step).c_str());
+				}
+
+				GtkWidget* slider = helper.getWidget("blk_size");
+				if (slider && GTK_IS_RANGE(slider)) {
+					gdouble min = 4096.0;
+					gdouble max = std::max(min, static_cast<gdouble>(effective_step));
+
+					gdouble value = static_cast<gdouble>(effective_step);
+					if (value < min) value = min;
+					if (value > max) value = max;
+					gtk_range_set_value(GTK_RANGE(slider), value);
+				}
+
+				helper.enableWidget("blk_size");
+				helper.enableWidget("blk_reset");
+
+				LogBlkState("connect_update_blk_ui");
+			});
 		}
 		fdl2_executed = 1;
 		g_app_state.device.device_stage = FDL2;
@@ -327,7 +341,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper) {
 		bottom_bar_set_status("Ready");
 		},GTK_WINDOW(helper.getWidget("main_window")));
 
-		if(!(helper.getSwitchState(helper.getWidget("exec_addr"))) && g_app_state.device.device_mode == SPRD3)
+		if(!(helper.getSwitchState(helper.getWidget("exec_addr"))) && g_app_state.device.device_mode != SPRD4)
 		{
 
 			// 同步写入 AppConfig，交由 ConfigService 管理“最近使用的 FDL”
@@ -761,13 +775,25 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 				io->verbose = -1;
 				g_spl_size = check_partition(io, "splloader", 1);
 				io->verbose = o;
-				if (isUseCptable) {
-					io->Cptable = partition_list_d(io);
-					isCMethod = 1;
-				}
-				if (!isUseCptable && !io->part_count) {
+				if (!io->part_count) {
 					DEG_LOG(W, "No partition table found on current device");
 					confirm_partition_c(helper);
+					if (!io->Cptable && io->part_count)
+					{
+						std::vector<sfd::DevicePartitionInfo> partitions;
+						partitions.reserve(io->part_count);
+						for (int i = 0; i < io->part_count; i++) {
+							sfd::DevicePartitionInfo info{};
+							info.name = io->ptable[i].name;
+							info.size = (std::uint64_t)io->ptable[i].size;
+							info.readable = true;
+							info.writable = true;
+							partitions.push_back(info);
+						}
+						gui_idle_call_wait_drag([helper, partitions]() mutable {
+							populatePartitionList(helper, partitions);
+						},GTK_WINDOW(helper.getWidget("main_window")));
+					}
 				}
 				if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
 				if (nand_id == DEFAULT_NAND_ID) {
@@ -836,7 +862,38 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv) {
 	gui_idle_call_wait_drag([=]() mutable {
 		if (g_app_state.device.device_stage == FDL2) bottom_bar_set_status("Ready");
 		else bottom_bar_set_status("Connected");
-		Enable_Startup(helper);
+		if (g_app_state.device.device_stage != FDL2) Enable_Startup(helper);
+		else EnableWidgets(helper);
+		if (g_app_state.device.device_stage == FDL2)
+		{
+			if (io->part_count > 0 || io->part_count_c > 0) {
+				gui_idle_call([&]() mutable {
+					auto cfg = MakeBlockSizeConfigFromGui();
+					uint32_t effective_step = cfg.manual_block_size;
+
+					GtkWidget* sizeCon = helper.getWidget("size_con");
+					if (sizeCon && GTK_IS_LABEL(sizeCon)) {
+						gtk_label_set_text(GTK_LABEL(sizeCon), std::to_string(effective_step).c_str());
+					}
+
+					GtkWidget* slider = helper.getWidget("blk_size");
+					if (slider && GTK_IS_RANGE(slider)) {
+						gdouble min = 4096.0;
+						gdouble max = std::max(min, static_cast<gdouble>(effective_step));
+
+						gdouble value = static_cast<gdouble>(effective_step);
+						if (value < min) value = min;
+						if (value > max) value = max;
+						gtk_range_set_value(GTK_RANGE(slider), value);
+					}
+
+					helper.enableWidget("blk_size");
+					helper.enableWidget("blk_reset");
+
+					LogBlkState("connect_update_blk_ui");
+				});
+			}
+		}
 		update_mode_label_from_device_service(helper);
 	},GTK_WINDOW(helper.getWidget("main_window")));
 	if (!fdl2_executed) {

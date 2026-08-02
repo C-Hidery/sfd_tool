@@ -75,10 +75,7 @@ void ResetBlockSizeToDefault() {
     // 重置为当前握手得到的默认块大小（例如 0xF800）。
     s.mode = sfd::BlockSizeMode::AUTO_DEFAULT;
     s.manual_block_size = g_default_blk_size > 0 ? (uint32_t)g_default_blk_size : DEFAULT_BLK_SIZE;
-
-    // legacy 全局 blk_size 置 0，触发所有旧代码路径中的
-    // `blk_size ? blk_size : DEFAULT_BLK_SIZE` 使用握手默认值。
-    blk_size = 0;
+    blk_size = g_default_blk_size > 0 ? (uint32_t)g_default_blk_size : DEFAULT_BLK_SIZE;
     LogBlkState("reset_blk_size");
 }
 
@@ -98,9 +95,6 @@ void Enable_Startup(GtkWidgetHelper helper) {
 	helper.enableWidget("raw_data_en");
 	helper.enableWidget("raw_data_dis");
 	if (g_app_state.device.device_stage == BROM) helper.enableWidget("pac_flash_start"); //BROM下允许使用PAC烧录功能
-	// 启动时禁止修改数据块大小，只有在成功连接设备并刷新分区表后才允许操作
-	helper.disableWidget("blk_size");
-	helper.disableWidget("blk_reset");
 }
 
 void EnableWidgets(GtkWidgetHelper helper) {
