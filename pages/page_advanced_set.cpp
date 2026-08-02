@@ -211,7 +211,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     // 从当前 GUI 配置初始化滑条和数值显示
     auto cfg = MakeBlockSizeConfigFromGui();
     uint32_t effective_step = cfg.manual_block_size;
-    gdouble slider_min = 10000.0;
+    gdouble slider_min = 4096.0;
     gdouble slider_max = 60000.0;
     uint32_t slider_step = effective_step ? effective_step : static_cast<uint32_t>(slider_min);
     if (slider_step < static_cast<uint32_t>(slider_min)) slider_step = static_cast<uint32_t>(slider_min);
@@ -522,9 +522,8 @@ void AdvancedSetPage::bindSignals(GtkWidgetHelper& helper) {
 		gtk_label_set_text(GTK_LABEL(sc), std::to_string(s.manual_block_size).c_str());
 		GtkWidget* slider = helper.getWidget("blk_size");
 		if (slider && GTK_IS_RANGE(slider)) {
-			gdouble min = 10000.0;
+			gdouble min = 4096.0;
 			gdouble max = std::max(min, static_cast<gdouble>(s.manual_block_size));
-			gtk_range_set_range(GTK_RANGE(slider), min, max);
 			gtk_range_set_value(GTK_RANGE(slider), s.manual_block_size);
 		}
 		LogBlkState("adv_set blk_reset");
