@@ -9,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        2.6.3
+Version:        2.6.4
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -63,6 +63,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Sun Aug 02 2026 RyanCrepa <Ryan110413@outlook.com> - 2.6.4-1-ltv
+- Remove unstable blk_size detection
+
 * Sun Aug 02 2026 RyanCrepa <Ryan110413@outlook.com> - 2.6.3-1-ltv
 - 修复了分区表显示问题和块大小设置问题
 
