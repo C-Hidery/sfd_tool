@@ -267,6 +267,7 @@ BOOL CMySerialChannel::Clear() {
 // ------------------------------------------------------------
 // 同步读取（直接调用 ReadFile，用于同步模式）
 DWORD CMySerialChannel::SyncRead(LPVOID lpData, DWORD dwDataSize, DWORD dwTimeOut) {
+    std::lock_guard<std::mutex> lock(m_serialMutex);
     if (m_hCom == INVALID_HANDLE_VALUE || !lpData || dwDataSize == 0) {
         Log("WARN", "SyncRead invalid parameters");
         return 0;
@@ -347,6 +348,7 @@ DWORD CMySerialChannel::Read(LPVOID lpData, DWORD dwDataSize, DWORD dwTimeOut, D
 // ------------------------------------------------------------
 // Write（复用重叠事件，支持大块写入）
 DWORD CMySerialChannel::Write(LPVOID lpData, DWORD dwDataSize, DWORD /*dwReserved*/) {
+    std::lock_guard<std::mutex> lock(m_serialMutex);
     if (m_hCom == INVALID_HANDLE_VALUE || !lpData || dwDataSize == 0) {
         Log("WARN", "Write invalid parameters");
         return 0;
@@ -389,12 +391,64 @@ void CMySerialChannel::FreeMem(LPVOID pMemBlock) {
 }
 
 // ------------------------------------------------------------
-// GetProperty / SetProperty（空实现）
-BOOL CMySerialChannel::GetProperty(LONG /*lFlags*/, DWORD /*dwPropertyID*/, LPVOID /*pValue*/) {
-    return FALSE;
+// SetProperty：设置通道属性（目前支持波特率修改）
+BOOL CMySerialChannel::SetProperty(LONG lFlags, DWORD dwPropertyID, LPCVOID pValue) {
+    // 目前只支持设置波特率 (dwPropertyID == 100)
+    std::lock_guard<std::mutex> lock(m_serialMutex);
+    if (dwPropertyID != 100) {
+        Log("WARN", "SetProperty: unknown property ID %lu", dwPropertyID);
+        return FALSE;
+    }
+    if (!pValue) {
+        Log("ERROR", "SetProperty: pValue is NULL");
+        return FALSE;
+    }
+    if (m_hCom == INVALID_HANDLE_VALUE) {
+        Log("ERROR", "SetProperty: invalid handle");
+        return FALSE;
+    }
+
+    DWORD newBaudRate = *(DWORD*)pValue;
+    DCB dcb = {0};
+    dcb.DCBlength = sizeof(DCB);
+    if (!GetCommState(m_hCom, &dcb)) {
+        Log("ERROR", "SetProperty: GetCommState failed, error=%lu", GetLastError());
+        return FALSE;
+    }
+    dcb.BaudRate = newBaudRate;
+    if (!SetCommState(m_hCom, &dcb)) {
+        Log("ERROR", "SetProperty: SetCommState failed, error=%lu", GetLastError());
+        return FALSE;
+    }
+    Log("INFO", "SetProperty: baudrate changed to %lu", newBaudRate);
+    return TRUE;
 }
-BOOL CMySerialChannel::SetProperty(LONG /*lFlags*/, DWORD /*dwPropertyID*/, LPCVOID /*pValue*/) {
-    return FALSE;
+
+// ------------------------------------------------------------
+// GetProperty：获取通道属性（目前支持获取当前波特率）
+BOOL CMySerialChannel::GetProperty(LONG lFlags, DWORD dwPropertyID, LPVOID pValue) {
+    if (dwPropertyID != 100) {
+        Log("WARN", "GetProperty: unknown property ID %lu", dwPropertyID);
+        return FALSE;
+    }
+    if (!pValue) {
+        Log("ERROR", "GetProperty: pValue is NULL");
+        return FALSE;
+    }
+    if (m_hCom == INVALID_HANDLE_VALUE) {
+        Log("ERROR", "GetProperty: invalid handle");
+        return FALSE;
+    }
+
+    DCB dcb = {0};
+    dcb.DCBlength = sizeof(DCB);
+    if (!GetCommState(m_hCom, &dcb)) {
+        Log("ERROR", "GetProperty: GetCommState failed, error=%lu", GetLastError());
+        return FALSE;
+    }
+    *(DWORD*)pValue = dcb.BaudRate;
+    Log("DEBUG", "GetProperty: current baudrate = %lu", dcb.BaudRate);
+    return TRUE;
 }
 
 // ------------------------------------------------------------
