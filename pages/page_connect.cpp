@@ -275,7 +275,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper)
         else if (Da_Info.dwStorageType == 0x101)
         {
             DEG_LOG(I, "Storage is nand.");
-            gui_idle_call([&]() mutable
+            gui_idle_call([=]() mutable
             {
                 helper.setLabelText(helper.getWidget("storage_mode"), "Nand");
             });
@@ -367,7 +367,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper)
         // 如果已经探测到设备默认块大小并成功刷新分区表，则允许用户调整数据块大小
         if (io->part_count > 0 || io->part_count_c > 0)
         {
-            gui_idle_call([&]() mutable
+            gui_idle_call([=]() mutable
             {
                 auto cfg = MakeBlockSizeConfigFromGui();
                 uint32_t effective_step = cfg.manual_block_size;
