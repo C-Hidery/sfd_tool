@@ -52,7 +52,9 @@ private:
     std::queue<std::vector<BYTE>> m_dataQueue;
     std::mutex                    m_queueMutex;
     std::condition_variable       m_dataAvailable;
-
+    
+    std::mutex m_serialMutex;   // 保护串口操作（Write, SyncRead, SetProperty）
+    
     // 重叠 I/O 复用（用于 Write 和同步 Read）
     OVERLAPPED m_readOv;
     OVERLAPPED m_writeOv;
