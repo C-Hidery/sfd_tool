@@ -167,8 +167,9 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper)
                 return;
             }
             fi.close();
-            if (g_app_state.device.device_mode == SPRD3) send_file(io, fdl_path, fdl_addr, end_data,
-                                                                   blk_size ? blk_size : 528, 0, 0);
+            if (g_app_state.device.device_mode == SPRD3)
+                send_file(io, fdl_path, fdl_addr, end_data,
+                          blk_size ? blk_size : 528, 0, 0);
             else send_file(io, fdl_path, fdl_addr, 0, 528, 0, 0);
         }
         else
@@ -274,7 +275,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper)
         else if (Da_Info.dwStorageType == 0x101)
         {
             DEG_LOG(I, "Storage is nand.");
-            gui_idle_call([&]() mutable
+            gui_idle_call([=]() mutable
             {
                 helper.setLabelText(helper.getWidget("storage_mode"), "Nand");
             });
@@ -366,7 +367,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper)
         // 如果已经探测到设备默认块大小并成功刷新分区表，则允许用户调整数据块大小
         if (io->part_count > 0 || io->part_count_c > 0)
         {
-            gui_idle_call([&]() mutable
+            gui_idle_call([=]() mutable
             {
                 auto cfg = MakeBlockSizeConfigFromGui();
                 uint32_t effective_step = cfg.manual_block_size;
@@ -791,8 +792,9 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv)
                 DBG_LOG("Cost: %.1f, Found: %d\n", (float)i / REOPEN_FREQ, curPort);
             if (curPort)
             {
-                if (!call_ConnectChannel(io->handle, curPort, WM_RCV_CHANNEL_DATA, io->m_dwRecvThreadID)) ERR_EXIT(
-                    "Connection failed\n");
+                if (!call_ConnectChannel(io->handle, curPort, WM_RCV_CHANNEL_DATA, io->m_dwRecvThreadID))
+                    ERR_EXIT(
+                        "Connection failed\n");
                 break;
             }
             if (!(i % 4))
@@ -847,9 +849,10 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv)
                 ret = io->recv_buf[2];
                 io->recv_buf[2] = 0;
             }
-            else ERR_EXIT(
-                "Failed to connect to device: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n",
-                o_exception);
+            else
+                ERR_EXIT(
+                    "Failed to connect to device: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n",
+                    o_exception);
         }
         else
         {
@@ -1056,35 +1059,32 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv)
         {
             if (io->part_count > 0 || io->part_count_c > 0)
             {
-                gui_idle_call([&]() mutable
+                auto cfg = MakeBlockSizeConfigFromGui();
+                uint32_t effective_step = cfg.manual_block_size;
+
+                GtkWidget* sizeCon = helper.getWidget("size_con");
+                if (sizeCon && GTK_IS_LABEL(sizeCon))
                 {
-                    auto cfg = MakeBlockSizeConfigFromGui();
-                    uint32_t effective_step = cfg.manual_block_size;
+                    gtk_label_set_text(GTK_LABEL(sizeCon), std::to_string(effective_step).c_str());
+                }
+                GtkWidget* slider = helper.getWidget("blk_size");
+                if (slider && GTK_IS_RANGE(slider))
+                {
+                    gdouble min = 4096.0;
+                    gdouble max = std::max(min, static_cast<gdouble>(effective_step));
+                    if (max <= min) max = 60000.0;
+                    gtk_range_set_range(GTK_RANGE(slider), min, max);
 
-                    GtkWidget* sizeCon = helper.getWidget("size_con");
-                    if (sizeCon && GTK_IS_LABEL(sizeCon))
-                    {
-                        gtk_label_set_text(GTK_LABEL(sizeCon), std::to_string(effective_step).c_str());
-                    }
-                    GtkWidget* slider = helper.getWidget("blk_size");
-                    if (slider && GTK_IS_RANGE(slider))
-                    {
-                        gdouble min = 4096.0;
-                        gdouble max = std::max(min, static_cast<gdouble>(effective_step));
-                        if (max <= min) max = 60000.0;
-                        gtk_range_set_range(GTK_RANGE(slider), min, max);
+                    gdouble value = static_cast<gdouble>(effective_step);
+                    if (value < min) value = min;
+                    if (value > max) value = max;
+                    gtk_range_set_value(GTK_RANGE(slider), value);
+                }
 
-                        gdouble value = static_cast<gdouble>(effective_step);
-                        if (value < min) value = min;
-                        if (value > max) value = max;
-                        gtk_range_set_value(GTK_RANGE(slider), value);
-                    }
+                helper.enableWidget("blk_size");
+                helper.enableWidget("blk_reset");
 
-                    helper.enableWidget("blk_size");
-                    helper.enableWidget("blk_reset");
-
-                    LogBlkState("connect_update_blk_ui");
-                });
+                LogBlkState("connect_update_blk_ui");
             }
         }
         update_mode_label_from_device_service(helper);
