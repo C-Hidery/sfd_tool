@@ -1,3 +1,9 @@
+sfd-tool (2.6.6-1-ltv) unstable; urgency=medium
+
+  * 修复了Channel波特率设置问题
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Mon, 03 Aug 2026 11:58:06 +0800
+
 sfd-tool (2.6.5-1-ltv) unstable; urgency=medium
 
   * 修复了一些已知问题
