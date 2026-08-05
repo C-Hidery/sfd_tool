@@ -1053,8 +1053,8 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv)
     {
         if (g_app_state.device.device_stage == FDL2) bottom_bar_set_status("Ready");
         else bottom_bar_set_status("Connected");
-        if (g_app_state.device.device_stage != FDL2) Enable_Startup(helper);
-        else EnableWidgets(helper);
+        Enable_Startup(helper);
+        if (g_app_state.device.device_stage == FDL2) EnableWidgets(helper);
         if (g_app_state.device.device_stage == FDL2)
         {
             if (io->part_count > 0 || io->part_count_c > 0)
