@@ -331,3 +331,4 @@ void merge_nv(spdio_t *io, const uint8_t *a, size_t a_size, const uint8_t *b,
 int my_stricmp(const char* s1, const char* s2);
 char* my_stristr(const char* haystack, const char* needle);
 int my_strnicmp(const char* s1, const char* s2, size_t len);
+void w_force_repair_prev(partition_t *ptable, int part_count, int i);

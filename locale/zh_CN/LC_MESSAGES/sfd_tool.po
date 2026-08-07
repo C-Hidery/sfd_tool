@@ -1212,3 +1212,9 @@ msgstr "选择"
 
 msgid "Partition list found in device, compatibility-method mode is disabled."
 msgstr "在设备上重新找到了分区表，兼容模式已被关闭。"
+
+msgid "Do you want to repair the leftover w_force partition name?"
+msgstr "您是否要修复剩余的 w_force 分区名称？"
+
+msgid "w_force partition detected in Compatibility-method mode, please check the partitions!"
+msgstr "在兼容性模式中查找到了 w_force 分区， 请手动修复分区表！"
