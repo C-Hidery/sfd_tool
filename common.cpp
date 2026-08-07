@@ -6,6 +6,8 @@
 #include "ui/layout/bottom_bar.h"
 #include "pages/page_pac_flash.h"
 #include <functional>
+
+#include "i18n.h"
 #if defined(__linux__) || defined(__APPLE__)
 #include <sys/stat.h>
 #ifndef _POSIX_C_SOURCE
@@ -676,6 +678,77 @@ int scan_xml_partitions(spdio_t *io, const char *fn, uint8_t *buf, size_t buf_si
 #define MAX_SECTORS 32
 
 static int& selected_ab = g_app_state.flash.selected_ab;
+
+std::vector<int> w_force_ids;
+
+/*
+   Derive the original _a/_b name of leftover "w_force" partition from its
+   id-1...id+1 neighbours. When w_force forces VAB partitions, so:
+  		w_force replaced X_a -> right neighbours is X_b.
+  		w_force replaced X_b -> left neighbours is X_a.
+   returns 1 and fills out on success, 0 if the original name cannot be
+   determined (not VAB partitions or ambiguous).
+ */
+int w_force_derive_name(const char *left, const char *cur, const char *right, char *out, size_t out_size)
+{
+	size_t left_len = left ? strlen(left) : 0;
+	size_t right_len = right ? strlen(right) : 0;
+	char cand[2][36] = {
+		{0}, {0}
+	};
+	int n = 0;
+	if (!cur || strcmp(cur, "w_force") != 0) return 0;
+	if (right && right_len > 2 && strcmp(right + right_len - 2, "_b") == 0)
+	{
+		snprintf(cand[n++], sizeof(cand[0]), "%.*s_a", (int)(right_len - 2), right);
+	}
+	if (left && left_len > 2 && strcmp(left + left_len - 2, "_a") == 0)
+	{
+		snprintf(cand[n++], sizeof(cand[0]), "%.*s_b", (int)(left_len - 2), left);
+	}
+	if (n == 0) return 0;
+	if (n == 2 && strcmp(cand[0], cand[1]) != 0) return 0; // ambiguous
+	snprintf(out, out_size, "%s", cand[0]);
+	return 1;
+}
+/*
+   called inside the parse loop right after ptable[i] has been filled
+   (the id+1 iteration): if the previous partition ptable[i-1] is a leftover
+   "w_force", repair it in-place from its id-1...id+1 neighbours.
+ */
+void w_force_repair_prev(partition_t *ptable, int part_count, int i)
+{
+	if (!ptable) return;
+	char orig[36] = { 0 };
+	if (i <= 0 || i > part_count || memchr(ptable[i - 1].name, 0, 36) == nullptr) return;
+	if (strcmp(ptable[i - 1].name, "w_force") != 0) return;
+	if (w_force_derive_name(i > 1 ? ptable[i - 2].name : nullptr, ptable[i - 1].name, i < part_count ? ptable[i].name : nullptr, orig, sizeof(orig)))
+	{
+		bool is_allowed_to_repair = false;
+		if (isHelperInit)
+		{
+			is_allowed_to_repair = showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Do you want to repair the leftover w_force partition name?"));
+		}
+		else
+		{
+			std::string n;
+			std::cout << "Do you want to repair the leftover w_force partition name (Y/n)?" << std::endl;
+			std::cin >> n;
+			is_allowed_to_repair = (n == "y" || n == "Y");
+		}
+		if (is_allowed_to_repair)
+		{
+			DEG_LOG(I, "Repairing leftover w_force partition #%u name to: %s", i - 1, orig);
+			snprintf(ptable[i - 1].name, sizeof(ptable[i - 1].name), "%s", orig);
+			w_force_ids.emplace_back(i - 1);
+		}
+	}
+	else
+	{
+		DEG_LOG(W, "Cannot parse the original name at partition #%u.", i - 1);
+	}
+}
+
 int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
 	EnhancedFile fp = my_oxfopen_enhanced("pgpt.bin", "rb");
 	if (!fp) {
@@ -764,6 +837,10 @@ int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
 				selected_ab = 1;
 			}
 		}
+		if (i > 0 && strcmp((*(ptable + i - 1)).name, "w_force") == 0)
+		{
+			w_force_repair_prev(ptable, n, i);
+		}
 	}
 
 	if (needSave) {
@@ -785,6 +862,7 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 	int ret; uint8_t *p;
 	partition_t *ptable = NEWN partition_t[128];
 	if (ptable == nullptr) return nullptr;
+	w_force_ids.clear();
 
 	DEG_LOG(OP,"Reading partition table...\n");
 	if (selected_ab < 0) select_ab(io);
@@ -848,6 +926,7 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 			if (ret) ERR_EXIT("bad partition name\n");
 			size = READ32_LE(p + 0x48);
 			(*(ptable + i)).size = (long long)size << (20 - divisor);
+
 			DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(ptable + i)).name, 
 					((*(ptable + i)).size >> 20));
 			
@@ -857,13 +936,13 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 				
 				if (i + 1 == n) {
 					partitionNode->setAttribute("size", "0xffffffff");
-				} else {
+				} else
+				{
 					char sizeStr[32];
 					snprintf(sizeStr, sizeof(sizeStr), "%lld", 
 							((*(ptable + i)).size >> 20));
 					partitionNode->setAttribute("size", sizeStr);
 				}
-				
 				root->addChild(partitionNode);
 			}
 			
@@ -872,6 +951,10 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 				if (namelen > 2 && 0 == strcmp((*(ptable + i)).name + namelen - 2, "_a")) {
 					selected_ab = 1;
 				}
+			}
+			if (i > 0 && strcmp((*(ptable + i - 1)).name, "w_force") == 0)
+			{
+				w_force_repair_prev(ptable, n, i);
 			}
 		}
 
@@ -900,6 +983,19 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 		    if (isHelperInit) gui_idle_call([]() mutable {
 				helper.setLabelText(helper.getWidget("storage_mode"),"Ufs");
 			});
+		}
+		get_partition_info(io, "w_force", 1);
+		if (gPartInfo.size)
+		{
+			DEG_LOG(W,"w_force partition detected, please check the partitions!");
+			if (!w_force_ids.empty())
+			{
+				DEG_LOG(I, "Program automatically repaired w_force partition(s), id: ");
+				for (int& ids : w_force_ids)
+				{
+					DEG_LOG(I, "%u", ids);
+				}
+			}
 		}
 		return ptable;
 	}
@@ -1241,9 +1337,19 @@ partition_t* partition_list_d(spdio_t* io) {
 			}
 		}
 	}
+	get_partition_info(io, "w_force", 1);
+	if (gPartInfo.size)
+	{
+		DEG_LOG(W, "w_force partition detected in Compatibility-method mode, please check the partitions!");
+		if (isHelperInit)
+		{
+			showWarningDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Warning"), _("w_force partition detected in Compatibility-method mode, please check the partitions!"));
+		}
+	}
 	DEG_LOG(I,"Compatibility-method mode will not save partition table xml automatically.");
 	DEG_LOG(I, "You can get partition xml by `part_table` command manually.");
 	DEG_LOG(I,"Total number of partitions: %d", n);
+	DEG_LOG(W, "Compatibility-method may NOT list the partitions on device completely, please use with caution!");
 	if(io->ptable) delete[] io->ptable;
 	io->ptable = nullptr;
 	io->part_count = 0;
@@ -1919,8 +2025,8 @@ void get_partition_info(spdio_t *io, const char *name, int need_size) {
 		io->verbose = verbose;
 		return;
 	}
-	if (io->part_count) {
-		if (selected_ab > 0) snprintf(name_ab, sizeof(name_ab), "%s_%c", name, 96 + selected_ab);
+	if (io->part_count && io->ptable) {
+		if (selected_ab > 0 && strcmp(name, "w_force") != 0) snprintf(name_ab, sizeof(name_ab), "%s_%c", name, 96 + selected_ab);
 		for (i = 0; i < io->part_count; i++) {
 			if (!strcmp(name, (*(io->ptable + i)).name)) break;
 			if (selected_ab > 0 && !strcmp(name_ab, (*(io->ptable + i)).name)) {
@@ -1936,7 +2042,7 @@ void get_partition_info(spdio_t *io, const char *name, int need_size) {
 		io->verbose = verbose;
 		return;
 	}
-	else if (io->part_count_c)
+	else if (io->part_count_c && io->Cptable)
 	{
 		if (selected_ab > 0) snprintf(name_ab, sizeof(name_ab), "%s_%c", name, 96 + selected_ab);
 		for (i = 0; i < io->part_count_c; i++) {
