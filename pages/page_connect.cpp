@@ -275,7 +275,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper)
         else if (Da_Info.dwStorageType == 0x101)
         {
             DEG_LOG(I, "Storage is nand.");
-            gui_idle_call([=]() mutable
+            gui_idle_call([helper]() mutable
             {
                 helper.setLabelText(helper.getWidget("storage_mode"), "Nand");
             });
@@ -367,7 +367,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper)
         // 如果已经探测到设备默认块大小并成功刷新分区表，则允许用户调整数据块大小
         if (io->part_count > 0 || io->part_count_c > 0)
         {
-            gui_idle_call([=]() mutable
+            gui_idle_call([helper]() mutable
             {
                 auto cfg = MakeBlockSizeConfigFromGui();
                 uint32_t effective_step = cfg.manual_block_size;
@@ -1049,7 +1049,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv)
     showInfoDialogSyncInThread(
         GTK_WINDOW(helper.getWidget("main_window")), _("Successfully connected"),
         _("Device already connected! Some advanced settings opened!"));
-    gui_idle_call_wait_drag([=]() mutable
+    gui_idle_call_wait_drag([helper]() mutable
     {
         if (g_app_state.device.device_stage == FDL2) bottom_bar_set_status("Ready");
         else bottom_bar_set_status("Connected");
