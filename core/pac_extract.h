@@ -11,8 +11,8 @@
 
 
 bool pac_extract(const char* fn, const char* folder);
-bool pac_flash(spdio_t* io, const char* floder);
+bool pac_flash(spdio_t* io, const char* folder);
 std::string ExtractPartitionsWithTags(const std::string& xmlContent);
 std::string FindFirstXMLFile(const std::string& folderPath);
-std::string FindFDLInExtFloder(const char* folder, Stages mode);
+std::string FindFDLInExtFolder(const char* folder, Stages mode);
 

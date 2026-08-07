@@ -652,7 +652,7 @@ std::string FindFirstXMLFile(const std::string& folderPath) {
     
     return ""; // 没找到
 }
-std::string FindFDLInExtFloder(const char* folder, Stages mode)
+std::string FindFDLInExtFolder(const char* folder, Stages mode)
 {
     if (!folder || !*folder) {
         return "";
@@ -919,11 +919,11 @@ std::string findBaseForID(const std::string& filename, const std::string& target
     
     return "";
 }
-bool pac_flash(spdio_t* io, const char* floder)
+bool pac_flash(spdio_t* io, const char* folder)
 {
     io->ptable = pacptable;
     io->part_count = pac_part_count;
-    std::string xmlPath = FindFirstXMLFile(floder);
+    std::string xmlPath = FindFirstXMLFile(folder);
     if (xmlPath.empty()) {
         if(isHelperInit) gui_idle_call_wait_drag([](){
             showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("No XML file found in the extracted folder."));
@@ -932,8 +932,8 @@ bool pac_flash(spdio_t* io, const char* floder)
         return false;
     }
     g_app_state.flash.pac_xmlPath = xmlPath;
-    std::string fdl1_path = FindFDLInExtFloder(floder, FDL1);
-    std::string fdl2_path = FindFDLInExtFloder(floder, FDL2);
+    std::string fdl1_path = FindFDLInExtFolder(folder, FDL1);
+    std::string fdl2_path = FindFDLInExtFolder(folder, FDL2);
     std::string fdl1_base = findBaseForID(xmlPath, "fdl1");
     std::string fdl2_base = findBaseForID(xmlPath, "fdl2");
     bool FDLInPacSupported = true;
@@ -1017,7 +1017,7 @@ bool pac_flash(spdio_t* io, const char* floder)
         showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Start executing FDL1 and FDL2."));
     },GTK_WINDOW(helper.getWidget("main_window")));
     
-    auto into_func = [=]() mutable
+    auto into_func = [fdl1_path, fdl1_base_addr, io, highspeed, baudrate, blk_size, xmlPath]() mutable
     {
                 EnhancedFile fi = oxfopen_enhanced(fdl1_path.c_str(), "r");
 				if (!fi) {
