@@ -1,3 +1,9 @@
+sfd-tool (2.6.11-1-ltv) unstable; urgency=medium
+
+  * 修复了分区表修改功能
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sat, 08 Aug 2026 15:25:41 +0800
+
 sfd-tool (2.6.10-1-ltv) unstable; urgency=medium
 
   * 修复了Windows端的libusb问题
