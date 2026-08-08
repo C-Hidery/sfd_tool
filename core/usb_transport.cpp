@@ -559,7 +559,7 @@ void DestroyRecvThread(spdio_t *io) {
 	io->m_dwRecvThreadID = 0;
 }
 #else
-#ifndef _WIN32
+#ifndef _MSC_VER
 pthread_t gUsbEventThrd;
 libusb_hotplug_callback_handle gHotplugCbHandle = 0;
 volatile int g_usb_thread_running = 0;
@@ -591,7 +591,6 @@ void *UsbThrdFunc(void *param) {
 void startUsbEventHandle(void) {
 	if (g_usb_thread_running) {
         DEG_LOG(W,"(startUsbEventHandle) USB event thread already running");
-		g_app_state.transport.bListenLibusb = 0; 
         return;
     }
 	int ret = libusb_hotplug_register_callback(
@@ -604,7 +603,14 @@ void startUsbEventHandle(void) {
 		HotplugCbFunc,
 		nullptr,
 		&gHotplugCbHandle);
-	if (ret != LIBUSB_SUCCESS) ERR_EXIT("libusb_hotplug_register_callback failed, error: %d\n", ret);
+	if (ret != LIBUSB_SUCCESS && libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG)) ERR_EXIT("libusb_hotplug_register_callback failed, error: %d\n", ret);
+	else if (!libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG))
+	{
+		gHotplugCbHandle = 0;
+		g_usb_thread_running = 0;
+		g_app_state.transport.bListenLibusb = 0;
+		return;
+	}
 
 	ret = pthread_create(&gUsbEventThrd, nullptr, UsbThrdFunc, nullptr);
 	if (ret != 0) {
@@ -644,11 +650,11 @@ void stopUsbEventHandle(void) {
 }
 #else
 void startUsbEventHandle(void) {
-	DEG_LOG(E,"startUsbEventHandle() is not stable in Windows.");
+	DEG_LOG(E,"startUsbEventHandle() is not supported for MSVC.");
 }
 
 void stopUsbEventHandle(void) {
-	DEG_LOG(E,"stopUsbEventHandle() is not stable in Windows.");
+	DEG_LOG(E,"stopUsbEventHandle() is not supported for MSVC.");
 }
 #endif
 
