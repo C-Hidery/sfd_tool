@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 2.6.10 LTV Edition
+Version 2.6.11 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -360,6 +360,9 @@ Remove unstable blk_size detection
 
 ---v 2.6.10---
 修复了Windows端的libusb问题
+
+---v 2.6.11---
+修复了分区表修改功能
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
