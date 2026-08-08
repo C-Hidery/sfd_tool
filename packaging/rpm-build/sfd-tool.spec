@@ -9,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        2.6.9
+Version:        2.6.10
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -63,6 +63,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Sat Aug 08 2026 RyanCrepa <Ryan110413@outlook.com> - 2.6.10-1-ltv
+- 修复了Windows端的libusb问题
+
 * Fri Aug 07 2026 RyanCrepa <Ryan110413@outlook.com> - 2.6.9-1-ltv
 - 新增w_force检测机制
 
