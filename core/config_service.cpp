@@ -16,6 +16,18 @@
 #include <cstdlib>
 
 using nlohmann::json;
+// 在文件开头（#include 之后）添加
+#ifdef _WIN32
+static std::wstring utf8_to_utf16(const std::string& utf8) {
+    if (utf8.empty()) return L"";
+    int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
+    if (len <= 0) return L"";
+    std::wstring wstr(len, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, wstr.data(), len);
+    wstr.pop_back();
+    return wstr;
+}
+#endif
 
 namespace sfd
 {
