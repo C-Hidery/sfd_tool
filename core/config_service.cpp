@@ -5,7 +5,7 @@
 #include "config_service.h"
 #include "logging.h"
 
-#include "../third_party/nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 #include "../core/file_io.h"
 
 #include <filesystem>

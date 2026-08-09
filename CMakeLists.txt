@@ -40,7 +40,7 @@ option(DEBUG_OP "Debug mode" OFF)
 
 # Windows x86 (Win32) 不支持 libusb：强制关闭，统一走 Channel9 封装
 if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4 AND USE_LIBUSB)
-    message(STATUS "USE_LIBUSB=ON is not supported on Win32 (x86); forcing USE_LIBUSB=OFF (Channel9 backend)")
+    message(STATUS "USE_LIBUSB=ON is not supported on Win32 (x86); forcing USE_LIBUSB=OFF")
     set(USE_LIBUSB OFF CACHE BOOL "Enable libusb backend" FORCE)
 endif()
 
@@ -220,8 +220,15 @@ if (WIN32)
     endforeach()
 endif()
 
-# ================= 依赖：GTK3 / libusb =================
+# ================= 依赖：GTK4 / libusb =================
 find_package(PkgConfig QUIET)
+
+if (APPLE)
+    find_package(nlohmann_json CONFIG REQUIRED)
+    target_link_libraries(sfd_ui PUBLIC nlohmann_json::nlohmann_json)
+    target_link_libraries(core_lib PUBLIC nlohmann_json::nlohmann_json)
+    target_link_libraries(pages_lib PUBLIC nlohmann_json::nlohmann_json)
+endif()
 
 # --- GTK4 ---
 if (USE_GTK)

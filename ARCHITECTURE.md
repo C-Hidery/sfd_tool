@@ -53,8 +53,7 @@ sfd_tool/
 ├── packaging/                # 打包脚本与元数据（deb/rpm/spec/desktop/man 等）
 ├── locale/                   # 国际化翻译文件（.po / .mo）
 ├── third_party/              # 第三方依赖
-│   ├── Lib/                  # 预编译库（libusb、Channel9 等，供 Windows 使用）
-│   └── nlohmann/             # nlohmann/json 单头文件库
+│   └── Lib/                  # 预编译库（libusb、Channel9 等，供 Windows MSVC使用）
 ├── tests/                    # 单元测试与集成测试（通过 CTest 运行）
 ├── scripts/                  # 构建/开发/发布辅助脚本（dev.sh、release.sh 等）
 ├── docs/                     # 用户/开发/发布文档

@@ -63,14 +63,14 @@ Arch Linux 用户可以使用此AUR包：
 
 ``` bash
 # Ubuntu/Debian
-sudo apt install libusb-1.0-0-dev gcc g++ libgtk-4-dev pkg-config make cmake gettext
+sudo apt install libusb-1.0-0-dev gcc g++ libgtk-4-dev pkg-config make cmake gettext nlohmann-json3-dev
 # Fedora/RHEL
-sudo dnf install gcc-c++ gtk4-devel libusb1-devel libusb1 pkgconf-pkg-config make cmake gettext
+sudo dnf install gcc-c++ gtk4-devel libusb1-devel libusb1 pkgconf-pkg-config make cmake gettext json-devel
 # macOS
-brew install libusb gtk4 pkg-config make cmake gettext
+brew install libusb gtk4 pkg-config make cmake gettext nlohmann-json
 # Android(Termux)
 pkg install x11-repo
-pkg install termux-api libusb clang git pkg-config gtk4 glib pango libcairo gdk-pixbuf at-spi2-core xorgproto xorg-util-macros make cmake attr gettext
+pkg install termux-api libusb clang git pkg-config gtk4 glib pango libcairo gdk-pixbuf at-spi2-core xorgproto xorg-util-macros make cmake attr gettext nlohmann-json
 ```
 
 然后make:
