@@ -21,7 +21,7 @@
 #include "core/usb_transport.h"
 #include "core/spd_protocol.h"
 #include "core/app_state.h"  // 全局应用状态
-#include "third_party/nlohmann/json.hpp" // json for auto sending FDL
+#include <nlohmann/json.hpp> // json for auto sending FDL
 #include <stdint.h>
 
 #ifdef _MSC_VER
