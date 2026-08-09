@@ -228,7 +228,7 @@ jobs:
       - name: Install macOS Build Dependencies
         run: |
           brew update
-          for pkg in gtk4 libusb gettext cmake ninja; do
+          for pkg in gtk4 libusb gettext cmake ninja nlohmann-json; do
             if ! brew list "$pkg" >/dev/null 2>&1; then
               brew install "$pkg"
             fi
@@ -275,7 +275,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential debhelper devscripts \
             libgtk-4-dev libusb-1.0-0-dev pkg-config g++ \
-            imagemagick desktop-file-utils cmake
+            imagemagick desktop-file-utils cmake nlohmann-json3-dev
 
       - name: Build Linux Package
         run: |
@@ -307,7 +307,7 @@ jobs:
           dnf update -y
           dnf install -y rpm-build gcc-c++ gtk4-devel libusb1-devel libusb1 \
             pkgconf-pkg-config make ImageMagick desktop-file-utils \
-            gtk-update-icon-cache which cmake ninja-build
+            gtk-update-icon-cache which cmake ninja-build json-devel
 
       - name: Build RPM
         run: |
