@@ -226,6 +226,8 @@ find_package(PkgConfig QUIET)
 if (APPLE)
     find_package(nlohmann_json CONFIG REQUIRED)
     target_link_libraries(sfd_ui PUBLIC nlohmann_json::nlohmann_json)
+    target_link_libraries(core_lib PUBLIC nlohmann_json::nlohmann_json)
+    target_link_libraries(pages_lib PUBLIC nlohmann_json::nlohmann_json)
 endif()
 
 # --- GTK4 ---
