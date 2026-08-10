@@ -694,7 +694,11 @@ int main(int argc, char** argv) {
 	LOG_INFO("chosen locale_dir: %s", locale_dir.c_str());
 	if (!locale_dir.empty()) {
 		// 开发 / 便携包：使用 exe 同目录或 ./locale
+#ifndef _WIN32
 		bindtextdomain("sfd_tool", locale_dir.c_str());
+#else
+		wbindtextdomain("sfd_tool", utf8_to_utf16(locale_dir).c_str());
+#endif
 	}
 	// 如果 locale_dir 为空：不调用 bindtextdomain，
 	// 让 gettext 使用系统默认路径（通常是 /usr/share/locale）
