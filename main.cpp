@@ -89,6 +89,28 @@ std::string g_about_text;
 extern guint g_drag_check_timeout;
 namespace {
 
+static std::string get_effective_lc_all_from_ui_language(const std::string& ui_language) {
+    if (ui_language.empty() || ui_language == "auto") {
+        return std::string();
+    }
+    if (ui_language == "zh_CN") {
+#ifndef _WIN32
+        return "zh_CN.UTF-8";
+#else
+		return "zh_CN";
+#endif
+	}
+    if (ui_language == "en_US") {
+#ifndef _WIN32
+        return "en_US.UTF-8";
+#else
+		return "en_US";
+#endif
+    }
+    // 未知值：退回系统默认
+    return std::string();
+}
+
 static std::string get_executable_dir() {
 #if defined(__linux__)
     char path[PATH_MAX] = {0};
@@ -646,10 +668,26 @@ int main(int argc, char** argv) {
 	}
 	LOG_INFO("LANGUAGE on Windows after config: %s",
 	         std::getenv("LANGUAGE") ? std::getenv("LANGUAGE") : "(null)");
+
+	// 同时设置 C 运行时 locale，便于 std::locale / C API 使用
+	std::string lc_all = get_effective_lc_all_from_ui_language(cfg.ui_language);
+	if (!lc_all.empty() && lc_all != "auto") {
+		LOG_INFO("setlocale(LC_ALL, %s) on Windows", lc_all.c_str());
+		setlocale(LC_ALL, lc_all.c_str());
+		locale_from_config = true;
+	} else {
+		LOG_INFO("ui_language is auto/empty, using system default locale");
+	}
 #endif
 
-	setlocale(LC_ALL, "");
-	LOG_INFO("effective locale: %s", setlocale(LC_ALL, nullptr));
+	// 如果没有通过配置显式设置 locale，则调用一次 setlocale(LC_ALL, "")，
+	// 让 C 库从环境变量或系统默认解析 locale。
+	if (!locale_from_config) {
+		setlocale(LC_ALL, "");
+		LOG_INFO("effective locale after setlocale(\"\"): %s", setlocale(LC_ALL, nullptr));
+	} else {
+		LOG_INFO("effective locale after config locale: %s", setlocale(LC_ALL, nullptr));
+	}
 
 	// 根据可执行文件路径选择 locale 目录
 	std::string locale_dir = choose_locale_dir();
