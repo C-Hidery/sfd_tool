@@ -7,6 +7,7 @@
 
 #include <nlohmann/json.hpp>
 #include "../core/file_io.h"
+#include "../common.h"
 
 #include <filesystem>
 #include <cstdlib>
@@ -126,19 +127,6 @@ namespace sfd
             }
             return legacy_config_path();
         }
-#ifdef _WIN32
-        // 将 UTF-8 编码的 std::string 转为 UTF-16 的 std::wstring
-        std::wstring utf8_to_utf16(const std::string& utf8)
-        {
-            if (utf8.empty()) return L"";
-            int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
-            if (len <= 0) return L"";
-            std::wstring wstr(len, L'\0');
-            MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, wstr.data(), len);
-            wstr.pop_back(); // 移除末尾的空字符
-            return wstr;
-        }
-#endif
 
         static void to_json(json& j, const ConnectionConfig& c)
         {
