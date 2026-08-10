@@ -9,8 +9,6 @@
 #include "app_state.h"
 #include "file_io.h"
 #include "../core/XmlParser.hpp"
-
-#include <filesystem>
 #include <memory>
 
 using namespace std;

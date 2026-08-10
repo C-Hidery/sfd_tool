@@ -50,7 +50,6 @@
 #include <time.h>
 #include "ui/GtkWidgetHelper.hpp"
 #include <regex>
-#include <fstream>
 #define NEWN new (std::nothrow)
 #ifndef LIBUSB_DETACH
 /* detach the device from crappy kernel drivers */
@@ -332,3 +331,7 @@ int my_stricmp(const char* s1, const char* s2);
 char* my_stristr(const char* haystack, const char* needle);
 int my_strnicmp(const char* s1, const char* s2, size_t len);
 void w_force_repair_prev(partition_t *ptable, int part_count, int i);
+#ifdef _WIN32
+std::wstring utf8_to_utf16(const std::string& utf8);
+std::string utf16_to_utf8(const std::wstring& wstr);
+#endif

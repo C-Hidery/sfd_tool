@@ -22,7 +22,6 @@
 #include <io.h>
 #include <fcntl.h>
 #include <direct.h> // for chdir
-#include <windows.h>
 #else
 #include <unistd.h>
 #endif
@@ -32,17 +31,6 @@
 #include "logging.h"  // 使用统一的 ERR_EXIT
 #include "result.h"   // T2-02: Result/ErrorCode
 
-#ifdef _WIN32
-static std::wstring utf8_to_utf16(const std::string& utf8) {
-    if (utf8.empty()) return L"";
-    int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
-    if (len <= 0) return L"";
-    std::wstring wstr(len, L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, wstr.data(), len);
-    wstr.pop_back();
-    return wstr;
-}
-#endif
 
 typedef struct
 {
@@ -988,7 +976,7 @@ bool pac_extract(const char* fn, const char* floder)
     EnhancedFile file = oxfopen_enhanced(xmlPath.c_str(), "r");
     if (!file) { DEG_LOG(E, "Failed to open xml for reading"); return false;}
     std::string content;
-    file >> content;
+    content = file.read_all_chunked();
     std::string partxml = ExtractPartitionsWithTags(content);
     if (partxml.empty())
     {
@@ -1138,7 +1126,7 @@ std::string findBaseForID(const std::string& filename, const std::string& target
         return "";
     }
     std::string buffer;
-    file >> buffer;
+    buffer = file.read_all_chunked();
     file.close();
 
     XmlParser parser;
@@ -1519,7 +1507,7 @@ bool pac_flash(spdio_t* io, const char* folder)
             EnhancedFile file = oxfopen_enhanced(xmlPath.c_str(), "r");
             if (!file) ERR_EXIT("Failed to open file for reading");
             std::string content;
-            file >> content;
+            content = file.read_all_chunked();
             file.close();
             std::string partxml = ExtractPartitionsWithTags(content);
             EnhancedFile f1 = oxfopen_enhanced("repartition_xml_temp.xml", "w");
