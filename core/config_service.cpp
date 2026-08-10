@@ -70,10 +70,8 @@ namespace sfd
                     std::string utf8_dir(len, '\0');
                     WideCharToMultiByte(CP_UTF8, 0, wappdata, -1, utf8_dir.data(), len, nullptr, nullptr);
                     utf8_dir.pop_back();
-                    CoTaskMemFree(wappdata);
                     return utf8_dir + "\\sfd_tool";
                 }
-                CoTaskMemFree(wappdata);
             }
 #else
             // 其他平台暂时不指定 per-user 目录，统一退回旧路径
