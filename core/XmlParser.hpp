@@ -10,7 +10,6 @@
 #include <map>
 #include <memory>
 #include <cctype>
-#include <fstream>   // 用于 std::ifstream
 #include <cstdio>
 #include <cstdlib>
 
@@ -210,8 +209,8 @@ public:
         return false;
     }
     bool saveXmlFile(const std::string& filename, bool pretty = true) const {
-        std::ofstream file(filename);
-        if (!file.is_open()) return false;
+        EnhancedFile file = oxfopen_enhanced(filename.c_str(), "w");
+        if (!file) return false;
         file << toXml(0, pretty);
         return true;
     }
@@ -240,15 +239,16 @@ public:
     }
 
     std::shared_ptr<XmlNode> parseFile(const std::string& filename) {
-        std::ifstream file(filename, std::ios::binary | std::ios::ate);
-        if (!file.is_open()) return nullptr;
-        
-        std::streamsize size = file.tellg();
+        EnhancedFile file = oxfopen_enhanced(filename.c_str(), "r");
+        if (!file) return nullptr;
+
+        file.seek(0, SEEK_END);
+        long long size = file.tello();
         if (size <= 0) return nullptr;
         
-        file.seekg(0, std::ios::beg);
-        std::string content(static_cast<size_t>(size), '\0');
-        if (!file.read(&content[0], size)) return nullptr;
+        file.seek(0, SEEK_SET);
+        std::string content;
+        content = file.read_all_chunked();
         
         return parseString(content);
     }

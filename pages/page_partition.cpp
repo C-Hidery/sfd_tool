@@ -10,6 +10,9 @@
 #include "ui/ui_common.h"
 #include <thread>
 #include <iostream>
+#include <set>
+
+#include "XmlParser.hpp"
 #ifndef _WIN32
 #include <dirent.h>
 #include <sys/stat.h>
@@ -22,6 +25,7 @@
 #include <vector>
 #include "../core/XmlParser.hpp"
 #include <set>
+
 
 extern spdio_t*& io;
 extern int ret;
@@ -369,7 +373,11 @@ scan_backup_image_files(const std::string& folder)
     std::map<std::string, BackupImageFileInfo> files;
 
     std::error_code ec;
+#ifndef _WIN32
     const std::filesystem::path root(folder);
+#else
+    const std::filesystem::path root(utf8_to_utf16(folder));
+#endif
     if (!std::filesystem::exists(root, ec) || !std::filesystem::is_directory(root, ec))
     {
         DEG_LOG(E, "[backup-scan] invalid directory: %s", folder.c_str());
@@ -389,8 +397,12 @@ scan_backup_image_files(const std::string& folder)
         {
             continue;
         }
-
+#ifndef _WIN32
         const auto filename = entry.path().filename().string();
+#else
+        const std::wstring wfilename = entry.path().filename().wstring();
+        const auto filename = utf16_to_utf8(wfilename);
+#endif
         std::string partition_name;
         int priority = 0;
         if (!parse_partition_image_filename(filename, partition_name, &priority))

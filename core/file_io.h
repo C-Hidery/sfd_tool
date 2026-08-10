@@ -109,6 +109,8 @@ public:
     char* gets(char* buffer, int maxSize) noexcept;
     int printf(const char* format, ...) noexcept;
     int scanf(const char* format, ...) noexcept;
+    std::string read_all_string() const;
+    std::string read_all_chunked(size_t chunk_size = 4096);
     
     // 格式化状态设置
     void set_base(NumberBase base) noexcept { format.base = base; }

@@ -3225,7 +3225,27 @@ void set_active(spdio_t *io, const char *arg, int CMethod) {
     w_mem_to_part_offset(io, "misc", 0x800,
                          (uint8_t*)&abc, sizeof(abc), 0x1000, CMethod);
 }
+#ifdef _WIN32
+std::wstring utf8_to_utf16(const std::string& utf8) {
+	if (utf8.empty()) return L"";
+	int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
+	if (len <= 0) return L"";
+	std::wstring wstr(len, L'\0');
+	MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, wstr.data(), len);
+	wstr.pop_back();
+	return wstr;
+}
 
+std::string utf16_to_utf8(const std::wstring& wstr) {
+	if (wstr.empty()) return "";
+	int len = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, nullptr, 0, nullptr, nullptr);
+	if (len <= 0) return "";
+	std::string utf8(len, '\0');
+	WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, utf8.data(), len, nullptr, nullptr);
+	utf8.pop_back();
+	return utf8;
+}
+#endif
 
 
 

@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <cstdio>
 #include <cctype>
+#include <vector>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -283,6 +284,36 @@ int EnhancedFile::scanf(const char* format, ...) noexcept {
     int result = vfscanf(file.get(), format, args);
     va_end(args);
     return result;
+}
+std::string EnhancedFile::read_all_string() const {
+    if (!file) return {};
+
+    // 获取文件大小
+    fseek(file.get(), 0, SEEK_END);
+    long size = ftell(file.get());
+    fseek(file.get(), 0, SEEK_SET);
+
+    if (size <= 0) return {};
+
+    std::string content;
+    content.resize(size);          // 分配空间
+
+    size_t read_bytes = fread(&content[0], 1, size, file.get());
+    content.resize(read_bytes);
+
+    return content;
+}
+
+std::string EnhancedFile::read_all_chunked(size_t chunk_size)
+{
+    if (!file) return {};
+    std::string content;
+    std::vector<char> buffer(chunk_size);
+    size_t bytes_read;
+    while ((bytes_read = fread(buffer.data(), 1, chunk_size, file.get())) > 0) {
+        content.append(buffer.data(), bytes_read);
+    }
+    return content;
 }
 
 // 工厂函数实现

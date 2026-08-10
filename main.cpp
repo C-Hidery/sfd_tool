@@ -218,13 +218,11 @@ static std::string choose_locale_dir() {
 }
 
 static std::string load_about_from_path(const std::string& path) {
-    std::ifstream in(path);
-    if (!in) {
-        return std::string();
-    }
-    std::ostringstream ss;
-    ss << in.rdbuf();
-    return ss.str();
+    EnhancedFile file = oxfopen_enhanced(path.c_str(), "r");
+	if (!file) { return std::string(); }
+    std::string s;
+    s = file.read_all_chunked();
+    return s;
 }
 
 static std::string load_installed_about_text() {
@@ -285,11 +283,11 @@ std::string load_about_text() {
 	};
 
 	for (auto path : candidates) {
-		std::ifstream in(path);
-		if (in) {
-			std::ostringstream ss;
-			ss << in.rdbuf();
-			return ss.str();
+		EnhancedFile file = oxfopen_enhanced(path, "r");
+		if (file) {
+			std::string s;
+			s = file.read_all_chunked();
+			return s;
 		}
 	}
 
@@ -696,7 +694,11 @@ int main(int argc, char** argv) {
 	LOG_INFO("chosen locale_dir: %s", locale_dir.c_str());
 	if (!locale_dir.empty()) {
 		// 开发 / 便携包：使用 exe 同目录或 ./locale
+#ifndef _WIN32
 		bindtextdomain("sfd_tool", locale_dir.c_str());
+#else
+		wbindtextdomain("sfd_tool", utf8_to_utf16(locale_dir).c_str());
+#endif
 	}
 	// 如果 locale_dir 为空：不调用 bindtextdomain，
 	// 让 gettext 使用系统默认路径（通常是 /usr/share/locale）
