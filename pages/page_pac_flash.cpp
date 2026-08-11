@@ -106,17 +106,17 @@ void on_button_clicked_pac_select(GtkWidgetHelper helper) {
 	std::string filename = showFileChooser(parent, true);
 	if (!filename.empty()) {
 		helper.setEntryText(helper.getWidget("pac_file_path"), filename);
-	}
-	auto cfgSvc = ensure_config_service();
-	if (cfgSvc)
-	{
-		sfd::AppConfig cfg{};
-		sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
-		if (status.success)
-		{
-			cfg.last_pac_path = filename;
-			cfgSvc->saveAppConfig(cfg);
-		}
+		auto cfgSvc = ensure_config_service();
+    	if (cfgSvc)
+    	{
+    		sfd::AppConfig cfg{};
+    		sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
+    		if (status.success)
+    		{
+    			cfg.last_pac_path = filename;
+    			cfgSvc->saveAppConfig(cfg);
+    		}
+    	}
 	}
 }
 
