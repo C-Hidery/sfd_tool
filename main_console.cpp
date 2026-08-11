@@ -368,7 +368,7 @@ int main_console(int argc, char** argv) {
 			isToolMode = true;
 			argc -= 1;
 			argv += 1;
-#ifdef _WIN32
+#if defined(_WIN32) && !USE_LIBUSB
 		} else if (!strcmp(argv[1], "--chnl-log"))
 		{
 			call_SetLogVisible(io->handle, true);
