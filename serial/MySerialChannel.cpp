@@ -6,14 +6,10 @@
 
 // MySerialChannel.cpp
 #include "MySerialChannel.h"
-#include "../core/app_state.h"
-#include "../common.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <cstdarg>
-
-extern AppState g_app_state;
 
 // ------------------------------------------------------------
 // 构造
@@ -27,6 +23,7 @@ CMySerialChannel::CMySerialChannel()
     , m_bRcvThread(FALSE)
     , m_bAsyncMode(false)
     , m_syncMode(true)   // 默认同步，直到 Open 时确定
+    , m_LogVisible(false) // 默认不打印日志
     , m_bRunning(false)
     , m_hReadOvEvent(NULL)
     , m_hWriteOvEvent(NULL)
@@ -44,7 +41,7 @@ CMySerialChannel::~CMySerialChannel() {
 // ------------------------------------------------------------
 // 日志函数
 void CMySerialChannel::Log(const char* level, const char* fmt, ...) {
-    if (!g_app_state.transport.channelLog) return;
+    if (!m_LogVisible) return;
     va_list args;
     va_start(args, fmt);
     fprintf(stderr, "[Channel] [%s] ", level);
@@ -64,6 +61,8 @@ BOOL CMySerialChannel::InitLog(LPCWSTR /*pszLogName*/,
     Log("INFO", "InitLog called (no-op)");
     return TRUE;
 }
+
+
 
 // ------------------------------------------------------------
 // SetReceiver：设置异步接收目标
@@ -103,6 +102,13 @@ void CMySerialChannel::SetTimeouts() {
     ct.WriteTotalTimeoutConstant = 5000;
     SetCommTimeouts(m_hCom, &ct);
 }
+
+BOOL CMySerialChannel::SetLogVisible(bool bLogVisible)
+{
+    m_LogVisible = bLogVisible;
+    return TRUE;
+}
+
 
 // ------------------------------------------------------------
 // Open
@@ -172,17 +178,9 @@ BOOL CMySerialChannel::Open(PCCHANNEL_ATTRIBUTE pOpenArgument) {
     m_writeOv.hEvent = m_hWriteOvEvent;
     m_bOvInitialized = true;
 
-    // ----- 根据 m_bAsyncMode 和 io->m_dwRecvThreadID 决定同步/异步模式 -----
-    spdio_t* io = g_app_state.transport.io;
-#if !USE_LIBUSB
-    bool asyncEnabled = (m_bAsyncMode && io && io->m_dwRecvThreadID != 0);
-#else
-    bool asyncEnabled = false; // libusb 模式下没有外部接收线程，始终同步
-#endif
-    m_syncMode = !asyncEnabled;
-
-    if (asyncEnabled) {
-        Log("INFO", "Async mode enabled (SetReceiver called, m_dwRecvThreadID=%lu)", io->m_dwRecvThreadID);
+    m_syncMode = !m_bAsyncMode;
+    if (m_bAsyncMode) {
+        Log("INFO", "Async mode enabled (SetReceiver called)");
         m_bRunning = true;
         m_hReadThread = CreateThread(NULL, 0, ReadThreadProc, this, 0, &m_dwThreadId);
         if (!m_hReadThread) {
@@ -192,11 +190,7 @@ BOOL CMySerialChannel::Open(PCCHANNEL_ATTRIBUTE pOpenArgument) {
         }
         Log("INFO", "Async receive thread started (ID=%lu)", m_dwThreadId);
     } else {
-        if (m_bAsyncMode) {
-            Log("WARN", "SetReceiver called but no external receiver thread (m_dwRecvThreadID=0), falling back to sync mode");
-        } else {
-            Log("INFO", "Sync mode (SetReceiver not called)");
-        }
+        Log("INFO", "Sync mode (SetReceiver not called)");
         // 不启动线程，Read 将使用同步读取
     }
 
@@ -384,9 +378,8 @@ DWORD CMySerialChannel::Write(LPVOID lpData, DWORD dwDataSize, DWORD /*dwReserve
 // FreeMem
 void CMySerialChannel::FreeMem(LPVOID pMemBlock) {
     if (pMemBlock) {
-        void* ptr = pMemBlock;
+        Log("DEBUG", "FreeMem: free %p", pMemBlock);
         free(pMemBlock);
-        Log("DEBUG", "FreeMem: freed %p", ptr);
     }
 }
 

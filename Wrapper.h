@@ -23,6 +23,7 @@ BOOL call_GetProperty(ClassHandle *handle, LONG lFlags, DWORD dwPropertyID, LPVO
 BOOL call_SetProperty(ClassHandle *handle, LONG lFlags, DWORD dwPropertyID, LPCVOID pValue);
 void call_Clear(ClassHandle *handle);
 void call_FreeMem(ClassHandle *handle, LPVOID pMemBlock);
+BOOL call_SetLogVisible(ClassHandle *handle, BOOL bLog);
 
 
 

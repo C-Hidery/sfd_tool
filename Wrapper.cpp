@@ -65,3 +65,9 @@ void call_FreeMem(ClassHandle *handle, LPVOID pMemBlock) {
 	CBootModeOpr *obj = static_cast<CBootModeOpr *>(handle->obj);
 	obj->FreeMem(pMemBlock);
 }
+
+BOOL call_SetLogVisible(ClassHandle *handle, BOOL bLog)
+{
+	CBootModeOpr *obj = static_cast<CBootModeOpr *>(handle->obj);
+	return obj->SetLogVisible(bLog);
+}

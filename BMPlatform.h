@@ -369,6 +369,7 @@ public:
 	*/
 	virtual BOOL SetProperty(LONG lFlags, DWORD dwPropertyID,
 		LPCVOID pValue) = 0;
+	virtual BOOL SetLogVisible(bool bLogVisible) = 0;
 };
 
 typedef BOOL(*pfCreateChannel)(ICommChannel **, CHANNEL_TYPE);
@@ -401,6 +402,7 @@ public:
 	BOOL SetProperty(LONG lFlags, DWORD dwPropertyID, LPCVOID pValue);
 	void Clear();
 	void FreeMem(LPVOID pMemBlock);
+	BOOL SetLogVisible(bool bLogVisible);
 private:
 	ICommChannel *m_pChannel;
 };

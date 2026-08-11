@@ -30,7 +30,6 @@ struct FlashState {
 struct TransportState {
     int bListenLibusb = -1; // 是否正在监听 libusb 事件 / 设备热插拔
     spdio_t* io = nullptr;  // 设备 I/O 句柄（底层传输对象）
-    bool channelLog = false;
 };
 
 // 错误/返回值相关的临时状态（待后续用统一 Result/ErrorCode 替代）

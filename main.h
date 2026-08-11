@@ -2,6 +2,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  * SFDTool Copyright (C) 2026 Ryan Crepa
  */
+#pragma once
 #include <cstdint>
 #include "core/app_state.h"
 extern const char* o_exception;

@@ -368,11 +368,13 @@ int main_console(int argc, char** argv) {
 			isToolMode = true;
 			argc -= 1;
 			argv += 1;
+#ifdef _WIN32
 		} else if (!strcmp(argv[1], "--chnl-log"))
 		{
-			g_app_state.transport.channelLog = true;
+			call_SetLogVisible(io->handle, true);
 			argc -= 1;
 			argv += 1;
+#endif
 		} else break;
 	}
 	if (stage == 99) {
