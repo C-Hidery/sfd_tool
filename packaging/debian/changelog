@@ -1,3 +1,9 @@
+sfd-tool (2.6.14-1-ltv) unstable; urgency=medium
+
+  * 修复了一个对话框崩溃问题
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Tue, 11 Aug 2026 14:51:15 +0800
+
 sfd-tool (2.6.13-1-ltv) unstable; urgency=medium
 
   * 修复了一些已知问题
