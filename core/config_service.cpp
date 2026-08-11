@@ -128,73 +128,36 @@ namespace sfd
             return legacy_config_path();
         }
 
-        void to_json(json& j, const ConnectionConfig& c)
-        {
-            j = json{
-                {"default_wait_seconds", c.default_wait_seconds},
-                {"default_sprd4_mode", c.default_sprd4_mode},
-                {"default_sprd4_one_step", c.default_sprd4_one_step},
-                {"default_use_cve", c.default_use_cve},
-                {"default_cve_binary_path", c.default_cve_binary_path},
-                {"default_cve_load_address", c.default_cve_load_address},
-                {"default_async_receive", c.default_async_receive},
-            };
-        }
-
-        void from_json(const json& j, ConnectionConfig& c)
-        {
-            if (j.contains("default_wait_seconds")) j.at("default_wait_seconds").get_to(c.default_wait_seconds);
-            if (j.contains("default_sprd4_mode")) j.at("default_sprd4_mode").get_to(c.default_sprd4_mode);
-            if (j.contains("default_sprd4_one_step")) j.at("default_sprd4_one_step").get_to(c.default_sprd4_one_step);
-            if (j.contains("default_use_cve")) j.at("default_use_cve").get_to(c.default_use_cve);
-            if (j.contains("default_cve_binary_path")) j.at("default_cve_binary_path").
-                                                         get_to(c.default_cve_binary_path);
-            if (j.contains("default_cve_load_address")) j.at("default_cve_load_address").get_to(
-                c.default_cve_load_address);
-            if (j.contains("default_async_receive")) j.at("default_async_receive").get_to(c.default_async_receive);
-        }
-
         void to_json(json& j, const AppConfig& c)
         {
             j = json{
                 {"config_path", c.config_path},
                 {"last_pac_path", c.last_pac_path},
-                {"last_partition_export_dir", c.last_partition_export_dir},
                 {"last_fdl1_path", c.last_fdl1_path},
                 {"last_fdl2_path", c.last_fdl2_path},
                 {"last_fdl1_addr", c.last_fdl1_addr},
                 {"last_fdl2_addr", c.last_fdl2_addr},
-                {"default_verify_after_flash", c.default_verify_after_flash},
-                {"default_backup_before_flash", c.default_backup_before_flash},
+                {"last_exec_addr_file", c.last_exec_addr_file},
+                {"last_exec_addr", c.last_exec_addr},
+                {"last_use_exec_addr", c.last_use_exec_addr},
+                {"last_use_exec_addr_v2", c.last_use_exec_addr_v2},
                 {"ui_language", c.ui_language},
-                {"log_level", c.log_level},
             };
-            json conn;
-            to_json(conn, c.connection);
-            j["connection"] = conn;
         }
 
         void from_json(const json& j, AppConfig& c)
         {
             if (j.contains("config_path")) j.at("config_path").get_to(c.config_path);
             if (j.contains("last_pac_path")) j.at("last_pac_path").get_to(c.last_pac_path);
-            if (j.contains("last_partition_export_dir")) j.at("last_partition_export_dir").get_to(
-                c.last_partition_export_dir);
             if (j.contains("last_fdl1_path")) j.at("last_fdl1_path").get_to(c.last_fdl1_path);
             if (j.contains("last_fdl2_path")) j.at("last_fdl2_path").get_to(c.last_fdl2_path);
             if (j.contains("last_fdl1_addr")) j.at("last_fdl1_addr").get_to(c.last_fdl1_addr);
             if (j.contains("last_fdl2_addr")) j.at("last_fdl2_addr").get_to(c.last_fdl2_addr);
-            if (j.contains("default_verify_after_flash")) j.at("default_verify_after_flash").get_to(
-                c.default_verify_after_flash);
-            if (j.contains("default_backup_before_flash")) j.at("default_backup_before_flash").get_to(
-                c.default_backup_before_flash);
+            if (j.contains("last_exec_addr_file")) j.at("last_exec_addr_file").get_to(c.last_exec_addr_file);
+            if (j.contains("last_exec_addr")) j.at("last_exec_addr").get_to(c.last_exec_addr);
+            if (j.contains("last_use_exec_addr")) j.at("last_use_exec_addr").get_to(c.last_use_exec_addr);
+            if (j.contains("last_use_exec_addr_v2")) j.at("last_use_exec_addr_v2").get_to(c.last_use_exec_addr_v2);
             if (j.contains("ui_language")) j.at("ui_language").get_to(c.ui_language);
-            if (j.contains("log_level")) j.at("log_level").get_to(c.log_level);
-
-            if (j.contains("connection"))
-            {
-                from_json(j.at("connection"), c.connection);
-            }
         }
     } // namespace
 
@@ -389,24 +352,6 @@ namespace sfd
             f.close();
 
             return make_ok();
-        }
-
-        void updateLastPacPath(AppConfig& config,
-                               const std::string& pac_path) override
-        {
-            config.last_pac_path = pac_path;
-        }
-
-        void updateLastPartitionExportDir(AppConfig& config,
-                                          const std::string& dir) override
-        {
-            config.last_partition_export_dir = dir;
-        }
-
-        void applyDefaultsToConnectionConfig(AppConfig& config,
-                                             ConnectionConfig& inout_connection) override
-        {
-            inout_connection = config.connection;
         }
     };
 
