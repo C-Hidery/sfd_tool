@@ -50,17 +50,26 @@ void destroyWidget(GtkWidget* widget) {
 }
 
 gint runDialog(GtkDialog* dialog) {
+    g_object_ref(dialog);
     DialogState state{GTK_RESPONSE_NONE, g_main_loop_new(nullptr, FALSE)};
-    g_signal_connect_data(dialog, "response",
+    gulong handler_id = g_signal_connect(dialog, "response",
         G_CALLBACK(+[](GtkDialog*, gint response_id, gpointer user_data) {
-            auto* state = static_cast<DialogState*>(user_data);
-            state->response = response_id;
-            g_main_loop_quit(state->loop);
-        }), &state, nullptr, G_CONNECT_DEFAULT);
+            auto* st = static_cast<DialogState*>(user_data);
+            st->response = response_id;
+            g_main_loop_quit(st->loop);
+        }), &state);
 
     gtk_window_present(GTK_WINDOW(dialog));
     g_main_loop_run(state.loop);
+
+    g_signal_handler_disconnect(dialog, handler_id);
+    GMainContext* ctx = g_main_context_default();
+    while (g_main_context_pending(ctx)) {
+        g_main_context_iteration(ctx, FALSE);
+    }
+
     g_main_loop_unref(state.loop);
+    g_object_unref(dialog);
     return state.response;
 }
 
