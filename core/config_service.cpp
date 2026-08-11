@@ -18,7 +18,7 @@ namespace sfd
 {
     namespace
     {
-        static ConfigStatus make_error(ConfigErrorCode code, const std::string& msg)
+        ConfigStatus make_error(ConfigErrorCode code, const std::string& msg)
         {
             ConfigStatus s;
             s.success = false;
@@ -27,7 +27,7 @@ namespace sfd
             return s;
         }
 
-        static ConfigStatus make_ok()
+        ConfigStatus make_ok()
         {
             ConfigStatus s;
             s.success = true;
@@ -35,13 +35,13 @@ namespace sfd
             return s;
         }
 
-        static std::string legacy_config_path()
+        std::string legacy_config_path()
         {
             // 旧版本路径：当前工作目录下的配置文件，保留用于兼容与迁移
             return "sfd_tool_config.json";
         }
 
-        static std::string per_user_config_dir()
+        std::string per_user_config_dir()
         {
 #if defined(__linux__)
             const char* xdg = std::getenv("XDG_CONFIG_HOME");
@@ -54,7 +54,7 @@ namespace sfd
             {
                 return std::string(home) + "/.config/sfd_tool";
             }
-            return std::string();
+            return {};
 #elif defined(__APPLE__)
             const char* home = std::getenv("HOME");
             if (home && *home)
@@ -80,12 +80,12 @@ namespace sfd
 #endif
         }
 
-        static std::string per_user_config_path()
+        std::string per_user_config_path()
         {
             std::string dir = per_user_config_dir();
             if (dir.empty())
             {
-                return std::string();
+                return {};
             }
 #if defined(_WIN32)
             return dir + "\\sfd_tool_config.json";
@@ -94,7 +94,7 @@ namespace sfd
 #endif
         }
 
-        static bool ensure_parent_directory(const std::string& path)
+        bool ensure_parent_directory(const std::string& path)
         {
             std::error_code ec;
 #ifdef _WIN32
@@ -117,7 +117,7 @@ namespace sfd
             return !ec;
         }
 
-        static std::string default_config_path()
+        std::string default_config_path()
         {
             // 默认优先使用 per-user 配置路径；若不可用则退回旧的当前目录文件
             std::string per_user = per_user_config_path();
@@ -128,7 +128,7 @@ namespace sfd
             return legacy_config_path();
         }
 
-        static void to_json(json& j, const ConnectionConfig& c)
+        void to_json(json& j, const ConnectionConfig& c)
         {
             j = json{
                 {"default_wait_seconds", c.default_wait_seconds},
@@ -141,7 +141,7 @@ namespace sfd
             };
         }
 
-        static void from_json(const json& j, ConnectionConfig& c)
+        void from_json(const json& j, ConnectionConfig& c)
         {
             if (j.contains("default_wait_seconds")) j.at("default_wait_seconds").get_to(c.default_wait_seconds);
             if (j.contains("default_sprd4_mode")) j.at("default_sprd4_mode").get_to(c.default_sprd4_mode);
@@ -154,7 +154,7 @@ namespace sfd
             if (j.contains("default_async_receive")) j.at("default_async_receive").get_to(c.default_async_receive);
         }
 
-        static void to_json(json& j, const AppConfig& c)
+        void to_json(json& j, const AppConfig& c)
         {
             j = json{
                 {"config_path", c.config_path},
@@ -174,7 +174,7 @@ namespace sfd
             j["connection"] = conn;
         }
 
-        static void from_json(const json& j, AppConfig& c)
+        void from_json(const json& j, AppConfig& c)
         {
             if (j.contains("config_path")) j.at("config_path").get_to(c.config_path);
             if (j.contains("last_pac_path")) j.at("last_pac_path").get_to(c.last_pac_path);

@@ -1,3 +1,9 @@
+sfd-tool (2.6.13-1-ltv) unstable; urgency=medium
+
+  * 修复了一些已知问题
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Tue, 11 Aug 2026 13:01:42 +0800
+
 sfd-tool (2.6.12-1-ltv) unstable; urgency=medium
 
   * 修复了部分系统无法正常显示中文的问题

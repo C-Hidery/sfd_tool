@@ -65,6 +65,11 @@ void CBootModeOpr::Uninitialize() {
 	m_pChannel = NULL;
 }
 
+BOOL CBootModeOpr::SetLogVisible(bool bLogVisible)
+{
+	return m_pChannel->SetLogVisible(bLogVisible);
+}
+
 int CBootModeOpr::Read(UCHAR *m_RecvData, int max_len, int dwTimeout) {
 	ULONGLONG tBegin;
 	ULONGLONG tCur;

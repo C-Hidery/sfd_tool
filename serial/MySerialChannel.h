@@ -31,6 +31,7 @@ public:
     virtual void FreeMem(LPVOID pMemBlock) override;
     virtual BOOL GetProperty(LONG lFlags, DWORD dwPropertyID, LPVOID pValue) override;
     virtual BOOL SetProperty(LONG lFlags, DWORD dwPropertyID, LPCVOID pValue) override;
+    virtual BOOL SetLogVisible(bool bLogVisible);
 
 private:
     // 串口句柄
@@ -46,6 +47,7 @@ private:
     BOOL   m_bRcvThread;         // TRUE 表示线程，FALSE 表示窗口
     bool   m_bAsyncMode;         // 是否启用异步推送（SetReceiver 被调用且参数有效）
     bool   m_syncMode;           // true = 同步模式（无内部线程）
+    bool   m_LogVisible;
     std::atomic<bool> m_bRunning;
 
     // 数据池（用于异步模式下的 Read）
