@@ -9,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        2.6.12
+Version:        2.6.13
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -63,6 +63,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Tue Aug 11 2026 RyanCrepa <Ryan110413@outlook.com> - 2.6.13-1-ltv
+- 修复了一些已知问题
+
 * Mon Aug 10 2026 RyanCrepa <Ryan110413@outlook.com> - 2.6.12-1-ltv
 - 修复了部分系统无法正常显示中文的问题
 
