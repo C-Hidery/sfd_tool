@@ -336,7 +336,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper)
             bottom_bar_set_status("Ready");
         },GTK_WINDOW(helper.getWidget("main_window")));
 
-        if (!(helper.getSwitchState(helper.getWidget("exec_addr"))) && g_app_state.device.device_mode != SPRD4)
+        if (g_app_state.device.device_mode != SPRD4)
         {
             // 同步写入 AppConfig，交由 ConfigService 管理“最近使用的 FDL”
             auto* cfgSvc = ensure_config_service();
