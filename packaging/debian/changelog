@@ -1,3 +1,9 @@
+sfd-tool (2.6.17-1-ltv) unstable; urgency=medium
+
+  * 修复了w_force检测逻辑
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Wed, 12 Aug 2026 20:24:13 +0800
+
 sfd-tool (2.6.16-1-ltv) unstable; urgency=medium
 
   * 修复了一些已知问题
