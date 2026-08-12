@@ -4,7 +4,6 @@
  */
 #include "page_advanced_op.h"
 #include "../common.h"
-#include "../main.h"
 #include "../i18n.h"
 #include "ui/ui_common.h"
 #include "page_partition.h"

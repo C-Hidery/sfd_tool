@@ -9,8 +9,7 @@ add_library(core_lib STATIC
     spd_protocol.cpp
     device_attach_helpers.cpp
     flash_service.cpp
-    device_service.cpp
-    config_service.cpp
+        config_service.cpp
 )
 
 target_include_directories(core_lib

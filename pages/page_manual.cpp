@@ -4,7 +4,6 @@
  */
 #include "page_manual.h"
 #include "../common.h"
-#include "../main.h"
 #include "../i18n.h"
 #include "ui/ui_common.h"
 #include "../core/flash_service.h"

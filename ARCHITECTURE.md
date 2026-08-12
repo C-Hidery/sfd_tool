@@ -30,7 +30,6 @@ sfd_tool/
 ├── core/                     # 核心业务与底层能力模块（与 UI 解耦）
 │   ├── app_state.h           # 应用状态（AppState）定义
 │   ├── config_service.h/.cpp # 配置加载/保存、per-user 配置路径、ui_language 等
-│   ├── device_service.h/.cpp # 设备连接、FDL 下载、基础设备操作
 │   ├── flash_service.h/.cpp  # 统一的刷机与分区读写服务（含 PartitionReadService）
 │   ├── file_io.h/.cpp        # 文件读写封装（跨平台路径处理等）
 │   ├── logging.h/.cpp        # 日志接口与实现（DEG_LOG 等）

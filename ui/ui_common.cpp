@@ -5,7 +5,6 @@
 #include "ui/layout/bottom_bar.h"
 #include "ui/ui_common.h"
 #include "common.h"
-#include "main.h"
 #include "i18n.h"
 #include <thread>
 #include <chrono>
@@ -15,6 +14,7 @@ extern AppState g_app_state;
 extern int& m_bOpened;
 extern int blk_size;
 extern uint64_t fblk_size;
+extern int g_default_blk_size;
 #if defined(__APPLE__)
 extern bool g_is_macos_bundle;
 #endif

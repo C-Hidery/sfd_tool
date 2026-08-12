@@ -5,10 +5,8 @@
 #include "ui/layout/bottom_bar.h"
 #include "page_connect.h"
 #include "../common.h"
-#include "../main.h"
 #include "../i18n.h"
 #include "ui/ui_common.h"
-#include "../core/device_service.h"
 #include "page_partition.h"
 #include <thread>
 #include <chrono>
@@ -25,60 +23,13 @@
 #endif
 #endif
 
-extern spdio_t*& io;
-extern int ret;
-extern int& m_bOpened;
-extern int blk_size;
-extern int keep_charge;
-extern int end_data;
-extern int highspeed;
-extern unsigned exec_addr, baudrate;
-extern int no_fdl_mode;
-extern AppState g_app_state;
-extern int nand_info[3];
-extern int nand_id;
-extern int conn_wait;
-extern int fdl1_loaded;
-extern int fdl2_executed;
-extern int isKickMode;
-extern bool isUseCptable;
-extern int stage;
-extern int bootmode;
-extern int at;
-extern int async;
-extern uint64_t g_spl_size;
-extern int waitFDL1;
-extern int autoFDL1Suc;
-extern std::string fdl1_path_json;
-extern std::string fdl2_path_json;
-extern uint32_t fdl1_addr_json;
-extern uint32_t fdl2_addr_json;
-#if !USE_LIBUSB
-extern DWORD curPort;
-extern DWORD* ports;
-#else
-extern libusb_device* curPort;
-extern libusb_device** ports;
-#endif
-
 // 兼容旧逻辑：isCMethod 始终映射到 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
-
 using nlohmann::json;
 
-// 通过 Service 层封装设备与配置访问
-std::unique_ptr<sfd::DeviceService> g_device_service;
+// 通过 Service 层封装配置访问
 std::unique_ptr<sfd::ConfigService> g_config_service;
 
-sfd::DeviceService* ensure_device_service()
-{
-    if (!g_device_service)
-    {
-        g_device_service = sfd::createDeviceService();
-    }
-    g_device_service->setContext(io, &g_app_state);
-    return g_device_service.get();
-}
 
 sfd::ConfigService* ensure_config_service()
 {
@@ -87,27 +38,6 @@ sfd::ConfigService* ensure_config_service()
         g_config_service = sfd::createConfigService();
     }
     return g_config_service.get();
-}
-
-// 根据 DeviceService 当前视图刷新 UI 上的 mode 文案
-static void update_mode_label_from_device_service(GtkWidgetHelper& helper)
-{
-    auto* devSvc = ensure_device_service();
-    if (!devSvc) return;
-
-    sfd::DeviceStage st = devSvc->getCurrentStage();
-    const char* mode_text = "Unknown";
-    switch (st)
-    {
-    case sfd::DeviceStage::BootRom: mode_text = "BROM";
-        break;
-    case sfd::DeviceStage::Fdl1: mode_text = "FDL1";
-        break;
-    case sfd::DeviceStage::Fdl2: mode_text = "FDL2";
-        break;
-    default: break;
-    }
-    helper.setLabelText(helper.getWidget("mode"), mode_text);
 }
 
 // 前向声明 — 这些回调定义在本文件中
@@ -419,6 +349,18 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper)
                 cfg.last_fdl2_path = fdl2_path_json;
                 cfg.last_fdl1_addr = std::to_string(fdl1_addr_json);
                 cfg.last_fdl2_addr = std::to_string(fdl2_addr_json);
+                if (helper.getSwitchState(helper.getWidget("exec_addr")))
+                {
+                    if (helper.getSwitchState(helper.getWidget("exec_addr_v2"))) cfg.last_use_exec_addr_v2 = "true";
+                    cfg.last_use_exec_addr = "true";
+                    cfg.last_exec_addr_file = helper.getEntryText(helper.getWidget("exec_addr_file"));
+                    cfg.last_exec_addr = helper.getEntryText(helper.getWidget("exec_addr_c"));
+                }
+                else
+                {
+                    cfg.last_use_exec_addr_v2 = "false";
+                    cfg.last_use_exec_addr = "false";
+                }
                 cfgSvc->saveAppConfig(cfg);
             }
         }
@@ -1083,7 +1025,18 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv)
                 LogBlkState("connect_update_blk_ui");
             }
         }
-        update_mode_label_from_device_service(helper);
+        if (g_app_state.device.device_stage == FDL2)
+        {
+            helper.setLabelText(helper.getWidget("mode"), "FDL2");
+        }
+        else if (g_app_state.device.device_stage == FDL1)
+        {
+            helper.setLabelText(helper.getWidget("mode"), "FDL1");
+        }
+        else if (g_app_state.device.device_stage == BROM)
+        {
+            helper.setLabelText(helper.getWidget("mode"), "BROM");
+        }
     },GTK_WINDOW(helper.getWidget("main_window")));
     if (!fdl2_executed)
     {
@@ -1101,7 +1054,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv)
         sfd::AppConfig cfg{};
         sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
         if (status.success && !cfg.last_fdl1_path.empty() && !cfg.last_fdl2_path.empty() && !cfg.last_fdl1_addr.empty()
-            && !cfg.last_fdl2_addr.empty() && g_app_state.device.device_stage == BROM && !isKickMode && !isExec)
+            && !cfg.last_fdl2_addr.empty() && g_app_state.device.device_stage == BROM && g_app_state.device.device_mode != SPRD4)
         {
             bool i_is = false;
             i_is = showConfirmDialogSyncInThread(
@@ -1112,6 +1065,19 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv)
                 helper.setEntryText(helper.getWidget("fdl_file_path"), cfg.last_fdl1_path);
                 helper.setEntryText(helper.getWidget("fdl_addr"),
                                     uint32_to_hex_string(static_cast<uint32_t>(std::stoul(cfg.last_fdl1_addr))));
+                if (cfg.last_use_exec_addr == "true")
+                {
+                    if (!cfg.last_exec_addr_file.empty() && !cfg.last_exec_addr.empty())
+                    {
+                        helper.setEntryText(helper.getWidget("exec_addr_file"), cfg.last_exec_addr_file);
+                        helper.setEntryText(helper.getWidget("exec_addr_c"), cfg.last_exec_addr);
+                    }
+                    helper.setSwitchState(helper.getWidget("exec_addr"), true);
+                    if (cfg.last_use_exec_addr_v2 == "true")
+                    {
+                        helper.setSwitchState(helper.getWidget("exec_addr_v2"), true);
+                    }
+                }
                 DEG_LOG(I, "Loaded FDL info: %s at address: %s", cfg.last_fdl1_path.c_str(),
                         uint32_to_hex_string(static_cast<uint32_t>(std::stoul(cfg.last_fdl1_addr))).c_str());
                 waitFDL1 = 0;
@@ -1322,6 +1288,15 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook)
     gtk_widget_set_halign(cveSwitch, GTK_ALIGN_END);
     gtk_widget_set_hexpand(cveSwitch, TRUE);
     helper.addWidget("exec_addr", cveSwitch);
+    if (cfgSvc)
+    {
+        sfd::AppConfig cfg{};
+        sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
+        if (status.success && cfg.last_use_exec_addr == "true")
+        {
+            gtk_switch_set_state(GTK_SWITCH(cveSwitch), TRUE);
+        }
+    }
 
     gtk_grid_attach(GTK_GRID(cveGrid), cveSwitchLabel, 0, 0, 1, 1);
     gtk_grid_attach(GTK_GRID(cveGrid), cveSwitch, 1, 0, 1, 1);
@@ -1339,6 +1314,15 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook)
     gtk_widget_set_halign(execAddrV2Switch, GTK_ALIGN_END);
     gtk_widget_set_hexpand(execAddrV2Switch, TRUE);
     helper.addWidget("exec_addr_v2", execAddrV2Switch);
+    if (cfgSvc)
+    {
+        sfd::AppConfig cfg{};
+        sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
+        if (status.success && cfg.last_use_exec_addr_v2 == "true")
+        {
+            gtk_switch_set_state(GTK_SWITCH(execAddrV2Switch), TRUE);
+        }
+    }
 
     gtk_grid_attach(GTK_GRID(cveGrid), execAddrV2Label, 0, 1, 1, 1);
     gtk_grid_attach(GTK_GRID(cveGrid), execAddrV2Switch, 1, 1, 1, 1);
@@ -1359,6 +1343,15 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook)
     gtk_widget_set_name(execAddr, "exec_addr_file");
     gtk_widget_set_size_request(execAddr, 150, 32);
     helper.addWidget("exec_addr_file", execAddr);
+    if (cfgSvc)
+    {
+        sfd::AppConfig cfg{};
+        sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
+        if (status.success && cfg.last_exec_addr_file.empty() == false)
+        {
+            gtk_editable_set_text(GTK_EDITABLE(execAddr), cfg.last_exec_addr_file.c_str());
+        }
+    }
 
     GtkWidget* selectExecAddrBtn = gtk_button_new_with_label("...");
     gtk_widget_set_name(selectExecAddrBtn, "select_exec_addr");
@@ -1436,6 +1429,15 @@ GtkWidget* create_connect_page(GtkWidgetHelper& helper, GtkWidget* notebook)
     gtk_widget_set_halign(execAddrC, GTK_ALIGN_END);
     gtk_widget_set_hexpand(execAddrC, TRUE);
     helper.addWidget("exec_addr_c", execAddrC);
+    if (cfgSvc)
+    {
+        sfd::AppConfig cfg{};
+        sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
+        if (status.success && cfg.last_exec_addr.empty() == false)
+        {
+            gtk_editable_set_text(GTK_EDITABLE(execAddrC), cfg.last_exec_addr.c_str());
+        }
+    }
 
     gtk_grid_attach(GTK_GRID(sprdGrid), execAddrLabel2, 0, 2, 1, 1);
     gtk_grid_attach(GTK_GRID(sprdGrid), execAddrC, 1, 2, 1, 1);
