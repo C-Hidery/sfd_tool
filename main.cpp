@@ -314,15 +314,6 @@ extern libusb_device* curPort;
 // Moved initialization into gtk_kmain()
 extern int main_console(int argc, char** argv);
 
-#ifndef _WIN32
-void check_root_permission(GtkWidgetHelper helper) {
-	if (geteuid() != 0) {
-		// not root
-		showWarningDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Warning"))), _("You are running this tool without root permission!\nIt may cause device connecting issue without device rule(80-spd.rules)."));
-	}
-}
-#endif
-
 bool isCrashed = false;
 void crash_handler(int sig) {
 	(void)sig;

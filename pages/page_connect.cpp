@@ -65,7 +65,9 @@ extern libusb_device** ports;
 
 // 兼容旧逻辑：isCMethod 始终映射到 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
-
+#ifndef _WIN32
+extern void check_root_permission(GtkWidgetHelper helper);
+#endif
 using nlohmann::json;
 
 // 通过 Service 层封装配置访问

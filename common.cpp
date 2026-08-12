@@ -69,7 +69,14 @@ static std::string g_progress_desc;
 int fdl1_loaded = 0;
 int fdl2_executed = 0;
 int blk_size = 0;
-
+#ifndef _WIN32
+void check_root_permission(GtkWidgetHelper helper) {
+	if (geteuid() != 0) {
+		// not root
+		showWarningDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Warning"))), _("You are running this tool without root permission!\nIt may cause device connecting issue without device rule(80-spd.rules)."));
+	}
+}
+#endif
 #ifdef _MSC_VER
 void usleep(unsigned int us) {
 	Sleep(us / 1000);
