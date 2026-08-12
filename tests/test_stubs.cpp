@@ -13,14 +13,6 @@ struct spdio_t;
 // 为测试提供的最小全局变量实现，避免依赖 GUI/main 逻辑
 // 这些符号在正常应用中由 main.cpp/common.cpp/ui/ui_common.cpp 提供，这里只给出安全的空壳/默认值。
 
-AppState g_app_state{};        // 全局应用状态实例（测试中不会真正使用设备）
-int fdl1_loaded = 0;           // FDL1 加载状态，占位
-int fdl2_executed = 0;         // FDL2 执行状态，占位
-uint64_t g_spl_size = 0;       // SPL 大小，占位
-uint64_t fblk_size = 0;        // dump 时限速用的块大小，占位
-int blk_size = 0;              // GUI/控制台共用块大小，占位
-int g_default_blk_size = 0;    // 默认块大小，占位
-
 // io/m_bOpened 在 UI 和协议层中以引用形式存在，这里提供测试专用的后备存储
 static spdio_t* g_test_io = nullptr;
 spdio_t*& io = g_test_io;
