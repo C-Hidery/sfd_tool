@@ -335,3 +335,46 @@ void w_force_repair_prev(partition_t *ptable, int part_count, int i);
 std::wstring utf8_to_utf16(const std::string& utf8);
 std::string utf16_to_utf8(const std::wstring& wstr);
 #endif
+#ifndef _WIN32
+extern void check_root_permission(GtkWidgetHelper helper);
+#endif
+extern spdio_t*& io;
+extern int ret;
+extern int& m_bOpened;
+extern int blk_size;
+extern uint64_t fblk_size;
+extern int keep_charge;
+extern int end_data;
+extern int highspeed;
+extern unsigned exec_addr, baudrate;
+extern int no_fdl_mode;
+extern AppState g_app_state;
+extern int nand_info[3];
+extern int nand_id;
+extern int conn_wait;
+extern int fdl1_loaded;
+extern int fdl2_executed;
+extern int isKickMode;
+extern bool isUseCptable;
+extern int stage;
+extern int bootmode;
+extern int at;
+extern int async;
+extern int g_default_blk_size;
+extern const char* o_exception;
+extern int init_stage;
+extern char mode_str[256];
+extern uint64_t g_spl_size;
+extern int waitFDL1;
+extern int autoFDL1Suc;
+extern std::string fdl1_path_json;
+extern std::string fdl2_path_json;
+extern uint32_t fdl1_addr_json;
+extern uint32_t fdl2_addr_json;
+#if !USE_LIBUSB
+extern DWORD curPort;
+extern DWORD* ports;
+#else
+extern libusb_device* curPort;
+extern libusb_device** ports;
+#endif

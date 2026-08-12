@@ -27,31 +27,6 @@ const char *Version = "[1.2.3.0@_250726]";
 static int& isCMethod = g_app_state.flash.isCMethod;
 
 bool& isToolMode = g_app_state.flash.isToolMode;
-extern const char* o_exception;
-extern int init_stage;
-extern int no_fdl_mode;
-extern int isKickMode;
-extern int conn_wait;
-extern int stage;
-extern int keep_charge;
-extern int end_data;
-extern int highspeed;
-extern int nand_id;
-extern unsigned exec_addr;
-extern uint32_t baudrate;
-extern int nand_info[3];
-extern int ret;
-extern int bootmode;
-extern int at;
-extern char mode_str[256];
-#if USE_LIBUSB
-extern libusb_device** ports;
-#else
-extern DWORD* ports;
-#endif
-extern uint64_t g_spl_size;
-extern uint64_t fblk_size;
-extern int& m_bOpened;
 extern char* temp;
 
 void print_help() {

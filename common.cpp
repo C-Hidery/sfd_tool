@@ -3256,7 +3256,7 @@ std::string utf16_to_utf8(const std::wstring& wstr) {
 }
 #endif
 // common.cpp 添加以下定义（确保只定义一次）
-char* o_exception = nullptr;
+const char* o_exception = nullptr;
 int init_stage = -1;
 int no_fdl_mode = 0;
 int isKickMode = 0;
