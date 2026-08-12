@@ -9,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        2.6.14
+Version:        2.6.15
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -63,6 +63,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Wed Aug 12 2026 RyanCrepa <Ryan110413@outlook.com> - 2.6.15-1-ltv
+- 为自动执行FDL提供EXEC_ADDR支持
+
 * Tue Aug 11 2026 RyanCrepa <Ryan110413@outlook.com> - 2.6.14-1-ltv
 - 修复了一个对话框崩溃问题
 
