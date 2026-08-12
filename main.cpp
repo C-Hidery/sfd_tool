@@ -38,7 +38,6 @@
 #include <string>
 #include <cstdlib>
 #include "common.h"
-#include "main.h"
 #include "ui/GtkWidgetHelper.hpp"
 #include "i18n.h"
 #include "ui/ui_common.h"
@@ -300,46 +299,20 @@ std::string load_about_text() {
 	// 3) 仍然找不到时，回退到原有提示
 	return "SFD Tool GUI\n\nBy Ryan Crepa\n\nAbout information file missing.\n";
 }
-
-AppState g_app_state; // 全局应用状态实例
-int& m_bOpened = g_app_state.device.m_bOpened;
-int fdl1_loaded = 0;
-int fdl2_executed = 0;
-int isKickMode = 0;
-int& selected_ab = g_app_state.flash.selected_ab;
-int no_fdl_mode = 0;
-uint64_t fblk_size = 0;
-uint64_t g_spl_size;
-extern bool isUseCptable;
-const char* o_exception;
-int init_stage = -1;
-int& device_stage = g_app_state.device.device_stage;
-int& device_mode = g_app_state.device.device_mode;
+extern AppState g_app_state;
 //sfd_tool protocol
-char mode_str[256];
-char* temp;
 spdio_t*& io = g_app_state.transport.io;
-int ret;
-int conn_wait = 30 * REOPEN_FREQ;
-int keep_charge = 1, end_data = 0, blk_size = 0, skip_confirm = 1, highspeed = 0, cve_v2 = 0;
-int g_default_blk_size = 0;
-int nand_info[3];
-int argcount = 0, stage = -1, nand_id = DEFAULT_NAND_ID;
-unsigned exec_addr = 0, baudrate = 0;
-int bootmode = -1, at = 0, async = 1;
-int waitFDL1 = -1;
-int autoFDL1Suc = 0;
+extern int ret;
 //Set up environment
 #if !USE_LIBUSB
 extern DWORD curPort;
-DWORD* ports;
 //Channel9 init(Windows platform)
 #else
 //libsub init(Linux/Android-termux)
 extern libusb_device* curPort;
-libusb_device** ports;
 #endif
 // Moved initialization into gtk_kmain()
+extern int main_console(int argc, char** argv);
 
 #ifndef _WIN32
 void check_root_permission(GtkWidgetHelper helper) {
@@ -495,10 +468,10 @@ static gboolean on_main_window_key_press(GtkWidget* widget, GdkEventKey* event, 
 }
 #endif
  //fdl exec
-std::string fdl1_path_json;
-std::string fdl2_path_json;
-uint32_t fdl1_addr_json;
-uint32_t fdl2_addr_json;
+extern std::string fdl1_path_json;
+extern std::string fdl2_path_json;
+extern uint32_t fdl1_addr_json;
+extern uint32_t fdl2_addr_json;
 
 int gtk_kmain(int argc, char** argv) {
     DEG_LOG(I, "Starting GUI mode...");

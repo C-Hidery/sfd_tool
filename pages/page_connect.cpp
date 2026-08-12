@@ -5,7 +5,6 @@
 #include "ui/layout/bottom_bar.h"
 #include "page_connect.h"
 #include "../common.h"
-#include "../main.h"
 #include "../i18n.h"
 #include "ui/ui_common.h"
 #include "page_partition.h"
@@ -45,6 +44,10 @@ extern int stage;
 extern int bootmode;
 extern int at;
 extern int async;
+extern int g_default_blk_size;
+extern char* o_exception;
+extern int init_stage;
+extern char mode_str[256];
 extern uint64_t g_spl_size;
 extern int waitFDL1;
 extern int autoFDL1Suc;
