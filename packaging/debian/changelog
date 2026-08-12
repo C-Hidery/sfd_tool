@@ -1,3 +1,9 @@
+sfd-tool (2.6.16-1-ltv) unstable; urgency=medium
+
+  * 修复了一些已知问题
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Wed, 12 Aug 2026 19:18:27 +0800
+
 sfd-tool (2.6.15-1-ltv) unstable; urgency=medium
 
   * 为自动执行FDL提供EXEC_ADDR支持

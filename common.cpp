@@ -69,6 +69,42 @@ static std::string g_progress_desc;
 int fdl1_loaded = 0;
 int fdl2_executed = 0;
 int blk_size = 0;
+// common.cpp 添加以下定义（确保只定义一次）
+const char* o_exception = nullptr;
+int init_stage = -1;
+int no_fdl_mode = 0;
+int isKickMode = 0;
+int conn_wait = 30 * REOPEN_FREQ;
+int stage = -1;
+int waitFDL1 = -1;
+int keep_charge = 1;
+int end_data = 0;
+int highspeed = 0;
+unsigned exec_addr = 0;
+uint32_t baudrate = 0;
+int nand_id = DEFAULT_NAND_ID;
+int nand_info[3] = {0};
+int ret;
+int bootmode = -1;
+int at = 0;
+int autoFDL1Suc = 0;
+char mode_str[256] = {0};
+std::string fdl1_path_json;
+std::string fdl2_path_json;
+uint32_t fdl1_addr_json = 0;
+uint32_t fdl2_addr_json = 0;
+int async = 1;
+
+#if USE_LIBUSB
+libusb_device** ports = nullptr;
+#else
+DWORD* ports = nullptr;
+#endif
+uint64_t g_spl_size;
+int g_default_blk_size = 0;
+uint64_t fblk_size = 0;
+int& m_bOpened = g_app_state.device.m_bOpened;
+char* temp;
 #ifndef _WIN32
 void check_root_permission(GtkWidgetHelper helper) {
 	if (geteuid() != 0) {
@@ -82,16 +118,7 @@ void usleep(unsigned int us) {
 	Sleep(us / 1000);
 }
 #endif
-
-
-extern int& m_bOpened;
-extern AppState g_app_state;
-
-
-
 char fn_partlist[40] = { 0 };
-
-
 #if defined(__APPLE__)
 bool g_is_macos_bundle = false;
 #endif
@@ -432,7 +459,6 @@ void set_progress_desc(const char* desc) {
     else g_progress_desc.clear();
 }
 
-extern uint64_t fblk_size;
 uint64_t dump_partition(spdio_t *io,
 	const char *name, uint64_t start, uint64_t len,
 	const char *fn, unsigned step) {
@@ -3255,39 +3281,3 @@ std::string utf16_to_utf8(const std::wstring& wstr) {
 	return utf8;
 }
 #endif
-// common.cpp 添加以下定义（确保只定义一次）
-const char* o_exception = nullptr;
-int init_stage = -1;
-int no_fdl_mode = 0;
-int isKickMode = 0;
-int conn_wait = 30 * REOPEN_FREQ;
-int stage = -1;
-int waitFDL1 = -1;
-int keep_charge = 1;
-int end_data = 0;
-int highspeed = 0;
-unsigned exec_addr = 0;
-uint32_t baudrate = 0;
-int nand_id = DEFAULT_NAND_ID;
-int nand_info[3] = {0};
-int ret;
-int bootmode = -1;
-int at = 0;
-int autoFDL1Suc = 0;
-char mode_str[256] = {0};
-std::string fdl1_path_json;
-std::string fdl2_path_json;
-uint32_t fdl1_addr_json = 0;
-uint32_t fdl2_addr_json = 0;
-int async = 1;
-
-#if USE_LIBUSB
-libusb_device** ports = nullptr;
-#else
-DWORD* ports = nullptr;
-#endif
-uint64_t g_spl_size;
-int g_default_blk_size = 0;
-uint64_t fblk_size = 0;
-int& m_bOpened = g_app_state.device.m_bOpened;
-char* temp;
