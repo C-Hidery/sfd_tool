@@ -3279,6 +3279,7 @@ std::string fdl1_path_json;
 std::string fdl2_path_json;
 uint32_t fdl1_addr_json = 0;
 uint32_t fdl2_addr_json = 0;
+int async = 1;
 
 #if USE_LIBUSB
 libusb_device** ports = nullptr;

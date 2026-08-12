@@ -245,24 +245,9 @@ void ThrowExit() {
 
 int main_console(int argc, char** argv) {
 	ThrowExit();
-	spdio_t*& io = g_app_state.transport.io;
-	int ret;
-	int conn_wait = 30 * REOPEN_FREQ;
-	int keep_charge = 1, end_data = 0, blk_size = 0, skip_confirm = 1, highspeed = 0, exec_addr_v2 = 0;
-	int nand_info[3];
-	int argcount = 0, stage = -1, nand_id = DEFAULT_NAND_ID;
-	unsigned exec_addr = 0, baudrate = 0;
-	int bootmode = -1, at = 0, async = 1;
+	int skip_confirm = 1,  exec_addr_v2 = 0;
+	int argcount = 0;
 	//Set up environment
-#if !USE_LIBUSB
-	extern DWORD curPort;
-	DWORD* ports;
-	//Channel9 init(Windows platform)
-#else
-	//libsub init(Linux/Android-termux)
-	extern libusb_device* curPort;
-	libusb_device** ports;
-#endif
 	std::string execfile;
 	io = spdio_init(0);
 
