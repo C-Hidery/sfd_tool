@@ -17,9 +17,6 @@ struct spdio_t;
 static spdio_t* g_test_io = nullptr;
 spdio_t*& io = g_test_io;
 
-static int g_test_m_bOpened = -1;
-int& m_bOpened = g_test_m_bOpened;
-
 // ===== 针对 core/logging.cpp & pac_extract.cpp 的 GUI 相关桩实现 =====
 
 // 在测试环境中不弹出对话框，只打印到 stderr，避免依赖 GTK/窗口
