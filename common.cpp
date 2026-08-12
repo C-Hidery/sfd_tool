@@ -2060,8 +2060,8 @@ void get_partition_info(spdio_t *io, const char *name, int need_size) {
 		io->verbose = verbose;
 		return;
 	}
-	if (io->part_count && io->ptable) {
-		if (selected_ab > 0 && strcmp(name, "w_force") != 0) snprintf(name_ab, sizeof(name_ab), "%s_%c", name, 96 + selected_ab);
+	if (io->part_count && io->ptable && strcmp(name, "w_force") != 0) {
+		if (selected_ab > 0) snprintf(name_ab, sizeof(name_ab), "%s_%c", name, 96 + selected_ab);
 		for (i = 0; i < io->part_count; i++) {
 			if (!strcmp(name, (*(io->ptable + i)).name)) break;
 			if (selected_ab > 0 && !strcmp(name_ab, (*(io->ptable + i)).name)) {
@@ -2077,7 +2077,7 @@ void get_partition_info(spdio_t *io, const char *name, int need_size) {
 		io->verbose = verbose;
 		return;
 	}
-	else if (io->part_count_c && io->Cptable)
+	else if (io->part_count_c && io->Cptable && strcmp(name, "w_force") != 0)
 	{
 		if (selected_ab > 0) snprintf(name_ab, sizeof(name_ab), "%s_%c", name, 96 + selected_ab);
 		for (i = 0; i < io->part_count_c; i++) {
@@ -2098,7 +2098,7 @@ void get_partition_info(spdio_t *io, const char *name, int need_size) {
 
 	if (selected_ab < 0) select_ab(io);
 	gPartInfo.size = check_partition(io, name, need_size);
-	if (!gPartInfo.size && selected_ab > 0) {
+	if (!gPartInfo.size && selected_ab > 0 && strcmp(name, "w_force") != 0) {
 		snprintf(name_ab, sizeof(name_ab), "%s_%c", name, 96 + selected_ab);
 		gPartInfo.size = check_partition(io, name_ab, need_size);
 		name = name_ab;
