@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 2.6.17 LTV Edition
+Version 2.6.18 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -381,6 +381,9 @@ Remove unstable blk_size detection
 
 ---v 2.6.17---
 修复了w_force检测逻辑
+
+---v 2.6.18---
+移除PAC执行FDL功能，用户需要自行执行FDL（可先解包）
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool

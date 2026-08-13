@@ -1,3 +1,9 @@
+sfd-tool (2.6.18-1-ltv) unstable; urgency=medium
+
+  * 移除PAC执行FDL功能，用户需要自行执行FDL（可先解包）
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Thu, 13 Aug 2026 10:13:37 +0800
+
 sfd-tool (2.6.17-1-ltv) unstable; urgency=medium
 
   * 修复了w_force检测逻辑
