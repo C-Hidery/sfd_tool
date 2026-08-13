@@ -878,8 +878,8 @@ msgstr "PAC烧录时间"
 msgid "PAC Time"
 msgstr "PAC烧录时间"
 
-msgid "Please check partitions to flash"
-msgstr "请选择要烧录的分区"
+msgid "Please check partitions to flash, and execute FDL into FDL2 stage to start (FDL can be from extracted PAC folder)."
+msgstr "请选择要烧录的分区并将设备执行到FDL2阶段以开始烧录（FDL可以是来自解包了的PAC文件夹里）。"
 
 
 

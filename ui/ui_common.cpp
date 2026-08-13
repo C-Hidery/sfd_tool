@@ -94,7 +94,6 @@ void Enable_Startup(GtkWidgetHelper helper) {
 	helper.enableWidget("charge_dis");
 	helper.enableWidget("raw_data_en");
 	helper.enableWidget("raw_data_dis");
-	if (g_app_state.device.device_stage == BROM) helper.enableWidget("pac_flash_start"); //BROM下允许使用PAC烧录功能
 }
 
 void EnableWidgets(GtkWidgetHelper helper) {
@@ -135,7 +134,7 @@ void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("abpart_auto");
 	helper.enableWidget("abpart_a");
 	helper.enableWidget("abpart_b");
-	helper.disableWidget("pac_flash_start"); // PAC烧录功能仅支持BROM下进行操作
+	helper.enableWidget("pac_flash_start");
 	helper.enableWidget("export_part_xml");
 	helper.enableWidget("force_flash_en");
 	helper.enableWidget("force_flash_dis");
