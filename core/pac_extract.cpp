@@ -922,12 +922,11 @@ std::string FindFDLInExtFolder(const char* folder, Stages mode)
     }
 }
 
-partition_t* pacptable;
-int pac_part_count = 0;
-
 bool pac_extract(const char* fn, const char* floder)
 {
-    pacptable = NEWN partition_t[128];
+    auto *pacptable = NEWN partition_t[128];
+    if (!pacptable) ERR_EXIT("Failed to allocate memory for partition table.\n");
+    int pac_part_count = 0;
     Unpac unpac;
     unpac.setDirectory(floder);
     if (!unpac.openPacFile(fn))
@@ -1111,66 +1110,13 @@ bool pac_extract(const char* fn, const char* floder)
         // 更新显示
         gtk_widget_queue_draw(part_list);
     }
-
+    if (pacptable) delete[] pacptable;
     return true;
-}
-
-// 查找文件中第一个出现的 <ID>xxx</ID> 对应的 <Base>
-std::string findBaseForID(const std::string& filename, const std::string& targetID)
-{
-    // 读取文件
-    EnhancedFile file = oxfopen_enhanced(filename.c_str(), "r");
-    if (!file) {
-        std::cerr << "Failed to open file: " << filename << std::endl;
-        return "";
-    }
-    std::string buffer;
-    buffer = file.read_all_chunked();
-    file.close();
-
-    XmlParser parser;
-    auto root = parser.parseString(buffer);
-    if (!root) return "";
-
-    // 查找所有 <File> 节点
-    auto files = root->getDescendants("File");
-    for (auto& fileNode : files)
-    {
-        // 查找文件内的 ID 或 IDAlias
-        auto idNode = fileNode->getFirstChild("ID");
-        std::string idValue;
-        if (idNode)
-        {
-            idValue = idNode->getTextContent();
-        }
-        else
-        {
-            auto aliasNode = fileNode->getFirstChild("IDAlias");
-            if (aliasNode) idValue = aliasNode->getTextContent();
-        }
-
-        if (idValue == targetID)
-        {
-            // 查找 Block 内的 Base
-            auto blockNode = fileNode->getFirstChild("Block");
-            if (blockNode)
-            {
-                auto baseNode = blockNode->getFirstChild("Base");
-                if (baseNode)
-                {
-                    return baseNode->getTextContent();
-                }
-            }
-        }
-    }
-
-    return "";
 }
 
 bool pac_flash(spdio_t* io, const char* folder)
 {
-    io->ptable = pacptable;
-    io->part_count = pac_part_count;
+    if (g_app_state.device.device_stage != FDL2) {DEG_LOG(E, "Device is not in FDL2 stage!"); return false;}
     std::string xmlPath = FindFirstXMLFile(folder);
     if (xmlPath.empty())
     {
@@ -1185,293 +1131,9 @@ bool pac_flash(spdio_t* io, const char* folder)
         return false;
     }
     g_app_state.flash.pac_xmlPath = xmlPath;
-    std::string fdl1_path = FindFDLInExtFolder(folder, FDL1);
-    std::string fdl2_path = FindFDLInExtFolder(folder, FDL2);
-    std::string fdl1_base = findBaseForID(xmlPath, "fdl1");
-    std::string fdl2_base = findBaseForID(xmlPath, "fdl2");
-    bool FDLInPacSupported = true;
-    bool FDLAddrInPacSupported = true;
-    if (fdl1_path.empty() || fdl1_base.empty())
+
+    auto into_func = [io, xmlPath]() mutable
     {
-        if (isHelperInit)
-            gui_idle_call_wait_drag([]()
-            {
-                showErrorDialog(
-                    GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("FDL1 file or base address not found."));
-            },GTK_WINDOW(helper.getWidget("main_window")));
-        DEG_LOG(E, "FDL1 file or base address not found.");
-        if (fdl1_path.empty()) FDLInPacSupported = false;
-        if (fdl1_base.empty()) FDLAddrInPacSupported = false;
-    }
-    if (fdl2_path.empty() || fdl2_base.empty())
-    {
-        if (isHelperInit)
-            gui_idle_call_wait_drag([]()
-            {
-                showErrorDialog(
-                    GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("FDL2 file or base address not found."));
-            },GTK_WINDOW(helper.getWidget("main_window")));
-        DEG_LOG(E, "FDL2 file or base address not found.");
-        if (fdl2_path.empty()) FDLInPacSupported = false;
-        if (fdl2_base.empty()) FDLAddrInPacSupported = false;
-    }
-    if (isHelperInit && !showConfirmDialog(
-        GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"),
-        _(
-            "Are you sure you want to flash the device with the extracted files? Make sure you have the correct PAC file.")))
-    {
-        return false;
-    }
-    if (isHelperInit && showConfirmDialog(
-        GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Do you want to set FDL info manually?")))
-    {
-        FDLInPacSupported = false;
-        FDLAddrInPacSupported = false;
-    }
-    else if (!isHelperInit)
-    {
-        std::string input;
-        std::cout << "Do you want to set FDL info manually? (y/N): ";
-        std::getline(std::cin, input);
-        if (input == "y" || input == "Y")
-        {
-            FDLInPacSupported = false;
-            FDLAddrInPacSupported = false;
-        }
-    }
-    if (FDLInPacSupported == false || FDLAddrInPacSupported == false)
-    {
-        DEG_LOG(OP, "Try to set FDL info manmually...");
-        if (isHelperInit)
-        {
-            if (FDLAddrInPacSupported == false)
-            {
-                fdl1_base = showInputDialogSyncInThread(
-                    GTK_WINDOW(helper.getWidget("main_window")), _("Input"),
-                    _("Please input FDL1 base address (hex): "));
-                fdl2_base = showInputDialogSyncInThread(
-                    GTK_WINDOW(helper.getWidget("main_window")), _("Input"),
-                    _("Please input FDL2 base address (hex): "));
-            }
-            if (FDLInPacSupported == false)
-            {
-                showInfoDialog(
-                    GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Please select FDL1 executable file."));
-                fdl1_path = showFileChooser(GTK_WINDOW(helper.getWidget("main_window")), false);
-                showInfoDialog(
-                    GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Please select FDL2 executable file."));
-                fdl2_path = showFileChooser(GTK_WINDOW(helper.getWidget("main_window")), false);
-            }
-        }
-        else
-        {
-            if (FDLAddrInPacSupported == false)
-            {
-                std::cout << "Please input FDL1 base address (hex): ";
-                std::getline(std::cin, fdl1_base);
-                std::cout << "Please input FDL2 base address (hex): ";
-                std::getline(std::cin, fdl2_base);
-            }
-            if (FDLInPacSupported == false)
-            {
-                std::cout << "Please input FDL1 file path: ";
-                std::getline(std::cin, fdl1_path);
-                std::cout << "Please input FDL2 file path: ";
-                std::getline(std::cin, fdl2_path);
-            }
-        }
-    }
-    ensure_device_attached_or_exit(helper);
-    uint32_t fdl1_base_addr = std::stoul(fdl1_base, nullptr, 0);
-    uint32_t fdl2_base_addr = std::stoul(fdl2_base, nullptr, 0);
-    int highspeed = 0;
-    uint32_t baudrate = 0;
-    uint32_t blk_size = 60000;
-    if (isHelperInit)
-        gui_idle_call_wait_drag([]()
-        {
-            showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Start executing FDL1 and FDL2."));
-        },GTK_WINDOW(helper.getWidget("main_window")));
-
-    auto into_func = [fdl1_path, fdl1_base_addr, io, highspeed, baudrate, blk_size, xmlPath]() mutable
-    {
-        EnhancedFile fi = oxfopen_enhanced(fdl1_path.c_str(), "r");
-        if (!fi)
-        {
-            DEG_LOG(W, "File does not exist.\n");
-            if (isHelperInit)
-                gui_idle_call_wait_drag([]()
-                {
-                    showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
-                }, GTK_WINDOW(helper.getWidget("main_window")));
-            return;
-        }
-        fi.close();
-        send_file(io, fdl1_path.c_str(), fdl1_base_addr, 0, 528, 0, 0);
-        encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-        if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
-
-        DEG_LOG(OP, "Execute FDL1");
-        // Tiger 310(0x5500) and Tiger 616(0x65000800) need to change baudrate after FDL1
-
-        if (fdl1_base_addr == 0x5500 || fdl1_base_addr == 0x65000800)
-        {
-            highspeed = 1;
-            if (!baudrate) baudrate = 921600;
-        }
-
-        /* FDL1 (chk = sum) */
-        io->flags &= ~FLAGS_CRC16;
-
-        encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
-        for (int i = 0; ; i++)
-        {
-            send_msg(io);
-            recv_msg(io);
-            if (recv_type(io) == BSL_REP_VER) break;
-            DEG_LOG(W, "Failed to check baud, retry...");
-            if (i == 4)
-            {
-                ERR_EXIT(
-                    "Can not execute FDL, please reboot your phone by pressing POWER and VOL_UP for 7-10 seconds.\n");
-            }
-            usleep(500000);
-        }
-        DEG_LOG(I, "Check baud FDL1 done.");
-
-        DEG_LOG(I, "Device REP_Version: ");
-        print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
-
-
-        encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-        if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
-        DEG_LOG(I, "FDL1 connected.");
-#if !USE_LIBUSB
-        if (baudrate)
-        {
-            uint8_t* data = io->temp_buf;
-            WRITE32_BE(data, baudrate);
-            encode_msg_nocpy(io, BSL_CMD_CHANGE_BAUD, 4);
-            if (!send_and_check(io))
-            {
-                DEG_LOG(OP, "Change baud FDL1 to %d", baudrate);
-                call_SetProperty(io->handle, 0, 100, (LPCVOID) & baudrate);
-            }
-        }
-#endif
-
-        encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
-        if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
-
-        fdl1_loaded = 1;
-        g_app_state.device.device_stage = FDL1;
-        // FDL2
-        memset(&Da_Info, 0, sizeof(Da_Info));
-        encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-        send_msg(io);
-        // Feature phones respond immediately,
-        // but it may take a second for a smartphone to respond.
-        int ret = recv_msg_timeout(io, 15000);
-        if (!ret)
-        {
-            ERR_EXIT("timeout reached\n");
-        }
-        ret = recv_type(io);
-        // Is it always bullshit?
-        if (ret == BSL_REP_INCOMPATIBLE_PARTITION)
-            get_Da_Info(io);
-        else if (ret != BSL_REP_ACK)
-        {
-            const char* name = get_bsl_enum_name(ret);
-            ERR_EXIT("unexpected response (%s : 0x%04x)\n", name, ret);
-        }
-        DEG_LOG(OP, "Execute FDL2");
-        //remove 0d detection for nand device
-        //This is not supported on certain devices.
-        /*
-        encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
-        send_msg(io);
-        ret = recv_msg(io);
-        if (ret) {
-            ret = recv_type(io);
-            if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"unexpected response (0x%04x)\n", ret);
-            else Da_Info.dwStorageType = 0x101;
-            // need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
-            // for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
-        }
-        */
-        if (Da_Info.bDisableHDLC)
-        {
-            encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
-            if (!send_and_check(io))
-            {
-                io->flags &= ~FLAGS_TRANSCODE;
-                DEG_LOG(OP, "Try to disable transcode 0x7D.");
-            }
-        }
-        int o = io->verbose;
-        io->verbose = -1;
-        g_spl_size = check_partition(io, "splloader", 1);
-        io->verbose = o;
-        if (Da_Info.bSupportRawData)
-        {
-            blk_size = 0xf800;
-            io->ptable = partition_list(io, fn_partlist, &io->part_count);
-            if (fdl2_executed)
-            {
-                Da_Info.bSupportRawData = 0;
-                DEG_LOG(OP, "Raw data mode disabled for SPRD4.");
-            }
-            else
-            {
-                encode_msg_nocpy(io, BSL_CMD_ENABLE_RAW_DATA, 0);
-                if (!send_and_check(io)) DEG_LOG(OP, "Raw data mode enabled.");
-            }
-        }
-
-
-        else if (highspeed || Da_Info.dwStorageType == 0x103)
-        {
-            blk_size = 0xf800;
-            io->ptable = partition_list(io, fn_partlist, &io->part_count);
-        }
-        else if (Da_Info.dwStorageType == 0x102)
-        {
-            io->ptable = partition_list(io, fn_partlist, &io->part_count);
-        }
-        else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
-        if (g_app_state.flash.gpt_failed != 1)
-        {
-            if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
-            else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
-            else
-            {
-                DEG_LOG(I, "Device is not using VAB\n");
-                if (Da_Info.bSupportRawData)
-                {
-                    DEG_LOG(
-                        I,
-                        "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.",
-                        (unsigned)Da_Info.bSupportRawData);
-                    Da_Info.bSupportRawData = 0;
-                }
-            }
-        }
-        if (!io->part_count)
-        {
-            DEG_LOG(W, "No partition table found on current device");
-        }
-        int nand_id = DEFAULT_NAND_ID;
-        uint8_t nand_info[3] = {0}; // page size, spare area size, block size
-        if (nand_id == DEFAULT_NAND_ID)
-        {
-            nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
-            nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
-            nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
-        }
-        fdl2_executed = 1;
-        g_app_state.device.device_stage = FDL2;
-        DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
         get_partition_info(io, "nr_fixnv1", 1);
         if (gPartInfo.size)
         {
@@ -1495,14 +1157,13 @@ bool pac_flash(spdio_t* io, const char* folder)
         }
         else
         {
-            std::cout << "Do you want to repartition? (y/n): ";
+            std::cout << "Do you want to repartition? (Y/n): ";
             char response;
             std::cin >> response;
             i_is = (response == 'y' || response == 'Y');
         }
         if (i_is)
         {
-            partition_t* repartition_table = NEWN partition_t[128];
             EnhancedFile file = oxfopen_enhanced(xmlPath.c_str(), "r");
             if (!file) ERR_EXIT("Failed to open file for reading");
             std::string content;
@@ -1522,7 +1183,6 @@ bool pac_flash(spdio_t* io, const char* folder)
             if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
         }
         g_app_state.flash.isPacFlashing = true;
-
 
         load_partitions(io, "pac_unpack_output", blk_size, g_app_state.flash.selected_ab, 0);
         encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);

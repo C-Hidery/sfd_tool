@@ -598,6 +598,7 @@ jobs:
             ### 使用说明:
             1. **Windows x64 (SPRD)**: 使用 SPRD 驱动
             2. **Windows x64 (libusb)**: 需要安装 libusb 驱动（可使用 Zadig 工具）
+            3. 安装版请将程序安装到非敏感位置避免权限问题
           files: |
             sfd_tool_all_${{ env.RELEASE_TAG }}.zip
             output/sfd_tool_windows_x64_sprd_${{ env.RELEASE_TAG }}.zip

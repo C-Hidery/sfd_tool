@@ -149,7 +149,7 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 
 ## PAC刷写
 
-当你决定刷写PAC固件时，设备必须处于BROM模式
+**当你决定刷写PAC固件时，设备必须处于FDL2模式**
 
  - 工具支持自定义FDL刷写
 

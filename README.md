@@ -115,7 +115,7 @@ This option will let tool try to reconnect to device, equivalent to `-r` in CLI.
 
 ## PAC Flashing Notes
 
-Device must be in BROM mode when you decide to flash a PAC firmware.
+**Device must be in FDL2 stage when you decide to flash a PAC firmware.**
 
  - supports custom FDL during flashing
 

@@ -235,7 +235,7 @@ GtkWidget* PacFlashPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     gtk_box_append(GTK_BOX(mainBox), fileFrame);
 
     //  第二部分：PAC 分区列表
-    GtkWidget* listTitle = gtk_label_new(_("Please check partitions to flash"));
+    GtkWidget* listTitle = gtk_label_new(_("Please check partitions to flash, and execute FDL into FDL2 stage to start (FDL can be from extracted PAC folder)."));
     helper.addWidget("pac_list_title", listTitle);
     gtk_widget_set_halign(listTitle, GTK_ALIGN_CENTER);
     gtk_widget_set_margin_bottom(listTitle, 6);
