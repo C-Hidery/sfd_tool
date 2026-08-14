@@ -1462,13 +1462,14 @@ void load_partition(spdio_t *io, const char *name,
 	const char *fn, unsigned step, int CMethod) {
 	
 	get_partition_info(io, name, 1);
-	if (!gPartInfo.size && strcmp(name, "w_force")) return;
+	if (!gPartInfo.size && strcmp(name, "w_force") != 0) return;
 	uint64_t offset, len, n64;
 	unsigned mode64, n, step0 = step; int ret;
 	EnhancedFile fi;
 	double rtime = get_time();
 	if (strstr(name, "runtimenv")) { erase_partition(io, name, CMethod); return; }
 	if (!strcmp(name, "calinv")) { return; } //skip calinv
+	if (!strcmp(name, "factorynv")) return; // skip factorynv
 	DEG_LOG(OP, "Start to write partition %s", name);
 	DEG_LOG(I, "Type CTRL + C to cancel...");
 	start_signal();
@@ -1482,7 +1483,7 @@ void load_partition(spdio_t *io, const char *name,
 	fi.seeko(0, SEEK_END);
 	len = fi.tello();
 	fi.seek(0, SEEK_SET);
-	DEG_LOG(I,"File size : 0x%llx\n", (long long)len);
+	DEG_LOG(I,"File Size : 0x%llx", (long long)len);
 
 	mode64 = len >> 32;
 	select_partition(io, name, len, mode64, BSL_CMD_START_DATA);
@@ -3192,6 +3193,7 @@ int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned
 		load_partition(io, name, fn, step, CMethod);
 		return 1;
 	}
+	// Not VAB must w_force when _bak partition exists (original partition list needed)
 
 	strcpy(name0, name);
 	if (strlen(name0) >= sizeof(name0) - 4) { load_partition(io, name0, fn, step, CMethod); return 1; }
