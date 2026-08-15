@@ -2847,12 +2847,14 @@ rloop:
 				else
 				{
 					DEG_LOG(E, "No sml partition found!");
+					if (t_mem) delete[] t_mem;
 					argc = 1;
 					continue;
 				}
 				if (s_mem == nullptr)
 				{
 					DEG_LOG(E, "No sml found!");
+					if (t_mem) delete [] t_mem;
 					argc = 1;
 					continue;
 				}
