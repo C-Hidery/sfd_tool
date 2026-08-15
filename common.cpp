@@ -994,6 +994,7 @@ partition_t *partition_list(spdio_t *io, int *part_count_ptr) {
 	io->verbose = verbose;
 	if (32 * 1024 == size)
 		g_app_state.flash.gpt_failed = gpt_info(ptable, read_mem, part_count_ptr);
+	if (read_mem) delete[] read_mem;
 	if (g_app_state.flash.gpt_failed) {
 		g_app_state.flash.is_pgpt = false;
 		encode_msg_nocpy(io, BSL_CMD_READ_PARTITION, 0);
