@@ -1948,9 +1948,9 @@ rloop:
 			}
 			fi.close();
 			bool i_is = pac_extract(fn, "pac_unpack_output");
-			if(g_app_state.device.device_stage != BROM && GetStage() != BROM)
+			if(g_app_state.device.device_stage != FDL2)
 			{
-				DEG_LOG(E, "Pac flashing is only supported in BROM stage.");
+				DEG_LOG(E, "Pac flashing is only supported in FDL2 stage.");
 				argc -= 2;
 				argv += 2;
 				continue;
