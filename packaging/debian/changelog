@@ -1,3 +1,9 @@
+sfd-tool (2.7.0-1-ltv) unstable; urgency=medium
+
+  * 将所有文件处理改为内存处理
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sat, 15 Aug 2026 20:44:10 +0800
+
 sfd-tool (2.6.19-1-ltv) unstable; urgency=medium
 
   * 修复了libusb热插拔问题，增强VAB检测

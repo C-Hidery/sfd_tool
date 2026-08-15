@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 2.6.19 LTV Edition
+Version 2.7.0 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -387,6 +387,9 @@ Remove unstable blk_size detection
 
 ---v 2.6.19---
 修复了libusb热插拔问题，增强VAB检测
+
+---v 2.7.0---
+将所有文件处理改为内存处理
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
