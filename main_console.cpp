@@ -25,6 +25,7 @@ const char *Version = "[1.2.3.0@_250726]";
 
 // 兼容旧代码的便捷访问器：直接操作 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
+static int& selected_ab = g_app_state.flash.selected_ab;
 
 bool& isToolMode = g_app_state.flash.isToolMode;
 extern char* temp;
@@ -581,13 +582,22 @@ int main_console(int argc, char** argv) {
 					io->verbose = o;
 					if (isUseCptable) {
 						io->Cptable = partition_list_d(io);
-						isCMethod = 1;
+						if (io->Cptable && !io->part_count) isCMethod = 1;
 					}
 					if (!isUseCptable && !io->part_count) {
 						DEG_LOG(W, "No partition table found on current device");
 						DEG_LOG(I, "You may get partition table through compatibility method.");
 						DEG_LOG(I, "(Use command `cptable` to do it.)");
 					}
+					if (selected_ab < 0) select_ab(io);
+					if (g_app_state.flash.gpt_failed != 1) {
+    					if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
+    					else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
+    					else {
+    						DEG_LOG(I, "Device is not using VAB\n");
+				        }
+				    }
+					
 					if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
 					if (nand_id == DEFAULT_NAND_ID) {
 						nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size

@@ -25,6 +25,7 @@
 
 // 兼容旧逻辑：isCMethod 始终映射到 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
+static int& selected_ab = g_app_state.flash.selected_ab;
 using nlohmann::json;
 
 // 通过 Service 层封装配置访问
@@ -214,6 +215,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper)
                 gui_idle_call([helper]() mutable
                 {
                     helper.setLabelText(helper.getWidget("slot_mode"), "Slot B");
+                    Enable_VAB_widget(helper);
                 });
             }
             else if (g_app_state.flash.selected_ab == 1)
@@ -222,6 +224,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper)
                 gui_idle_call([helper]() mutable
                 {
                     helper.setLabelText(helper.getWidget("slot_mode"), "Slot A");
+                    Enable_VAB_widget(helper);
                 });
             }
             else
@@ -1023,6 +1026,36 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv)
                 helper.enableWidget("blk_reset");
 
                 LogBlkState("connect_update_blk_ui");
+            }
+            if (selected_ab < 0) select_ab(io);
+            if (g_app_state.flash.gpt_failed != 1)
+            {
+                if (selected_ab == 1)
+                {
+                    DEG_LOG(I, "Device is using slot a\n");
+                    gui_idle_call([helper]() mutable
+                    {
+                        helper.setLabelText(helper.getWidget("slot_mode"), "Slot A");
+                        Enable_VAB_widget(helper);
+                    });
+                }
+                else if (selected_ab == 2)
+                {
+                    DEG_LOG(I, "Device is using slot b\n");
+                    gui_idle_call([helper]() mutable
+                    {
+                        helper.setLabelText(helper.getWidget("slot_mode"), "Slot B");
+                        Enable_VAB_widget(helper);
+                    });
+                }
+                else
+                {
+                    DEG_LOG(I, "Device is not using VAB.\n");
+                    gui_idle_call([helper]() mutable
+                    {
+                        helper.setLabelText(helper.getWidget("slot_mode"), "Not VAB");
+                    });
+                }
             }
         }
         if (g_app_state.device.device_stage == FDL2)
