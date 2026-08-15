@@ -597,7 +597,7 @@ int main_console(int argc, char** argv) {
     					if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
     					else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
     					else {
-    						DEG_LOG(I, "Device is not using VAB\n");
+    						DEG_LOG(I, "Device is not using VAB");
 				        }
 				    }
 					
@@ -2856,8 +2856,8 @@ rloop:
 					argc = 1;
 					continue;
 				}
-				uint8_t *save_mem = nullptr;
-				size_t save_size = 0;
+				size_t save_size = check_partition(io, "trustos", 1);
+				uint8_t *save_mem = NEWN uint8_t[save_size];
 				int o = patcher.AvbFxxker_from_mem(s_mem, check_partition(io, "sml", 1),
 					t_mem, check_partition(io, "trustos", 1),
 					save_mem, &save_size, true, true);
@@ -2880,8 +2880,8 @@ rloop:
 				if (s_mem) delete [] s_mem;
 				if (t_mem) delete [] t_mem;
 			}
-			argc -= 1;
-			argv += 1;
+			argc -= 2;
+			argv += 2;
 		} else if (!strcmp(str2[1], "verity")) {
 			if (isToolMode)
 			{
