@@ -341,9 +341,9 @@ public:
         free(merged);
         return 0;
     }
-    static int AvbFxxker_from_mem(uint8_t* orig_mem, size_t orig_mem_size,
-                       uint8_t* target_mem, size_t target_mem_size,
-                       uint8_t* save_mem, size_t* save_mem_size,
+    static int AvbFxxker_from_mem(uint8_t* orig_mem, uint64_t orig_mem_size,
+                       uint8_t* target_mem, uint64_t target_mem_size,
+                       uint8_t* save_mem, uint64_t* save_mem_size,
                        bool patch_avb, bool patch_bsp) {
         if (!patch_avb && !patch_bsp) {
             printf("[TosPatcher] [ERROR] Both flags are false, nothing to do.\n");

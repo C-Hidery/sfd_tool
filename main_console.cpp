@@ -2859,11 +2859,11 @@ rloop:
 					continue;
 				}
 				get_partition_info(io, "trustos", 1);
-				size_t save_size = gPartInfo.size;
-				size_t trustos_size = gPartInfo.size;
+				uint64_t save_size = gPartInfo.size;
+				uint64_t trustos_size = gPartInfo.size;
 				uint8_t *save_mem = NEWN uint8_t[save_size];
 				get_partition_info(io, "sml", 1);
-				size_t sml_size = gPartInfo.size;
+				uint64_t sml_size = gPartInfo.size;
 
 				int o = patcher.AvbFxxker_from_mem(s_mem, sml_size,
 					t_mem, trustos_size,
