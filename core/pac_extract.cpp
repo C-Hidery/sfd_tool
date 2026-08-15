@@ -1137,17 +1137,17 @@ bool pac_flash(spdio_t* io, const char* folder)
         get_partition_info(io, "nr_fixnv1", 1);
         if (gPartInfo.size)
         {
-            dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "old_nv_nr_fixnv1.bin", blk_size);
+            g_app_state.pac.nr_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size, &g_app_state.pac.nr_fixnv1_mem_size);
         }
         get_partition_info(io, "l_fixnv1", 1);
         if (gPartInfo.size)
         {
-            dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "old_nv_l_fixnv1.bin", blk_size);
+            g_app_state.pac.l_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size, &g_app_state.pac.l_fixnv1_mem_size);
         }
         get_partition_info(io, "downloadnv", 1);
         if (gPartInfo.size)
         {
-            dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "old_nv_downloadnv.bin", blk_size);
+            g_app_state.pac.downloadnv_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size, &g_app_state.pac.downloadnv_mem_size);
         }
         bool i_is = false;
         if (isHelperInit)
@@ -1170,15 +1170,8 @@ bool pac_flash(spdio_t* io, const char* folder)
             content = file.read_all_chunked();
             file.close();
             std::string partxml = ExtractPartitionsWithTags(content);
-            EnhancedFile f1 = oxfopen_enhanced("repartition_xml_temp.xml", "w");
-            if (!f1) ERR_EXIT("Failed to create temporary repartition XML file.\n");
-            if (f1)
-            {
-                f1 << partxml;
-                f1.close();
-            }
             uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions(io, "repartition_xml_temp.xml", buf, 0xffff);
+            int n = scan_xml_partitions_from_string(io, partxml, buf, 0xffff);
             encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
             if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
         }

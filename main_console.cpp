@@ -160,7 +160,7 @@ void print_help() {
 	    "\t\tFind BSL command by hex number\n"
 	    "\t35.cptable\n"
 	    "\t\tRead the partition table in compatibility mode\n"
-	    "\t36.dis_avb_tos\n"
+	    "\t36.dis_avb_tos [BACKUP FILE]\n"
 	    "\t\tDisable AVB verification by patching trustos(FDL2 only)\n"
 		"\t37.scan_partition [PARTITION TABLE XML]\n"
 		"\t\tGet partition table through scanning a partition xml file\n"
@@ -174,13 +174,13 @@ void print_help() {
 		"\t\tMerge NV partition with an XML config file, and write back to device.\n"
 		"\t42.mergenv-cfg [CONFIG] new_nv\n"
 		"\t\tMerge NV partition with a special config file, and write back to device.\n"
-		"\t43.mergenv-xml-ex [XML] old_nv new_nv\n"
+		"\t43.mergenv-xml-ex [XML] old_nv new_nv FILE\n"
 		"\t\tMerge NV partition with an XML config file, Old nvimage needed.\n"
-		"\t44.mergenv-cfg-ex [CONFIG] old_nv new_nv\n"
+		"\t44.mergenv-cfg-ex [CONFIG] old_nv new_nv FILE\n"
 		"\t\tMerge NV partition with a special config file, Old nvimage needed.\n"
 		"\t45.status\n"
 		"\t\tShow device status.\n"
-		"\t46.gen_tos [TRUSTOS IMAGE]\n"
+		"\t46.gen_tos [TRUSTOS IMAGE] [SAVE PATH]\n"
 		"\t\tPatch trustos.\n"
 		"\t47.bsp_patch [ORIG IMAGE SIGNED] [MODIFIED IMAGE] [SAVE PATH]\n"
 		"\t\tPatch bsp signature.\n"
@@ -2596,19 +2596,21 @@ rloop:
 			get_partition_info(io, "nr_fixnv1", 1);
 			if (!gPartInfo.size) get_partition_info(io, "l_fixnv1", 1);
 			if (!gPartInfo.size) { DEG_LOG(E, "part not exist\n");  argc -= 3; argv += 3; continue; }
-			dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "nvbak", blk_size ? blk_size : DEFAULT_BLK_SIZE);
+			uint64_t size = 0;
+			uint8_t *mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
+			if (!size)
+			{
+				DEG_LOG(E, "dump_partition_to_mem failed");
+				argc = 1;
+				continue;
+			}
 			if (get_nvlist_xml(io, str2[2])) {
 				size_t a_size = 0, b_size = 0, c_size = 0;
-				uint8_t *a = loadfile("nvbak", &a_size, 0);
+				uint8_t *a = mem;
 				uint8_t *b = loadfile(str2[3], &b_size, 0);
 				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 				merge_nv(io, a, a_size, b, b_size, c, &c_size);
-				EnhancedFile fi = oxfopen_enhanced("nvmerged", "wb");
-				if (!fi) ERR_EXIT("fopen failed\n");
-				if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-				if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
-				fi.close();
-				load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
+				load_nv_partition_from_mem(io, gPartInfo.name, c, 4096);
 				delete[](a); delete[](b); free(c);
 			}
 			delete[](io->nvid_list);
@@ -2617,26 +2619,23 @@ rloop:
 
 		}
 		else if (!strcmp(str2[1], "mergenv-xml-ex")) {
-			if (argcount <= 4) { DEG_LOG(W,"mergenv-xml-ex xml old_nv new_nv\n"); argc = 1; continue; }
+			if (argcount <= 5) { DEG_LOG(W,"mergenv-xml-ex xml old_nv new_nv FILE\n"); argc = 1; continue; }
 			if (get_nvlist_xml(io, str2[2])) {
 				size_t a_size = 0, b_size = 0, c_size = 0;
 				uint8_t *a = loadfile(str2[3], &a_size, 0);
 				uint8_t *b = loadfile(str2[4], &b_size, 0);
 				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 				merge_nv(io, a, a_size, b, b_size, c, &c_size);
-				EnhancedFile fi = oxfopen_enhanced("nvmerged", "wb");
+				EnhancedFile fi = oxfopen_enhanced(str2[5], "wb");
 				if (!fi) ERR_EXIT("fopen failed\n");
 				if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
 				if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
 				fi.close();
-				fi = oxfopen_enhanced("nvmerged", "rb");
-				if (!fi) DEG_LOG(E, "Failed to create merged nv file");
-				if (fi) fi.close();
 				delete[](a); delete[](b); free(c);
 			}
 			delete[](io->nvid_list);
 			io->nvid_list = NULL;
-			argc -= 4; argv += 4;
+			argc -= 5; argv += 5;
 
 		}
 		else if (!strcmp(str2[1], "mergenv-cfg")) {
@@ -2657,19 +2656,20 @@ rloop:
 			get_partition_info(io, "nr_fixnv1", 1);
 			if (!gPartInfo.size) get_partition_info(io, "l_fixnv1", 1);
 			if (!gPartInfo.size) { DEG_LOG(E, "part not exist\n");  argc -= 3; argv += 3; continue; }
-			dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "nvbak", blk_size ? blk_size : DEFAULT_BLK_SIZE);
+			uint64_t size = 0;
+			uint8_t *mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
+			if (!size) {
+				DEG_LOG(E, "dump_partition_to_mem failed");
+				argc = 1;
+				continue;
+			}
 			if (get_nvlist_cfg(io, str2[2])) {
 				size_t a_size = 0, b_size = 0, c_size = 0;
-				uint8_t *a = loadfile("nvbak", &a_size, 0);
+				uint8_t *a = mem;
 				uint8_t *b = loadfile(str2[3], &b_size, 0);
 				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 				merge_nv(io, a, a_size, b, b_size, c, &c_size);
-				EnhancedFile fi = oxfopen_enhanced("nvmerged", "wb");
-				if (!fi) ERR_EXIT("fopen failed\n");
-				if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-				if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
-				fi.close();
-				load_nv_partition(io, gPartInfo.name, "nvmerged", 4096);
+				load_nv_partition_from_mem(io, gPartInfo.name, c, 4096);
 				delete[](a); delete[](b); free(c);
 			}
 			delete[](io->nvid_list);
@@ -2677,26 +2677,23 @@ rloop:
 			argc -= 3; argv += 3;
 		} 
 		else if (!strcmp(str2[1], "mergenv-cfg-ex")) {
-			if (argcount <= 4) { DEG_LOG(W, "mergenv-cfg-ex cfg old_nv new_nv\n"); argc = 1; continue; }
+			if (argcount <= 5) { DEG_LOG(W, "mergenv-cfg-ex cfg old_nv new_nv FILE\n"); argc = 1; continue; }
 			if (get_nvlist_cfg(io, str2[2])) {
 				size_t a_size = 0, b_size = 0, c_size = 0;
 				uint8_t *a = loadfile(str2[3], &a_size, 0);
 				uint8_t *b = loadfile(str2[4], &b_size, 0);
 				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 				merge_nv(io, a, a_size, b, b_size, c, &c_size);
-				EnhancedFile fi = oxfopen_enhanced("nvmerged", "wb");
+				EnhancedFile fi = oxfopen_enhanced(str2[5], "wb");
 				if (!fi) ERR_EXIT("fopen failed\n");
 				if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
 				if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
 				fi.close();
-				fi = oxfopen_enhanced("nvmerged", "rb");
-				if (!fi) DEG_LOG(E, "Failed to create merged nv file");
-				if (fi) fi.close();
 				delete[](a); delete[](b); free(c);
 			}
 			delete[](io->nvid_list);
 			io->nvid_list = NULL;
-			argc -= 4; argv += 4;
+			argc -= 5; argv += 5;
 		} 
 		else if (!strcmp(str2[1], "blk_size") || !strcmp(str2[1], "bs")) {
 			if (isToolMode)
@@ -2749,20 +2746,20 @@ rloop:
 		}
 		else if (!strcmp(str2[1], "gen_tos"))
 		{
-			if (argcount <= 2) {
-				DEG_LOG(E, "gen_tos [TRUSTOS IMAGE]");
+			if (argcount <= 3) {
+				DEG_LOG(E, "gen_tos [TRUSTOS IMAGE] [SAVE PATH]");
 				argc = 1;
 				continue;
 			}
 			TosPatcher patcher;
-			int o = patcher.AvbFxxker(nullptr, str2[2], "tos_no-avb.bin", true, false);
+			int o = patcher.AvbFxxker(nullptr, str2[2], str2[3], true, false);
 			if (!o)
 			{
-				DEG_LOG(I, "Patched image saved to tos_no-avb.bin.");
+				DEG_LOG(I, "Patched image saved to %s.", str2[3]);
 			}
 			else DEG_LOG(E, "Failed.");
-			argc -= 2;
-			argv += 2;
+			argc -= 3;
+			argv += 3;
 		}
 		else if(!strcmp(str2[1], "bsp_patch"))
 		{
@@ -2784,20 +2781,42 @@ rloop:
 		else if (!strcmp(str2[1], "dis_avb_tos")) {
 			if (isToolMode)
 			{
-				
-				argc -= 1;
-				argv += 1;
-				
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
+			if (argcount <= 2)
+			{
+				DEG_LOG(W, "dis_avb_tos [BACKUP FILE]");
+				argc = 1;
 				continue;
 			}
 			DEG_LOG(W, "This operation may brick your device, and not all devices support this, if your device is broken, flash backup trustos-orig.bin or flash back all partitions");
 			DEG_LOG(W, "Please make a FULL backup for your device before execute this command.");
+			uint8_t *t_mem = nullptr;
+			uint8_t *s_mem = nullptr;
 			if (check_confirm("Disable AVB by patching trustos")) {
 				TosPatcher patcher;
 				get_partition_info(io, "trustos", 1);
 				if (gPartInfo.size)
 				{
-					dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "trustos-orig.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
+					dump_partition(io, gPartInfo.name, 0, gPartInfo.size, str2[2], blk_size ? blk_size : DEFAULT_BLK_SIZE);
+					uint64_t size = 0;
+					t_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
+					if (!size)
+					{
+						DEG_LOG(E, "dump_partition_to_mem failed.");
+						if (t_mem) delete [] t_mem;
+						argc = 1;
+						continue;
+					}
 				}
 				else
 				{
@@ -2805,11 +2824,25 @@ rloop:
 					argc = 1;
 					continue;
 				}
-				
+				if (t_mem == nullptr)
+				{
+					DEG_LOG(E, "No trustos found!");
+					argc = 1;
+					continue;
+				}
 				get_partition_info(io, "sml", 1);
 				if (gPartInfo.size)
 				{
-					dump_partition(io, gPartInfo.name, 0, gPartInfo.size, "sml-orig.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
+					uint64_t size = 0;
+					s_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
+					if (!size)
+					{
+						DEG_LOG(E, "dump_partition_to_mem failed.");
+						if (s_mem) delete [] s_mem;
+						if (t_mem) delete [] t_mem;
+						argc = 1;
+						continue;
+					}
 				}
 				else
 				{
@@ -2817,13 +2850,35 @@ rloop:
 					argc = 1;
 					continue;
 				}
-				int o = patcher.AvbFxxker("sml-orig.bin", "trustos-orig.bin", "tos-noavb.bin", true, true);
+				if (s_mem == nullptr)
+				{
+					DEG_LOG(E, "No sml found!");
+					argc = 1;
+					continue;
+				}
+				uint8_t *save_mem = nullptr;
+				size_t save_size = 0;
+				int o = patcher.AvbFxxker_from_mem(s_mem, check_partition(io, "sml", 1),
+					t_mem, check_partition(io, "trustos", 1),
+					save_mem, &save_size, true, true);
 				if (!o) {
-					load_partition_unify(io, "trustos", "tos-noavb.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-					DEG_LOG(I, "Done, backup trustos image trustos-orig.bin");
+					if (!save_size)
+					{
+						DEG_LOG(E, "patch failed!");
+						if (save_mem) delete [] save_mem;
+						if (s_mem) delete [] s_mem;
+						if (t_mem) delete [] t_mem;
+						argc = 1;
+						continue;
+					}
+					w_mem_to_part_offset(io, "trustos", 0, save_mem, save_size, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
+					DEG_LOG(I, "Done, backup trustos image %s", str2[2]);
 				} else {
 					DEG_LOG(E, "Failed.");
 				}
+				if (save_mem) delete [] save_mem;
+				if (s_mem) delete [] s_mem;
+				if (t_mem) delete [] t_mem;
 			}
 			argc -= 1;
 			argv += 1;

@@ -1235,14 +1235,8 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper)
 
                 root->addChild(partitionNode);
             }
-
-            // 保存到文件
-            if (!root->saveXmlFile("partition_temp.xml"))
-            {
-                ERR_EXIT("Failed to save XML file\n");
-            }
             uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
+            int n = scan_xml_partitions_from_string(io, root->toXml(), buf, 0xffff);
             if (n <= 0)
             {
                 DEG_LOG(E, "Failed to parse modified partition table\n");
@@ -1316,13 +1310,8 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper)
 
                 root->addChild(partitionNode);
             }
-
-            if (!root->saveXmlFile("partition_temp.xml"))
-            {
-                ERR_EXIT("Failed to save XML file\n");
-            }
             uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
+            int n = scan_xml_partitions_from_string(io, root->toXml(), buf, 0xffff);
             if (n <= 0)
             {
                 DEG_LOG(E, "Failed to parse modified partition table\n");
@@ -1528,17 +1517,8 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper)
 
                 root->addChild(partitionNode);
             }
-
-            // 保存为格式化的 XML（带换行和缩进）
-            EnhancedFile file = oxfopen_enhanced("partition_temp.xml", "w");
-            if (!file)
-            {
-                ERR_EXIT("Failed to open file for writing\n");
-            }
-            file << root->toXml();
-            file.close();
             uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
+            int n = scan_xml_partitions_from_string(io, root->toXml(), buf, 0xffff);
             if (n <= 0)
             {
                 DEG_LOG(E, "Failed to parse modified partition table\n");
@@ -1641,17 +1621,8 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper)
 
                 root->addChild(partitionNode);
             }
-
-            // 保存为格式化的 XML（带换行和缩进）
-            EnhancedFile file = oxfopen_enhanced("partition_temp.xml", "w");
-            if (!file)
-            {
-                ERR_EXIT("Failed to open file for writing\n");
-            }
-            file << root->toXml();
-            file.close();
             uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
+            int n = scan_xml_partitions_from_string(io, root->toXml(), buf, 0xffff);
             if (n <= 0)
             {
                 DEG_LOG(E, "Failed to parse modified partition table\n");
@@ -1781,17 +1752,8 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper)
 
                 root->addChild(partitionNode);
             }
-
-            // 保存为格式化的 XML（带换行和缩进）
-            EnhancedFile file = oxfopen_enhanced("partition_temp.xml", "w");
-            if (!file)
-            {
-                ERR_EXIT("Failed to open file for writing\n");
-            }
-            file << root->toXml();
-            file.close();
             uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
+            int n = scan_xml_partitions_from_string(io, root->toXml(), buf, 0xffff);
             if (n <= 0)
             {
                 DEG_LOG(E, "Failed to parse modified partition table\n");
@@ -1872,17 +1834,8 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper)
 
                 root->addChild(partitionNode);
             }
-
-            // 保存为格式化的 XML（带换行和缩进）
-            EnhancedFile file = oxfopen_enhanced("partition_temp.xml", "w");
-            if (!file)
-            {
-                ERR_EXIT("Failed to open file for writing\n");
-            }
-            file << root->toXml();
-            file.close();
             uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
+            int n = scan_xml_partitions_from_string(io, root->toXml(), buf, 0xffff);
             if (n <= 0)
             {
                 DEG_LOG(E, "Failed to parse modified partition table\n");
@@ -1993,14 +1946,8 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper)
 
                 root->addChild(partitionNode);
             }
-
-            // 保存为格式化的 XML（带换行和缩进）
-            EnhancedFile file = oxfopen_enhanced("partition_temp.xml", "w");
-            if (file) file << root->toXml();
-            else ERR_EXIT("Failed to open file for writing");
-            file.close();
             uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
+            int n = scan_xml_partitions_from_string(io, root->toXml(), buf, 0xffff);
             if (n <= 0)
             {
                 DEG_LOG(E, "Failed to parse modified partition table\n");
@@ -2056,14 +2003,8 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper)
 
                 root->addChild(partitionNode);
             }
-
-            // 保存为格式化的 XML（带换行和缩进）
-            EnhancedFile file = oxfopen_enhanced("partition_temp.xml", "w");
-            if (file) file << root->toXml();
-            else ERR_EXIT("Failed to open file for writing");
-            file.close();
             uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions(io, "partition_temp.xml", buf, 0xffff);
+            int n = scan_xml_partitions_from_string(io, root->toXml(), buf, 0xffff);
             if (n <= 0)
             {
                 DEG_LOG(E, "Failed to parse modified partition table\n");

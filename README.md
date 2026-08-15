@@ -127,7 +127,7 @@ This option will let tool try to reconnect to device, equivalent to `-r` in CLI.
 
 ## WARNING - DISABLE VERITY & AVB
 
-**Command:** `dis_avb_tos` / `verity 0`
+**Command:** `dis_avb_tos [BACKUP FILE]` / `verity 0`
 
 This command will **DISABLE** Android's DM-verity and AVB security verification mechanisms on your device.
 
@@ -144,14 +144,14 @@ This command will **DISABLE** Android's DM-verity and AVB security verification 
 
 ## BEFORE CONTINUING
 
-- For  `dis_avb_tos` , SFD Tool has automatically backed up your `trustos` partition (see `trustos-orig.bin`)
+- For  `dis_avb_tos` , SFD Tool will automatically backup your `trustos` partition
 - **Keep this backup safe** - you will need it for recovery
 
 ## TO RESTORE
 
 For `verity 0`, Use command: `verity 1`
 
-For  `dis_avb_tos`, flash back `trustos-orig.bin`
+For  `dis_avb_tos`, flash backup image.
 
 [Useful link for more details](https://github.com/TomKing062/unisoc_chipram_signcheck_exploit/)
 

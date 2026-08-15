@@ -341,6 +341,8 @@ void repartition(spdio_t *io, const char *fn);
 void erase_partition(spdio_t *io, const char *name, int CMethod);
 void load_partition(spdio_t *io, const char *name, const char *fn, unsigned step, int CMethod);
 void load_nv_partition(spdio_t *io, const char *name, const char *fn, unsigned step);
+void load_nv_partition_from_mem(spdio_t *io, const char *name,
+								 uint8_t *mem, unsigned step);
 void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab, int CMethod);
 void load_partition_force(spdio_t *io, const int id, const char *fn, unsigned step, int CMethod);
 int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned step, int CMethod);
@@ -368,6 +370,8 @@ void select_partition(spdio_t *io, const char *name,
 	uint64_t size, int mode64, int cmd);
 
 int scan_xml_partitions(spdio_t *io, const char *fn, uint8_t *buf, size_t buf_size);
+int scan_xml_partitions_from_string(spdio_t *io, const std::string& xml_text,
+									 uint8_t *buf, size_t buf_size);
 int get_nvlist_xml(spdio_t *io, const char *fn);
 int get_nvlist_cfg(spdio_t *io, char *fn);
 void merge_nv(spdio_t *io, const uint8_t *a, size_t a_size, const uint8_t *b, 
