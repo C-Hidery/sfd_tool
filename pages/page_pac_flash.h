@@ -3,9 +3,9 @@
  * SFDTool Copyright (C) 2026 Ryan Crepa
  */
 #pragma once
-#include "ui/GtkWidgetHelper.hpp"
+#include "../ui/GtkWidgetHelper.hpp"
 #include "../common.h"
-#include "ui/ui_page.h"
+#include "../ui/ui_page.h"
 
 // PAC Flash 页面，属于操作类页面
 class PacFlashPage : public IPage {
