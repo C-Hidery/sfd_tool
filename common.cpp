@@ -975,7 +975,6 @@ int gpt_info(partition_t *ptable, uint8_t *mem, int *part_count_ptr) {
 
     delete[] entries;
     *part_count_ptr = n;
-    DEG_LOG(I, "skip saving sprd partition list packet");
     return 0;
 }
 
@@ -1059,16 +1058,16 @@ partition_t *partition_list(spdio_t *io, int *part_count_ptr) {
 		g_app_state.flash.gpt_failed = 0;
 	}
 	if (*part_count_ptr) {
-		DEG_LOG(I,"Total number of partitions: %d\n", *part_count_ptr);
+		DEG_LOG(I,"Total number of partitions: %d", *part_count_ptr);
 		DEG_LOG(I, "Use `part_table` to save partition list");
 		if (Da_Info.dwStorageType == 0x102) {
-			DEG_LOG(I,"Storage is emmc\n");
+			DEG_LOG(I,"Storage is emmc");
 		    if (isHelperInit) gui_idle_call([]() mutable {
 				helper.setLabelText(helper.getWidget("storage_mode"),"Emmc");
 			});
 		}
 		else if (Da_Info.dwStorageType == 0x103) {
-			DEG_LOG(I,"Storage is ufs\n");
+			DEG_LOG(I,"Storage is ufs");
 		    if (isHelperInit) gui_idle_call([]() mutable {
 				helper.setLabelText(helper.getWidget("storage_mode"),"Ufs");
 			});

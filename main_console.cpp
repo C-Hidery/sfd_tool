@@ -1216,10 +1216,10 @@ int main_console(int argc, char** argv) {
 					io->ptable = partition_list(io, &io->part_count);
 				} else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
 				if (g_app_state.flash.gpt_failed != 1) {
-					if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
-					else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
+					if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b");
+					else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a");
 					else {
-						DEG_LOG(I, "Device is not using VAB\n");
+						DEG_LOG(I, "Device is not using VAB");
 						if (Da_Info.bSupportRawData) {
 							DEG_LOG(I, "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.", (unsigned)Da_Info.bSupportRawData);
 							Da_Info.bSupportRawData = 0;
