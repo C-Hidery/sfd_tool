@@ -2856,10 +2856,15 @@ rloop:
 					argc = 1;
 					continue;
 				}
-				size_t save_size = check_partition(io, "trustos", 1);
+				get_partition_info(io, "trustos", 1);
+				size_t save_size = gPartInfo.size;
+				size_t trustos_size = gPartInfo.size;
 				uint8_t *save_mem = NEWN uint8_t[save_size];
-				int o = patcher.AvbFxxker_from_mem(s_mem, check_partition(io, "sml", 1),
-					t_mem, check_partition(io, "trustos", 1),
+				get_partition_info(io, "sml", 1);
+				size_t sml_size = gPartInfo.size;
+
+				int o = patcher.AvbFxxker_from_mem(s_mem, sml_size,
+					t_mem, trustos_size,
 					save_mem, &save_size, true, true);
 				if (!o) {
 					if (!save_size)
@@ -2871,7 +2876,8 @@ rloop:
 						argc = 1;
 						continue;
 					}
-					w_mem_to_part_offset(io, "trustos", 0, save_mem, save_size, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
+					get_partition_info(io, "trustos", 1);
+					w_mem_to_part_offset(io, gPartInfo.name, 0, save_mem, save_size, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 					DEG_LOG(I, "Done, backup trustos image %s", str2[2]);
 				} else {
 					DEG_LOG(E, "Failed.");
