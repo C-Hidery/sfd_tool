@@ -184,6 +184,10 @@ void print_help() {
 		"\t\tPatch trustos.\n"
 		"\t47.bsp_patch [ORIG IMAGE SIGNED] [MODIFIED IMAGE] [SAVE PATH]\n"
 		"\t\tPatch bsp signature.\n"
+		"\t48.get_pgpt [FILE]\n"
+		"\t\tSave pgpt.bin to a specified file name if support.\n"
+		"\t49.get_sprdpart [FILE]\n"
+		"\t\tSave sprdpart.bin to a specified file name if support.\n"
 	    "Debug commands:\n"
 	    "\t48.skip_confirm {0,1}\n"
 	    "\t\tSkips all confirmation prompts(use with caution!)\n"
@@ -267,7 +271,6 @@ int main_console(int argc, char** argv) {
 	io->handle = createClass();
 	call_Initialize(io->handle);
 #endif
-	snprintf(fn_partlist, sizeof(fn_partlist), "partition_%lld.xml", (long long)time(nullptr));
 	printf("sfd_tool Long-time version %s Console mode\n", SFD_TOOL_VERSION);
 	printf("Copyright 2026 Ryan Crepa\n");
 #ifdef _DEBUG
@@ -1195,7 +1198,7 @@ int main_console(int argc, char** argv) {
 				io->verbose = o;
 				if (Da_Info.bSupportRawData) {
 					blk_size = 0xf800;
-					io->ptable = partition_list(io, fn_partlist, &io->part_count);
+					io->ptable = partition_list(io, &io->part_count);
 					if (fdl2_executed) {
 						Da_Info.bSupportRawData = 0;
 						DEG_LOG(OP, "Raw data mode disabled for SPRD4.");
@@ -1208,9 +1211,9 @@ int main_console(int argc, char** argv) {
 
 				else if (highspeed || Da_Info.dwStorageType == 0x103) {
 					blk_size = 0xf800;
-					io->ptable = partition_list(io, fn_partlist, &io->part_count);
+					io->ptable = partition_list(io, &io->part_count);
 				} else if (Da_Info.dwStorageType == 0x102) {
-					io->ptable = partition_list(io, fn_partlist, &io->part_count);
+					io->ptable = partition_list(io, &io->part_count);
 				} else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
 				if (g_app_state.flash.gpt_failed != 1) {
 					if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
@@ -1749,7 +1752,7 @@ int main_console(int argc, char** argv) {
 			}
 			if (!strcmp(name, "preset_modem")) {
 				start_signal();
-				if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+				if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
 				if (!io->part_count) {
 					DEG_LOG(W, "Partition table not available");
 					argc -= 2;
@@ -1774,7 +1777,7 @@ int main_console(int argc, char** argv) {
 				start_signal();
 
 				if (!isCMethod) {
-					if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+					if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
 					if (!io->part_count) {
 						DEG_LOG(W, "Partition table not available\n");
 						argc -= 2;
@@ -1819,7 +1822,7 @@ int main_console(int argc, char** argv) {
 				start_signal();
 
 				if (!isCMethod) {
-					if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+					if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
 					if (!io->part_count) {
 						DEG_LOG(E, "Partition table not available\n");
 						argc -= 2;
@@ -1962,7 +1965,8 @@ rloop:
 			argc -= 2;
 			argv += 2;
 		}
-		else if (!strcmp(str2[1], "part_table")) {
+		else if (!strcmp(str2[1], "part_table"))
+		{
 			if (isToolMode)
 			{
 				if (argcount <= 2)
@@ -1982,7 +1986,7 @@ rloop:
 					argc = 1;
 					continue;
 				}
-				if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, str2[2], &io->part_count);
+				if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
 				if (!io->part_count) {
 					DEG_LOG(E, "Partition table not available");
 					argc -= 2;
@@ -2076,12 +2080,88 @@ rloop:
 				}
 			}
 
-
-
-
 			argc -= 2;
 			argv += 2;
-
+		} else if (!strcmp(str2[1], "get_pgpt"))
+		{
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
+			if (argcount <= 2) {
+				DEG_LOG(W, "get_pgpt FILE");
+				argc = 1;
+				continue;
+			}
+			if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
+			if (!g_app_state.flash.is_pgpt)
+			{
+				DEG_LOG(E, "Device is not support pgpt");
+				argc = 1;
+				continue;
+			}
+			uint64_t size = dump_partition(io, "user_partition", 0, 32 * 1024, str2[2], 4096);
+			if (size != 32 * 1024) DEG_LOG(W, "Read size is not 32 * 1024");
+			argc -= 2;
+			argv += 2;
+		} else if (!strcmp(str2[1], "get_sprdpart")) {
+			if (isToolMode)
+			{
+				if (argcount <= 2)
+				{
+					argc = 1;
+				}
+				else
+				{
+					argc -= 2;
+					argv += 2;
+				}
+				continue;
+			}
+			if (argcount <= 2) {
+				DEG_LOG(W, "get_sprdpart FILE");
+				argc = 1;
+				continue;
+			}
+			if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
+			if (g_app_state.flash.is_pgpt)
+			{
+				DEG_LOG(E, "Device is using pgpt, use 'get_pgpt' instead.");
+				argc = 1;
+				continue;
+			}
+			encode_msg_nocpy(io, BSL_CMD_READ_PARTITION, 0);
+			send_msg(io);
+			ret = recv_msg(io);
+			if (!ret) ERR_EXIT("timeout reached\n");
+			ret = recv_type(io);
+			if (ret != BSL_REP_READ_PARTITION) {
+				const char* name = get_bsl_enum_name(ret);
+				DEG_LOG(E,"unexpected response (%s : 0x%04x)",name, ret);
+				argc = 1;
+				continue;
+			}
+			uint64_t size = READ16_BE(io->raw_buf + 2);
+			if (size % 0x4c) {
+				DEG_LOG(I,"Not divisible by struct size (0x%04lx)", size);
+				argc = 1;
+				continue;
+			}
+			EnhancedFile fpkt = my_oxfopen_enhanced(str2[2], "wb");
+			if (!fpkt) ERR_EXIT("fopen failed\n");
+			fpkt.write(io->raw_buf + 4, 1, size);
+			fpkt.close();
+			argc -= 2;
+			argv += 2;
 		} else if (!strcmp(str2[1], "repartition")) {
 			if (isToolMode)
 			{
