@@ -673,7 +673,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv)
         conn_wait = 30 * REOPEN_FREQ;
         stage = -1;
     }
-    if (!g_app_state.transport.bListenLibusb) startUsbEventHandle();
+    if (g_app_state.transport.bListenLibusb < 0) startUsbEventHandle();
 #endif
 #if _WIN32
     if (!g_app_state.transport.bListenLibusb)
