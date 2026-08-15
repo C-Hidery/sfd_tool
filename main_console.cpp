@@ -2103,6 +2103,12 @@ rloop:
 				continue;
 			}
 			if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
+			if (!io->part_count)
+			{
+				DEG_LOG(E, "No original partition list found.");
+				argc = 1;
+				continue;
+			}
 			if (!g_app_state.flash.is_pgpt)
 			{
 				DEG_LOG(E, "Device is not support pgpt");
@@ -2133,6 +2139,12 @@ rloop:
 				continue;
 			}
 			if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
+			if (!io->part_count)
+			{
+				DEG_LOG(E, "No original partition list found.");
+				argc = 1;
+				continue;
+			}
 			if (g_app_state.flash.is_pgpt)
 			{
 				DEG_LOG(E, "Device is using pgpt, use 'get_pgpt' instead.");
