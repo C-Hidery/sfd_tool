@@ -427,19 +427,19 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     gtk_frame_set_child(GTK_FRAME(abpartFrame), abpartBox);
 
     GtkWidget* abpart_auto = gtk_button_new_with_label(_("Not VAB --- FDL2"));
-    gtk_widget_set_name(abpart_auto, "abpart_auto");
+    gtk_widget_set_name(abpart_auto, "ad_abpart_auto");
     gtk_widget_set_size_request(abpart_auto, 176, 36);
-    helper.addWidget("abpart_auto", abpart_auto);
+    helper.addWidget("ad_abpart_auto", abpart_auto);
 
     GtkWidget* abpart_a = gtk_button_new_with_label(_("A Parts --- FDL2"));
-    gtk_widget_set_name(abpart_a, "abpart_a");
+    gtk_widget_set_name(abpart_a, "ad_abpart_a");
     gtk_widget_set_size_request(abpart_a, 176, 36);
-    helper.addWidget("abpart_a", abpart_a);
+    helper.addWidget("ad_abpart_a", abpart_a);
 
     GtkWidget* abpart_b = gtk_button_new_with_label(_("B Parts --- FDL2"));
-    gtk_widget_set_name(abpart_b, "abpart_b");
+    gtk_widget_set_name(abpart_b, "ad_abpart_b");
     gtk_widget_set_size_request(abpart_b, 176, 36);
-    helper.addWidget("abpart_b", abpart_b);
+    helper.addWidget("ad_abpart_b", abpart_b);
 
     GtkWidget* abpartButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
     gtk_widget_set_halign(abpartButtonBox, GTK_ALIGN_CENTER);

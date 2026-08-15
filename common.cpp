@@ -118,7 +118,6 @@ void usleep(unsigned int us) {
 	Sleep(us / 1000);
 }
 #endif
-char fn_partlist[40] = { 0 };
 #if defined(__APPLE__)
 bool g_is_macos_bundle = false;
 #endif
@@ -562,6 +561,127 @@ uint64_t dump_partition(spdio_t *io,
 	send_and_check(io);
 	return offset - start;
 }
+uint8_t* dump_partition_to_mem(spdio_t *io,
+                               const char *name,
+                               uint64_t start,
+                               uint64_t len,
+                               unsigned step,
+                               uint64_t *out_size) {
+    if (out_size) *out_size = 0;
+    if (len == 0) return nullptr;
+
+    // 分配内存（不抛出异常）
+    uint8_t* mem = NEWN uint8_t[len];
+    if (!mem) return nullptr;
+
+    uint32_t n, nread, t32;
+    uint64_t offset, n64, saved_size = 0;
+    int ret, mode64 = (start + len) >> 32;
+
+    DEG_LOG(OP, "dump_partition_to_mem: name=%s start=0x%llx len=0x%llx step=%u fblk_size=%llu",
+            name,
+            (unsigned long long)start,
+            (unsigned long long)len,
+            step,
+            (unsigned long long)fblk_size);
+    double rtime = get_time();
+    DEG_LOG(OP, "Start to read partition %s", name);
+    DEG_LOG(I, "Type CTRL + C to cancel...");
+    start_signal();
+
+    set_progress_desc(name);
+
+    // 取消检测
+    if (isCancel) {
+        delete[] mem;
+        return nullptr;
+    }
+
+    // 选择分区并开始读取
+    select_partition(io, name, start + len, mode64, BSL_CMD_READ_START);
+    if (send_and_check(io)) {
+        encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
+        send_and_check(io);
+        delete[] mem;
+        return nullptr;
+    }
+    if (isCancel) {
+        delete[] mem;
+        return nullptr;
+    }
+
+    unsigned long long time_start = GetTickCount64();
+
+    for (offset = start; (n64 = start + len - offset); ) {
+        uint32_t *data = (uint32_t *)io->temp_buf;
+        n = (uint32_t)(n64 > step ? step : n64);
+
+        // 取消检测：发送结束命令并返回已读数据
+        if (isCancel) {
+            if (out_size) *out_size = offset - start;
+            set_progress_desc(nullptr);
+            encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
+            send_and_check(io);
+            return mem;
+        }
+
+        WRITE32_LE(data, n);
+        WRITE32_LE(data + 1, offset);
+        t32 = offset >> 32;
+        WRITE32_LE(data + 2, t32);
+
+        encode_msg_nocpy(io, BSL_CMD_READ_MIDST, mode64 ? 12 : 8);
+        send_msg(io);
+
+        ret = recv_msg(io);
+        if (!ret) ERR_EXIT("timeout reached\n");
+
+        if ((ret = recv_type(io)) != BSL_REP_READ_FLASH) {
+            const char* name_enum = get_bsl_enum_name(ret);
+            DEG_LOG(E, "unexpected response (%s : 0x%04x)", name_enum, ret);
+            break;
+        }
+
+        nread = READ16_BE(io->raw_buf + 2);
+        if (n < nread)
+            ERR_EXIT("unexpected length\n");
+
+        // 将数据写入内存（而非文件）
+        memcpy(mem + (offset - start), io->raw_buf + 4, nread);
+
+        print_progress_bar(io, offset + nread - start, len, time_start);
+        offset += nread;
+        if (n != nread) break;
+
+        if (fblk_size) {
+            saved_size += nread;
+            if (saved_size >= fblk_size) {
+                usleep(1000000);
+                saved_size = 0;
+            }
+        }
+    }
+
+    // 统计和日志
+    double etime = get_time();
+    double time_spent = etime - rtime;
+    double mb = len / (1024.0 * 1024.0);
+    double speed = time_spent > 0 ? (mb / time_spent) : 0.0;
+    DEG_LOG(I, "dump_partition_to_mem done: name=%s len=%.1fMB time=%.3fs speed=%.2fMB/s",
+            name, mb, time_spent, speed);
+    DEG_LOG(I, "Read partition %s(+0x%llx) successfully, target: 0x%llx, read: 0x%llx",
+            name, (long long)start, (long long)len, (long long)(offset - start));
+    DEG_LOG(I, "Cost time %.6f seconds", time_spent);
+
+    set_progress_desc(nullptr);
+
+    // 结束读取
+    encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
+    send_and_check(io);
+
+    if (out_size) *out_size = offset - start;
+    return mem;
+}
 
 uint64_t read_pactime(spdio_t *io) {
 	uint32_t n, offset = 0x81400, len = 8;
@@ -784,115 +904,82 @@ void w_force_repair_prev(partition_t *ptable, int part_count, int i)
 	}
 }
 
-int gpt_info(partition_t *ptable, const char *fn_xml, int *part_count_ptr) {
-	EnhancedFile fp = my_oxfopen_enhanced("pgpt.bin", "rb");
-	if (!fp) {
-		return -1;
-	}
-	efi_header header;
-	int bytes_read;
-	uint8_t buffer[SECTOR_SIZE];
-	int sector_index = 0;
-	int found = 0;
+int gpt_info(partition_t *ptable, uint8_t *mem, int *part_count_ptr) {
+    efi_header header;
+    uint8_t buffer[SECTOR_SIZE];
+    int sector_index = 0;
+    int found = 0;
 
-	while (sector_index < MAX_SECTORS) {
-		bytes_read = fp.read(buffer, 1, SECTOR_SIZE);
-		if (bytes_read != SECTOR_SIZE) {
-			return -1;
-		}
-		if (memcmp(buffer, "EFI PART", 8) == 0) {
-			memcpy(&header, buffer, sizeof(header));
-			found = 1;
-			break;
-		}
-		sector_index++;
-	}
+    // 在内存中逐扇区查找 "EFI PART" 签名
+    while (sector_index < MAX_SECTORS) {
+        memcpy(buffer, mem + sector_index * SECTOR_SIZE, SECTOR_SIZE);
+        if (memcmp(buffer, "EFI PART", 8) == 0) {
+            memcpy(&header, buffer, sizeof(header));
+            found = 1;
+            break;
+        }
+        sector_index++;
+    }
 
-	if (found == 0) {
-		return -1;
-	}
-	else {
-		if (sector_index == 1) Da_Info.dwStorageType = 0x102;
-		else Da_Info.dwStorageType = 0x103;
-	}
-	int real_SECTOR_SIZE = SECTOR_SIZE * sector_index;
-	efi_entry *entries = NEWN efi_entry[header.number_of_partition_entries * sizeof(efi_entry)];
-	if (entries == nullptr) {
-		return -1;
-	}
-	fp.seek((long)header.partition_entry_lba * real_SECTOR_SIZE, SEEK_SET);
-	bytes_read = fp.read(entries, 1, header.number_of_partition_entries * sizeof(efi_entry));
-	if (bytes_read != (int)(header.number_of_partition_entries * sizeof(efi_entry)))
-		DEG_LOG(I,"read %d/%d only.", bytes_read, (int)(header.number_of_partition_entries * sizeof(efi_entry)));
-	std::shared_ptr<XmlNode> root = nullptr;
-	bool needSave = (strcmp(fn_xml, "-") != 0);
+    if (found == 0) {
+        return -1;
+    }
+    else {
+        if (sector_index == 1) Da_Info.dwStorageType = 0x102;
+        else Da_Info.dwStorageType = 0x103;
+    }
 
-	if (needSave) {
-		root = std::make_shared<XmlNode>("Partitions");
-	}
+    int real_SECTOR_SIZE = SECTOR_SIZE * sector_index;
 
-	int n = 0;
-	for (int i = 0; i < header.number_of_partition_entries; i++) {
-		efi_entry entry = *(entries + i);
-		if (entry.starting_lba == 0 && entry.ending_lba == 0) {
-			n = i;
-			break;
-		}
-	}
+    efi_entry *entries = NEWN efi_entry[header.number_of_partition_entries * sizeof(efi_entry)];
+    if (entries == nullptr) {
+        return -1;
+    }
 
-	DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
+    // 直接从内存中读取分区条目表
+    size_t entry_offset = (size_t)header.partition_entry_lba * real_SECTOR_SIZE;
+    size_t entry_size = (size_t)header.number_of_partition_entries * sizeof(efi_entry);
+    memcpy(entries, mem + entry_offset, entry_size);
 
-	for (int i = 0; i < n; i++) {
-		efi_entry entry = *(entries + i);
-		copy_from_wstr((*(ptable + i)).name, 36, (uint16_t *)entry.partition_name);
-		uint64_t lba_count = entry.ending_lba - entry.starting_lba + 1;
-		(*(ptable + i)).size = lba_count * real_SECTOR_SIZE;
-		
-		DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(ptable + i)).name, 
-				((*(ptable + i)).size >> 20));
-		
-		if (needSave) {
-			auto partitionNode = std::make_shared<XmlNode>("Partition");
-			partitionNode->setAttribute("id", (*(ptable + i)).name);
-			
-			if (i + 1 == n) {
-				partitionNode->setAttribute("size", "0xffffffff");
-			} else {
-				char sizeStr[32];
-				snprintf(sizeStr, sizeof(sizeStr), "%lld", ((*(ptable + i)).size >> 20));
-				partitionNode->setAttribute("size", sizeStr);
-			}
-			
-			root->addChild(partitionNode);
-		}
-		
-		if (!selected_ab) {
-			size_t namelen = strlen((*(ptable + i)).name);
-			if (namelen > 2 && 0 == strcmp((*(ptable + i)).name + namelen - 2, "_a")) {
-				selected_ab = 1;
-			}
-		}
-		if (i > 0 && strcmp((*(ptable + i - 1)).name, "w_force") == 0)
-		{
-			w_force_repair_prev(ptable, n, i);
-		}
-	}
+    // 计算有效分区个数（遇到起始和结束LBA均为0的条目为止）
+    int n = 0;
+    for (int i = 0; i < header.number_of_partition_entries; i++) {
+        efi_entry entry = *(entries + i);
+        if (entry.starting_lba == 0 && entry.ending_lba == 0) {
+            n = i;
+            break;
+        }
+    }
 
-	if (needSave) {
-		if (!root->saveXmlFile(fn_xml)) {
-			ERR_EXIT("Failed to save XML file\n");
-		}
-	}
+    DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
 
-	delete[] entries;
-	*part_count_ptr = n;
-	DEG_LOG(I,"standard gpt table saved to pgpt.bin");
-	DEG_LOG(I,"skip saving sprd partition list packet");
-	return 0;
+    for (int i = 0; i < n; i++) {
+        efi_entry entry = *(entries + i);
+        copy_from_wstr((*(ptable + i)).name, 36, (uint16_t *)entry.partition_name);
+        uint64_t lba_count = entry.ending_lba - entry.starting_lba + 1;
+        (*(ptable + i)).size = lba_count * real_SECTOR_SIZE;
+
+        DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(ptable + i)).name,
+                ((*(ptable + i)).size >> 20));
+
+        if (!selected_ab) {
+            size_t namelen = strlen((*(ptable + i)).name);
+            if (namelen > 2 && 0 == strcmp((*(ptable + i)).name + namelen - 2, "_a")) {
+                selected_ab = 1;
+            }
+        }
+        if (i > 0 && strcmp((*(ptable + i - 1)).name, "w_force") == 0) {
+            w_force_repair_prev(ptable, n, i);
+        }
+    }
+
+    delete[] entries;
+    *part_count_ptr = n;
+    return 0;
 }
 
-partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
-	long size;
+partition_t *partition_list(spdio_t *io, int *part_count_ptr) {
+	uint64_t size;
 	unsigned i, n = 0;
 	int ret; uint8_t *p;
 	partition_t *ptable = NEWN partition_t[128];
@@ -903,12 +990,12 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 	if (selected_ab < 0) select_ab(io);
 	int verbose = io->verbose;
 	io->verbose = 0;
-	size = dump_partition(io, "user_partition", 0, 32 * 1024, "pgpt.bin", 4096);
+	uint8_t *read_mem = dump_partition_to_mem(io, "user_partition", 0, 32 * 1024, 4096, &size);
 	io->verbose = verbose;
 	if (32 * 1024 == size)
-		g_app_state.flash.gpt_failed = gpt_info(ptable, fn, part_count_ptr);
+		g_app_state.flash.gpt_failed = gpt_info(ptable, read_mem, part_count_ptr);
 	if (g_app_state.flash.gpt_failed) {
-		remove("pgpt.bin");
+		g_app_state.flash.is_pgpt = false;
 		encode_msg_nocpy(io, BSL_CMD_READ_PARTITION, 0);
 		send_msg(io);
 		ret = recv_msg(io);
@@ -928,18 +1015,7 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 			delete[](ptable);
 			return nullptr;
 		}
-		std::shared_ptr<XmlNode> root = nullptr;
-		bool needSave = (strcmp(fn, "-") != 0);
-
-		EnhancedFile fpkt = my_oxfopen_enhanced("sprdpart.bin", "wb");
-		if (!fpkt) ERR_EXIT("fopen failed\n");
-		fpkt.write(io->raw_buf + 4, 1, size);
 		n = size / 0x4c;
-
-		if (needSave) {
-			root = std::make_shared<XmlNode>("Partitions");
-		}
-
 		int divisor = 10;
 		DEG_LOG(OP, "detecting sector size");
 		p = io->raw_buf + 4;
@@ -965,22 +1041,6 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 			DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(ptable + i)).name, 
 					((*(ptable + i)).size >> 20));
 			
-			if (needSave) {
-				auto partitionNode = std::make_shared<XmlNode>("Partition");
-				partitionNode->setAttribute("id", (*(ptable + i)).name);
-				
-				if (i + 1 == n) {
-					partitionNode->setAttribute("size", "0xffffffff");
-				} else
-				{
-					char sizeStr[32];
-					snprintf(sizeStr, sizeof(sizeStr), "%lld", 
-							((*(ptable + i)).size >> 20));
-					partitionNode->setAttribute("size", sizeStr);
-				}
-				root->addChild(partitionNode);
-			}
-			
 			if (!selected_ab) {
 				size_t namelen = strlen((*(ptable + i)).name);
 				if (namelen > 2 && 0 == strcmp((*(ptable + i)).name + namelen - 2, "_a")) {
@@ -993,28 +1053,21 @@ partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr) {
 			}
 		}
 
-		if (needSave) {
-			if (!root->saveXmlFile(fn)) {
-				ERR_EXIT("Failed to save XML file\n");
-			}
-		}
-
 		*part_count_ptr = n;
 		DEG_LOG(W, "Unable to get standard gpt table");
-		DEG_LOG(I, "Sprd partition list packet saved to sprdpart.bin");
 		g_app_state.flash.gpt_failed = 0;
 	}
 	if (*part_count_ptr) {
-		if (strcmp(fn, "-")) DEG_LOG(I,"Partition list saved to %s\n", fn);
-		DEG_LOG(I,"Total number of partitions: %d\n", *part_count_ptr);
+		DEG_LOG(I,"Total number of partitions: %d", *part_count_ptr);
+		DEG_LOG(I, "Use `part_table` to save partition list");
 		if (Da_Info.dwStorageType == 0x102) {
-			DEG_LOG(I,"Storage is emmc\n");
+			DEG_LOG(I,"Storage is emmc");
 		    if (isHelperInit) gui_idle_call([]() mutable {
 				helper.setLabelText(helper.getWidget("storage_mode"),"Emmc");
 			});
 		}
 		else if (Da_Info.dwStorageType == 0x103) {
-			DEG_LOG(I,"Storage is ufs\n");
+			DEG_LOG(I,"Storage is ufs");
 		    if (isHelperInit) gui_idle_call([]() mutable {
 				helper.setLabelText(helper.getWidget("storage_mode"),"Ufs");
 			});
@@ -1359,7 +1412,7 @@ partition_t* partition_list_d(spdio_t* io) {
 		if (!strcmp(ptable[j].name, "user_partition"))
 		{
 			DEG_LOG(I, "Normal partition list found on device, try to parse...");
-			io->ptable = partition_list(io, fn_partlist, &io->part_count);
+			io->ptable = partition_list(io, &io->part_count);
 			if (io->part_count) 
 			{
 				DEG_LOG(I, "Parsed successfully, Compatibility-method mode disabled.");
@@ -1462,13 +1515,14 @@ void load_partition(spdio_t *io, const char *name,
 	const char *fn, unsigned step, int CMethod) {
 	
 	get_partition_info(io, name, 1);
-	if (!gPartInfo.size && strcmp(name, "w_force")) return;
+	if (!gPartInfo.size && strcmp(name, "w_force") != 0) return;
 	uint64_t offset, len, n64;
 	unsigned mode64, n, step0 = step; int ret;
 	EnhancedFile fi;
 	double rtime = get_time();
 	if (strstr(name, "runtimenv")) { erase_partition(io, name, CMethod); return; }
 	if (!strcmp(name, "calinv")) { return; } //skip calinv
+	if (!strcmp(name, "factorynv")) return; // skip factorynv
 	DEG_LOG(OP, "Start to write partition %s", name);
 	DEG_LOG(I, "Type CTRL + C to cancel...");
 	start_signal();
@@ -1482,7 +1536,7 @@ void load_partition(spdio_t *io, const char *name,
 	fi.seeko(0, SEEK_END);
 	len = fi.tello();
 	fi.seek(0, SEEK_SET);
-	DEG_LOG(I,"File size : 0x%llx\n", (long long)len);
+	DEG_LOG(I,"File Size : 0x%llx", (long long)len);
 
 	mode64 = len >> 32;
 	select_partition(io, name, len, mode64, BSL_CMD_START_DATA);
@@ -2041,7 +2095,7 @@ void get_partition_info(spdio_t *io, const char *name, int need_size) {
 			io->verbose = verbose;
 			return;
 		}
-		if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, fn_partlist, &io->part_count);
+		if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
 		if (i > io->part_count) {
 			DEG_LOG(E,"part not exist: ", name);
 			gPartInfo.size = 0;
@@ -3192,6 +3246,7 @@ int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned
 		load_partition(io, name, fn, step, CMethod);
 		return 1;
 	}
+	// Not VAB must w_force when _bak partition exists (original partition list needed)
 
 	strcpy(name0, name);
 	if (strlen(name0) >= sizeof(name0) - 4) { load_partition(io, name0, fn, step, CMethod); return 1; }

@@ -1,3 +1,9 @@
+sfd-tool (2.6.19-1-ltv) unstable; urgency=medium
+
+  * 修复了libusb热插拔问题，增强VAB检测
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sat, 15 Aug 2026 17:17:18 +0800
+
 sfd-tool (2.6.18-1-ltv) unstable; urgency=medium
 
   * 移除PAC执行FDL功能，用户需要自行执行FDL（可先解包）

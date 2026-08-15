@@ -108,13 +108,9 @@ void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("m_write");
 	helper.enableWidget("m_read");
 	helper.enableWidget("m_erase");
-	helper.enableWidget("set_active_a");
-	helper.enableWidget("set_active_b");
 	helper.enableWidget("start_repart");
 	helper.enableWidget("blk_size");
 	helper.enableWidget("read_xml");
-	helper.enableWidget("dmv_enable");
-	helper.enableWidget("dmv_disable");
 	helper.enableWidget("backup_all");
 	helper.enableWidget("check_backup_integrity");
 	helper.enableWidget("restore_from_folder");
@@ -132,12 +128,20 @@ void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("modify_ren_part");
 	helper.enableWidget("xml_get");
 	helper.enableWidget("abpart_auto");
-	helper.enableWidget("abpart_a");
-	helper.enableWidget("abpart_b");
+	helper.enableWidget("ad_abpart_auto");
 	helper.enableWidget("pac_flash_start");
 	helper.enableWidget("export_part_xml");
 	helper.enableWidget("force_flash_en");
 	helper.enableWidget("force_flash_dis");
+}
+void Enable_VAB_widget(GtkWidgetHelper helper)
+{
+    helper.enableWidget("set_active_a");
+	helper.enableWidget("set_active_b");
+	helper.enableWidget("abpart_a");
+	helper.enableWidget("abpart_b");
+	helper.enableWidget("ad_abpart_a");
+	helper.enableWidget("ad_abpart_b");
 }
 
 void DisableWidgets(GtkWidgetHelper helper) {
@@ -187,6 +191,9 @@ void DisableWidgets(GtkWidgetHelper helper) {
 	helper.disableWidget("abpart_auto");
 	helper.disableWidget("abpart_a");
 	helper.disableWidget("abpart_b");
+	helper.disableWidget("ad_abpart_auto");
+	helper.disableWidget("ad_abpart_a");
+	helper.disableWidget("ad_abpart_b");
 	helper.disableWidget("pac_flash_start");
 	helper.disableWidget("export_part_xml");
 	helper.disableWidget("force_flash_en");

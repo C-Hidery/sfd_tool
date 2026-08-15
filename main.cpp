@@ -484,7 +484,6 @@ int gtk_kmain(int argc, char** argv) {
     io->handle = createClass();
     call_Initialize(io->handle);
 #endif
-    snprintf(fn_partlist, sizeof(fn_partlist), "partition_%lld.xml", (long long)time(nullptr));
 
 #if defined(__APPLE__)
     // macOS 保存路径设置

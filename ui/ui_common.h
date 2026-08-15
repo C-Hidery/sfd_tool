@@ -29,6 +29,8 @@ void Enable_Startup(GtkWidgetHelper helper);
 void EnableWidgets(GtkWidgetHelper helper);
 void DisableWidgets(GtkWidgetHelper helper);
 
+void Enable_VAB_widget(GtkWidgetHelper helper);
+
 // Root 权限检查
 void check_root_permission(GtkWidgetHelper helper);
 

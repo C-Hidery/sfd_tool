@@ -105,7 +105,6 @@ void usleep(unsigned int us);
 
 #define FLAGS_CRC16 1
 #define FLAGS_TRANSCODE 2
-extern char fn_partlist[40];
 
 #if defined(__APPLE__)
 extern bool g_is_macos_bundle;
@@ -329,9 +328,15 @@ unsigned read_flash(spdio_t *io,
 		uint8_t *mem, FILE *fo, unsigned step) ;
 unsigned dump_mem(spdio_t *io, uint32_t start, uint32_t len, const char *fn, unsigned step);
 uint64_t dump_partition(spdio_t *io, const char *name, uint64_t start, uint64_t len, const char *fn, unsigned step);
+uint8_t* dump_partition_to_mem(spdio_t *io,
+							   const char *name,
+							   uint64_t start,
+							   uint64_t len,
+							   unsigned step,
+							   uint64_t *out_size);
 void dump_partitions(spdio_t *io, const char *fn, int *nand_info, unsigned step);
 uint64_t read_pactime(spdio_t *io);
-partition_t *partition_list(spdio_t *io, const char *fn, int *part_count_ptr);
+partition_t *partition_list(spdio_t *io, int *part_count_ptr);
 void repartition(spdio_t *io, const char *fn);
 void erase_partition(spdio_t *io, const char *name, int CMethod);
 void load_partition(spdio_t *io, const char *name, const char *fn, unsigned step, int CMethod);
