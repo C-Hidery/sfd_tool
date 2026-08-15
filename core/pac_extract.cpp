@@ -24,12 +24,11 @@
 #else
 #include <unistd.h>
 #endif
-#include <filesystem>  // C++17 filesystem
 #include <iostream>    // for error output
 
 #include "logging.h"  // 使用统一的 ERR_EXIT
 #include "result.h"   // T2-02: Result/ErrorCode
-
+#include "../pages/page_pac_flash.h"
 
 typedef struct
 {
@@ -1113,6 +1112,21 @@ bool pac_extract(const char* fn, const char* floder)
     if (pacptable) delete[] pacptable;
     return true;
 }
+static inline bool iequals(const std::string& a, const std::string& b) {
+    return a.size() == b.size() &&
+           std::equal(a.begin(), a.end(), b.begin(),
+               [](char a, char b) {
+                   return std::tolower(static_cast<unsigned char>(a)) ==
+                          std::tolower(static_cast<unsigned char>(b));
+               });
+}
+static bool hasPartition(const std::vector<std::string>& partitions, const std::string& partitionName)
+{
+    return std::find_if(partitions.begin(), partitions.end(),
+        [&partitionName](const std::string& s) {
+            return iequals(s, partitionName);
+        }) != partitions.end();
+}
 
 bool pac_flash(spdio_t* io, const char* folder)
 {
@@ -1134,18 +1148,19 @@ bool pac_flash(spdio_t* io, const char* folder)
 
     auto into_func = [io, xmlPath]() mutable
     {
+        auto pacptable = getSelectedPartitions(helper);
         get_partition_info(io, "nr_fixnv1", 1);
-        if (gPartInfo.size)
+        if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
         {
             g_app_state.pac.nr_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size, &g_app_state.pac.nr_fixnv1_mem_size);
         }
         get_partition_info(io, "l_fixnv1", 1);
-        if (gPartInfo.size)
+        if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
         {
             g_app_state.pac.l_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size, &g_app_state.pac.l_fixnv1_mem_size);
         }
         get_partition_info(io, "downloadnv", 1);
-        if (gPartInfo.size)
+        if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
         {
             g_app_state.pac.downloadnv_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size, &g_app_state.pac.downloadnv_mem_size);
         }
