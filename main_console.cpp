@@ -2802,15 +2802,16 @@ rloop:
 			DEG_LOG(W, "Please make a FULL backup for your device before execute this command.");
 			uint8_t *t_mem = nullptr;
 			uint8_t *s_mem = nullptr;
+			uint64_t t_size = 0;
+			uint64_t s_size = 0;
 			if (check_confirm("Disable AVB by patching trustos")) {
 				TosPatcher patcher;
 				get_partition_info(io, "trustos", 1);
 				if (gPartInfo.size)
 				{
 					dump_partition(io, gPartInfo.name, 0, gPartInfo.size, str2[2], blk_size ? blk_size : DEFAULT_BLK_SIZE);
-					uint64_t size = 0;
-					t_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
-					if (!size)
+					t_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, &t_size);
+					if (!t_size)
 					{
 						DEG_LOG(E, "dump_partition_to_mem failed.");
 						if (t_mem) delete [] t_mem;
@@ -2833,9 +2834,8 @@ rloop:
 				get_partition_info(io, "sml", 1);
 				if (gPartInfo.size)
 				{
-					uint64_t size = 0;
-					s_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
-					if (!size)
+					s_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, &s_size);
+					if (!s_size)
 					{
 						DEG_LOG(E, "dump_partition_to_mem failed.");
 						if (s_mem) delete [] s_mem;
@@ -2860,13 +2860,10 @@ rloop:
 				}
 				get_partition_info(io, "trustos", 1);
 				uint64_t save_size = gPartInfo.size;
-				uint64_t trustos_size = gPartInfo.size;
 				uint8_t *save_mem = NEWN uint8_t[save_size];
-				get_partition_info(io, "sml", 1);
-				uint64_t sml_size = gPartInfo.size;
 
-				int o = patcher.AvbFxxker_from_mem(s_mem, sml_size,
-					t_mem, trustos_size,
+				int o = patcher.AvbFxxker_from_mem(s_mem, s_size,
+					t_mem, t_size,
 					save_mem, &save_size, true, true);
 				if (!o) {
 					if (!save_size)
@@ -2878,7 +2875,6 @@ rloop:
 						argc = 1;
 						continue;
 					}
-					get_partition_info(io, "trustos", 1);
 					w_mem_to_part_offset(io, gPartInfo.name, 0, save_mem, save_size, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
 					DEG_LOG(I, "Done, backup trustos image %s", str2[2]);
 				} else {
