@@ -38,6 +38,16 @@ struct ErrorState {
     int last_ret = 0;       // 最近一次核心操作返回值
 };
 
+struct PacNVMem
+{
+    uint8_t *nr_fixnv1_mem = nullptr;
+    uint64_t nr_fixnv1_mem_size = 0;
+    uint8_t *l_fixnv1_mem = nullptr;
+    uint64_t l_fixnv1_mem_size = 0;
+    uint8_t *downloadnv_mem = nullptr;
+    uint64_t downloadnv_mem_size = 0;
+};
+
 // 集中管理应用运行时状态，替代分散的 extern 全局变量
 // 注意：AppState 仅承载“业务相关状态”及少量过渡期传输/错误状态，
 // 不包含任何 UI 控件、窗口句柄或直接的平台 API 资源。
@@ -46,6 +56,7 @@ struct AppState {
     FlashState     flash;     // 分区/GPT/A/B slot 等刷机相关状态
     TransportState transport; // 传输相关（libusb 监听标志、IO 句柄），后续可进一步收缩
     ErrorState     error;     // 临时错误状态，占位以便后续 T2-02 引入统一错误模型
+    PacNVMem        pac;
 };
 
 extern AppState g_app_state;

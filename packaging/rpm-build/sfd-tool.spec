@@ -9,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        2.6.19
+Version:        2.7.0
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -63,6 +63,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Sat Aug 15 2026 RyanCrepa <Ryan110413@outlook.com> - 2.7.0-1-ltv
+- 将所有文件处理改为内存处理
+
 * Sat Aug 15 2026 RyanCrepa <Ryan110413@outlook.com> - 2.6.19-1-ltv
 - 修复了libusb热插拔问题，增强VAB检测
 

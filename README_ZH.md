@@ -161,7 +161,7 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 
 ## 警告 - 禁用 VERITY 与 AVB
 
-**命令：** `dis_avb_tos` / `verity 0`
+**命令：** `dis_avb_tos [BACKUP FILE]` / `verity 0`
 
 此命令将**禁用**您设备上的 Android DM-verity 和 AVB 安全校验机制。
 
@@ -178,14 +178,14 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 
 ## 操作前须知
 
-- 对于  `dis_avb_tos`，SFD Tool 已自动备份您的 `trustos` 分区（请查看`trustos-orig.bin`）
+- 对于  `dis_avb_tos`，SFD Tool 会自动备份您的 `trustos` 分区
 - **请妥善保管此备份** - 恢复时需要用到
 
 ## 如何恢复
 
 对于`verity 0`, 使用命令：`verity 1`
 
-对于 `dis_avb_tos`，刷回`trustos-orig.bin`
+对于 `dis_avb_tos`，刷回备份文件
 
 [更多技术细节](https://github.com/TomKing062/unisoc_chipram_signcheck_exploit/)
 

@@ -828,6 +828,104 @@ int scan_xml_partitions(spdio_t *io, const char *fn, uint8_t *buf, size_t buf_si
     delete[] src;
     return found;
 }
+int scan_xml_partitions_from_string(spdio_t *io, const std::string& xml_text,
+                                     uint8_t *buf, size_t buf_size) {
+    // 1. 检查输入
+    if (xml_text.empty()) {
+        ERR_EXIT("XML text is empty\n");
+        return -1;
+    }
+
+    // 2. 解析 XML
+    XmlParser parser;
+    auto root = parser.parseString(xml_text);
+    if (!root) {
+        ERR_EXIT("Failed to parse XML\n");
+        return -1;
+    }
+
+    // 3. 查找 <Partitions> 节点（唯一）
+    auto partitionsNodes = root->getDescendants("Partitions");
+    if (partitionsNodes.empty()) {
+        ERR_EXIT("No <Partitions> element\n");
+        return -1;
+    }
+    if (partitionsNodes.size() > 1) {
+        ERR_EXIT("xml: more than one partition lists\n");
+        return -1;
+    }
+    auto partitions = partitionsNodes[0];
+
+    // 4. 获取所有 <Partition> 子节点
+    auto partitionNodes = partitions->getChildren("Partition");
+
+    // 5. 分配 ptable 如果需要
+    if (io->ptable == nullptr)
+        io->ptable = NEWN partition_t[128];
+
+    // 6. 遍历分区，填充 buf 和 ptable
+    uint8_t *buf_ptr = buf;
+    size_t remaining = buf_size;
+    int found = 0;
+
+    for (auto& partNode : partitionNodes) {
+        // 提取 id 属性
+        std::string id;
+        auto it_id = partNode->attributes.find("id");
+        if (it_id != partNode->attributes.end())
+            id = it_id->second;
+        if (id.empty()) {
+            ERR_EXIT("Partition missing id attribute\n");
+            return -1;
+        }
+
+        // 提取 size 属性（支持十进制和十六进制）
+        std::string sizeStr;
+        auto it_size = partNode->attributes.find("size");
+        if (it_size != partNode->attributes.end())
+            sizeStr = it_size->second;
+        if (sizeStr.empty()) {
+            ERR_EXIT("Partition missing size attribute\n");
+            return -1;
+        }
+        char *endptr;
+        long long size = strtoll(sizeStr.c_str(), &endptr, 0);  // 自动识别 0x 前缀
+        if (*endptr != '\0') {
+            ERR_EXIT("Invalid size value\n");
+            return -1;
+        }
+
+        // 检查缓冲区剩余空间
+        if (remaining < 0x4c) {
+            ERR_EXIT("xml: too many partitions\n");
+            return -1;
+        }
+        remaining -= 0x4c;
+
+        // 清空名称区域（36个16位字符，即72字节）
+        memset(buf_ptr, 0, 36 * 2);
+
+        // 交错写入名称 ASCII（每个字符占用低字节）
+        for (size_t i = 0; i < id.size() && i < 36; ++i)
+            buf_ptr[i * 2] = static_cast<uint8_t>(id[i]);
+
+        // 写入原始 size（小端，偏移 0x48）
+        WRITE32_LE(buf_ptr + 0x48, static_cast<uint32_t>(size));
+
+        // 记录到 ptable
+        strncpy(io->ptable[found].name, id.c_str(), sizeof(io->ptable[found].name) - 1);
+        io->ptable[found].name[sizeof(io->ptable[found].name) - 1] = '\0';
+        io->ptable[found].size = size << 20;   // 左移 20 位（与原函数一致）
+
+        DBG_LOG("[%d] %s, %d\n", found + 1, io->ptable[found].name, (int)size);
+
+        buf_ptr += 0x4c;
+        ++found;
+    }
+
+    io->part_count = found;
+    return found;
+}
 
 #define SECTOR_SIZE 512
 #define MAX_SECTORS 32
@@ -1877,6 +1975,107 @@ void load_nv_partition(spdio_t *io, const char *name,
 		DEG_LOG(I, "Cost time %.6f seconds", t);
 	}
 }
+void load_nv_partition_from_mem(spdio_t *io, const char *name,
+                                 uint8_t *mem, unsigned step) {
+    if (!mem) {
+        DEG_LOG(E, "Invalid memory buffer for NV partition\n");
+        return;
+    }
+
+    double rtime = get_time();
+    size_t offset, rsz;
+    unsigned n;
+    int ret;
+    size_t len = 0;
+    uint16_t crc = 0;
+    uint32_t cs = 0;
+
+    // 保存原始指针以便最后释放（注意：调用者负责释放，这里不做delete）
+    uint8_t *mem0 = mem;
+
+    // 处理可能的 NAND 头（0x4E56 标识）
+    if (*(uint32_t *)mem == 0x4E56) mem += 0x200;
+
+    len = 0;
+    len += sizeof(uint32_t);
+
+    uint16_t tmp[2];
+    while (1) {
+        tmp[0] = 0;
+        tmp[1] = 0;
+        memcpy(tmp, mem + len, sizeof(tmp));
+        if (!tmp[1]) {
+            DEG_LOG(E, "Broken NV data, skipped!");
+            return;
+        }
+        len += sizeof(tmp);
+        len += tmp[1];
+
+        uint32_t doffset = ((len + 3) & 0xFFFFFFFC) - len;
+        len += doffset;
+        if (*(uint16_t *)(mem + len) == 0xffff) {
+            len += 8;
+            break;
+        }
+    }
+
+    // 计算 CRC 和校验和
+    crc = crc16(crc, mem + 2, len - 2);
+    WRITE16_BE(mem, crc);
+    for (offset = 0; offset < len; offset++) cs += mem[offset];
+
+    DEG_LOG(I, "NV data size : 0x%zx", len);
+
+    // 准备协议包
+    struct pkt {
+        uint16_t name[36];
+        uint32_t size, cs;
+    } *pkt_ptr;
+    pkt_ptr = (struct pkt *) io->temp_buf;
+    ret = copy_to_wstr(pkt_ptr->name, 36, name);
+    if (ret) ERR_EXIT("name too long\n");
+    WRITE32_LE(&pkt_ptr->size, len);
+    WRITE32_LE(&pkt_ptr->cs, cs);
+
+    // 发送开始命令
+    encode_msg_nocpy(io, BSL_CMD_START_DATA, sizeof(struct pkt));
+    if (send_and_check(io)) {
+        return;  // 调用者负责释放 mem
+    }
+
+    // 分块发送数据
+    for (offset = 0; (rsz = len - offset); offset += n) {
+        if (isCancel) {
+            DEG_LOG(I, "Operation cancelled by user\n");
+            return;
+        }
+        n = rsz > step ? step : rsz;
+        memcpy(io->temp_buf, &mem[offset], n);
+        encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
+        send_msg(io);
+        ret = recv_msg_timeout(io, 15000);
+        if (!ret) ERR_EXIT("timeout reached\n");
+        if ((ret = recv_type(io)) != BSL_REP_ACK) {
+            const char* name_enum = get_bsl_enum_name(ret);
+            DEG_LOG(E, "unexpected response (%s : 0x%04x)", name_enum, ret);
+            break;
+        }
+    }
+
+    // 发送结束命令
+    encode_msg_nocpy(io, BSL_CMD_END_DATA, 0);
+    if (!send_and_check(io)) {
+        double etime = get_time();
+        double t = etime - rtime;
+
+        DEG_LOG(I, "Write NV partition %s successfully, target: 0x%llx, written: 0x%llx\n",
+                name, (long long)len, (long long)offset);
+        DEG_LOG(I, "Cost time %.6f seconds", t);
+    }
+
+    // 注意：这里不释放 mem，由调用者负责
+}
+
 void signal_handler(int sig) {
 	(void)sig;
 	//Cancallation handler
@@ -2772,46 +2971,48 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 				flashed_parts.emplace_back(gPartInfo.name);
 				if (gPartInfo.size && hasPartition(pac_parts, std::string(gPartInfo.name))) 
 				{
+					if (!g_app_state.pac.nr_fixnv1_mem)
+					{
+						DEG_LOG(W, "Failed to load old NV data for nr_fixnv1, skipping writing.");
+						partitions[i].written_flag = 1;
+						continue;
+					}
 					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
 						size_t a_size = 0, b_size = 0, c_size = 0;
-						uint8_t *a = loadfile("old_nv_nr_fixnv1.bin", &a_size, 0);
+						uint8_t *a = g_app_state.pac.nr_fixnv1_mem;
 						uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
 						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 						merge_nv(io, a, a_size, b, b_size, c, &c_size);
-						EnhancedFile fi = my_oxfopen_enhanced("nvmerged_nr_fixnv1.bin", "wb");
-						if (!fi) ERR_EXIT("fopen failed\n");
-						if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-						if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
-						fi.close();
+						load_nv_partition_from_mem(io, gPartInfo.name, c, step);
 						delete[](a); delete[](b); free(c);
 					}
 					delete[](io->nvid_list);
 					io->nvid_list = NULL;
-					load_partition_unify(io, gPartInfo.name, "nvmerged_nr_fixnv1.bin", step, CMethod);
 				}
 			}
 			else if (my_stristr(fn, "l_fixnv1"))
 			{
 				get_partition_info(io, "l_fixnv1", 1);
 				flashed_parts.emplace_back(gPartInfo.name);
+				if (!g_app_state.pac.l_fixnv1_mem)
+				{
+					DEG_LOG(W, "Failed to load old NV data for l_fixnv1, skipping writing.");
+					partitions[i].written_flag = 1;
+					continue;
+				}
 				if (gPartInfo.size && hasPartition(pac_parts, std::string(gPartInfo.name))) 
 				{
 					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
 						size_t a_size = 0, b_size = 0, c_size = 0;
-						uint8_t *a = loadfile("old_nv_l_fixnv1.bin", &a_size, 0);
+						uint8_t *a = g_app_state.pac.l_fixnv1_mem;
 						uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
 						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 						merge_nv(io, a, a_size, b, b_size, c, &c_size);
-						EnhancedFile fi = my_oxfopen_enhanced("nvmerged_l_fixnv1.bin", "wb");
-						if (!fi) ERR_EXIT("fopen failed\n");
-						if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-						if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
-						fi.close();
+						load_nv_partition_from_mem(io, gPartInfo.name, c, step);
 						delete[](a); delete[](b); free(c);
 					}
 					delete[](io->nvid_list);
 					io->nvid_list = NULL;
-					load_partition_unify(io, gPartInfo.name, "nvmerged_l_fixnv1.bin", step, CMethod);
 				}
 			}
 			partitions[i].written_flag = 1;
@@ -3045,22 +3246,24 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			if (isAllowed)
 				if (hasPartition(pac_parts, std::string(gPartInfo.name)))
 				{
+					if (!g_app_state.pac.downloadnv_mem)
+					{
+						DEG_LOG(W, "Failed to load old NV data for downloadnv, skipping writing.");
+						partitions[dlnv_id].written_flag = 1;
+						delete[](partitions);
+						return;
+					}
 					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
 						size_t a_size = 0, b_size = 0, c_size = 0;
-						uint8_t *a = loadfile("old_nv_downloadnv.bin", &a_size, 0);
+						uint8_t *a = g_app_state.pac.downloadnv_mem;
 						uint8_t *b = loadfile(partitions[dlnv_id].file_path, &b_size, 0);
 						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
 						merge_nv(io, a, a_size, b, b_size, c, &c_size);
-						EnhancedFile fi = my_oxfopen_enhanced("nvmerged_downloadnv.bin", "wb");
-						if (!fi) ERR_EXIT("fopen failed\n");
-						if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-						if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
-						fi.close();
+						load_nv_partition_from_mem(io, gPartInfo.name, c, step);
 						delete[](a); delete[](b); free(c);
 					}
 					delete[](io->nvid_list);
 					io->nvid_list = NULL;
-					load_partition_unify(io, gPartInfo.name, "nvmerged_downloadnv.bin", step, CMethod);
 				}
 		}
 	}

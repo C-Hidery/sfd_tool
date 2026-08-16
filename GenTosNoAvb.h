@@ -202,22 +202,22 @@ public:
     //   - false, true  : 仅 BSP 拼接，输出拼接后的镜像（目标未经 AVB 修补）
     //   - true, true   : 先 AVB 修补，再 BSP 拼接，输出最终镜像
     // 输出文件大小 = 实际拼接大小（不补零，与上游一致）
-    int AvbFxxker(const char* __orig_image, const char* __target, const char* __save_path,
+    static int AvbFxxker(const char* _orig_image, const char* _target, const char* _save_path,
               bool patch_avb, bool patch_bsp) {
         if (!patch_avb && !patch_bsp) {
             printf("[TosPatcher] [ERROR] Both flags are false, nothing to do.\n");
             return 1;
         }
-        if (patch_bsp && !__orig_image) {
+        if (patch_bsp && !_orig_image) {
             printf("[TosPatcher] [ERROR] BSP merge requires an original image.\n");
             return 1;
         }
 
         // 1. 加载目标文件（始终需要）
         size_t target_raw_size = 0;
-        uint8_t* target_raw = loadfile(__target, &target_raw_size);
+        uint8_t* target_raw = loadfile(_target, &target_raw_size);
         if (!target_raw) {
-            printf("[TosPatcher] [ERROR] Failed to load %s\n", __target);
+            printf("[TosPatcher] [ERROR] Failed to load %s\n", _target);
             return 1;
         }
 
@@ -243,25 +243,25 @@ public:
 
         // 3. 如果只做 AVB 修补，直接输出
         if (!patch_bsp) {
-            EnhancedFile fp = oxfopen_enhanced(__save_path, "wb");
+            EnhancedFile fp = oxfopen_enhanced(_save_path, "wb");
             if (!fp) {
-                printf("[TosPatcher] [ERROR] Cannot create %s\n", __save_path);
+                printf("[TosPatcher] [ERROR] Cannot create %s\n", _save_path);
                 free(target_raw);
                 return 1;
             }
             fp.write(target_raw, 1, target_raw_size);
             fp.close();
             printf("[TosPatcher] [INFO] AVB-patched image saved to %s (size: %zu)\n",
-                __save_path, target_raw_size);
+                _save_path, target_raw_size);
             free(target_raw);
             return 0;
         }
 
         // 4. BSP 拼接（patch_bsp == true）
         size_t orig_raw_size = 0;
-        uint8_t* orig_raw = loadfile(__orig_image, &orig_raw_size);
+        uint8_t* orig_raw = loadfile(_orig_image, &orig_raw_size);
         if (!orig_raw) {
-            printf("[TosPatcher] [ERROR] Failed to load %s\n", __orig_image);
+            printf("[TosPatcher] [ERROR] Failed to load %s\n", _orig_image);
             free(target_raw);
             return 1;
         }
@@ -296,16 +296,16 @@ public:
             if (patch_avb) {
                 // 有 AVB 修补结果，直接输出 AVB 修补后的文件
                 printf("[TosPatcher] [INFO] BSP merge skipped (already merged), outputting AVB-patched image.\n");
-                EnhancedFile fp = oxfopen_enhanced(__save_path, "wb");
+                EnhancedFile fp = oxfopen_enhanced(_save_path, "wb");
                 if (!fp) {
-                    printf("[TosPatcher] [ERROR] Cannot create %s\n", __save_path);
+                    printf("[TosPatcher] [ERROR] Cannot create %s\n", _save_path);
                     free(target_raw);
                     return 1;
                 }
                 fp.write(target_raw, 1, target_raw_size);
                 fp.close();
                 printf("[TosPatcher] [INFO] AVB-patched image saved to %s (size: %zu)\n",
-                    __save_path, target_raw_size);
+                    _save_path, target_raw_size);
                 free(target_raw);
                 return 0;
             } else {
@@ -328,16 +328,158 @@ public:
             return 1;
         }
 
-        EnhancedFile fp = oxfopen_enhanced(__save_path, "wb");
+        EnhancedFile fp = oxfopen_enhanced(_save_path, "wb");
         if (!fp) {
-            printf("[TosPatcher] [ERROR] Cannot create %s\n", __save_path);
+            printf("[TosPatcher] [ERROR] Cannot create %s\n", _save_path);
             free(merged);
             return 1;
         }
         fp.write(merged, 1, merged_size);
         fp.close();
         printf("[TosPatcher] [INFO] BSP-merged image saved to %s (size: %zu)\n",
-            __save_path, merged_size);
+            _save_path, merged_size);
+        free(merged);
+        return 0;
+    }
+    static int AvbFxxker_from_mem(uint8_t* orig_mem, uint64_t orig_mem_size,
+                       uint8_t* target_mem, uint64_t target_mem_size,
+                       uint8_t* save_mem, uint64_t* save_mem_size,
+                       bool patch_avb, bool patch_bsp) {
+        if (!patch_avb && !patch_bsp) {
+            printf("[TosPatcher] [ERROR] Both flags are false, nothing to do.\n");
+            return 1;
+        }
+        if (patch_bsp && !orig_mem) {
+            printf("[TosPatcher] [ERROR] BSP merge requires an original image.\n");
+            return 1;
+        }
+        if (!target_mem || target_mem_size == 0) {
+            printf("[TosPatcher] [ERROR] Invalid target image.\n");
+            return 1;
+        }
+        if (!save_mem || !save_mem_size) {
+            printf("[TosPatcher] [ERROR] Invalid save buffer.\n");
+            return 1;
+        }
+
+        // 1. 目标数据已在内存中
+        uint8_t* target_raw = target_mem;
+        size_t target_raw_size = target_mem_size;
+
+        // 2. 如果需要 AVB 修补，执行 dis_avb_in_memory
+        uint8_t* target_after_avb = nullptr;
+        size_t target_after_avb_size = 0;
+        if (patch_avb) {
+            if (target_raw_size < 4 || *(uint32_t*)target_raw != 0x42544844) {
+                printf("[TosPatcher] [ERROR] AVB patch requires valid BTHD image.\n");
+                return 1;
+            }
+            target_after_avb = dis_avb_in_memory(target_raw, target_raw_size, &target_after_avb_size);
+            if (!target_after_avb) {
+                printf("[TosPatcher] [ERROR] AVB patch failed.\n");
+                return 1;
+            }
+            target_raw = target_after_avb;
+            target_raw_size = target_after_avb_size;
+        }
+
+        // 3. 如果只做 AVB 修补，直接复制到 save_mem
+        if (!patch_bsp) {
+            if (*save_mem_size < target_raw_size) {
+                printf("[TosPatcher] [ERROR] Save buffer too small (need: %zu, have: %zu)\n",
+                       target_raw_size, *save_mem_size);
+                if (patch_avb && target_after_avb) free(target_after_avb);
+                return 1;
+            }
+            memcpy(save_mem, target_raw, target_raw_size);
+            *save_mem_size = target_raw_size;
+            printf("[TosPatcher] [INFO] AVB-patched image saved to memory (size: %zu)\n", target_raw_size);
+            if (patch_avb && target_after_avb) free(target_after_avb);
+            return 0;
+        }
+
+        // 4. BSP 拼接（patch_bsp == true）
+        if (!orig_mem || orig_mem_size == 0) {
+            printf("[TosPatcher] [ERROR] Invalid original image.\n");
+            if (patch_avb && target_after_avb) free(target_after_avb);
+            return 1;
+        }
+
+        size_t orig_eff_size = calculate_effective_size(orig_mem, orig_mem_size);
+        if (orig_eff_size == 0) {
+            printf("[TosPatcher] [ERROR] Invalid original image (no BTHD or broken).\n");
+            if (patch_avb && target_after_avb) free(target_after_avb);
+            return 1;
+        }
+
+        uint8_t* orig_eff = (uint8_t*)malloc(orig_eff_size);
+        if (!orig_eff) {
+            printf("[TosPatcher] [ERROR] Memory allocation failed for orig_eff.\n");
+            if (patch_avb && target_after_avb) free(target_after_avb);
+            return 1;
+        }
+        memcpy(orig_eff, orig_mem, orig_eff_size);
+
+        // 5. 检查是否已 BSP 拼接
+        sys_img_header* sys_img_hdr = (sys_img_header*)orig_eff;
+        if (orig_eff_size < (size_t)(sys_img_hdr->mImgSize + 0x200 + sizeof(sprdsignedimageheader))) {
+            printf("[TosPatcher] [ERROR] Original image too small for BSP check.\n");
+            free(orig_eff);
+            if (patch_avb && target_after_avb) free(target_after_avb);
+            return 1;
+        }
+        sprdsignedimageheader* img_hdr = (sprdsignedimageheader*)&orig_eff[sys_img_hdr->mImgSize + 0x200];
+        bool already_merged = (img_hdr->payload_offset != sizeof(sys_img_header));
+
+        if (already_merged) {
+            printf("[TosPatcher] [WARNING] Original image already BSP-merged (payload_offset=0x%llx).\n",
+                   (unsigned long long)img_hdr->payload_offset);
+            free(orig_eff);
+
+            if (patch_avb) {
+                // 有 AVB 修补结果，直接复制 AVB 修补后的文件
+                printf("[TosPatcher] [INFO] BSP merge skipped (already merged), outputting AVB-patched image.\n");
+                if (*save_mem_size < target_raw_size) {
+                    printf("[TosPatcher] [ERROR] Save buffer too small (need: %zu, have: %zu)\n",
+                           target_raw_size, *save_mem_size);
+                    if (patch_avb && target_after_avb) free(target_after_avb);
+                    return 1;
+                }
+                memcpy(save_mem, target_raw, target_raw_size);
+                *save_mem_size = target_raw_size;
+                printf("[TosPatcher] [INFO] AVB-patched image saved to memory (size: %zu)\n", target_raw_size);
+                if (patch_avb && target_after_avb) free(target_after_avb);
+                return 0;
+            } else {
+                // patch_avb=false 且 BSP 已修补，无法继续
+                printf("[TosPatcher] [ERROR] Original image already BSP-merged, and AVB patch was not requested.\n");
+                if (patch_avb && target_after_avb) free(target_after_avb);
+                return 1;
+            }
+        }
+
+        // 6. 执行 BSP 拼接（正常流程）
+        size_t merged_size = 0;
+        uint8_t* merged = bsp_cve_2img_in_memory(orig_eff, orig_eff_size,
+                                                target_raw, target_raw_size,
+                                                &merged_size);
+        free(orig_eff);
+        if (patch_avb && target_after_avb) free(target_after_avb);
+        if (!merged) {
+            printf("[TosPatcher] [ERROR] BSP merge failed.\n");
+            return 1;
+        }
+
+        // 7. 复制结果到 save_mem
+        if (*save_mem_size < merged_size) {
+            printf("[TosPatcher] [ERROR] Save buffer too small (need: %zu, have: %zu)\n",
+                   merged_size, *save_mem_size);
+            free(merged);
+            return 1;
+        }
+        memcpy(save_mem, merged, merged_size);
+        *save_mem_size = merged_size;
+        printf("[TosPatcher] [INFO] BSP-merged image saved to memory (size: %zu)\n", merged_size);
         free(merged);
         return 0;
     }
