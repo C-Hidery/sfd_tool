@@ -96,7 +96,12 @@ void DEG_LOG(int type, const char* format, ...) {
 	vsnprintf(buffer, sizeof(buffer), format, args);
 	va_end(args);
 
-	// 维持原有等级/时间戳/路由行为
+	// 若消息末尾有换行符，则移除它，由 logMessageInternal 统一追加一个换行
+	size_t len = strlen(buffer);
+	if (len > 0 && buffer[len - 1] == '\n') {
+		buffer[len - 1] = '\0';
+	}
+
 	logMessageInternal(type, buffer);
 }
 
