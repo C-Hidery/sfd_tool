@@ -158,6 +158,33 @@ private:
         *out_size = size;
         return patched;
     }
+    // ARM32 Thumb 版本：修补两个验证函数，均强制返回 0（成功）
+    static uint8_t* dis_avb_arm32_in_memory(uint8_t* buf, size_t size, size_t* out_size) {
+        // 验证相关的两个函数入口偏移
+        const uint32_t FUNC1_OFFSET = 0x000eeba8;  // FUN_000eeba8
+        const uint32_t FUNC2_OFFSET = 0x000eeab8;  // FUN_000eeab8
+        // 修补指令：MOVS R0, #0; BX LR（Thumb 小端）
+        const uint8_t PATCH_BYTES[] = { 0x00, 0x20, 0x70, 0x47 };
+
+        if (!buf || size < FUNC2_OFFSET + sizeof(PATCH_BYTES)) {
+            printf("[TosPatcher] [ERROR] Image too small.\n");
+            return nullptr;
+        }
+
+        uint8_t* patched = (uint8_t*)malloc(size);
+        if (!patched) return nullptr;
+        memcpy(patched, buf, size);
+
+        // 修补第一个函数
+        memcpy(patched + FUNC1_OFFSET, PATCH_BYTES, sizeof(PATCH_BYTES));
+        // 修补第二个函数
+        memcpy(patched + FUNC2_OFFSET, PATCH_BYTES, sizeof(PATCH_BYTES));
+
+        *out_size = size;
+        printf("[TosPatcher] [INFO] ARM32 AVB patch applied at offsets 0x%x and 0x%x.\n",
+               FUNC1_OFFSET, FUNC2_OFFSET);
+        return patched;
+    }
     static uint8_t* bsp_cve_2img_in_memory(uint8_t* signed_buf, size_t signed_size,
                                        uint8_t* target_buf, size_t target_size,
                                        size_t* out_size) {
@@ -203,7 +230,7 @@ public:
     //   - true, true   : 先 AVB 修补，再 BSP 拼接，输出最终镜像
     // 输出文件大小 = 实际拼接大小（不补零，与上游一致）
     static int AvbFxxker(const char* _orig_image, const char* _target, const char* _save_path,
-              bool patch_avb, bool patch_bsp) {
+              bool patch_avb, bool patch_bsp, bool is_arm32 = false) {
         if (!patch_avb && !patch_bsp) {
             printf("[TosPatcher] [ERROR] Both flags are false, nothing to do.\n");
             return 1;
@@ -230,7 +257,8 @@ public:
                 free(target_raw);
                 return 1;
             }
-            target_after_avb = dis_avb_in_memory(target_raw, target_raw_size, &target_after_avb_size);
+            if (!is_arm32) target_after_avb = dis_avb_in_memory(target_raw, target_raw_size, &target_after_avb_size);
+            else target_after_avb = dis_avb_arm32_in_memory(target_raw, target_raw_size, &target_after_avb_size);
             if (!target_after_avb) {
                 printf("[TosPatcher] [ERROR] AVB patch failed.\n");
                 free(target_raw);
@@ -344,7 +372,7 @@ public:
     static int AvbFxxker_from_mem(uint8_t* orig_mem, uint64_t orig_mem_size,
                        uint8_t* target_mem, uint64_t target_mem_size,
                        uint8_t* save_mem, uint64_t* save_mem_size,
-                       bool patch_avb, bool patch_bsp) {
+                       bool patch_avb, bool patch_bsp, bool is_arm32 = false) {
         if (!patch_avb && !patch_bsp) {
             printf("[TosPatcher] [ERROR] Both flags are false, nothing to do.\n");
             return 1;
@@ -374,7 +402,8 @@ public:
                 printf("[TosPatcher] [ERROR] AVB patch requires valid BTHD image.\n");
                 return 1;
             }
-            target_after_avb = dis_avb_in_memory(target_raw, target_raw_size, &target_after_avb_size);
+            if (!is_arm32) target_after_avb = dis_avb_in_memory(target_raw, target_raw_size, &target_after_avb_size);
+            else target_after_avb = dis_avb_arm32_in_memory(target_raw, target_raw_size, &target_after_avb_size);
             if (!target_after_avb) {
                 printf("[TosPatcher] [ERROR] AVB patch failed.\n");
                 return 1;

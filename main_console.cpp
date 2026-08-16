@@ -2744,7 +2744,7 @@ rloop:
 			argv += 2;
 		
 		}
-		else if (!strcmp(str2[1], "gen_tos"))
+		else if (strstr(str2[1], "gen_tos"))
 		{
 			if (argcount <= 3) {
 				DEG_LOG(E, "gen_tos [TRUSTOS IMAGE] [SAVE PATH]");
@@ -2752,7 +2752,16 @@ rloop:
 				continue;
 			}
 			TosPatcher patcher;
-			int o = patcher.AvbFxxker(nullptr, str2[2], str2[3], true, false);
+			bool is_arm32 = strcmp(str2[1], "gen_tos32") == 0;
+			if (is_arm32)
+			{
+				DEG_LOG(W, "dis_avb for ARM32 is an experimental function, continue anyway?");
+				if (check_confirm("dis_avb for ARM32") == 0) {
+					argc = 1;
+					continue;
+				}
+			}
+			int o = patcher.AvbFxxker(nullptr, str2[2], str2[3], true, false, is_arm32);
 			if (!o)
 			{
 				DEG_LOG(I, "Patched image saved to %s.", str2[3]);
@@ -2778,7 +2787,7 @@ rloop:
 			argc -= 4;
 			argv += 4;
 		}
-		else if (!strcmp(str2[1], "dis_avb_tos")) {
+		else if (strstr(str2[1], "dis_avb_tos")) {
 			if (isToolMode)
 			{
 				if (argcount <= 2)
@@ -2861,10 +2870,21 @@ rloop:
 				get_partition_info(io, "trustos", 1);
 				uint64_t save_size = gPartInfo.size;
 				uint8_t *save_mem = NEWN uint8_t[save_size];
-
+				bool is_arm32 = strcmp(str2[1], "dis_avb_tos32") == 0;
+				if (is_arm32)
+				{
+					DEG_LOG(W, "dis_avb for ARM32 is an experimental function, continue anyway?");
+					if (check_confirm("dis_avb for ARM32") == 0) {
+						if (s_mem) delete [] s_mem;
+						if (t_mem) delete [] t_mem;
+						if (save_mem) delete [] save_mem;
+						argc = 1;
+						continue;
+					}
+				}
 				int o = patcher.AvbFxxker_from_mem(s_mem, s_size,
 					t_mem, t_size,
-					save_mem, &save_size, true, true);
+					save_mem, &save_size, true, true, is_arm32);
 				if (!o) {
 					if (!save_size)
 					{
