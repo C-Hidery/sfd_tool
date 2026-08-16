@@ -391,9 +391,6 @@ Remove unstable blk_size detection
 ---v 2.7.0---
 将所有文件处理改为内存处理
 
----v 2.7.1---
-为ARM32平台新增实验性TOS修补(gen_tos32/dis_avb_tos32)
-
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
 LTV means Long-time-version
