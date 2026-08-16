@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 2.7.1 LTV Edition
+Version 2.7.0 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
