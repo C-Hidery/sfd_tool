@@ -9,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        2.7.1
+Version:        2.7.0
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
