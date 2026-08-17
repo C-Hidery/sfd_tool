@@ -41,12 +41,13 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup MSYS2 and install dependencies (x64)
+      - name: Setup MSYS2 and install common dependencies (x64)
         if: matrix.arch == 'x64'
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
           update: true
+          cache: true
           install: >-
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-nlohmann-json
@@ -54,13 +55,11 @@ jobs:
             mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-pkg-config
 
-      - name: Install Libusb dev (LibUSB version only)
+      - name: Install Libusb dev (Libusb version only)
         if: matrix.artifact_name == 'LibUSB'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          update: false   # 前面已更新过，无需重复
-          install: mingw-w64-x86_64-libusb
+        shell: msys2 {0}
+        run: |
+          pacman -S --noconfirm --needed mingw-w64-x86_64-libusb
 
       - name: Create Build Directory
         shell: pwsh
