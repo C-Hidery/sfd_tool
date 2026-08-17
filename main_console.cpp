@@ -21,7 +21,7 @@ extern AppState g_app_state;
 char** str2;
 int in_quote;
 char str1[(ARGC_MAX - 1) * ARGV_LEN];
-const char *Version = "[1.2.3.0@_250726]";
+const char *Version = "[1.3.0.0@_250726+it(Co-TomKing062)]";
 
 // 兼容旧代码的便捷访问器：直接操作 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
@@ -439,7 +439,7 @@ int main_console(int argc, char** argv) {
 	#endif
 		init_stage = 0;
 		if (!m_bOpened) {
-			DBG_LOG("<waiting for connection,mode:dl,%ds>\n", conn_wait / REOPEN_FREQ);
+			DBG_LOG("Waiting for connection of diag: dl_diag (%ds)\n", conn_wait / REOPEN_FREQ);
 
 			ThrowExit();
 			for (i = 0; ; i++) {
