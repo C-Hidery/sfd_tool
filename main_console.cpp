@@ -2820,7 +2820,7 @@ rloop:
 				{
 					dump_partition(io, gPartInfo.name, 0, gPartInfo.size, str2[2], blk_size ? blk_size : DEFAULT_BLK_SIZE);
 					t_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, &t_size);
-					if (!t_size || gPartInfo.size < 0 || s_size != static_cast<uint64_t>(gPartInfo.size))
+					if (!t_size || isCancel)
 					{
 						DEG_LOG(E, "dump_partition_to_mem failed.");
 						if (t_mem) delete [] t_mem;
@@ -2844,7 +2844,7 @@ rloop:
 				if (gPartInfo.size)
 				{
 					s_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, &s_size);
-					if (!s_size || gPartInfo.size < 0 || s_size != static_cast<uint64_t>(gPartInfo.size))
+					if (!s_size || isCancel)
 					{
 						DEG_LOG(E, "dump_partition_to_mem failed.");
 						if (s_mem) delete [] s_mem;
