@@ -576,7 +576,9 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper)
         if (std::string(exec_addr_addr).empty() == false && helper.getSwitchState(helper.getWidget("exec_addr")))
         {
             g_app_state.flash.g_w_force = 1;
-            showInfoDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Force flash enabled due to EXEC_ADDR mode set."));
+            showInfoDialogSyncInThread(
+                GTK_WINDOW(helper.getWidget("main_window")), _("Info"),
+                _("Force flash enabled due to EXEC_ADDR mode set."));
         }
     }
 }
@@ -1033,36 +1035,34 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv)
                 LogBlkState("connect_update_blk_ui");
             }
             if (selected_ab < 0) select_ab(io);
-            if (g_app_state.flash.gpt_failed != 1)
+            if (selected_ab == 1)
             {
-                if (selected_ab == 1)
+                DEG_LOG(I, "Device is using slot a\n");
+                gui_idle_call([helper]() mutable
                 {
-                    DEG_LOG(I, "Device is using slot a\n");
-                    gui_idle_call([helper]() mutable
-                    {
-                        helper.setLabelText(helper.getWidget("slot_mode"), "Slot A");
-                        Enable_VAB_widget(helper);
-                    });
-                }
-                else if (selected_ab == 2)
+                    helper.setLabelText(helper.getWidget("slot_mode"), "Slot A");
+                    Enable_VAB_widget(helper);
+                });
+            }
+            else if (selected_ab == 2)
+            {
+                DEG_LOG(I, "Device is using slot b\n");
+                gui_idle_call([helper]() mutable
                 {
-                    DEG_LOG(I, "Device is using slot b\n");
-                    gui_idle_call([helper]() mutable
-                    {
-                        helper.setLabelText(helper.getWidget("slot_mode"), "Slot B");
-                        Enable_VAB_widget(helper);
-                    });
-                }
-                else
+                    helper.setLabelText(helper.getWidget("slot_mode"), "Slot B");
+                    Enable_VAB_widget(helper);
+                });
+            }
+            else
+            {
+                DEG_LOG(I, "Device is not using VAB.");
+                gui_idle_call([helper]() mutable
                 {
-                    DEG_LOG(I, "Device is not using VAB.");
-                    gui_idle_call([helper]() mutable
-                    {
-                        helper.setLabelText(helper.getWidget("slot_mode"), "Not VAB");
-                    });
-                }
+                    helper.setLabelText(helper.getWidget("slot_mode"), "Not VAB");
+                });
             }
         }
+
         if (g_app_state.device.device_stage == FDL2)
         {
             helper.setLabelText(helper.getWidget("mode"), "FDL2");
@@ -1092,7 +1092,8 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv)
         sfd::AppConfig cfg{};
         sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
         if (status.success && !cfg.last_fdl1_path.empty() && !cfg.last_fdl2_path.empty() && !cfg.last_fdl1_addr.empty()
-            && !cfg.last_fdl2_addr.empty() && g_app_state.device.device_stage == BROM && g_app_state.device.device_mode != SPRD4)
+            && !cfg.last_fdl2_addr.empty() && g_app_state.device.device_stage == BROM && g_app_state.device.device_mode
+            != SPRD4)
         {
             bool i_is = false;
             i_is = showConfirmDialogSyncInThread(
