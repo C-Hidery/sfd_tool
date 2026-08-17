@@ -111,7 +111,7 @@ extern bool g_is_macos_bundle;
 #endif
 
 
-#define DBG_LOG(...) fprintf(stderr, __VA_ARGS__)
+#define DBG_LOG(...) DEG_LOG(NOLOG, __VA_ARGS__)
 
 #define WRITE16_LE(p, a) do { \
 	((uint8_t*)(p))[0] = (uint8_t)(a); \
@@ -266,7 +266,8 @@ enum msg_type{
 	W = 2,
 	E = 3,
 	OP = 4,
-	DE = 5
+	DE = 5,
+	NOLOG = 6
 };
 #define REOPEN_FREQ 2
 

@@ -95,6 +95,12 @@ void DEG_LOG(int type, const char* format, ...) {
 	char buffer[1024];
 	vsnprintf(buffer, sizeof(buffer), format, args);
 	va_end(args);
+	if (type == NOLOG)
+	{
+		fprintf(stderr, "%s", buffer);
+		append_log_to_ui(I, buffer);
+		return;
+	}
 
 	// 若消息末尾有换行符，则移除它，由 logMessageInternal 统一追加一个换行
 	size_t len = strlen(buffer);
@@ -159,7 +165,9 @@ void print_mem(FILE *f, const uint8_t *buf, size_t len) {
 void print_string(FILE *f, const void *src, size_t n) {
 	size_t i; int a, b = 0;
 	const uint8_t *buf = (const uint8_t *)src;
+	std::string b_buf;
 	fprintf(f, "\"");
+	b_buf.append("\"");
 	for (i = 0; i < n; i++) {
 		a = buf[i]; b = 0;
 		switch (a) {
@@ -173,13 +181,22 @@ void print_string(FILE *f, const void *src, size_t n) {
 		}
 		if (b) {
 			fprintf(f, "\\%c", b);
+			b_buf.append("\\").append(1, b);
 		}
 		else if (a >= 32 && a < 127) {
 			fprintf(f, "%c", a);
+			b_buf.append(1, a);
 		}
-		else fprintf(f, "\\x%02x", a);
+		else {
+			fprintf(f, "\\x%02x", a);
+			char hex[5];
+			snprintf(hex, sizeof(hex), "\\x%02x", a);
+			b_buf.append(hex);
+		}
 	}
 	fprintf(f, "\"\n");
+	b_buf.append("\"");
+	append_log_to_ui(I, b_buf.c_str());
 }
 
 int print_to_string(char* dest, size_t dest_size,

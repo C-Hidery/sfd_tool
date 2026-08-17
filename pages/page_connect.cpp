@@ -536,7 +536,7 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper)
         }
         DEG_LOG(I, "Check baud FDL1 done.");
 
-        DEG_LOG(I, "Device REP_Version: ");
+        DBG_LOG("Device REP_Version: ");
         print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
         encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
         if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
