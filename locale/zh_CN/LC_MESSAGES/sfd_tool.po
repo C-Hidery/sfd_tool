@@ -683,14 +683,14 @@ msgstr "发送结束块数据"
 msgid "A/B Part read/flash manually set --- FDL2"
 msgstr "A/B分区刷写手工干预 --- FDL2"
 
-msgid "Auto Force flash Settings"
-msgstr "自动强制刷写设置"
+msgid "Force flash Settings"
+msgstr "强制刷写设置"
 
-msgid "Enable Auto Force Flash"
-msgstr "启用自动强制刷写"
+msgid "Enable Force Flash"
+msgstr "启用强制刷写"
 
-msgid "Disable Auto Force Flash"
-msgstr "禁用自动强制刷写"
+msgid "Disable Force Flash"
+msgstr "禁用强制刷写"
 
 msgid "Force flash enabled"
 msgstr "强制刷写已启用"
@@ -1218,3 +1218,39 @@ msgstr "您是否要修复剩余的 w_force 分区名称？"
 
 msgid "w_force partition detected in Compatibility-method mode, please check the partitions!"
 msgstr "在兼容性模式中查找到了 w_force 分区， 请手动修复分区表！"
+
+msgid "Force write is disabled for stability, please enable in Advanced Settings."
+msgstr "强制刷写已被禁用以保证稳定性，请在高级设置中启用。"
+
+msgid "Force flash enabled due to EXEC_ADDR mode set."
+msgstr "强制刷写因 EXEC_ADDR 模式设置已启用。"
+
+msgid "Config Settings"
+msgstr "配置设置"
+
+msgid "Clean config settings"
+msgstr "清除配置设置"
+
+msgid "Import config settings"
+msgstr "导入配置设置"
+
+msgid "Save config settings to file"
+msgstr "保存配置到文件"
+
+msgid "Config cleaned successfully, please restart program."
+msgstr "清除配置成功，请重启程序。"
+
+msgid "Could not load config"
+msgstr "无法加载配置"
+
+msgid "Config file selected is empty!"
+msgstr "选择的配置文件为空！"
+
+msgid "Config imported successfully, please restart program."
+msgstr "配置导入成功，请重启程序。"
+
+msgid "Could not import config"
+msgstr "无法导入配置"
+
+msgid "Config saved successfully."
+msgstr "保存配置成功"

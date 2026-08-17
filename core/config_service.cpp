@@ -131,7 +131,6 @@ namespace sfd
         void to_json(json& j, const AppConfig& c)
         {
             j = json{
-                {"config_path", c.config_path},
                 {"last_pac_path", c.last_pac_path},
                 {"last_fdl1_path", c.last_fdl1_path},
                 {"last_fdl2_path", c.last_fdl2_path},
@@ -147,7 +146,6 @@ namespace sfd
 
         void from_json(const json& j, AppConfig& c)
         {
-            if (j.contains("config_path")) j.at("config_path").get_to(c.config_path);
             if (j.contains("last_pac_path")) j.at("last_pac_path").get_to(c.last_pac_path);
             if (j.contains("last_fdl1_path")) j.at("last_fdl1_path").get_to(c.last_fdl1_path);
             if (j.contains("last_fdl2_path")) j.at("last_fdl2_path").get_to(c.last_fdl2_path);
@@ -203,10 +201,6 @@ namespace sfd
 #endif
             {
                 ConfigStatus st = loadAppConfigFromFile(per_user, out_config);
-                if (st.success)
-                {
-                    out_config.config_path = per_user;
-                }
                 return st;
             }
 
@@ -226,8 +220,6 @@ namespace sfd
                 // 填写期望的 per-user 路径
                 if (!per_user.empty())
                 {
-                    out_config.config_path = per_user;
-
                     // 尝试创建目录并写入 per-user 配置文件；失败时仅记录日志，继续使用旧路径
                     if (ensure_parent_directory(per_user))
                     {
@@ -237,14 +229,6 @@ namespace sfd
                             return st; // 已迁移，后续保存会使用 per-user 路径
                         }
                     }
-
-                    // 迁移失败：保留旧路径信息，避免破坏已有行为
-                    out_config.config_path = legacy;
-                }
-                else
-                {
-                    // 无法确定 per-user 路径时，继续使用旧路径
-                    out_config.config_path = legacy;
                 }
 
                 return st;
@@ -294,7 +278,6 @@ namespace sfd
             {
                 json j = json::parse(buf);
                 from_json(j, out_config);
-                out_config.config_path = path;
                 return make_ok();
             }
             catch (const std::exception& e)
@@ -305,19 +288,15 @@ namespace sfd
 
         ConfigStatus saveAppConfig(const AppConfig& config) override
         {
-            std::string path = config.config_path;
-            if (path.empty())
+            std::string path;
+            std::string per_user = per_user_config_path();
+            if (!per_user.empty())
             {
-                // 没有记录过路径时，优先写入 per-user 配置目录；如果无法确定则退回旧路径
-                std::string per_user = per_user_config_path();
-                if (!per_user.empty())
-                {
-                    path = per_user;
-                }
-                else
-                {
-                    path = legacy_config_path();
-                }
+                path = per_user;
+            }
+            else
+            {
+                path = legacy_config_path();
             }
             return saveAppConfigToFile(config, path);
         }

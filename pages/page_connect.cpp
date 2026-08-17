@@ -573,6 +573,11 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper)
         }
         waitFDL1 = 1;
         autoFDL1Suc = 1;
+        if (std::string(exec_addr_addr).empty() == false && helper.getSwitchState(helper.getWidget("exec_addr")))
+        {
+            g_app_state.flash.g_w_force = 1;
+            showInfoDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Force flash enabled due to EXEC_ADDR mode set."));
+        }
     }
 }
 

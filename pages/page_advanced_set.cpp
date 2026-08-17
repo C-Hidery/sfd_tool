@@ -9,6 +9,8 @@
 #include "../core/config_service.h"
 #include <algorithm>
 
+#include "page_connect.h"
+
 #ifdef _WIN32
 #ifdef max
 #undef max
@@ -130,6 +132,81 @@ static void on_button_clicked_force_flash_dis(GtkWidgetHelper helper) {
 	(void)helper;
 	g_app_state.flash.g_w_force = 0;
 	showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Force flash disabled"));
+}
+static void on_button_clicked_config_clean(GtkWidgetHelper helper)
+{
+	auto cfgSvc = ensure_config_service();
+	if (cfgSvc)
+	{
+		sfd::AppConfig cfg{};
+		sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
+		if (status.success)
+		{
+			cfg.last_exec_addr.clear();
+			cfg.last_exec_addr_file.clear();
+			cfg.last_fdl1_addr.clear();
+			cfg.last_fdl1_path.clear();
+			cfg.last_fdl2_addr.clear();
+			cfg.last_fdl2_path.clear();
+			cfg.last_pac_path.clear();
+			cfg.last_use_exec_addr.clear();
+			cfg.last_use_exec_addr_v2.clear();
+			cfg.ui_language.clear();
+			cfgSvc->saveAppConfig(cfg);
+			showInfoDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Config cleaned successfully, please restart program."));
+		}
+		else
+		{
+			showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Could not load config"));
+			return;
+		}
+	}
+}
+static void on_button_clicked_config_import(GtkWidgetHelper helper)
+{
+	auto parent = GTK_WINDOW(helper.getWidget("main_window"));
+	std::string filename = showFileChooser(parent, true);
+	if (filename.empty())
+	{
+		return;
+	}
+	auto cfgSvc = ensure_config_service();
+	if (cfgSvc)
+	{
+		sfd::AppConfig cfg{};
+		sfd::ConfigStatus status = cfgSvc->loadAppConfigFromFile(filename, cfg);
+		if (status.success)
+		{
+			cfgSvc->saveAppConfig(cfg);
+			showInfoDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Config imported successfully, please restart program."));
+		}
+		else
+		{
+			showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Could not import config"));
+		}
+	}
+}
+static void on_button_clicked_config_save(GtkWidgetHelper helper)
+{
+	auto parent = GTK_WINDOW(helper.getWidget("main_window"));
+	std::string filename = showSaveFileDialog(parent, "sfd_config.json");
+	if (filename.empty())
+		return;
+	auto cfgSvc = ensure_config_service();
+	if (cfgSvc)
+	{
+		sfd::AppConfig cfg{};
+		sfd::ConfigStatus status = cfgSvc->loadAppConfig(cfg);
+		if (status.success)
+		{
+			cfgSvc->saveAppConfigToFile(cfg, filename);
+			showInfoDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Config saved successfully."));
+		}
+		else
+		{
+			showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Could not load config"));
+		}
+	}
 }
 
 
@@ -453,7 +530,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     // 8. 强制刷写设置部分
     GtkWidget* forceFlashFrame = gtk_frame_new(NULL);
     GtkWidget* forceFlashTitle = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(forceFlashTitle), (std::string("<b>") + _("Auto Force flash Settings") + "</b>").c_str());
+    gtk_label_set_markup(GTK_LABEL(forceFlashTitle), (std::string("<b>") + _("Force flash Settings") + "</b>").c_str());
     gtk_widget_set_halign(forceFlashTitle, GTK_ALIGN_CENTER);
     gtk_frame_set_label_widget(GTK_FRAME(forceFlashFrame), forceFlashTitle);
     gtkFrameSetLabelAlign(forceFlashFrame, 0.5, 0.5);
@@ -462,12 +539,12 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     GtkWidget* forceFlashBox = makeCardBox(32, 16);
     gtk_frame_set_child(GTK_FRAME(forceFlashFrame), forceFlashBox);
 
-    GtkWidget* forceFlashEn = gtk_button_new_with_label(_("Enable Auto Force Flash"));
+    GtkWidget* forceFlashEn = gtk_button_new_with_label(_("Enable Force Flash"));
     gtk_widget_set_name(forceFlashEn, "force_flash_en");
     gtk_widget_set_size_request(forceFlashEn, 210, 36);
     helper.addWidget("force_flash_en", forceFlashEn);
 
-    GtkWidget* forceFlashDis = gtk_button_new_with_label(_("Disable Auto Force Flash"));
+    GtkWidget* forceFlashDis = gtk_button_new_with_label(_("Disable Force Flash"));
     gtk_widget_set_name(forceFlashDis, "force_flash_dis");
     gtk_widget_set_size_request(forceFlashDis, 210, 36);
     helper.addWidget("force_flash_dis", forceFlashDis);
@@ -479,6 +556,42 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 
     gtk_box_append(GTK_BOX(forceFlashBox), forceFlashButtonBox);
     gtk_box_append(GTK_BOX(mainBox), forceFlashFrame);
+
+	// 配置设置
+	GtkWidget* cfgFrame = gtk_frame_new(NULL);
+	GtkWidget* cfgTitle = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(cfgTitle), (std::string("<b>") + _("Config Settings") + "</b>").c_str());
+	gtk_widget_set_halign(cfgTitle, GTK_ALIGN_CENTER);
+	gtk_frame_set_label_widget(GTK_FRAME(cfgFrame), cfgTitle);
+	gtkFrameSetLabelAlign(cfgFrame, 0.5, 0.5);
+	helper.addWidget("config_label", cfgTitle);
+
+	GtkWidget* cfgBox = makeCardBox(32, 16);
+	gtk_frame_set_child(GTK_FRAME(cfgFrame), cfgBox);
+
+	GtkWidget* cfgClean = gtk_button_new_with_label(_("Clean config settings"));
+	gtk_widget_set_name(cfgClean, "config_clean");
+	gtk_widget_set_size_request(cfgClean, 210, 36);
+	helper.addWidget("config_clean", cfgClean);
+
+	GtkWidget* cfgImport = gtk_button_new_with_label(_("Import config settings"));
+	gtk_widget_set_name(cfgImport, "config_import");
+	gtk_widget_set_size_request(cfgImport, 210, 36);
+	helper.addWidget("config_import", cfgImport);
+
+	GtkWidget* cfgSave = gtk_button_new_with_label(_("Save config settings to file"));
+	gtk_widget_set_name(cfgSave, "config_save");
+	gtk_widget_set_size_request(cfgSave, 210, 36);
+	helper.addWidget("config_save", cfgSave);
+
+	GtkWidget* cfgButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+	gtk_widget_set_halign(cfgButtonBox, GTK_ALIGN_CENTER);
+	gtk_box_append(GTK_BOX(cfgButtonBox), cfgClean);
+	gtk_box_append(GTK_BOX(cfgButtonBox), cfgImport);
+	gtk_box_append(GTK_BOX(cfgButtonBox), cfgSave);
+
+	gtk_box_append(GTK_BOX(cfgBox), cfgButtonBox);
+	gtk_box_append(GTK_BOX(mainBox), cfgFrame);
 
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(advScroll), mainBox);
     gtk_grid_attach(GTK_GRID(advSetPage), advScroll, 0, 0, 4, 6);
@@ -571,6 +684,16 @@ void AdvancedSetPage::bindSignals(GtkWidgetHelper& helper) {
 	});
 	helper.bindClick(helper.getWidget("force_flash_dis"),[&](){
 		on_button_clicked_force_flash_dis(helper);
+	});
+	helper.bindClick(helper.getWidget("config_clean"), [&]() {
+		on_button_clicked_config_clean(helper);
+	});
+	helper.bindClick(helper.getWidget("config_import"), [&]() {
+		on_button_clicked_config_import(helper);
+	});
+	helper.bindClick(helper.getWidget("config_save"), [&]()
+	{
+		on_button_clicked_config_save(helper);
 	});
 
 	// 语言应用按钮：保存 ui_language 并提示重启后生效

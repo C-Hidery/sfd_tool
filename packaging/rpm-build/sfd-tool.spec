@@ -9,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        2.7.1
+Version:        2.7.2
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -63,6 +63,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Mon Aug 17 2026 RyanCrepa <Ryan110413@outlook.com> - 2.7.2-1-ltv
+- 修复了强制刷写稳定性检测(g_w_force)
+
 * Mon Aug 17 2026 RyanCrepa <Ryan110413@outlook.com> - 2.7.1-1-ltv
 - 更好的日志系统
 
