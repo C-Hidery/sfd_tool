@@ -699,7 +699,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv)
 #endif
     if (!m_bOpened)
     {
-        DBG_LOG("<waiting for connection,mode:dl,%ds>\n", conn_wait / REOPEN_FREQ);
+        DBG_LOG("Waiting for connection of diag: dl_diag (%ds)\n", conn_wait / REOPEN_FREQ);
 
         for (int i = 0; ; i++)
         {
