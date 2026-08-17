@@ -9,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        2.7.0
+Version:        2.7.1
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -63,6 +63,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Mon Aug 17 2026 RyanCrepa <Ryan110413@outlook.com> - 2.7.1-1-ltv
+- 更好的日志系统
+
 * Sat Aug 15 2026 RyanCrepa <Ryan110413@outlook.com> - 2.7.0-1-ltv
 - 将所有文件处理改为内存处理
 

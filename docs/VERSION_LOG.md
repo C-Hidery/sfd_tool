@@ -391,6 +391,9 @@ Remove unstable blk_size detection
 ---v 2.7.0---
 将所有文件处理改为内存处理
 
+---v 2.7.1---
+更好的日志系统
+
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
 LTV means Long-time-version

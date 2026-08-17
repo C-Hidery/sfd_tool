@@ -1,3 +1,9 @@
+sfd-tool (2.7.1-1-ltv) unstable; urgency=medium
+
+  * 更好的日志系统
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Mon, 17 Aug 2026 10:46:31 +0800
+
 sfd-tool (2.7.0-1-ltv) unstable; urgency=medium
 
   * 将所有文件处理改为内存处理
