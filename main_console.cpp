@@ -21,7 +21,7 @@ extern AppState g_app_state;
 char** str2;
 int in_quote;
 char str1[(ARGC_MAX - 1) * ARGV_LEN];
-const char *Version = "[1.3.0.0@_250726+it(Co-TomKing062)]";
+const char *Version = "[1.3.0.0@_250726+it]";
 
 // 兼容旧代码的便捷访问器：直接操作 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
@@ -31,7 +31,7 @@ bool& isToolMode = g_app_state.flash.isToolMode;
 extern char* temp;
 
 void print_help() {
-	DBG_LOG("Usage:\n"
+	fprintf(stderr, "Usage:\n"
 	        "\nOne-line mode example:\n"
 	        "\tsfd_tool --wait 300 fdl path/to/fdl 0x0000 fdl path/to/fdl 0x0000 exec read_part boot write_part boot boot.img reset\n"
 	        "\nInteractive mode example:\n"
@@ -64,17 +64,17 @@ void print_help() {
 			"\t\tSuch as `pac`, `mergenv-xml-ex`, `mergenv-cfg-ex`\n"
 	       );
 #ifdef __ANDROID__
-	DBG_LOG(
+	fprintf(stderr,
 			"\t--usb-fd[CODE]\n"
 			"\t\tConvert termux transfered usb port fd.(Android platform only!!!)\n"
 	);
 
 #endif // __ANDROID__
-	DBG_LOG(
+	fprintf(stderr,
 			"\t--no-fdl\n"
 			"\t\tSkip sending the FDL file and execute FDL2(Sprd4 mode only)\n"
 	);
-	DBG_LOG(
+	fprintf(stderr,
 	    "\nRuntime Commands\n"
 	    "\t1.verbose [LEVEL]\n"
 	    "\t\tSets the verbosity level of the output (supports 0, 1, or 2).\n"
@@ -226,7 +226,7 @@ void print_help() {
 	    "\t2.Command `bl` : It is only supported on special FDL2 and requires trustos and sml partition files.\n"
 	    "\t3.Command `sendloop` : sfd_tool has a debugging command called sendloop [ADDR], \n          which sends four zeros to write to the specified address,\n          and then sends four more zeros to (initial address - 8), (initial -16), and so on until the device becomes unresponsive.\n          The following are u2s accessed via keypad (SPL not erased; if SPL is erased, the resulting addresses will change):\n\t\tsc98xx: sfd_tool sendloop 0x5000\n\t\tums312/512: sfd_tool sendloop 0x4000 -> device enters while loop at 0x3f68\n\t\tud710: sfd_tool sendloop 0x4000 -> device enters while loop at 0x3fa0\n\t\tums9230: sfd_tool sendloop 0x65016000\n\t\tums9230: sfd_tool sendloop 0x65013000\n          Since the FDL addresses of 9230 and 9620 are both 0x65000800,\n          a better approach is to increment in a loop from 0x65000800; \n          By the time you reach 0x65013000, you can tell which one it is.\n          The send loop was written as a loop decrementing.\n          (Getting message: 7E 01 00 00 00 08 00 00 00 ... 7E)"
 	);
-	DBG_LOG(
+	fprintf(stderr,
 	    "\nExit Commands\n"
 	    "\t65.reboot-recovery\n\t\tFDL2 only\n"
 	    "\t66.reboot-fastboot\n\t\tFDL2 only\n"
@@ -2954,6 +2954,14 @@ rloop:
 				argc = 1;
 				continue;
 			}
+			if (selected_ab < 0) select_ab(io);
+			if (selected_ab != 1 && selected_ab != 2)
+			{
+				DEG_LOG(E, "Device is not using VAB");
+				argc -=2;
+				argv += 2;
+				continue;
+			}
 			set_active(io, str2[2], isCMethod);
 			argc -= 2;
 			argv += 2;
@@ -3201,7 +3209,7 @@ rloop:
 				argc = 1;
 				continue;
 			}
-			g_app_state.flash.selected_ab =atoi(str2[2]);
+			g_app_state.flash.selected_ab = atoi(str2[2]);
 			argc -= 2;
 			argv += 2;
 		} else if (!strcmp(str2[1], "chip_uid")) {
