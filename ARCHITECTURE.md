@@ -123,7 +123,6 @@ sfd_tool/
   - `FlashService::backupPartitions(...)`：备份若干分区；
   - `FlashService::partitionReader()`：获取统一的分区读取服务
     `PartitionReadService`；
-  - `DeviceService`：处理设备探测、握手与 FDL 下载；
   - `ConfigService`：加载/保存 per-user 配置、迁移旧配置等；
 - 向下组合使用 Core 层模块（协议、传输、PAC 解析、文件 IO 等），并统一
   把错误包装成 `Result<T>` / `FlashStatus` 等形式；

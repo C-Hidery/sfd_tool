@@ -26,7 +26,7 @@ void call_Uninitialize(ClassHandle *handle) {
 	obj->Uninitialize();
 }
 
-int call_Read(ClassHandle *handle, UCHAR *m_RecvData, int max_len, int dwTimeout) {
+int call_Read(ClassHandle *handle, UCHAR *m_RecvData, int max_len, DWORD dwTimeout) {
 	CBootModeOpr *obj = static_cast<CBootModeOpr *>(handle->obj);
 	return obj->Read(m_RecvData, max_len, dwTimeout);
 }

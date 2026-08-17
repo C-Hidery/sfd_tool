@@ -394,7 +394,7 @@ public:
 	~CBootModeOpr();
 	BOOL Initialize();
 	void Uninitialize();
-	int Read(UCHAR *m_RecvData, int max_len, int dwTimeout);
+	int Read(UCHAR *m_RecvData, int max_len, DWORD dwTimeout);
 	int Write(UCHAR *lpData, int iDataSize);
 	BOOL ConnectChannel(DWORD dwPort, ULONG ulMsgId, DWORD Receiver);
 	BOOL DisconnectChannel();
