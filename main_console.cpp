@@ -167,7 +167,7 @@ void print_help() {
 		"\t38.pac [PAC FILE]\n"
 		"\t\tFlash PAC firmware to the device (BROM stage only)\n"
 		"\t39.g_w_force {0,1}\n"
-		"\t\tSet if enable force_write automatically, default is 1.\n"
+		"\t\tSet if w_force action allowed, default is 0.\n"
 		"\t40.w_force [PARTITION NAME] [FILE]\n"
 		"\t\tForce write a file to a partition, use with caution!\n"
 		"\t41.mergenv-xml [XML] new_nv\n"
@@ -1241,6 +1241,11 @@ int main_console(int argc, char** argv) {
 				}
 				fdl2_executed = 1;
 				g_app_state.device.device_stage = FDL2;
+				if (exec_addr > 0)
+				{
+					DEG_LOG(OP, "w_force enabled (exec_addr > 0)");
+					g_app_state.flash.g_w_force = 1;
+				}
 				argc -= 1;
 				argv += 1;
 
@@ -1255,7 +1260,6 @@ int main_console(int argc, char** argv) {
 				encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
 				if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
 				DEG_LOG(OP, "Execute FDL1");
-				// Tiger 310(0x5500) and Tiger 616(0x65000800) need to change baudrate after FDL1
 				if (addr == 0x5500 || addr == 0x65000800) {
 					highspeed = 1;
 					if (!baudrate) baudrate = 921600;
@@ -2437,6 +2441,11 @@ rloop:
 				DEG_LOG(E, "w_force is not allowed on NAND(UBI) devices");
 				argc -= 3;
 				argv += 3;
+				continue;
+			}
+			if (g_app_state.flash.g_w_force == 0) {
+				DEG_LOG(E, "w_force is disabled for stability, use 'g_w_force 1' to enable it first");
+				argc = 1;
 				continue;
 			}
 			if (!isCMethod) {

@@ -905,12 +905,12 @@ void on_button_clicked_list_write(GtkWidgetHelper helper)
     ensure_device_attached_or_exit(helper);
     if (filename.empty())
     {
-        showErrorDialog(parent, _(_(("Error"))), _("No partition list file selected!"));
+        showErrorDialog(parent, _("Error"), _("No partition list file selected!"));
         return;
     }
     if (io->part_count == 0 && io->part_count_c == 0)
     {
-        showErrorDialog(parent, _(_(("Error"))), _("No partition table loaded, cannot write partition list!"));
+        showErrorDialog(parent, _("Error"), _("No partition table loaded, cannot write partition list!"));
         return;
     }
     EnhancedFile fi = oxfopen_enhanced(filename.c_str(), "r");
@@ -938,7 +938,7 @@ void on_button_clicked_list_write(GtkWidgetHelper helper)
             {
                 if (!st.success)
                 {
-                    showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
+                    showErrorDialog(parent, _("Error"), st.message.c_str());
                 }
                 else
                 {
@@ -968,12 +968,17 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper)
     ensure_device_attached_or_exit(helper);
     if (filename.empty())
     {
-        showErrorDialog(parent, _(_(("Error"))), _("No partition list file selected!"));
+        showErrorDialog(parent, _("Error"), _("No partition list file selected!"));
         return;
     }
     if (io->part_count == 0 && io->part_count_c == 0)
     {
-        showErrorDialog(parent, _(_(("Error"))), _("No partition table loaded, cannot write partition list!"));
+        showErrorDialog(parent, _("Error"), _("No partition table loaded, cannot write partition list!"));
+        return;
+    }
+    if (g_app_state.flash.g_w_force == 0)
+    {
+        showErrorDialog(parent, _("Error"), _("Force write is disabled for stability, please enable in Advanced Settings."));
         return;
     }
     EnhancedFile fi = oxfopen_enhanced(filename.c_str(), "r");
@@ -1005,7 +1010,7 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper)
             {
                 if (!st.success)
                 {
-                    showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
+                    showErrorDialog(parent, _("Error"), st.message.c_str());
                 }
                 else
                 {
@@ -1043,7 +1048,7 @@ void on_button_clicked_list_erase(GtkWidgetHelper helper)
             {
                 if (!st.success)
                 {
-                    showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
+                    showErrorDialog(parent, _("Error"), st.message.c_str());
                 }
                 else
                 {
@@ -1104,7 +1109,7 @@ void confirm_erase_all_partitions(GtkWidgetHelper helper)
                         GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
                         if (!st.success)
                         {
-                            showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
+                            showErrorDialog(parent, _("Error"), st.message.c_str());
                         }
                         else
                         {
@@ -2051,7 +2056,7 @@ void on_button_clicked_export_part_xml(GtkWidgetHelper helper)
                                               {{_("XML files (*.xml)"), "*.xml"}});
     if (savePath.empty())
     {
-        showErrorDialog(GTK_WINDOW(parent), _(_(_(("Error")))), _("No save path selected!"));
+        showErrorDialog(GTK_WINDOW(parent), _(_("Error")), _("No save path selected!"));
         return;
     }
 
@@ -2060,7 +2065,7 @@ void on_button_clicked_export_part_xml(GtkWidgetHelper helper)
     if (!st.success)
     {
         DEG_LOG(E, "exportPartitionTableToXml failed: %s", st.message.c_str());
-        showErrorDialog(GTK_WINDOW(parent), _(_(_(("Error")))), st.message.c_str());
+        showErrorDialog(GTK_WINDOW(parent), _(_("Error")), st.message.c_str());
         return;
     }
 
@@ -3278,7 +3283,7 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper)
         ensure_device_attached_or_exit(helper);
         if (io->part_count == 0 && io->part_count_c == 0)
         {
-            showErrorDialog(parent, _(_(("Error"))), _("No partition table loaded, cannot write partition list!"));
+            showErrorDialog(parent, _("Error"), _("No partition table loaded, cannot write partition list!"));
             return;
         }
 
@@ -3331,7 +3336,7 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper)
                 {
                     if (!st.success)
                     {
-                        showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
+                        showErrorDialog(parent, _("Error"), st.message.c_str());
                     }
                     else
                     {
@@ -3360,12 +3365,12 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper)
     ensure_device_attached_or_exit(helper);
     if (savePath.empty())
     {
-        showErrorDialog(parent, _(_(("Error"))), _("No save path selected!"));
+        showErrorDialog(parent, _("Error"), _("No save path selected!"));
         return;
     }
     if (io->part_count == 0 && io->part_count_c == 0)
     {
-        showErrorDialog(parent, _(_(("Error"))), _("No partition table loaded, cannot write partition list!"));
+        showErrorDialog(parent, _("Error"), _("No partition table loaded, cannot write partition list!"));
         return;
     }
 
@@ -3407,7 +3412,7 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper)
             {
                 if (!st.success)
                 {
-                    showErrorDialog(parent, _(_(("Error"))), st.message.c_str());
+                    showErrorDialog(parent, _("Error"), st.message.c_str());
                 }
                 else
                 {
