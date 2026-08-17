@@ -1069,7 +1069,7 @@ int main_console(int argc, char** argv) {
 				}
 				DEG_LOG(I, "Check baud FDL1 done.");
 
-				DEG_LOG(I, "Device REP_Version: ");
+				DBG_LOG("Device REP_Version: ");
 				print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
 
 				if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
@@ -1278,7 +1278,7 @@ int main_console(int argc, char** argv) {
 				}
 				DEG_LOG(I, "Check baud FDL1 done.");
 
-				printf("Device REP_Version: ");
+				DBG_LOG("Device REP_Version: ");
 				print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
 				if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
 				if (!memcmp(io->raw_buf + 4, "SPRD4", 5)) g_app_state.device.device_mode = SPRD4;
@@ -3215,7 +3215,7 @@ rloop:
 				argv += 1;
 				continue;
 			}
-			DEG_LOG(I, "Response: chip_uid:");
+			DBG_LOG("Response: chip_uid:");
 			print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
 			argc -= 1;
 			argv += 1;

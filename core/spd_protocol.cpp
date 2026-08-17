@@ -401,7 +401,7 @@ int recv_msg(spdio_t *io) {
 			else break;
 		}
 		if (recv_type(io) != BSL_REP_LOG) break;
-		DEG_LOG(I,"Response(BSL_REP_LOG): ");
+		DBG_LOG("Response(BSL_REP_LOG): ");
 		print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
 	}
 	return ret;

@@ -68,7 +68,7 @@ static void on_button_clicked_chip_uid(GtkWidgetHelper helper) {
 		DEG_LOG(E, "unexpected response (%s : 0x%04x)\n", name, ret);
 		return;
 	}
-	DEG_LOG(I, "Response: chip_uid:");
+	DBG_LOG("Response: chip_uid:");
 	print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
 	char* str = NEWN char[1024];
 	if (!str) ERR_EXIT("malloc failed");
