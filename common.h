@@ -156,7 +156,7 @@ extern bool g_is_macos_bundle;
 
 typedef struct {
 	char name[36];
-	uint64_t size;
+	long long size;
 } partition_t;
 
 typedef struct {
