@@ -15,7 +15,7 @@ ClassHandle *createClass();
 void destroyClass(ClassHandle *handle);
 BOOL call_Initialize(ClassHandle *handle);
 void call_Uninitialize(ClassHandle *handle);
-int call_Read(ClassHandle *handle, UCHAR *m_RecvData, int max_len, int dwTimeout);
+int call_Read(ClassHandle *handle, UCHAR *m_RecvData, int max_len, DWORD dwTimeout);
 int call_Write(ClassHandle *handle, UCHAR *lpData, int iDataSize);
 BOOL call_ConnectChannel(ClassHandle *handle, DWORD dwPort, ULONG ulMsgId, DWORD Receiver);
 BOOL call_DisconnectChannel(ClassHandle *handle);
