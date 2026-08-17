@@ -41,25 +41,20 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup MSYS2 and install common dependencies (x64)
+      - name: Install MSYS2 and GTK4 (x64)
         if: matrix.arch == 'x64'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          update: true
-          cache: true
-          install: >-
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-nlohmann-json
-            mingw-w64-x86_64-gtk4
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-pkg-config
+        shell: pwsh
+        run: |
+          $msysPath = "C:\msys64"
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-cmake mingw-w64-x86_64-nlohmann-json mingw-w64-x86_64-gtk4 mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkg-config"
 
       - name: Install Libusb dev (Libusb version only)
         if: matrix.artifact_name == 'LibUSB'
-        shell: msys2 {0}
         run: |
-          pacman -S --noconfirm --needed mingw-w64-x86_64-libusb
+          $msysPath = "C:\msys64"
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
+          & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-libusb"
 
       - name: Create Build Directory
         shell: pwsh
