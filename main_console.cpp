@@ -21,7 +21,7 @@ extern AppState g_app_state;
 char** str2;
 int in_quote;
 char str1[(ARGC_MAX - 1) * ARGV_LEN];
-const char *Version = "[1.3.0.0@_250726+it]";
+const char* Version = "[1.3.0.0@_250726+it]";
 
 // 兼容旧代码的便捷访问器：直接操作 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
@@ -30,3460 +30,4058 @@ static int& selected_ab = g_app_state.flash.selected_ab;
 bool& isToolMode = g_app_state.flash.isToolMode;
 extern char* temp;
 
-void print_help() {
-	fprintf(stderr, "Usage:\n"
-	        "\nOne-line mode example:\n"
-	        "\tsfd_tool --wait 300 fdl path/to/fdl 0x0000 fdl path/to/fdl 0x0000 exec read_part boot write_part boot boot.img reset\n"
-	        "\nInteractive mode example:\n"
-	        "\tsfd_tool --wait 300 fdl path/to/fdl 0x0000 fdl path/to/fdl 0x0000 exec\n"
-	        "\nOptions\n"
-	        "\t--wait [TIME(second)]\n"
-	        "\t\tSpecifies the time to wait for the device to connect.\n"
-	        "\t--stage [NUMBER]|-r|--reconnect\n"
-	        "\t\tTry to reconnect device in BROM/FDL1/FDL2 stage. Any number behaves the same way.\n"
-	        "\t\t(A device in BROM/FDL1 stage can be reconnected infinite times, but may only once in fdl2 stage)\n"
-	        "\t--verbose [LEVEL]\n"
-	        "\t\tSets the verbosity level of the output (supports 0, 1, or 2).\n"
-	        "\t--kick\n"
-	        "\t\tConnects the device using the route boot_diag -> cali_diag -> dl_diag.\n"
-	        "\t--kickto [MODE]\n"
-	        "\t\tConnects the device using a custom route boot_diag -> custom_diag. Supported modes are 0-127.\n"
-	        "\t\t(mode 0 is `kickto 2` on ums9621, mode 1 = cali_diag, mode 2 = dl_diag; not all devices support mode 2).\n"
-	        "\t-?|-h|--help\n"
-	        "\t\tShow help and usage information\n"
-	        "\t--sync\n"
-	        "\t\tSync flashing setting on Windows.\n"
-	        "\t--nor-bar\n"
-	        "\t\tShow original progress bar.\n"
-	        "\t--cptable\n"
-	        "\t\tRead the partition table in compatibility mode\n"
-	        "\t--no-gui\n"
-	        "\t\tRun sfd_tool without GUI\n"
-			"\t--tool-mode\n"
-			"\t\tThis option can make you use some tool commands that are not depend on device connection\n"
-			"\t\tSuch as `pac`, `mergenv-xml-ex`, `mergenv-cfg-ex`\n"
-	       );
+void print_help()
+{
+    fprintf(stderr, "Usage:\n"
+            "\nOne-line mode example:\n"
+            "\tsfd_tool --wait 300 fdl path/to/fdl 0x0000 fdl path/to/fdl 0x0000 exec read_part boot write_part boot boot.img reset\n"
+            "\nInteractive mode example:\n"
+            "\tsfd_tool --wait 300 fdl path/to/fdl 0x0000 fdl path/to/fdl 0x0000 exec\n"
+            "\nOptions\n"
+            "\t--wait [TIME(second)]\n"
+            "\t\tSpecifies the time to wait for the device to connect.\n"
+            "\t--stage [NUMBER]|-r|--reconnect\n"
+            "\t\tTry to reconnect device in BROM/FDL1/FDL2 stage. Any number behaves the same way.\n"
+            "\t\t(A device in BROM/FDL1 stage can be reconnected infinite times, but may only once in fdl2 stage)\n"
+            "\t--verbose [LEVEL]\n"
+            "\t\tSets the verbosity level of the output (supports 0, 1, or 2).\n"
+            "\t--kick\n"
+            "\t\tConnects the device using the route boot_diag -> cali_diag -> dl_diag.\n"
+            "\t--kickto [MODE]\n"
+            "\t\tConnects the device using a custom route boot_diag -> custom_diag. Supported modes are 0-127.\n"
+            "\t\t(mode 0 is `kickto 2` on ums9621, mode 1 = cali_diag, mode 2 = dl_diag; not all devices support mode 2).\n"
+            "\t-?|-h|--help\n"
+            "\t\tShow help and usage information\n"
+            "\t--sync\n"
+            "\t\tSync flashing setting on Windows.\n"
+            "\t--nor-bar\n"
+            "\t\tShow original progress bar.\n"
+            "\t--cptable\n"
+            "\t\tRead the partition table in compatibility mode\n"
+            "\t--no-gui\n"
+            "\t\tRun sfd_tool without GUI\n"
+            "\t--tool-mode\n"
+            "\t\tThis option can make you use some tool commands that are not depend on device connection\n"
+            "\t\tSuch as `pac`, `mergenv-xml-ex`, `mergenv-cfg-ex`\n"
+    );
 #ifdef __ANDROID__
-	fprintf(stderr,
-			"\t--usb-fd[CODE]\n"
-			"\t\tConvert termux transfered usb port fd.(Android platform only!!!)\n"
-	);
+    fprintf(stderr,
+            "\t--usb-fd[CODE]\n"
+            "\t\tConvert termux transfered usb port fd.(Android platform only!!!)\n"
+    );
 
 #endif // __ANDROID__
-	fprintf(stderr,
-			"\t--no-fdl\n"
-			"\t\tSkip sending the FDL file and execute FDL2(Sprd4 mode only)\n"
-	);
-	fprintf(stderr,
-	    "\nRuntime Commands\n"
-	    "\t1.verbose [LEVEL]\n"
-	    "\t\tSets the verbosity level of the output (supports 0, 1, or 2).\n"
-	    "\t2.timeout [TIME(ms)]\n"
-	    "\t\tSets the command timeout in milliseconds.\n"
-	    "\t3.baudrate [RATE]\n\t\t(Windows SPRD driver only, and BROM/FDL2 stage only)\n"
-	    "\t\tSupported baudrates are 57600, 115200, 230400, 460800, 921600, 1000000, 2000000, 3250000, and 4000000.\n"
-	    "\t\t(While in u-boot/littlekernel source code, only 115200, 230400, 460800, and 921600 are listed.)\n"
-	    "\t4.exec_addr [BINARY FILE] [ADDR] \n\t\t(BROM stage only)\n"
-		"\t\tSend a binary file to the specified memory address for advanced maintenance operations.\n"
-		"\t5.loadexec [BINARY FILE(addr_in_name)]\n"
-		"\t\tLoad Binary file to the address encoded in filename for exec_addr.\n"
-		"\t\tNote: This low-level command is intended for developers and advanced users only.\n"
-	    "\t6.fdl [FILE PATH] [ADDR]\n"
-	    "\t\tSend a file (splloader, FDL1, FDL2, sml, trustos, teecfg) to the specified memory address.\n"
-	    "\t7.loadfdl [FILE_ADDR(addr_in_name)]\n"
-	    "\t\tLoad FDL file to the address encoded in filename.\n"
-	    "\t8.send|send_no_enddata\n"
-	    "\t\tSends a file to the device without executing it. The file path and address must be specified before using this command.\n"
-	    "\t\t(send_no_enddata will not send end_data command after file transfer.)\n"
-	    "\t9.exec <ADDR>\n"
-	    "\t\tExecutes a sent file. Typically used with sml or FDL2 (also known as uboot/lk).\n"
-	    "\t\t(When you execute FDL1, you need to provide FDL1 address)\n"
-	    "\t10.path [SAVE PATH]\n"
-	    "\t\tChanges the save directory for commands like r, read_part, read_spec, read_flash, and read_mem.\n"
-	    "\t11.nand_id [ID]\n"
-	    "\t\tSpecifies the 4th NAND ID, affecting `read_part` or `read_spec` size calculation, default value is 0x15.\n"
-	    "\t12.rawdata {0,1,2}\n\t\t(FDL2 stage only)\n"
-	    "\t\tRawdata protocol helps speed up `w` and `write_part(s)` commands, when rawdata > 0, `blk_size` will not effect write speed.\n"
-	    "\t\t(rawdata relays on u-boot/lk, so don't set it manually.\n"
-	    "\t13.blk_size [VALUE(byte)]\n\t\t(FDL2 stage only)\n"
-	    "\t\tSets the block size, with a maximum of 65535 bytes. This option helps speed up `r`, `w`,`read_part`,`read_spec` and `write_part` commands.\n"
-	    "\t14.r|read_part all|part_name|part_id\n"
-	    "\t\tWhen the partition table is available:\n"
-	    "\t\t\tr|read_part all: full backup (excludes blackbox, cache, userdata)\n"
-	    "\t\t\tr|read_part all_lite: full backup (excludes inactive slot partitions, blackbox, cache, and userdata)\n"
-	    "\t\t\tall/all_lite is not usable on NAND\n"
-	    "\t\tWhen the partition table is unavailable:\n"
-	    "\t\t\tr|read_part will auto-calculate part size (supports emmc/ufs and NAND).\n"
-	    "\t15.read_spec part_name|part_id offset size [FILE]\n"
-	    "\t\tReads a specific partition to a file at the given offset and size.\n"
-	    "\t\t(You must give offset and read_size.)"
-	    "\t\t(read ubi on nand) read_spec system 0 ubi40m system.bin\n"
-	    "\t16.read_parts [PARTITION TABLE XML]\n"
-	    "\t\tDump partitions from a list file (If the file name starts with \"ubi\", the size will be calculated using the NAND ID).\n"
-	    "\t17.w|write_part part_name|part_id [FILE PATH]\n"
-	    "\t\tWrites the specified file to a partition.\n"
-	    "\t18.write_parts|write_parts_a|write_parts_b save_location\n"
-	    "\t\tWrites all partitions dumped by read_parts.\n"
-	    "\t19.wof part_name offset FILE\n"
-	    "\t\tWrites the specified file to a partition at the given offset.\n"
-	    "\t20.wov part_name offset VALUE\n"
-	    "\t\tWrites the specified value (max is 0xFFFFFFFF) to a partition at the given offset.\n"
-	    "\t21.e|erase_part part_name|part_id\n"
-	    "\t\tErases the specified partition.\n"
-	    "\t22.erase_all\n"
-	    "\t\tErases all partitions. Use with caution!\n"
-	    "\t23.part_table [FILE PATH]\n"
-	    "\t\tRead the partition table on emmc/ufs and save partition xml, not all FDL2 supports this command.\n"
-	    "\t24.repartition [PARTITION TABLE XML]\n"
-	    "\t\tRepartitions based on partition list XML.\n"
-	    "\t25.p|print\n"
-	    "\t\tPrints partition table\n"
-	    "\t26.ps|part_size part_name\n"
-	    "\t\tDisplays the size of the specified partition.\n"
-	    "\t27.cp|check_part part_name\n"
-	    "\t\tChecks if the specified partition exists.\n"
-	    "\t28.verity {0,1}\n"
-	    "\t\tEnables or disables dm-verity on android 10(+).\n"
-		"\t\tNote: This command may not work on all devices, and enabling verity may cause the device to fail to boot if the partition table or certain partitions are modified. Use with caution!\n"
-	    "\t29.set_active {a,b}\n"
-	    "\t\tSets the active slot on VAB devices.\n"
-	    "\t30.firstmode [MODE ID]\n"
-	    "\t\tSets the mode the device will enter after reboot.\n"
-	    "\t31.add_part [PARTITION NAME]\n"
-	    "\t\tAdd a partition to the partition table (FDL2 stage only).\n"
-	    "\t\t(Only compatibility-method mode)\n"
-	    "\t32.bl {0,1}\n"
-	    "\t\tSet the bootloader status (FDL2 stage only).\n"
-	    "\t33.show_cmd\n"
-	    "\t\tShow BSL commands\n"
-	    "\t34.find_cmd [TYPE]\n"
-	    "\t\tFind BSL command by hex number\n"
-	    "\t35.cptable\n"
-	    "\t\tRead the partition table in compatibility mode\n"
-	    "\t36.dis_avb_tos [BACKUP FILE]\n"
-	    "\t\tDisable AVB verification by patching trustos(FDL2 only)\n"
-		"\t37.scan_partition [PARTITION TABLE XML]\n"
-		"\t\tGet partition table through scanning a partition xml file\n"
-		"\t38.pac [PAC FILE]\n"
-		"\t\tFlash PAC firmware to the device (BROM stage only)\n"
-		"\t39.g_w_force {0,1}\n"
-		"\t\tSet if w_force action allowed, default is 0.\n"
-		"\t40.w_force [PARTITION NAME] [FILE]\n"
-		"\t\tForce write a file to a partition, use with caution!\n"
-		"\t41.mergenv-xml [XML] new_nv\n"
-		"\t\tMerge NV partition with an XML config file, and write back to device.\n"
-		"\t42.mergenv-cfg [CONFIG] new_nv\n"
-		"\t\tMerge NV partition with a special config file, and write back to device.\n"
-		"\t43.mergenv-xml-ex [XML] old_nv new_nv FILE\n"
-		"\t\tMerge NV partition with an XML config file, Old nvimage needed.\n"
-		"\t44.mergenv-cfg-ex [CONFIG] old_nv new_nv FILE\n"
-		"\t\tMerge NV partition with a special config file, Old nvimage needed.\n"
-		"\t45.status\n"
-		"\t\tShow device status.\n"
-		"\t46.gen_tos [TRUSTOS IMAGE] [SAVE PATH]\n"
-		"\t\tPatch trustos.\n"
-		"\t47.bsp_patch [ORIG IMAGE SIGNED] [MODIFIED IMAGE] [SAVE PATH]\n"
-		"\t\tPatch bsp signature.\n"
-		"\t48.get_pgpt [FILE]\n"
-		"\t\tSave pgpt.bin to a specified file name if support.\n"
-		"\t49.get_sprdpart [FILE]\n"
-		"\t\tSave sprdpart.bin to a specified file name if support.\n"
-	    "Debug commands:\n"
-	    "\t50.skip_confirm {0,1}\n"
-	    "\t\tSkips all confirmation prompts(use with caution!)\n"
-	    "\t51.keep_charge\n"
-	    "\t\tKeep charge in FDL1/FDL2 stage.\n"
-	    "\t52.send_end_data {0,1}\n"
-	    "\t\tSends end data after file transfer.\n"
-	    "\t53.rawdata {0,1,2}\n"
-	    "\t\tEnable raw_data mode for file sending to get better speed.\n"
-	    "\t\t(Not all FDL2 support.)\n"
-	    "\t54.slot {0,1,2}\n"
-	    "\t\tSelect slot auto|a|b on VAB devices.\n"
-	    "\t55.chip_uid\n"
-	    "\t\tReads the chip UID (FDL2 stage only).\n"
-	    "\t56.transcode {0,1}\n"
-	    "\t\tEnable or disable transcode mode (FDL2 stage only).\n"
-	    "\t57.sendloop [ADDR]\n"
-	    "\t\tSend [0, 0, 0, 0] packet to a specified address, then send addresses in a loop of [0, 0, 0, 0] packet to sequentially decrease by 8\n"
-	    "\t58.write_word\n"
-	    "\t\tWrite a HEX number word to a specified address.\n"
-	    "\t59.read_nand\n"
-	    "\t\tDetermine whether the current device is a NAND model; not all devices are supported.(through 0x0D)\n"
-	    "\t60.sendcmd [TYPE] <FILE>\n"
-	    "\t\tSend a specified command (with a file)\n"
-	    "\t61.pactime\n"
-	    "\t\tRead the last time the PAC firmware was flashed.\n"
-		"\t62.read_flash [ADDR] [OFFSET] [SIZE] [FILE]\n"
-		"\t\tRead flash content to a file\n"
-		"\t\t`read_flash_dhtb` for reading DHTB Signature for ums9117\n"
-		"\t63.read_mem [ADDR] [SIZE] [FILE]\n"
-		"\t\tRead memory content to a file\n"
-		"\t64.erase_flash [ADDR] [SIZE]\n"
-		"\t\tErase flash content\n"
-	    "Notice:\n"
-	    "\t1.The compatibility method to get part table sometimes can not get all partitions on your device\n"
-	    "\t2.Command `bl` : It is only supported on special FDL2 and requires trustos and sml partition files.\n"
-	    "\t3.Command `sendloop` : sfd_tool has a debugging command called sendloop [ADDR], \n          which sends four zeros to write to the specified address,\n          and then sends four more zeros to (initial address - 8), (initial -16), and so on until the device becomes unresponsive.\n          The following are u2s accessed via keypad (SPL not erased; if SPL is erased, the resulting addresses will change):\n\t\tsc98xx: sfd_tool sendloop 0x5000\n\t\tums312/512: sfd_tool sendloop 0x4000 -> device enters while loop at 0x3f68\n\t\tud710: sfd_tool sendloop 0x4000 -> device enters while loop at 0x3fa0\n\t\tums9230: sfd_tool sendloop 0x65016000\n\t\tums9230: sfd_tool sendloop 0x65013000\n          Since the FDL addresses of 9230 and 9620 are both 0x65000800,\n          a better approach is to increment in a loop from 0x65000800; \n          By the time you reach 0x65013000, you can tell which one it is.\n          The send loop was written as a loop decrementing.\n          (Getting message: 7E 01 00 00 00 08 00 00 00 ... 7E)"
-	);
-	fprintf(stderr,
-	    "\nExit Commands\n"
-	    "\t65.reboot-recovery\n\t\tFDL2 only\n"
-	    "\t66.reboot-fastboot\n\t\tFDL2 only\n"
-	    "\t67.reset\n\t\tFDL2 and new FDL1\n"
-	    "\t68.poweroff\n\t\tFDL2 and new FDL1\n"
-		"\t69.exit\n\t\tExit the program (Tool mode only.)\n"
-	);
-}
-void ThrowExit() {
-	if (init_stage == -1) {
-		o_exception = "Can not init program functions";
-	} else if (init_stage == 0) {
-		o_exception = "Device connected with wrong mode";
-	} else if (init_stage == 1) {
-		o_exception = "Failed to handshake";
-	} else if (init_stage == 2) {
-		o_exception = "Failed to get device info";
-	}
-
+    fprintf(stderr,
+            "\t--no-fdl\n"
+            "\t\tSkip sending the FDL file and execute FDL2(Sprd4 mode only)\n"
+    );
+    fprintf(stderr,
+            "\nRuntime Commands\n"
+            "\t1.verbose [LEVEL]\n"
+            "\t\tSets the verbosity level of the output (supports 0, 1, or 2).\n"
+            "\t2.timeout [TIME(ms)]\n"
+            "\t\tSets the command timeout in milliseconds.\n"
+            "\t3.baudrate [RATE]\n\t\t(Windows SPRD driver only, and BROM/FDL2 stage only)\n"
+            "\t\tSupported baudrates are 57600, 115200, 230400, 460800, 921600, 1000000, 2000000, 3250000, and 4000000.\n"
+            "\t\t(While in u-boot/littlekernel source code, only 115200, 230400, 460800, and 921600 are listed.)\n"
+            "\t4.exec_addr [BINARY FILE] [ADDR] \n\t\t(BROM stage only)\n"
+            "\t\tSend a binary file to the specified memory address for advanced maintenance operations.\n"
+            "\t5.loadexec [BINARY FILE(addr_in_name)]\n"
+            "\t\tLoad Binary file to the address encoded in filename for exec_addr.\n"
+            "\t\tNote: This low-level command is intended for developers and advanced users only.\n"
+            "\t6.fdl [FILE PATH] [ADDR]\n"
+            "\t\tSend a file (splloader, FDL1, FDL2, sml, trustos, teecfg) to the specified memory address.\n"
+            "\t7.loadfdl [FILE_ADDR(addr_in_name)]\n"
+            "\t\tLoad FDL file to the address encoded in filename.\n"
+            "\t8.send|send_no_enddata\n"
+            "\t\tSends a file to the device without executing it. The file path and address must be specified before using this command.\n"
+            "\t\t(send_no_enddata will not send end_data command after file transfer.)\n"
+            "\t9.exec <ADDR>\n"
+            "\t\tExecutes a sent file. Typically used with sml or FDL2 (also known as uboot/lk).\n"
+            "\t\t(When you execute FDL1, you need to provide FDL1 address)\n"
+            "\t10.path [SAVE PATH]\n"
+            "\t\tChanges the save directory for commands like r, read_part, read_spec, read_flash, and read_mem.\n"
+            "\t11.nand_id [ID]\n"
+            "\t\tSpecifies the 4th NAND ID, affecting `read_part` or `read_spec` size calculation, default value is 0x15.\n"
+            "\t12.rawdata {0,1,2}\n\t\t(FDL2 stage only)\n"
+            "\t\tRawdata protocol helps speed up `w` and `write_part(s)` commands, when rawdata > 0, `blk_size` will not effect write speed.\n"
+            "\t\t(rawdata relays on u-boot/lk, so don't set it manually.\n"
+            "\t13.blk_size [VALUE(byte)]\n\t\t(FDL2 stage only)\n"
+            "\t\tSets the block size, with a maximum of 65535 bytes. This option helps speed up `r`, `w`,`read_part`,`read_spec` and `write_part` commands.\n"
+            "\t14.r|read_part all|part_name|part_id\n"
+            "\t\tWhen the partition table is available:\n"
+            "\t\t\tr|read_part all: full backup (excludes blackbox, cache, userdata)\n"
+            "\t\t\tr|read_part all_lite: full backup (excludes inactive slot partitions, blackbox, cache, and userdata)\n"
+            "\t\t\tall/all_lite is not usable on NAND\n"
+            "\t\tWhen the partition table is unavailable:\n"
+            "\t\t\tr|read_part will auto-calculate part size (supports emmc/ufs and NAND).\n"
+            "\t15.read_spec part_name|part_id offset size [FILE]\n"
+            "\t\tReads a specific partition to a file at the given offset and size.\n"
+            "\t\t(You must give offset and read_size.)"
+            "\t\t(read ubi on nand) read_spec system 0 ubi40m system.bin\n"
+            "\t16.read_parts [PARTITION TABLE XML]\n"
+            "\t\tDump partitions from a list file (If the file name starts with \"ubi\", the size will be calculated using the NAND ID).\n"
+            "\t17.w|write_part part_name|part_id [FILE PATH]\n"
+            "\t\tWrites the specified file to a partition.\n"
+            "\t18.write_parts|write_parts_a|write_parts_b save_location\n"
+            "\t\tWrites all partitions dumped by read_parts.\n"
+            "\t19.wof part_name offset FILE\n"
+            "\t\tWrites the specified file to a partition at the given offset.\n"
+            "\t20.wov part_name offset VALUE\n"
+            "\t\tWrites the specified value (max is 0xFFFFFFFF) to a partition at the given offset.\n"
+            "\t21.e|erase_part part_name|part_id\n"
+            "\t\tErases the specified partition.\n"
+            "\t22.erase_all\n"
+            "\t\tErases all partitions. Use with caution!\n"
+            "\t23.part_table [FILE PATH]\n"
+            "\t\tRead the partition table on emmc/ufs and save partition xml, not all FDL2 supports this command.\n"
+            "\t24.repartition [PARTITION TABLE XML]\n"
+            "\t\tRepartitions based on partition list XML.\n"
+            "\t25.p|print\n"
+            "\t\tPrints partition table\n"
+            "\t26.ps|part_size part_name\n"
+            "\t\tDisplays the size of the specified partition.\n"
+            "\t27.cp|check_part part_name\n"
+            "\t\tChecks if the specified partition exists.\n"
+            "\t28.verity {0,1}\n"
+            "\t\tEnables or disables dm-verity on android 10(+).\n"
+            "\t\tNote: This command may not work on all devices, and enabling verity may cause the device to fail to boot if the partition table or certain partitions are modified. Use with caution!\n"
+            "\t29.set_active {a,b}\n"
+            "\t\tSets the active slot on VAB devices.\n"
+            "\t30.firstmode [MODE ID]\n"
+            "\t\tSets the mode the device will enter after reboot.\n"
+            "\t31.add_part [PARTITION NAME]\n"
+            "\t\tAdd a partition to the partition table (FDL2 stage only).\n"
+            "\t\t(Only compatibility-method mode)\n"
+            "\t32.bl {0,1}\n"
+            "\t\tSet the bootloader status (FDL2 stage only).\n"
+            "\t33.show_cmd\n"
+            "\t\tShow BSL commands\n"
+            "\t34.find_cmd [TYPE]\n"
+            "\t\tFind BSL command by hex number\n"
+            "\t35.cptable\n"
+            "\t\tRead the partition table in compatibility mode\n"
+            "\t36.dis_avb_tos [BACKUP FILE]\n"
+            "\t\tDisable AVB verification by patching trustos(FDL2 only)\n"
+            "\t37.scan_partition [PARTITION TABLE XML]\n"
+            "\t\tGet partition table through scanning a partition xml file\n"
+            "\t38.pac [PAC FILE]\n"
+            "\t\tFlash PAC firmware to the device (BROM stage only)\n"
+            "\t39.g_w_force {0,1}\n"
+            "\t\tSet if w_force action allowed, default is 0.\n"
+            "\t40.w_force [PARTITION NAME] [FILE]\n"
+            "\t\tForce write a file to a partition, use with caution!\n"
+            "\t41.mergenv-xml [XML] new_nv\n"
+            "\t\tMerge NV partition with an XML config file, and write back to device.\n"
+            "\t42.mergenv-cfg [CONFIG] new_nv\n"
+            "\t\tMerge NV partition with a special config file, and write back to device.\n"
+            "\t43.mergenv-xml-ex [XML] old_nv new_nv FILE\n"
+            "\t\tMerge NV partition with an XML config file, Old nvimage needed.\n"
+            "\t44.mergenv-cfg-ex [CONFIG] old_nv new_nv FILE\n"
+            "\t\tMerge NV partition with a special config file, Old nvimage needed.\n"
+            "\t45.status\n"
+            "\t\tShow device status.\n"
+            "\t46.gen_tos [TRUSTOS IMAGE] [SAVE PATH]\n"
+            "\t\tPatch trustos.\n"
+            "\t47.bsp_patch [ORIG IMAGE SIGNED] [MODIFIED IMAGE] [SAVE PATH]\n"
+            "\t\tPatch bsp signature.\n"
+            "\t48.get_pgpt [FILE]\n"
+            "\t\tSave pgpt.bin to a specified file name if support.\n"
+            "\t49.get_sprdpart [FILE]\n"
+            "\t\tSave sprdpart.bin to a specified file name if support.\n"
+            "Debug commands:\n"
+            "\t50.skip_confirm {0,1}\n"
+            "\t\tSkips all confirmation prompts(use with caution!)\n"
+            "\t51.keep_charge\n"
+            "\t\tKeep charge in FDL1/FDL2 stage.\n"
+            "\t52.send_end_data {0,1}\n"
+            "\t\tSends end data after file transfer.\n"
+            "\t53.rawdata {0,1,2}\n"
+            "\t\tEnable raw_data mode for file sending to get better speed.\n"
+            "\t\t(Not all FDL2 support.)\n"
+            "\t54.slot {0,1,2}\n"
+            "\t\tSelect slot auto|a|b on VAB devices.\n"
+            "\t55.chip_uid\n"
+            "\t\tReads the chip UID (FDL2 stage only).\n"
+            "\t56.transcode {0,1}\n"
+            "\t\tEnable or disable transcode mode (FDL2 stage only).\n"
+            "\t57.sendloop [ADDR]\n"
+            "\t\tSend [0, 0, 0, 0] packet to a specified address, then send addresses in a loop of [0, 0, 0, 0] packet to sequentially decrease by 8\n"
+            "\t58.write_word\n"
+            "\t\tWrite a HEX number word to a specified address.\n"
+            "\t59.read_nand\n"
+            "\t\tDetermine whether the current device is a NAND model; not all devices are supported.(through 0x0D)\n"
+            "\t60.sendcmd [TYPE] <FILE>\n"
+            "\t\tSend a specified command (with a file)\n"
+            "\t61.pactime\n"
+            "\t\tRead the last time the PAC firmware was flashed.\n"
+            "\t62.read_flash [ADDR] [OFFSET] [SIZE] [FILE]\n"
+            "\t\tRead flash content to a file\n"
+            "\t\t`read_flash_dhtb` for reading DHTB Signature for ums9117\n"
+            "\t63.read_mem [ADDR] [SIZE] [FILE]\n"
+            "\t\tRead memory content to a file\n"
+            "\t64.erase_flash [ADDR] [SIZE]\n"
+            "\t\tErase flash content\n"
+            "Notice:\n"
+            "\t1.The compatibility method to get part table sometimes can not get all partitions on your device\n"
+            "\t2.Command `bl` : It is only supported on special FDL2 and requires trustos and sml partition files.\n"
+            "\t3.Command `sendloop` : sfd_tool has a debugging command called sendloop [ADDR], \n          which sends four zeros to write to the specified address,\n          and then sends four more zeros to (initial address - 8), (initial -16), and so on until the device becomes unresponsive.\n          The following are u2s accessed via keypad (SPL not erased; if SPL is erased, the resulting addresses will change):\n\t\tsc98xx: sfd_tool sendloop 0x5000\n\t\tums312/512: sfd_tool sendloop 0x4000 -> device enters while loop at 0x3f68\n\t\tud710: sfd_tool sendloop 0x4000 -> device enters while loop at 0x3fa0\n\t\tums9230: sfd_tool sendloop 0x65016000\n\t\tums9230: sfd_tool sendloop 0x65013000\n          Since the FDL addresses of 9230 and 9620 are both 0x65000800,\n          a better approach is to increment in a loop from 0x65000800; \n          By the time you reach 0x65013000, you can tell which one it is.\n          The send loop was written as a loop decrementing.\n          (Getting message: 7E 01 00 00 00 08 00 00 00 ... 7E)"
+    );
+    fprintf(stderr,
+            "\nExit Commands\n"
+            "\t65.reboot-recovery\n\t\tFDL2 only\n"
+            "\t66.reboot-fastboot\n\t\tFDL2 only\n"
+            "\t67.reset\n\t\tFDL2 and new FDL1\n"
+            "\t68.poweroff\n\t\tFDL2 and new FDL1\n"
+            "\t69.exit\n\t\tExit the program (Tool mode only.)\n"
+    );
 }
 
-int main_console(int argc, char** argv) {
-	ThrowExit();
-	int skip_confirm = 1,  exec_addr_v2 = 0;
-	int argcount = 0;
-	//Set up environment
-	std::string execfile;
-	io = spdio_init(0);
+void ThrowExit()
+{
+    if (init_stage == -1)
+    {
+        o_exception = "Can not init program functions";
+    }
+    else if (init_stage == 0)
+    {
+        o_exception = "Device connected with wrong mode";
+    }
+    else if (init_stage == 1)
+    {
+        o_exception = "Failed to handshake";
+    }
+    else if (init_stage == 2)
+    {
+        o_exception = "Failed to get device info";
+    }
+}
+
+int main_console(int argc, char** argv)
+{
+    ThrowExit();
+    int skip_confirm = 1, exec_addr_v2 = 0;
+    int argcount = 0;
+    //Set up environment
+    std::string execfile;
+    io = spdio_init(0);
 
 #if USE_LIBUSB
 #ifdef __ANDROID__
-	int xfd = -1; // This store termux gived fd
-	//libusb_device_handle *handle; // Use spdio_t.dev_handle
-	//libusb_device* device; //use curPort
-	struct libusb_device_descriptor desc;
-	libusb_set_option(nullptr, LIBUSB_OPTION_NO_DEVICE_DISCOVERY);
+    int xfd = -1; // This store termux gived fd
+    //libusb_device_handle *handle; // Use spdio_t.dev_handle
+    //libusb_device* device; //use curPort
+    struct libusb_device_descriptor desc;
+    libusb_set_option(nullptr, LIBUSB_OPTION_NO_DEVICE_DISCOVERY);
 #endif
-	ret = libusb_init(nullptr);
-	if (ret < 0)
-		ERR_EXIT("libusb_init failed: %s\n", libusb_error_name(ret));
+    ret = libusb_init(nullptr);
+    if (ret < 0)
+        ERR_EXIT("libusb_init failed: %s\n", libusb_error_name(ret));
 #else
-	io->handle = createClass();
-	call_Initialize(io->handle);
+    io->handle = createClass();
+    call_Initialize(io->handle);
 #endif
-	printf("sfd_tool Long-time version %s Console mode\n", SFD_TOOL_VERSION);
-	printf("Copyright 2026 Ryan Crepa\n");
+    printf("sfd_tool Long-time version %s Console mode\n", SFD_TOOL_VERSION);
+    printf("Copyright 2026 Ryan Crepa\n");
 #ifdef _DEBUG
-	DBG_LOG("version:debug, core version:%s\n", Version);
+    DBG_LOG("version:debug, core version:%s\n", Version);
 #else
-	DBG_LOG("version:stable, core version:%s\n", Version);
+    DBG_LOG("version:stable, core version:%s\n", Version);
 #endif
-	int i = 1;
-	while (argc > 1) {
-		if (!strcmp(argv[1], "--wait")) {
-			if (argc <= 2) {
-				ThrowExit();
-				ERR_EXIT("%s: bad option\n", o_exception);
-			}
-			conn_wait = atoi(argv[2]) * REOPEN_FREQ;
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(argv[1], "--verbose")) {
-			if (argc <= 2) {
-				ThrowExit();
-				ERR_EXIT("%s: bad option\n", o_exception);
-			}
-			io->verbose = atoi(argv[2]);
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(argv[1], "--stage")) {
-			if (argc <= 2) {
-				ThrowExit();
-				ERR_EXIT("%s: bad option\n", o_exception);
-			}
-			stage = 99;
-			argc -= 2;
-			argv += 2;
-		} else if (strstr(argv[1], "-r")) {
-			stage = 99;
-			argc -= 1;
-			argv += 1;
-		} else if (strstr(argv[1], "help") || strstr(argv[1], "-h") || strstr(argv[1], "-?")) {
-			print_help();
-			return 0;
+    int i = 1;
+    while (argc > 1)
+    {
+        if (!strcmp(argv[1], "--wait"))
+        {
+            if (argc <= 2)
+            {
+                ThrowExit();
+                ERR_EXIT("%s: bad option\n", o_exception);
+            }
+            conn_wait = atoi(argv[2]) * REOPEN_FREQ;
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(argv[1], "--verbose"))
+        {
+            if (argc <= 2)
+            {
+                ThrowExit();
+                ERR_EXIT("%s: bad option\n", o_exception);
+            }
+            io->verbose = atoi(argv[2]);
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(argv[1], "--stage"))
+        {
+            if (argc <= 2)
+            {
+                ThrowExit();
+                ERR_EXIT("%s: bad option\n", o_exception);
+            }
+            stage = 99;
+            argc -= 2;
+            argv += 2;
+        }
+        else if (strstr(argv[1], "-r"))
+        {
+            stage = 99;
+            argc -= 1;
+            argv += 1;
+        }
+        else if (strstr(argv[1], "help") || strstr(argv[1], "-h") || strstr(argv[1], "-?"))
+        {
+            print_help();
+            return 0;
 #ifdef __ANDROID__
-		} else if (!strcmp(argv[1], "--usb-fd")) { // Termux spec
-			if (argc <= 2) {
-				ThrowExit();
-				ERR_EXIT("%s: bad option\n", o_exception);
-			}
-			xfd = atoi(argv[argc - 1]);
-			argc -= 2;
-			argv += 1;
+		} else if (!strcmp(argv[1], "--usb-fd"))
+            {
+                // Termux spec
+                if (argc <= 2)
+                {
+                    ThrowExit();
+                    ERR_EXIT("%s: bad option\n", o_exception);
+                }
+                xfd = atoi(argv[argc - 1]);
+                argc -= 2;
+                argv += 1;
 #endif
-		} else if (!strcmp(argv[1], "--kick")) {
-			isKickMode = 1;
-			at = 1;
-			argc -= 1;
-			argv += 1;
-		} else if (!strcmp(argv[1], "--kickto")) {
-			isKickMode = 1;
-			if (argc <= 2) {
-				ThrowExit();
-				ERR_EXIT("%s: bad option\n", o_exception);
-			}
-			bootmode = strtol(argv[2], nullptr, 0);
-			at = 0;
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(argv[1], "--nor-bar")) {
-			io->nor_bar = 1;
-			argc -= 1;
-			argv += 1;
-		} else if (!strcmp(argv[1], "--no-fdl")) {
-			no_fdl_mode = 1;
-			argc -= 1;
-			argv += 1;
-		} else if (!strcmp(argv[1], "--cptable")) {
-			isUseCptable = true;
-			argc -= 1;
-			argv += 1;
-		} else if (!strcmp(argv[1], "--sync")) {
-			async = 0;
-			argc -= 1;
-			argv += 1;
-		} else if (!strcmp(argv[1], "--tool-mode"))
-		{
-			isToolMode = true;
-			argc -= 1;
-			argv += 1;
+        }
+        else if (!strcmp(argv[1], "--kick"))
+        {
+            isKickMode = 1;
+            at = 1;
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(argv[1], "--kickto"))
+        {
+            isKickMode = 1;
+            if (argc <= 2)
+            {
+                ThrowExit();
+                ERR_EXIT("%s: bad option\n", o_exception);
+            }
+            bootmode = strtol(argv[2], nullptr, 0);
+            at = 0;
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(argv[1], "--nor-bar"))
+        {
+            io->nor_bar = 1;
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(argv[1], "--no-fdl"))
+        {
+            no_fdl_mode = 1;
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(argv[1], "--cptable"))
+        {
+            isUseCptable = true;
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(argv[1], "--sync"))
+        {
+            async = 0;
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(argv[1], "--tool-mode"))
+        {
+            isToolMode = true;
+            argc -= 1;
+            argv += 1;
 #if defined(_WIN32) && !USE_LIBUSB
 		} else if (!strcmp(argv[1], "--chnl-log"))
-		{
-			call_SetLogVisible(io->handle, true);
-			argc -= 1;
-			argv += 1;
+            {
+                call_SetLogVisible(io->handle, true);
+                argc -= 1;
+                argv += 1;
 #endif
-		} else break;
-	}
-	if (stage == 99) {
-		bootmode = -1;
-		at = 0;
-	}
+        }
+        else break;
+    }
+    if (stage == 99)
+    {
+        bootmode = -1;
+        at = 0;
+    }
 #if !defined(_WIN32) && !defined(__ANDROID__)
-	if (geteuid() != 0 && !isToolMode) {
-		DEG_LOG(W, "You are running this tool without root permission.");
-		DEG_LOG(W, "It may cause device connecting issue without device rule.");
-	}
+    if (geteuid() != 0 && !isToolMode)
+    {
+        DEG_LOG(W, "You are running this tool without root permission.");
+        DEG_LOG(W, "It may cause device connecting issue without device rule.");
+    }
 #endif
-	if (!isToolMode)
-	{
-		#ifdef __ANDROID__
-		g_app_state.transport.bListenLibusb = 0;
-		DEG_LOG(OP, "Try to convert termux transfered usb port fd.");
-		// handle
-		if (xfd < 0)
-			ERR_EXIT("Example: termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx\n"
-					"Error: Please provide --usb-fd if run on android\n");
+    if (!isToolMode)
+    {
+#ifdef __ANDROID__
+        g_app_state.transport.bListenLibusb = 0;
+        DEG_LOG(OP, "Try to convert termux transfered usb port fd.");
+        // handle
+        if (xfd < 0)
+            ERR_EXIT("Example: termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx\n"
+                "Error: Please provide --usb-fd if run on android\n");
 
-		if (libusb_wrap_sys_device(nullptr, (intptr_t)xfd, &io->dev_handle))
-			ERR_EXIT("libusb_wrap_sys_device exit unconditionally!\n");
+        if (libusb_wrap_sys_device(nullptr, (intptr_t)xfd, &io->dev_handle))
+            ERR_EXIT("libusb_wrap_sys_device exit unconditionally!\n");
 
-		curPort = libusb_get_device(io->dev_handle);
-		if (libusb_get_device_descriptor(curPort, &desc))
-			ERR_EXIT("libusb_get_device exit unconditionally!");
+        curPort = libusb_get_device(io->dev_handle);
+        if (libusb_get_device_descriptor(curPort, &desc))
+            ERR_EXIT("libusb_get_device exit unconditionally!");
 
-		DBG_LOG("Vendor ID: %04x\nProduct ID: %04x\n", desc.idVendor, desc.idProduct);
-		if (desc.idVendor != 0x1782 || desc.idProduct != 0x4d00) {
-			ERR_EXIT("It seems spec device not a spd device!\n");
-		}
-		call_Initialize_libusb(io);
-	#else
-	#if !USE_LIBUSB
-		g_app_state.transport.bListenLibusb = 0;
-		if (at || bootmode >= 0) {
-			io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
-			if (io->hThread == nullptr) return -1;
-			ChangeMode(io, conn_wait / REOPEN_FREQ * 1000, bootmode, at);
-			conn_wait = 30 * REOPEN_FREQ;
-			stage = -1;
-		}
-	#else
-		if (!libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG)) {
-			DBG_LOG("hotplug unsupported on this platform\n");
-			g_app_state.transport.bListenLibusb = 0;
-			bootmode = -1;
-			at = 0;
-		}
-		if (at || bootmode >= 0) {
-			startUsbEventHandle();
-			ChangeMode(io, conn_wait / REOPEN_FREQ * 1000, bootmode, at);
-			conn_wait = 30 * REOPEN_FREQ;
-			stage = -1;
-		}
-		if (g_app_state.transport.bListenLibusb < 0) startUsbEventHandle();
-	#endif
-	#if _WIN32
-		if (!g_app_state.transport.bListenLibusb) {
-			if (io->hThread == nullptr) io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
-			if (io->hThread == nullptr) return -1;
-		}
-	#if !USE_LIBUSB
-		if (!m_bOpened && async) {
-			if (FALSE == CreateRecvThread(io)) {
-				io->m_dwRecvThreadID = 0;
-				DEG_LOG(E, "Create Receive Thread Fail.");
-			}
-		}
-	#endif
-	#endif
-		init_stage = 0;
-		if (!m_bOpened) {
-			DBG_LOG("Waiting for connection of diag: dl_diag (%ds)\n", conn_wait / REOPEN_FREQ);
-
-			ThrowExit();
-			for (i = 0; ; i++) {
-	#if USE_LIBUSB
-				if (g_app_state.transport.bListenLibusb) {
-					if (curPort) {
-						if (libusb_open(curPort, &io->dev_handle) >= 0) call_Initialize_libusb(io);
-						else ERR_EXIT("Failed to connect\n");
-						break;
-					}
-				}
-				if (!(i % 4)) {
-					if ((ports = FindPort(0x4d00))) {
-						for (libusb_device** port = ports; *port != nullptr; port++) {
-							if (libusb_open(*port, &io->dev_handle) >= 0) {
-								call_Initialize_libusb(io);
-								curPort = *port;
-								break;
-							}
-						}
-						libusb_free_device_list(ports, 1);
-						ports = nullptr;
-						if (m_bOpened) break;
-					}
-				}
-				if (i >= conn_wait)
-					ERR_EXIT("libusb_open_device failed\n");
-	#else
-				if (io->verbose) DBG_LOG("Cost: %.1f, Found: %d\n", (float)i / REOPEN_FREQ, curPort);
-				if (curPort) {
-					if (!call_ConnectChannel(io->handle, curPort, WM_RCV_CHANNEL_DATA, io->m_dwRecvThreadID)) ERR_EXIT("Connection failed\n");
-					break;
-				}
-				if (!(i % 4)) {
-					if ((ports = FindPort("SPRD U2S Diag"))) {
-						for (DWORD* port = ports; *port != 0; port++) {
-							if (call_ConnectChannel(io->handle, *port, WM_RCV_CHANNEL_DATA, io->m_dwRecvThreadID)) {
-								curPort = *port;
-								break;
-							}
-						}
-						delete[](ports);
-						ports = nullptr;
-						if (m_bOpened) break;
-					}
-				}
-				if (i >= conn_wait) {
-					ThrowExit();
-					ERR_EXIT("%s: Failed to find port.\n", o_exception);
-				}
-	#endif
-				usleep(1000000 / REOPEN_FREQ);
-			}
-		}
-	#endif
-		io->flags |= FLAGS_TRANSCODE;
-		if (stage != -1) {
-			io->flags &= ~FLAGS_CRC16;
-			encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-		} else encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
-		//handshake
-		for (int i = 0; ; ++i) {
-			//check if device is connected correctly.
-			if (io->recv_buf[2] == BSL_REP_VER) {
-				ret = BSL_REP_VER;
-				memcpy(io->raw_buf + 4, io->recv_buf + 5, 5);
-				io->raw_buf[2] = 0;
-				io->raw_buf[3] = 5;
-				io->recv_buf[2] = 0;
-			} else if (io->recv_buf[2] == BSL_REP_VERIFY_ERROR ||
-					io->recv_buf[2] == BSL_REP_UNSUPPORTED_COMMAND) {
-				if (!fdl1_loaded) {
-					ret = io->recv_buf[2];
-					io->recv_buf[2] = 0;
-				} else ERR_EXIT("Failed to connect to device: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n", o_exception);
-			} else {
-				//device correct, handshake operation
-				send_msg(io);
-				recv_msg(io);
-				ret = recv_type(io);
-			}
-			//device can only recv BSL_REP_ACK or BSL_REP_VER or BSL_REP_VERIFY_ERROR
-			init_stage = 1;
-			ThrowExit();
-			if (ret == BSL_REP_ACK || ret == BSL_REP_VER || ret == BSL_REP_VERIFY_ERROR) {
-				//check stage
-				if (ret == BSL_REP_VER) {
-					if (fdl1_loaded == 1) {
-						g_app_state.device.device_stage = FDL1;
-						DEG_LOG(OP, "FDL1 connected.");
-						if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
-						if (!memcmp(io->raw_buf + 4, "SPRD4", 5)) g_app_state.device.device_mode = SPRD4;
-						break;
-					} else {
-						g_app_state.device.device_stage = BROM;
-						DEG_LOG(OP, "Check baud BROM");
-						if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) {
-							fdl1_loaded = -1;
-							fdl2_executed = -1;
-						}
-						if (!memcmp(io->raw_buf + 4, "SPRD4", 5)) g_app_state.device.device_mode = SPRD4;
-					}
-					DBG_LOG("Device mode version: ");
-					print_string(stdout, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
-					print_to_string(mode_str, sizeof(mode_str), io->raw_buf + 4, READ16_BE(io->raw_buf + 2), 0);
-
-					encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-					if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
-				} else if (ret == BSL_REP_VERIFY_ERROR) {
-					encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-					if (fdl1_loaded != 1) {
-						if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
-					} else {
-						i = -1;
-						continue;
-					}
-				}
-				if (fdl1_loaded == 1) {
-					DEG_LOG(OP, "FDL1 connected.");
-					g_app_state.device.device_stage = FDL1;
-					if (keep_charge) {
-						encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
-						if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
-					}
-					break;
-				} else {
-					DEG_LOG(OP, "BROM connected.");
-					g_app_state.device.device_stage = BROM;
-					break;
-				}
-			}
-			//FDL2 response:UNSUPPORTED
-			else if (ret == BSL_REP_UNSUPPORTED_COMMAND) {
-				encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
-				if (!send_and_check(io)) {
-					io->flags &= ~FLAGS_TRANSCODE;
-					DEG_LOG(OP, "Try to disable transcode 0x7D.");
-					fdl2_executed = 1;
-					g_app_state.device.device_stage = FDL2;
-					int o = io->verbose;
-					io->verbose = -1;
-					g_spl_size = check_partition(io, "splloader", 1);
-					io->verbose = o;
-					if (isUseCptable) {
-						io->Cptable = partition_list_d(io);
-						if (io->Cptable && !io->part_count) isCMethod = 1;
-					}
-					if (!isUseCptable && !io->part_count) {
-						DEG_LOG(W, "No partition table found on current device");
-						DEG_LOG(I, "You may get partition table through compatibility method.");
-						DEG_LOG(I, "(Use command `cptable` to do it.)");
-					}
-					if (selected_ab < 0) select_ab(io);
-					if (g_app_state.flash.gpt_failed != 1) {
-    					if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
-    					else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
-    					else {
-    						DEG_LOG(I, "Device is not using VAB");
-				        }
-				    }
-					
-					if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
-					if (nand_id == DEFAULT_NAND_ID) {
-						nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
-						nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
-						nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
-					}
-					break;
-				}
-			}
-
-			//fail
-			else if (i == 4) {
-				init_stage = 1;
-				ThrowExit();
-				if (stage != -1) {
-					ERR_EXIT("Failed to connect: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n", o_exception);
-				} else {
-					encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-					stage++;
-					i = -1;
-				}
-			}
-
-		}
-		size_t sub_len = strlen("SPRD3");
-		size_t str_len = strlen(mode_str);
-		int found = 0;
-		if (str_len >= sub_len) {
-			for (size_t i = 0; i <= str_len - sub_len; i++) {
-				if (strncmp(mode_str + i, "SPRD3", sub_len) == 0) {
-					found = 1;
-					break;
-				}
-			}
-		}
-		DEG_LOG(I, "SPRD3 Current : %d", found);
-		if (found && g_app_state.device.device_mode != SPRD4) g_app_state.device.device_mode = SPRD3;
-		else if (g_app_state.device.device_mode != SPRD4) g_app_state.device.device_mode = Nothing;
-
-		if (fdl1_loaded == -1) argc += 2;
-		if (fdl2_executed == -1) argc += 1;
-		init_stage = 2;
-		ThrowExit();
-		if (fdl2_executed > 0) {
-			if (g_app_state.device.device_mode == SPRD3) {
-				DEG_LOG(I, "Device status: FDL2/SPRD3");
-			} 
-			else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: FDL2/SPRD4(AutoD)");
-			else DEG_LOG(I, "Device status: FDL2/Unknown");
-		} else if (fdl1_loaded > 0) {
-			if (g_app_state.device.device_mode == SPRD3) {
-				DEG_LOG(I, "Device status: FDL1/SPRD3");
-			} 
-			else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: FDL1/SPRD4(AutoD)");
-			else DEG_LOG(I, "Device status: FDL1/Unknown");
-		} else if (g_app_state.device.device_stage == BROM) {
-			if (g_app_state.device.device_mode == SPRD3) {
-				DEG_LOG(I, "Device status: BROM/SPRD3");
-			} 
-			else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: BROM/SPRD4(AutoD)");
-			else DEG_LOG(I, "Device status: BROM/Unknown");
-		} else {
-			if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device status: Unknown/SPRD3");
-			else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: Unknown/SPRD4(AutoD)");
-			else DEG_LOG(I, "Device status: Unknown/Unknown");
-		}
-		if (g_app_state.device.device_mode == SPRD4 && g_app_state.device.device_stage != FDL2 && !no_fdl_mode) {
-			DEG_LOG(I, "SPRD4 mode detected, but No-FDL mode not enabled.");
-			DEG_LOG(I, "You can get in FDL2 without FDL manually.");
-			DEG_LOG(I, "By execute following commands:");
-			DEG_LOG(I, "In BROM:");
-			DEG_LOG(I, "    exec 0x0");
-			DEG_LOG(I, "    exec");
-			DEG_LOG(I, "In FDL1:");
-			DEG_LOG(I, "    exec");
-			DEG_LOG(I, "(You can enable No-FDL mode by setting parameter `--no-fdl`)");
-		}
-	}
-
-	//get in interaction
-	char** save_argv = nullptr;
-	while (1) {
-		signal(SIGINT, SIG_DFL);
-		if (argc > 1) {
-			str2 = NEWN char*[argc];
-			if (fdl1_loaded == -1) {
-				save_argv = argv;
-				str2[1] = const_cast<char*>("loadfdl");
-				str2[2] = const_cast<char*>("0x0");
-			} else if (fdl2_executed == -1) {
-				if (!save_argv) save_argv = argv;
-				str2[1] = const_cast<char*>("exec");
-			} else {
-				if (save_argv) {
-					argv = save_argv;
-					save_argv = nullptr;
-				}
-				for (i = 1; i < argc; i++) str2[i] = argv[i];
-			}
-			argcount = argc;
-			in_quote = -1;
-		} else {
-			char ifs = '"';
-			str2 = NEWN char*[ARGC_MAX];
-			memset(str1, 0, sizeof(str1));
-			argcount = 0;
-			in_quote = 0;
-			if (!isToolMode)
-			{
-				if (fdl2_executed > 0)
-					DBG_LOG("[FDL2]: ");
-				else if (fdl1_loaded > 0)
-					DBG_LOG("[FDL1]: ");
-				else
-					DBG_LOG("[BROM]: ");
-			}
-			else
-			{
-				DBG_LOG("[TMODE]: ");
-			}
-			ret = scanf("%[^\n]", str1);
-			while ('\n' != getchar());
-
-			temp = strtok(str1, " ");
-			while (temp) {
-				if (!in_quote) {
-					argcount++;
-					if (argcount == ARGC_MAX) break;
-					str2[argcount] = NEWN char[ARGV_LEN];
-					if (!str2[argcount]) ERR_EXIT("malloc failed\n");
-					memset(str2[argcount], 0, ARGV_LEN);
-				}
-				if (temp[0] == '\'') ifs = '\'';
-				if (temp[0] == ifs) {
-					in_quote = 1;
-					temp += 1;
-				} else if (in_quote) {
-					strcat(str2[argcount], " ");
-				}
-
-				if (temp[strlen(temp) - 1] == ifs) {
-					in_quote = 0;
-					temp[strlen(temp) - 1] = 0;
-				}
-
-				strcat(str2[argcount], temp);
-				temp = strtok(nullptr, " ");
-			}
-			argcount++;
-		}
-		if (argcount == 1) {
-			str2[1] = NEWN char[1];
-			if (str2[1]) str2[1][0] = '\0';
-			else ERR_EXIT("malloc failed\n");
-			argcount++;
-		}
-		//parse args and interacting command
-		if (!strcmp(str2[1], "sendloop")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			uint32_t addr = 0;
-			if (argcount <= 2) {
-				DEG_LOG(W, "sendloop [ADDR]");
-				argc = 1;
-				continue;
-			}
-
-			uint8_t data[4] = { 0 };
-			addr = strtoul(str2[2], nullptr, 0);
-			while (1) {
-				send_buf(io, addr, 0, 528, data, 4);
-				DEG_LOG(OP,"SEND 4 bytes to 0x%x", addr);
-				addr -= 8;
-			}
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(str2[1], "write_word")) {
-			if (isToolMode)
-			{
-				if (argcount <= 3)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 3;
-					argv += 3;
-				}
-				continue;
-			}
-			uint32_t addr, data;
-			if (argc <= 3) {
-				DEG_LOG(W, "write_word [ADDR] [VALUE](max is 0xFFFFFFFF)");
-				argc = 1;
-				continue;
-			}
-
-			addr = strtoul(str2[2], nullptr, 0);
-			data = strtoul(str2[3], nullptr, 0);
-			send_buf(io, addr, end_data, 528, (uint8_t*)&data, 4);
-			argc -= 3;
-			argv += 3;
-
-		} else if (!memcmp(str2[1], "exec_addr", 9)) {
-			if (isToolMode)
-			{
-				if (argcount <= 3)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 3;
-					argv += 3;
-				}
-				continue;
-			}
-			if (0 == fdl1_loaded && argcount > 2) {
-				exec_addr = strtoul(str2[3], nullptr, 0);
-				execfile = std::string(str2[2]);
-				EnhancedFile fi = my_oxfopen_enhanced(execfile.c_str(), "r");
-				if (!fi) {
-					DEG_LOG(W, "%s does not exist", execfile.c_str());
-					exec_addr = 0;
-				}
-				fi.close();
-			}
-			DEG_LOG(I, "Current exec_addr is 0x%x", exec_addr);
-			if (!strncmp(str2[1], "exec_addr2", 10)) exec_addr_v2 = 1;
-			argc -= 3, argv += 3;
-		}
-		else if (!strncmp(str2[1], "loadexec", 8)) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			const char *fn; char *ch; EnhancedFile fi;
-			if (argcount <= 2) { DEG_LOG(W, "loadexec FILE\n"); argc = 1; continue; }
-			if (0 == fdl1_loaded) {
-				execfile = std::string(str2[2]);
-
-				if ((ch = const_cast<char*>(strrchr(execfile.c_str(), '/')))) fn = ch + 1;
-				else if ((ch = const_cast<char*>(strrchr(execfile.c_str(), '\\')))) fn = ch + 1;
-				else fn = execfile.c_str();
-				char straddr[9] = { 0 };
-				ret = sscanf(fn, "custom_exec_no_verify_%[0-9a-fA-F]", straddr);
-				exec_addr = strtoul(straddr, nullptr, 16);
-				fi = oxfopen_enhanced(execfile.c_str(), "r");
-				if (!fi) { DEG_LOG(W, "%s does not exist\n", execfile.c_str()); exec_addr = 0; }
-				fi.close();
-			}
-			DEG_LOG(I, "current exec_addr is 0x%x\n", exec_addr);
-			if (!strcmp(str2[1], "loadexec2")) exec_addr_v2 = 1;
-			argc -= 2; argv += 2;
-		}
-		else if (!strcmp(str2[1], "send") || !strcmp(str2[1], "send_no_enddata")) {
-			if (isToolMode)
-			{
-				if (argcount <= 3)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 3;
-					argv += 3;
-				}
-				continue;
-			}
-			const char* fn;
-			uint32_t addr = 0;
-			if (argcount <= 3) {
-				DEG_LOG(W, "send/send_no_enddata FILE addr");
-				argc = 1;
-				continue;
-			}
-
-			fn = str2[2];
-			EnhancedFile fi = my_oxfopen_enhanced(fn, "r");
-			if (!fi) {
-				DEG_LOG(E, "File does not exist.");
-				argc -= 3;
-				argv += 3;
-				continue;
-			}
-			fi.close();
-			addr = strtoul(str2[3], nullptr, 0);
-			if (!strcmp(str2[1], "send_file")) send_file(io, fn, addr, end_data, 528, 0, 0);
-			else send_file(io, fn, addr, 0, 528, 0, 0);
-			argc -= 3;
-			argv += 3;
-		} else if (!strncmp(str2[1], "fdl", 3) || !strncmp(str2[1], "loadfdl", 7)) {
-#if _DEBUG
-			DEG_LOG(DE, "fdl1_loaded = %d, fdl2_executed = %d", fdl1_loaded, fdl2_executed);
-#endif
-			int addr_in_name = !strncmp(str2[1], "loadfdl", 7);
-			const char* fn;
-			uint32_t addr = 0;
-			int argchange;
-			fn = str2[2];
-			if (isToolMode)
-			{
-				if (addr_in_name) argchange = 2;
-				else argchange = 3;
-				if (argcount <= argchange)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= argchange;
-					argv += argchange;
-				}
-				continue;
-			}
-			if (addr_in_name) {
-				argchange = 2;
-				if (argcount <= argchange) {
-					DEG_LOG(W, "loadfdl FILE\n");
-					argc = 1;
-					continue;
-				}
-				char* pos = nullptr, * last_pos = nullptr;
-
-				pos = (char*)strstr(fn, "0X");
-				while (pos) {
-					last_pos = pos;
-					pos = strstr(pos + 2, "0X");
-				}
-				if (last_pos == nullptr) {
-					pos = (char*)strstr(fn, "0x");
-					while (pos) {
-						last_pos = pos;
-						pos = strstr(pos + 2, "0x");
-					}
-				}
-				if (last_pos) addr = strtoul(last_pos, nullptr, 16);
-				else {
-					DEG_LOG(E, "\"0x\" not found in name.\n");
-					argc -= argchange;
-					argv += argchange;
-					continue;
-				}
-			} else {
-				argchange = 3;
-				if (argcount <= argchange) {
-					DEG_LOG(W, "fdl FILE addr");
-					argc = 1;
-					continue;
-				}
-				//convert to ulong
-				addr = strtoul(str2[3], nullptr, 0);
-			}
-
-
-			//???
-			//e_addr = addr;
-			//IS FDL2, NO NEED
-			if (fdl2_executed > 0) {
-				DEG_LOG(W, "FDL2 is already executed, skipped.");
-				argc -= argchange;
-				argv += argchange;
-				continue;
-			}
-			//FDL2, NOT NEED TO SEND CVE FILE
-			else if (fdl1_loaded > 0) {
-				if (fdl2_executed != -1) {
-					EnhancedFile fi = my_oxfopen_enhanced(fn, "r");
-					if (!fi) {
-						DEG_LOG(W, "File does not exist.");
-						argc -= argchange;
-						argv += argchange;
-						continue;
-					}
-					fi.close();
-					if (g_app_state.device.device_mode == SPRD3) send_file(io, fn, addr, end_data, blk_size ? blk_size : 528, 0, 0);
-					else send_file(io, fn, addr, 0, 528, 0, 0);
-				}
-			}
-			//FDL1, MAY NEED TO SEND CVE FILE
-			else {
-				if (fdl1_loaded != -1) {
-					EnhancedFile fi = my_oxfopen_enhanced(fn, "r");
-					if (!fi) {
-						DEG_LOG(W, "File does not exist.\n");
-						argc -= argchange;
-						argv += argchange;
-						continue;
-					}
-					fi.close();
-					if (exec_addr_v2) {
-						size_t execsize = send_file(io, fn, addr, 0, 528, 0, 0);
-						int n, gapsize = exec_addr - addr - execsize;
-						for (i = 0; i < gapsize; i += n) {
-							n = gapsize - i;
-							if (n > 528) n = 528;
-							encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
-							if (send_and_check(io)) ERR_EXIT("exec_addr v2 failed");;
-						}
-						fi = my_oxfopen_enhanced(execfile.c_str(), "rb");
-						if (fi) {
-							fi.seek(0, SEEK_END);
-							n = fi.tell();
-							fi.seek(0, SEEK_SET);
-							execsize = fi.read(io->temp_buf, 1, n);
-						}
-						encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
-						if (send_and_check(io)) ERR_EXIT("exec_addr v2 failed");
-						// if (execfile) delete[](execfile);
-					} else {
-						send_file(io, fn, addr, end_data, 528, 0, 0);
-						if (exec_addr) {
-							send_file(io, execfile.c_str(), exec_addr, 0, 528, 0, 0);
-							// if (execfile) delete[](execfile);
-						} else {
-							encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-							if (send_and_check(io)) ERR_EXIT("FDL exec failed");
-						}
-					}
-				} else {
-					encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-					if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
-				}
-				// if (execfile) delete[](execfile);
-				DEG_LOG(OP, "Execute FDL1");
-
-				if (addr == 0x5500 || addr == 0x65000800) {
-					highspeed = 1;
-					if (!baudrate) baudrate = 921600;
-				}
-
-				/* FDL1 (chk = sum) */
-				io->flags &= ~FLAGS_CRC16;
-
-				encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
-				for (i = 0; ; i++) {
-					send_msg(io);
-					recv_msg(io);
-					if (recv_type(io) == BSL_REP_VER) break;
-					DEG_LOG(W, "Failed to check baud, retry...");
-					if (i == 4) {
-						o_exception = "Failed to check baud FDL1";
-						ERR_EXIT("Can not execute FDL: %s,please reboot your phone by pressing POWER and VOL_UP for 7-10 seconds.\n", o_exception);
-					}
-					usleep(500000);
-				}
-				DEG_LOG(I, "Check baud FDL1 done.");
-
-				DBG_LOG("Device REP_Version: ");
-				print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
-
-				if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
-				if (!memcmp(io->raw_buf + 4, "SPRD4", 5)) g_app_state.device.device_mode = SPRD4;
-				//special FDL1 MEM, DISABLED FOR STABILITY
-#if FDL1_DUMP_MEM
-				//read dump mem
-				int pagecount = 0;
-				char* pdump;
-				char chdump;
-				UniqueFile fdump;
-				fdump = my_oxfopen_unique("memdump.bin", "wb");
-				encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
-				while (1) {
-					send_msg(io);
-					ret = recv_msg(io);
-					if (!ret) ERR_EXIT("timeout reached\n");
-					if (recv_type(io) == BSL_CMD_READ_END) break;
-					pdump = (char*)(io->raw_buf + 4);
-					for (i = 0; i < 512; i++) {
-						chdump = *(pdump++);
-						if (chdump == 0x7d) {
-							if (*pdump == 0x5d || *pdump == 0x5e) chdump = *(pdump++) + 0x20;
-						}
-						fputc(chdump, fdump.get());
-					}
-					DEG_LOG(I, "dump page count %d", ++pagecount);
-				}
-				DEG_LOG(I, "dump mem end");
-				//end
-#endif
-
-				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-				if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
-				DEG_LOG(I, "FDL1 connected.");
-#if !USE_LIBUSB
-				if (baudrate) {
-					uint8_t* data = io->temp_buf;
-					WRITE32_BE(data, baudrate);
-					encode_msg_nocpy(io, BSL_CMD_CHANGE_BAUD, 4);
-					if (!send_and_check(io)) {
-						DEG_LOG(OP, "Change baud FDL1 to %d", baudrate);
-						call_SetProperty(io->handle, 0, 100, (LPCVOID)&baudrate);
-					}
-				}
-#endif
-				if (keep_charge) {
-					encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
-					if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
-				}
-				fdl1_loaded = 1;
-				g_app_state.device.device_stage = FDL1;
-			}
-			argc -= argchange;
-			argv += argchange;
-		} else if (!strcmp(str2[1], "exec")) {
-			//sfd_tool exec command
-			if (isToolMode)
-			{
-				if ((argcount <= 2 && fdl1_loaded <=0) || (argcount <= 1 && fdl1_loaded > 0))
-				{
-					argc = 1;
-				}
-				else
-				{
-					if (fdl1_loaded <= 0) {
-						argc -= 2;
-						argv += 2;
-					} else {
-						argc -= 1;
-						argv += 1;
-					}
-				}
-				continue;
-			}
-			if (fdl2_executed > 0) {
-				DEG_LOG(W, "FDL2 is already executed, skipped.");
-				argc -= 1;
-				argv += 1;
-				continue;
-			} else if (fdl1_loaded > 0) {
-				memset(&Da_Info, 0, sizeof(Da_Info));
-				encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-				send_msg(io);
-				// Feature phones respond immediately,
-				// but it may take a second for a smartphone to respond.
-				ret = recv_msg_timeout(io, 15000);
-				if (!ret) {
-					ThrowExit();
-					ERR_EXIT("%s: timeout reached\n", o_exception);
-				}
-				ret = recv_type(io);
-				// Is it always bullshit?
-				if (ret == BSL_REP_INCOMPATIBLE_PARTITION)
-					get_Da_Info(io);
-				else if (ret != BSL_REP_ACK) {
-					ThrowExit();
-					const char* name = get_bsl_enum_name(ret);
-					ERR_EXIT("%s: unexpected response (%s : 0x%04x)\n", name, o_exception, ret);
-				}
-				DEG_LOG(OP, "Execute FDL2");
-				//remove 0d detection for nand device
-				//This is not supported on certain devices.
-				/*
-				encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
-				send_msg(io);
-				ret = recv_msg(io);
-				if (ret) {
-					ret = recv_type(io);
-					if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"unexpected response (0x%04x)\n", ret);
-					else Da_Info.dwStorageType = 0x101;
-					// need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
-					// for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
-				}
-				*/
-				if (Da_Info.bDisableHDLC) {
-					encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
-					if (!send_and_check(io)) {
-						io->flags &= ~FLAGS_TRANSCODE;
-						DEG_LOG(OP, "Try to disable transcode 0x7D.");
-					}
-				}
-				int o = io->verbose;
-				io->verbose = -1;
-				g_spl_size = check_partition(io, "splloader", 1);
-				io->verbose = o;
-				if (Da_Info.bSupportRawData) {
-					blk_size = 0xf800;
-					io->ptable = partition_list(io, &io->part_count);
-					if (fdl2_executed) {
-						Da_Info.bSupportRawData = 0;
-						DEG_LOG(OP, "Raw data mode disabled for SPRD4.");
-					} else {
-						encode_msg_nocpy(io, BSL_CMD_ENABLE_RAW_DATA, 0);
-						if (!send_and_check(io)) DEG_LOG(OP, "Raw data mode enabled.");
-					}
-				}
-
-
-				else if (highspeed || Da_Info.dwStorageType == 0x103) {
-					blk_size = 0xf800;
-					io->ptable = partition_list(io, &io->part_count);
-				} else if (Da_Info.dwStorageType == 0x102) {
-					io->ptable = partition_list(io, &io->part_count);
-				} else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
-				if (g_app_state.flash.gpt_failed != 1) {
-					if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b");
-					else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a");
-					else {
-						DEG_LOG(I, "Device is not using VAB");
-						if (Da_Info.bSupportRawData) {
-							DEG_LOG(I, "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.", (unsigned)Da_Info.bSupportRawData);
-							Da_Info.bSupportRawData = 0;
-						}
-					}
-				} else if (isUseCptable) {
-					io->Cptable = partition_list_d(io);
-					if (io->Cptable) isCMethod = 1;
-				}
-				if (!isUseCptable && !io->part_count) {
-					DEG_LOG(W, "No partition table found on current device");
-					DEG_LOG(I, "You may get partition table through compatibility method.");
-					DEG_LOG(I, "(Use command `cptable` to do it.)");
-				}
-				if (nand_id == DEFAULT_NAND_ID) {
-					nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
-					nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
-					nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
-				}
-				fdl2_executed = 1;
-				g_app_state.device.device_stage = FDL2;
-				if (exec_addr > 0)
-				{
-					DEG_LOG(OP, "w_force enabled (exec_addr > 0)");
-					g_app_state.flash.g_w_force = 1;
-				}
-				argc -= 1;
-				argv += 1;
-
-			} else if (fdl1_loaded != 1) {
-				//Execute FDL1 manually
-				if (argcount <= 2) {
-					DEG_LOG(W, "`exec` command need fdl addr when exec in FDL1");
-					argc = 1;
-					continue;
-				}
-				uint32_t addr = strtoul(str2[2], nullptr, 0);
-				encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-				if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
-				DEG_LOG(OP, "Execute FDL1");
-				if (addr == 0x5500 || addr == 0x65000800) {
-					highspeed = 1;
-					if (!baudrate) baudrate = 921600;
-				}
-
-				/* FDL1 (chk = sum) */
-				io->flags &= ~FLAGS_CRC16;
-
-				encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
-				for (i = 0; ; i++) {
-					send_msg(io);
-					recv_msg(io);
-					if (recv_type(io) == BSL_REP_VER) break;
-					DEG_LOG(W, "Failed to check baud, retry...");
-					if (i == 4) {
-						o_exception = "Failed to check baud FDL1";
-						ERR_EXIT("Can not execute FDL: %s,please reboot your phone by pressing POWER and VOL_UP for 7-10 seconds.\n", o_exception);
-					}
-					usleep(500000);
-				}
-				DEG_LOG(I, "Check baud FDL1 done.");
-
-				DBG_LOG("Device REP_Version: ");
-				print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
-				if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
-				if (!memcmp(io->raw_buf + 4, "SPRD4", 5)) g_app_state.device.device_mode = SPRD4;
-				//special FDL1 MEM, DISABLED FOR STABILITY
-#if FDL1_DUMP_MEM
-				//read dump mem
-				int pagecount = 0;
-				char* pdump;
-				char chdump;
-				UniqueFile fdump;
-				fdump = my_oxfopen_unique("memdump.bin", "wb");
-				encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
-				while (1) {
-					send_msg(io);
-					ret = recv_msg(io);
-					if (!ret) ERR_EXIT("timeout reached\n");
-					if (recv_type(io) == BSL_CMD_READ_END) break;
-					pdump = (char*)(io->raw_buf + 4);
-					for (i = 0; i < 512; i++) {
-						chdump = *(pdump++);
-						if (chdump == 0x7d) {
-							if (*pdump == 0x5d || *pdump == 0x5e) chdump = *(pdump++) + 0x20;
-						}
-						fputc(chdump, fdump.get());
-					}
-					DEG_LOG(I, "dump page count %d", ++pagecount);
-				}
-				DEG_LOG(I, "dump mem end");
-				//end
-#endif
-
-				encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-				if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
-				DEG_LOG(I, "FDL1 connected.");
-#if !USE_LIBUSB
-				if (baudrate) {
-					uint8_t* data = io->temp_buf;
-					WRITE32_BE(data, baudrate);
-					encode_msg_nocpy(io, BSL_CMD_CHANGE_BAUD, 4);
-					if (!send_and_check(io)) {
-						DEG_LOG(OP, "Change baud FDL1 to %d", baudrate);
-						call_SetProperty(io->handle, 0, 100, (LPCVOID)&baudrate);
-					}
-				}
-#endif
-				if (keep_charge) {
-					encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
-					if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
-				}
-				fdl1_loaded = 1;
-				g_app_state.device.device_mode = FDL1;
-				argc -= 2;
-				argv += 2;
-			}
-
-
-#if !USE_LIBUSB
-		} else if (!strcmp(str2[1], "baudrate")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount > 2) {
-				baudrate = strtoul(str2[2], nullptr, 0);
-				if (fdl2_executed) call_SetProperty(io->handle, 0, 100, (LPCVOID)&baudrate);
-			}
-			DEG_LOG(I, "Baudrate is %u", baudrate);
-			argc -= 2;
-			argv += 2;
+        DBG_LOG("Vendor ID: %04x\nProduct ID: %04x\n", desc.idVendor, desc.idProduct);
+        if (desc.idVendor != 0x1782 || desc.idProduct != 0x4d00)
+        {
+            ERR_EXIT("It seems spec device not a spd device!\n");
+        }
+        call_Initialize_libusb(io);
 #else
-		} else if (!strcmp(str2[1], "baudrate")) {
-			if (argcount > 2) {
-				argc -= 2;
-				argv += 2;
-			}
-			else argc = 1;
-			DEG_LOG(E, "Only Windows Driver support this command.");
+#if !USE_LIBUSB
+        g_app_state.transport.bListenLibusb = 0;
+        if (at || bootmode >= 0)
+        {
+            io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
+            if (io->hThread == nullptr) return -1;
+            ChangeMode(io, conn_wait / REOPEN_FREQ * 1000, bootmode, at);
+            conn_wait = 30 * REOPEN_FREQ;
+            stage = -1;
+        }
+#else
+        if (!libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG))
+        {
+            DBG_LOG("hotplug unsupported on this platform\n");
+            g_app_state.transport.bListenLibusb = 0;
+            bootmode = -1;
+            at = 0;
+        }
+        if (at || bootmode >= 0)
+        {
+            startUsbEventHandle();
+            ChangeMode(io, conn_wait / REOPEN_FREQ * 1000, bootmode, at);
+            conn_wait = 30 * REOPEN_FREQ;
+            stage = -1;
+        }
+        if (g_app_state.transport.bListenLibusb < 0) startUsbEventHandle();
 #endif
-		} else if (!strcmp(str2[1], "path")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount > 2) {
-				if (strlen(str2[2]) < sizeof(savepath)) {
-					snprintf(savepath, sizeof(savepath), "%s", str2[2]);
-				} else {
-					DEG_LOG(E, "Path too long");
-					argc -= 2;
-					argv += 2;
-					continue;
-				}
-			}
-			DEG_LOG(I, "Save dir is %s", savepath);
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(str2[1], "nand_id")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			//sfd_tool func
-			if (argcount > 2) {
-				nand_id = strtol(str2[2], nullptr, 0);
-				nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
-				nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
-				nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
-			}
-			DEG_LOG(I, "Current nand ID is 0x%x", nand_id);
-			argc -= 2;
-			argv += 2;
-		} else if (!strncmp(str2[1], "read_flash", 10)) {
-			if (isToolMode)
-			{
-				if (argcount <= 5)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 5;
-					argv += 5;
-				}
-				continue;
-			}
-			const char* fn;
-			uint64_t addr, offset, size;
-			if (argcount <= 5) {
-				DEG_LOG(W, "read_flash addr offset size FILE");
-				argc = 1;
-				continue;
-			}
-			int isReadDHTB = 0;
-			if (!strncmp(str2[1], "read_flash_dhtb", 15)) isReadDHTB = 1;
-			addr = str_to_size(str2[2]);
-			offset = str_to_size(str2[3]);
-			size = str_to_size(str2[4]);
-			fn = str2[5];
-			if ((addr | size | offset | (addr + offset + size)) >> 32) {
-				DEG_LOG(E, "32-bit limit reached");
-				argc -= 5;
-				argv += 5;
-				continue;
-			}
-			//func
-			dump_flash(io, (uint32_t)addr, (uint32_t)offset, (uint32_t)size, fn, blk_size ? blk_size : 1024, isReadDHTB);
-			argc -= 5;
-			argv += 5;
+#if _WIN32
+        if (!g_app_state.transport.bListenLibusb)
+        {
+            if (io->hThread == nullptr) io->hThread = CreateThread(nullptr, 0, ThrdFunc, nullptr, 0, &io->iThread);
+            if (io->hThread == nullptr) return -1;
+        }
+#if !USE_LIBUSB
+        if (!m_bOpened && async)
+        {
+            if (FALSE == CreateRecvThread(io))
+            {
+                io->m_dwRecvThreadID = 0;
+                DEG_LOG(E, "Create Receive Thread Fail.");
+            }
+        }
+#endif
+#endif
+        init_stage = 0;
+        if (!m_bOpened)
+        {
+            DBG_LOG("Waiting for connection of diag: dl_diag (%ds)\n", conn_wait / REOPEN_FREQ);
 
-		} else if (!strcmp(str2[1], "bl")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount < 2) {
-				DEG_LOG(W, "bl {0,1}");
-				argc = 1;
-				continue;
-			}
-			int status = strtol(str2[2], nullptr, 0);
-			if (status < 0 || status > 1) {
-				DEG_LOG(W, "bl {0,1}");
-				argc -= 2;
-				argv += 2;
-				continue;
-			}
-			set_bootloader_status(io, status);
-			argc -= 2;
-			argv += 2;
-		}
-		else if (!strcmp(str2[1], "erase_flash")) {
-			if (isToolMode)
-			{
-				if (argcount <= 3)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 3;
-					argv += 3;
-				}
-				continue;
-			}
-			uint64_t addr, size;
-			if (argcount <= 3) {
-				DEG_LOG(W, "erase_flash addr size");
-				argc = 1;
-				continue;
-			}
-			if (!skip_confirm)
-				if (!check_confirm("erase flash")) {
-					argc -= 3;
-					argv += 3;
-					continue;
-				}
-			addr = str_to_size(str2[2]);
-			size = str_to_size(str2[3]);
-			if ((addr | size | (addr + size)) >> 32)
-				ERR_EXIT("Error: 32-bit limit reached\n");
-			uint32_t* data = (uint32_t*)io->temp_buf;
-			WRITE32_BE(data, addr);
-			WRITE32_BE(data + 1, size);
-			encode_msg_nocpy(io, BSL_CMD_ERASE_FLASH, 4 * 2);
-			if (!send_and_check(io)) DEG_LOG(I, "Erase flash successfully: 0x%08x\n", (int)addr);
-			argc -= 3;
-			argv += 3;
+            ThrowExit();
+            for (i = 0; ; i++)
+            {
+#if USE_LIBUSB
+                if (g_app_state.transport.bListenLibusb)
+                {
+                    if (curPort)
+                    {
+                        if (libusb_open(curPort, &io->dev_handle) >= 0) call_Initialize_libusb(io);
+                        else ERR_EXIT("Failed to connect\n");
+                        break;
+                    }
+                }
+                if (!(i % 4))
+                {
+                    if ((ports = FindPort(0x4d00)))
+                    {
+                        for (libusb_device** port = ports; *port != nullptr; port++)
+                        {
+                            if (libusb_open(*port, &io->dev_handle) >= 0)
+                            {
+                                call_Initialize_libusb(io);
+                                curPort = *port;
+                                break;
+                            }
+                        }
+                        libusb_free_device_list(ports, 1);
+                        ports = nullptr;
+                        if (m_bOpened) break;
+                    }
+                }
+                if (i >= conn_wait)
+                    ERR_EXIT("libusb_open_device failed\n");
+#else
+                if (io->verbose)
+                    DBG_LOG("Cost: %.1f, Found: %d\n", (float)i / REOPEN_FREQ, curPort);
+                if (curPort)
+                {
+                    if (!call_ConnectChannel(io->handle, curPort, WM_RCV_CHANNEL_DATA, io->m_dwRecvThreadID)) ERR_EXIT(
+                        "Connection failed\n");
+                    break;
+                }
+                if (!(i % 4))
+                {
+                    if ((ports = FindPort("SPRD U2S Diag")))
+                    {
+                        for (DWORD* port = ports; *port != 0; port++)
+                        {
+                            if (call_ConnectChannel(io->handle, *port, WM_RCV_CHANNEL_DATA, io->m_dwRecvThreadID))
+                            {
+                                curPort = *port;
+                                break;
+                            }
+                        }
+                        delete[](ports);
+                        ports = nullptr;
+                        if (m_bOpened) break;
+                    }
+                }
+                if (i >= conn_wait)
+                {
+                    ThrowExit();
+                    ERR_EXIT("%s: Failed to find port.\n", o_exception);
+                }
+#endif
+                usleep(1000000 / REOPEN_FREQ);
+            }
+        }
+#endif
+        io->flags |= FLAGS_TRANSCODE;
+        if (stage != -1)
+        {
+            io->flags &= ~FLAGS_CRC16;
+            encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+        }
+        else encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
+        //handshake
+        for (int i = 0; ; ++i)
+        {
+            //check if device is connected correctly.
+            if (io->recv_buf[2] == BSL_REP_VER)
+            {
+                ret = BSL_REP_VER;
+                memcpy(io->raw_buf + 4, io->recv_buf + 5, 5);
+                io->raw_buf[2] = 0;
+                io->raw_buf[3] = 5;
+                io->recv_buf[2] = 0;
+            }
+            else if (io->recv_buf[2] == BSL_REP_VERIFY_ERROR ||
+                io->recv_buf[2] == BSL_REP_UNSUPPORTED_COMMAND)
+            {
+                if (!fdl1_loaded)
+                {
+                    ret = io->recv_buf[2];
+                    io->recv_buf[2] = 0;
+                }
+                else ERR_EXIT(
+                    "Failed to connect to device: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n",
+                    o_exception);
+            }
+            else
+            {
+                //device correct, handshake operation
+                send_msg(io);
+                recv_msg(io);
+                ret = recv_type(io);
+            }
+            //device can only recv BSL_REP_ACK or BSL_REP_VER or BSL_REP_VERIFY_ERROR
+            init_stage = 1;
+            ThrowExit();
+            if (ret == BSL_REP_ACK || ret == BSL_REP_VER || ret == BSL_REP_VERIFY_ERROR)
+            {
+                //check stage
+                if (ret == BSL_REP_VER)
+                {
+                    if (fdl1_loaded == 1)
+                    {
+                        g_app_state.device.device_stage = FDL1;
+                        DEG_LOG(OP, "FDL1 connected.");
+                        if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
+                        if (!memcmp(io->raw_buf + 4, "SPRD4", 5)) g_app_state.device.device_mode = SPRD4;
+                        break;
+                    }
+                    else
+                    {
+                        g_app_state.device.device_stage = BROM;
+                        DEG_LOG(OP, "Check baud BROM");
+                        if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode)
+                        {
+                            fdl1_loaded = -1;
+                            fdl2_executed = -1;
+                        }
+                        if (!memcmp(io->raw_buf + 4, "SPRD4", 5)) g_app_state.device.device_mode = SPRD4;
+                    }
+                    DBG_LOG("Device mode version: ");
+                    print_string(stdout, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+                    print_to_string(mode_str, sizeof(mode_str), io->raw_buf + 4, READ16_BE(io->raw_buf + 2), 0);
 
-		} else if (!strcmp(str2[1], "show_cmd")) {
-			print_all_bsl_commands();
-			argc--; 
-			argv++;
-		} else if (!strcmp(str2[1], "find_cmd")) {
-			if (argcount <= 2) {
-				DEG_LOG(W, "find_cmd [TYPE]");
-				argc = 1;
-				continue;
-			}
-			const char* name = get_bsl_enum_name(strtoul(str2[2], nullptr, 0));
-			DEG_LOG(I, "%s", name);
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(str2[1], "read_mem")) {
-			if (isToolMode)
-			{
-				if (argcount <= 4)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 4;
-					argv += 4;
-				}
-				continue;
-			}
-			const char* fn;
-			uint64_t addr, size;
-			if (argcount <= 4) {
-				DEG_LOG(W, "read_mem addr size FILE");
-				argc = 1;
-				continue;
-			}
+                    encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+                    if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
+                }
+                else if (ret == BSL_REP_VERIFY_ERROR)
+                {
+                    encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+                    if (fdl1_loaded != 1)
+                    {
+                        if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
+                    }
+                    else
+                    {
+                        i = -1;
+                        continue;
+                    }
+                }
+                if (fdl1_loaded == 1)
+                {
+                    DEG_LOG(OP, "FDL1 connected.");
+                    g_app_state.device.device_stage = FDL1;
+                    if (keep_charge)
+                    {
+                        encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
+                        if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
+                    }
+                    break;
+                }
+                else
+                {
+                    DEG_LOG(OP, "BROM connected.");
+                    g_app_state.device.device_stage = BROM;
+                    break;
+                }
+            }
+            //FDL2 response:UNSUPPORTED
+            else if (ret == BSL_REP_UNSUPPORTED_COMMAND)
+            {
+                encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
+                if (!send_and_check(io))
+                {
+                    io->flags &= ~FLAGS_TRANSCODE;
+                    DEG_LOG(OP, "Try to disable transcode 0x7D.");
+                    fdl2_executed = 1;
+                    g_app_state.device.device_stage = FDL2;
+                    int o = io->verbose;
+                    io->verbose = -1;
+                    g_spl_size = check_partition(io, "splloader", 1);
+                    io->verbose = o;
+                    if (isUseCptable)
+                    {
+                        io->Cptable = partition_list_d(io);
+                        if (io->Cptable && !io->part_count) isCMethod = 1;
+                    }
+                    if (!isUseCptable && !io->part_count)
+                    {
+                        DEG_LOG(W, "No partition table found on current device");
+                        DEG_LOG(I, "You may get partition table through compatibility method.");
+                        DEG_LOG(I, "(Use command `cptable` to do it.)");
+                    }
+                    if (selected_ab < 0) select_ab(io);
 
-			addr = str_to_size(str2[2]);
-			size = str_to_size(str2[3]);
-			fn = str2[4];
-			if ((addr | size | (addr + size)) >> 32) {
-				DEG_LOG(E, "32-bit limit reached");
-				argc -= 4;
-				argv += 4;
-				continue;
-			}
-			dump_mem(io, addr, size, fn, blk_size ? blk_size : 1024);
-			argc -= 4;
-			argv += 4;
+                    if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
+                    else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
+                    else
+                    {
+                        DEG_LOG(I, "Device is not using VAB");
+                    }
 
-		} else if (!strcmp(str2[1], "part_size") || !strcmp(str2[1], "ps")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			const char* name;
-			if (argcount <= 2) {
-				DEG_LOG(W, "part_size|ps [partition name]");
-				argc = 1;
-				continue;
-			}
 
-			name = str2[2];
-			if (g_app_state.flash.selected_ab < 0) select_ab(io);
-			int v = io->verbose;
-			io->verbose = -1;
-			DEG_LOG(I, "%s: ", name);
-			DEG_LOG(I, "%lld Bytes", (long long)check_partition(io, name, 1));
-			io->verbose = v;
-			argc -= 2;
-			argv += 2;
+                    if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
+                    if (nand_id == DEFAULT_NAND_ID)
+                    {
+                        nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+                        nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+                        nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+                    }
+                    break;
+                }
+            }
 
-		} else if (!strcmp(str2[1], "check_part") || !strcmp(str2[1], "cp")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			const char* name;
-			if (argcount <= 2) {
-				DEG_LOG(W, "check_part|cp [partition name]");
-				argc = 1;
-				continue;
-			}
+            //fail
+            else if (i == 4)
+            {
+                init_stage = 1;
+                ThrowExit();
+                if (stage != -1)
+                {
+                    ERR_EXIT(
+                        "Failed to connect: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n",
+                        o_exception);
+                }
+                else
+                {
+                    encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+                    stage++;
+                    i = -1;
+                }
+            }
+        }
+        size_t sub_len = strlen("SPRD3");
+        size_t str_len = strlen(mode_str);
+        int found = 0;
+        if (str_len >= sub_len)
+        {
+            for (size_t i = 0; i <= str_len - sub_len; i++)
+            {
+                if (strncmp(mode_str + i, "SPRD3", sub_len) == 0)
+                {
+                    found = 1;
+                    break;
+                }
+            }
+        }
+        DEG_LOG(I, "SPRD3 Current : %d", found);
+        if (found && g_app_state.device.device_mode != SPRD4) g_app_state.device.device_mode = SPRD3;
+        else if (g_app_state.device.device_mode != SPRD4) g_app_state.device.device_mode = Nothing;
 
-			name = str2[2];
-			if (g_app_state.flash.selected_ab < 0) select_ab(io);
-			long long r = (long long)check_partition(io, name, 0);
-			if (r == 1) {
-				DEG_LOG(I, "%s: Exist.", name);
-			} else if (r == 0) {
-				DEG_LOG(I, "%s: NotExist.", name);
-			} else DEG_LOG(E, "Failed to check.");
-			argc -= 2;
-			argv += 2;
+        if (fdl1_loaded == -1) argc += 2;
+        if (fdl2_executed == -1) argc += 1;
+        init_stage = 2;
+        ThrowExit();
+        if (fdl2_executed > 0)
+        {
+            if (g_app_state.device.device_mode == SPRD3)
+            {
+                DEG_LOG(I, "Device status: FDL2/SPRD3");
+            }
+            else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: FDL2/SPRD4(AutoD)");
+            else DEG_LOG(I, "Device status: FDL2/Unknown");
+        }
+        else if (fdl1_loaded > 0)
+        {
+            if (g_app_state.device.device_mode == SPRD3)
+            {
+                DEG_LOG(I, "Device status: FDL1/SPRD3");
+            }
+            else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: FDL1/SPRD4(AutoD)");
+            else DEG_LOG(I, "Device status: FDL1/Unknown");
+        }
+        else if (g_app_state.device.device_stage == BROM)
+        {
+            if (g_app_state.device.device_mode == SPRD3)
+            {
+                DEG_LOG(I, "Device status: BROM/SPRD3");
+            }
+            else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: BROM/SPRD4(AutoD)");
+            else DEG_LOG(I, "Device status: BROM/Unknown");
+        }
+        else
+        {
+            if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device status: Unknown/SPRD3");
+            else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: Unknown/SPRD4(AutoD)");
+            else DEG_LOG(I, "Device status: Unknown/Unknown");
+        }
+        if (g_app_state.device.device_mode == SPRD4 && g_app_state.device.device_stage != FDL2 && !no_fdl_mode)
+        {
+            DEG_LOG(I, "SPRD4 mode detected, but No-FDL mode not enabled.");
+            DEG_LOG(I, "You can get in FDL2 without FDL manually.");
+            DEG_LOG(I, "By execute following commands:");
+            DEG_LOG(I, "In BROM:");
+            DEG_LOG(I, "    exec 0x0");
+            DEG_LOG(I, "    exec");
+            DEG_LOG(I, "In FDL1:");
+            DEG_LOG(I, "    exec");
+            DEG_LOG(I, "(You can enable No-FDL mode by setting parameter `--no-fdl`)");
+        }
+    }
 
-		} else if (!strcmp(str2[1], "sendcmd")) {
-			if (isToolMode)
-			{
-				int argchange = (argcount > 3) ? 3 : 2;
-				if (argcount <= argchange)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= argchange;
-					argv += argchange;
-				}
-				continue;
-			}
-			if (argcount <= 2) {
-				DEG_LOG(W, "sendcmd [TYPE] <FILE>");
-				argc = 1;
-				continue;
-			}
-			size_t length = 0;
-			EnhancedFile fi;
-			if (argcount > 3) {
-				fi = my_oxfopen_enhanced(str2[3], "rb");
-				fi.seek(0, SEEK_END);
-				length = fi.tell();
-				if (length) {
-					fi.seek(0, SEEK_SET);
-					size_t temp_fread_res = fi.read(io->temp_buf, 1, length);
-					(void)temp_fread_res;
-				}
-			}
-			encode_msg_nocpy(io, strtoul(str2[2], nullptr, 0), length);
-			int verb = io->verbose;
-			io->verbose = 2;
-			int ret;
-			send_msg(io);
-			ret = recv_msg(io);
-			if (!ret) ERR_EXIT("timeout reached\n");
-			DEG_LOG(I, "Sent cmd 0x%x with %zu bytes data", strtoul(str2[2], nullptr, 0), length);
-			ret = recv_type(io);
-			const char* name = get_bsl_enum_name(ret);
-			DEG_LOG(I, "Response 0x%04x(%s) with %u bytes data", ret, name, READ16_BE(io->raw_buf + 2));
-			io->verbose = verb;
-			argc -= (argcount > 3) ? 3 : 2;
-			argv += (argcount > 3) ? 3 : 2;
-		} else if (!strcmp(str2[1], "read_spec")) {
-			if (isToolMode)
-			{
-				if (argcount <= 5)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 5;
-					argv += 5;
-				}
-				continue;
-			}
-			const char* name, * fn;
-			uint64_t offset, size;
-			uint64_t realsize = 0;
-			if (argcount <= 5) {
-				DEG_LOG(W, "read_spec part_name offset size FILE\n(read ubi on nand) read_spec system 0 ubi40m system.bin");
-				argc = 1;
-				continue;
-			}
+    //get in interaction
+    char** save_argv = nullptr;
+    while (1)
+    {
+        signal(SIGINT, SIG_DFL);
+        if (argc > 1)
+        {
+            str2 = NEWN char*[argc];
+            if (fdl1_loaded == -1)
+            {
+                save_argv = argv;
+                str2[1] = const_cast<char*>("loadfdl");
+                str2[2] = const_cast<char*>("0x0");
+            }
+            else if (fdl2_executed == -1)
+            {
+                if (!save_argv) save_argv = argv;
+                str2[1] = const_cast<char*>("exec");
+            }
+            else
+            {
+                if (save_argv)
+                {
+                    argv = save_argv;
+                    save_argv = nullptr;
+                }
+                for (i = 1; i < argc; i++) str2[i] = argv[i];
+            }
+            argcount = argc;
+            in_quote = -1;
+        }
+        else
+        {
+            char ifs = '"';
+            str2 = NEWN char*[ARGC_MAX];
+            memset(str1, 0, sizeof(str1));
+            argcount = 0;
+            in_quote = 0;
+            if (!isToolMode)
+            {
+                if (fdl2_executed > 0)
+                    DBG_LOG("[FDL2]: ");
+                else if (fdl1_loaded > 0)
+                    DBG_LOG("[FDL1]: ");
+                else
+                    DBG_LOG("[BROM]: ");
+            }
+            else
+            {
+                DBG_LOG("[TMODE]: ");
+            }
+            ret = scanf("%[^\n]", str1);
+            while ('\n' != getchar());
 
-			offset = str_to_size_ubi(str2[3], nand_info);
-			size = str_to_size_ubi(str2[4], nand_info);
-			fn = str2[5];
+            temp = strtok(str1, " ");
+            while (temp)
+            {
+                if (!in_quote)
+                {
+                    argcount++;
+                    if (argcount == ARGC_MAX) break;
+                    str2[argcount] = NEWN char[ARGV_LEN];
+                    if (!str2[argcount]) ERR_EXIT("malloc failed\n");
+                    memset(str2[argcount], 0, ARGV_LEN);
+                }
+                if (temp[0] == '\'') ifs = '\'';
+                if (temp[0] == ifs)
+                {
+                    in_quote = 1;
+                    temp += 1;
+                }
+                else if (in_quote)
+                {
+                    strcat(str2[argcount], " ");
+                }
 
-			name = str2[2];
-			get_partition_info(io, name, 0);
-			if (!gPartInfo.size) {
-				DEG_LOG(W, "Partition not exist");
-				argc -= 5;
-				argv += 5;
-				continue;
-			}
+                if (temp[strlen(temp) - 1] == ifs)
+                {
+                    in_quote = 0;
+                    temp[strlen(temp) - 1] = 0;
+                }
 
-			if (0xffffffff == size) size = check_partition(io, gPartInfo.name, 1);
-			if (offset + size < offset) {
-				DEG_LOG(E, "64-bit limit reached");
-				argc -= 5;
-				argv += 5;
-				continue;
-			}
-			dump_partition(io, gPartInfo.name, offset, size, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE);
-			argc -= 5;
-			argv += 5;
+                strcat(str2[argcount], temp);
+                temp = strtok(nullptr, " ");
+            }
+            argcount++;
+        }
+        if (argcount == 1)
+        {
+            str2[1] = NEWN char[1];
+            if (str2[1]) str2[1][0] = '\0';
+            else ERR_EXIT("malloc failed\n");
+            argcount++;
+        }
+        //parse args and interacting command
+        if (!strcmp(str2[1], "sendloop"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            uint32_t addr = 0;
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "sendloop [ADDR]");
+                argc = 1;
+                continue;
+            }
 
-		} else if (!strcmp(str2[1], "r") || !strcmp(str2[1], "read_part")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			const char* name = str2[2];
-			int loop_count = 0, in_loop = 0;
-			const char* list[] = { "vbmeta", "splloader", "uboot", "sml", "trustos", "teecfg", "boot", "recovery" };
-			if (argcount <= 2) {
-				DEG_LOG(W, "r|read_part all/all_lite/partition_name/part_id");
-				argc = 1;
-				continue;
-			}
-			if (!strcmp(name, "preset_modem")) {
-				start_signal();
-				if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
-				if (!io->part_count) {
-					DEG_LOG(W, "Partition table not available");
-					argc -= 2;
-					argv += 2;
-					continue;
-				}
-				if (g_app_state.flash.selected_ab > 0) {
-					DEG_LOG(OP, "Saving slot info");
-					dump_partition(io, "misc", 0, 1048576, "misc.bin", blk_size);
-				}
-				for (i = 0; i < io->part_count; i++)
-					if (isCancel) break;
-				if (0 == strncmp("l_", (*(io->ptable + i)).name, 2) || 0 == strncmp("nr_", (*(io->ptable + i)).name, 3)) {
-					char dfile[40];
-					snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->ptable + i)).name);
-					dump_partition(io, (*(io->ptable + i)).name, 0, (*(io->ptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
-				}
-				argc -= 2;
-				argv += 2;
-				continue;
-			} else if (!strcmp(name, "all")) {
-				start_signal();
+            uint8_t data[4] = {0};
+            addr = strtoul(str2[2], nullptr, 0);
+            while (1)
+            {
+                send_buf(io, addr, 0, 528, data, 4);
+                DEG_LOG(OP, "SEND 4 bytes to 0x%x", addr);
+                addr -= 8;
+            }
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "write_word"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 3)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 3;
+                    argv += 3;
+                }
+                continue;
+            }
+            uint32_t addr, data;
+            if (argc <= 3)
+            {
+                DEG_LOG(W, "write_word [ADDR] [VALUE](max is 0xFFFFFFFF)");
+                argc = 1;
+                continue;
+            }
 
-				if (!isCMethod) {
-					if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
-					if (!io->part_count) {
-						DEG_LOG(W, "Partition table not available\n");
-						argc -= 2;
-						argv += 2;
-						continue;
-					}
-					dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
-					for (i = 0; i < io->part_count; i++) {
-						if (isCancel) {
-							break;
-						}
-						char dfile[40];
-						if (!strncmp((*(io->ptable + i)).name, "blackbox", 8)) continue;
-						else if (!strncmp((*(io->ptable + i)).name, "cache", 5)) continue;
-						else if (!strncmp((*(io->ptable + i)).name, "userdata", 8)) continue;
-						snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->ptable + i)).name);
-						dump_partition(io, (*(io->ptable + i)).name, 0, (*(io->ptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
-					}
-				} else {
+            addr = strtoul(str2[2], nullptr, 0);
+            data = strtoul(str2[3], nullptr, 0);
+            send_buf(io, addr, end_data, 528, (uint8_t*)&data, 4);
+            argc -= 3;
+            argv += 3;
+        }
+        else if (!memcmp(str2[1], "exec_addr", 9))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 3)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 3;
+                    argv += 3;
+                }
+                continue;
+            }
+            if (0 == fdl1_loaded && argcount > 2)
+            {
+                exec_addr = strtoul(str2[3], nullptr, 0);
+                execfile = std::string(str2[2]);
+                EnhancedFile fi = my_oxfopen_enhanced(execfile.c_str(), "r");
+                if (!fi)
+                {
+                    DEG_LOG(W, "%s does not exist", execfile.c_str());
+                    exec_addr = 0;
+                }
+                fi.close();
+            }
+            DEG_LOG(I, "Current exec_addr is 0x%x", exec_addr);
+            if (!strncmp(str2[1], "exec_addr2", 10)) exec_addr_v2 = 1;
+            argc -= 3, argv += 3;
+        }
+        else if (!strncmp(str2[1], "loadexec", 8))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            const char* fn;
+            char* ch;
+            EnhancedFile fi;
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "loadexec FILE\n");
+                argc = 1;
+                continue;
+            }
+            if (0 == fdl1_loaded)
+            {
+                execfile = std::string(str2[2]);
 
-					if (!io->part_count_c) {
-						DEG_LOG(W, "Partition table not available\n");
-						argc -= 2;
-						argv += 2;
-						continue;
-					}
-					dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
-					for (i = 0; i < io->part_count_c; i++) {
-						if (isCancel) break;
-						char dfile[40];
-						if (!strncmp((*(io->Cptable + i)).name, "blackbox", 8)) continue;
-						else if (!strncmp((*(io->Cptable + i)).name, "cache", 5)) continue;
-						else if (!strncmp((*(io->Cptable + i)).name, "userdata", 8)) continue;
-						snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->Cptable + i)).name);
-						dump_partition(io, (*(io->Cptable + i)).name, 0, (*(io->Cptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
-					}
-				}
-				argc -= 2;
-				argv += 2;
-				continue;
-			} else if (!strcmp(name, "all_lite")) {
-				start_signal();
+                if ((ch = const_cast<char*>(strrchr(execfile.c_str(), '/')))) fn = ch + 1;
+                else if ((ch = const_cast<char*>(strrchr(execfile.c_str(), '\\')))) fn = ch + 1;
+                else fn = execfile.c_str();
+                char straddr[9] = {0};
+                ret = sscanf(fn, "custom_exec_no_verify_%[0-9a-fA-F]", straddr);
+                exec_addr = strtoul(straddr, nullptr, 16);
+                fi = oxfopen_enhanced(execfile.c_str(), "r");
+                if (!fi)
+                {
+                    DEG_LOG(W, "%s does not exist\n", execfile.c_str());
+                    exec_addr = 0;
+                }
+                fi.close();
+            }
+            DEG_LOG(I, "current exec_addr is 0x%x\n", exec_addr);
+            if (!strcmp(str2[1], "loadexec2")) exec_addr_v2 = 1;
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "send") || !strcmp(str2[1], "send_no_enddata"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 3)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 3;
+                    argv += 3;
+                }
+                continue;
+            }
+            const char* fn;
+            uint32_t addr = 0;
+            if (argcount <= 3)
+            {
+                DEG_LOG(W, "send/send_no_enddata FILE addr");
+                argc = 1;
+                continue;
+            }
 
-				if (!isCMethod) {
-					if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
-					if (!io->part_count) {
-						DEG_LOG(E, "Partition table not available\n");
-						argc -= 2;
-						argv += 2;
-						continue;
-					}
-					dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
-					for (i = 0; i < io->part_count; i++) {
-						if (isCancel) break;
-						char dfile[40];
-						size_t namelen = strlen((*(io->ptable + i)).name);
-						if (!strncmp((*(io->ptable + i)).name, "blackbox", 8)) continue;
-						else if (!strncmp((*(io->ptable + i)).name, "cache", 5)) continue;
-						else if (!strncmp((*(io->ptable + i)).name, "userdata", 8)) continue;
-						if (g_app_state.flash.selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_b")) continue;
-						else if (g_app_state.flash.selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->ptable + i)).name + namelen - 2, "_a")) continue;
-						snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->ptable + i)).name);
-						dump_partition(io, (*(io->ptable + i)).name, 0, (*(io->ptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
-					}
-				} else {
-					if (!io->part_count_c) {
-						DEG_LOG(E, "Partition table not available\n");
-						argc -= 2;
-						argv += 2;
-						continue;
-					}
-					dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin", blk_size ? blk_size : DEFAULT_BLK_SIZE);
-					for (i = 0; i < io->part_count_c; i++) {
-						if (isCancel) break;
-						char dfile[40];
-						size_t namelen = strlen((*(io->Cptable + i)).name);
-						if (!strncmp((*(io->Cptable + i)).name, "blackbox", 8)) continue;
-						else if (!strncmp((*(io->Cptable + i)).name, "cache", 5)) continue;
-						else if (!strncmp((*(io->Cptable + i)).name, "userdata", 8)) continue;
-						if (g_app_state.flash.selected_ab == 1 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_b")) continue;
-						else if (g_app_state.flash.selected_ab == 2 && namelen > 2 && 0 == strcmp((*(io->Cptable + i)).name + namelen - 2, "_a")) continue;
-						snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->Cptable + i)).name);
-						dump_partition(io, (*(io->Cptable + i)).name, 0, (*(io->Cptable + i)).size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
-					}
-				}
-				argc -= 2;
-				argv += 2;
-				continue;
-			} else {
-				if (!strcmp(name, "preset_resign")) {
-					loop_count = 7;
-					name = list[loop_count];
-					in_loop = 1;
-				}
-rloop:
-				get_partition_info(io, name, 1);
-				if (!gPartInfo.size) {
-					if (loop_count) {
-						name = list[--loop_count];
-						goto rloop;
-					}
-					DEG_LOG(E, "Partition not exist\n");
-					argc -= 2;
-					argv += 2;
-					continue;
-				}
-			}
-			char dfile[40];
-			if (isdigit(str2[2][0])) snprintf(dfile, sizeof(dfile), "%s.img", gPartInfo.name);
-			else if (in_loop) snprintf(dfile, sizeof(dfile), "%s.img", list[loop_count]);
-			else snprintf(dfile, sizeof(dfile), "%s.img", name);
-			dump_partition(io, gPartInfo.name, 0, gPartInfo.size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
-			if (loop_count--) {
-				name = list[loop_count];
-				goto rloop;
-			}
-			argc -= 2;
-			argv += 2;
+            fn = str2[2];
+            EnhancedFile fi = my_oxfopen_enhanced(fn, "r");
+            if (!fi)
+            {
+                DEG_LOG(E, "File does not exist.");
+                argc -= 3;
+                argv += 3;
+                continue;
+            }
+            fi.close();
+            addr = strtoul(str2[3], nullptr, 0);
+            if (!strcmp(str2[1], "send_file")) send_file(io, fn, addr, end_data, 528, 0, 0);
+            else send_file(io, fn, addr, 0, 528, 0, 0);
+            argc -= 3;
+            argv += 3;
+        }
+        else if (!strncmp(str2[1], "fdl", 3) || !strncmp(str2[1], "loadfdl", 7))
+        {
+#if _DEBUG
+            DEG_LOG(DE, "fdl1_loaded = %d, fdl2_executed = %d", fdl1_loaded, fdl2_executed);
+#endif
+            int addr_in_name = !strncmp(str2[1], "loadfdl", 7);
+            const char* fn;
+            uint32_t addr = 0;
+            int argchange;
+            fn = str2[2];
+            if (isToolMode)
+            {
+                if (addr_in_name) argchange = 2;
+                else argchange = 3;
+                if (argcount <= argchange)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= argchange;
+                    argv += argchange;
+                }
+                continue;
+            }
+            if (addr_in_name)
+            {
+                argchange = 2;
+                if (argcount <= argchange)
+                {
+                    DEG_LOG(W, "loadfdl FILE\n");
+                    argc = 1;
+                    continue;
+                }
+                char *pos = nullptr, *last_pos = nullptr;
 
-		} else if (!strcmp(str2[1], "read_parts")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			const char* fn;
-			if (argcount <= 2) {
-				DEG_LOG(W, "read_parts partition_table_file");
-				argc = 1;
-				continue;
-			}
-			fn = str2[2];
-			EnhancedFile fi = oxfopen_enhanced(fn, "r");
-			if (!fi) {
-				DEG_LOG(E, "File does not exist.");
-				argc -= 2;
-				argv += 2;
-				continue;
-			}
-			fi.close();
-			dump_partitions(io, fn, nand_info, blk_size ? blk_size : DEFAULT_BLK_SIZE);
-			argc -= 2;
-			argv += 2;
+                pos = (char*)strstr(fn, "0X");
+                while (pos)
+                {
+                    last_pos = pos;
+                    pos = strstr(pos + 2, "0X");
+                }
+                if (last_pos == nullptr)
+                {
+                    pos = (char*)strstr(fn, "0x");
+                    while (pos)
+                    {
+                        last_pos = pos;
+                        pos = strstr(pos + 2, "0x");
+                    }
+                }
+                if (last_pos) addr = strtoul(last_pos, nullptr, 16);
+                else
+                {
+                    DEG_LOG(E, "\"0x\" not found in name.\n");
+                    argc -= argchange;
+                    argv += argchange;
+                    continue;
+                }
+            }
+            else
+            {
+                argchange = 3;
+                if (argcount <= argchange)
+                {
+                    DEG_LOG(W, "fdl FILE addr");
+                    argc = 1;
+                    continue;
+                }
+                //convert to ulong
+                addr = strtoul(str2[3], nullptr, 0);
+            }
 
-		}
-		else if(!strcmp(str2[1], "pac")){
-			const char* fn;
-			if (argcount <= 2) {
-				DEG_LOG(W, "pac FILE");
-				argc = 1;
-				continue;
-			}
-			fn = str2[2];
-			EnhancedFile fi = oxfopen_enhanced(fn, "r");
-			if (!fi) {
-				DEG_LOG(E, "File does not exist.");
-				argc -= 2;
-				argv += 2;
-				continue;
-			}
-			fi.close();
-			bool i_is = pac_extract(fn, "pac_unpack_output");
-			if(g_app_state.device.device_stage != FDL2)
-			{
-				DEG_LOG(E, "Pac flashing is only supported in FDL2 stage.");
-				argc -= 2;
-				argv += 2;
-				continue;
-			}
-			if(!isToolMode && check_confirm("flash pac"))
-			{
-				if (i_is)
-				{
-					pac_flash(io, "pac_unpack_output");
-				}
-			}
-			argc -= 2;
-			argv += 2;
-		}
-		else if (!strcmp(str2[1], "part_table"))
-		{
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (!isCMethod) {
-				if (argcount <= 2) {
-					DEG_LOG(W, "part_table FILE");
-					argc = 1;
-					continue;
-				}
-				if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
-				if (!io->part_count) {
-					DEG_LOG(E, "Partition table not available");
-					argc -= 2;
-					argv += 2;
-					continue;
-				} else {
-					DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
 
-					// 创建根节点
-					auto root = std::make_shared<XmlNode>("Partitions");
+            //???
+            //e_addr = addr;
+            //IS FDL2, NO NEED
+            if (fdl2_executed > 0)
+            {
+                DEG_LOG(W, "FDL2 is already executed, skipped.");
+                argc -= argchange;
+                argv += argchange;
+                continue;
+            }
+            //FDL2, NOT NEED TO SEND CVE FILE
+            else if (fdl1_loaded > 0)
+            {
+                if (fdl2_executed != -1)
+                {
+                    EnhancedFile fi = my_oxfopen_enhanced(fn, "r");
+                    if (!fi)
+                    {
+                        DEG_LOG(W, "File does not exist.");
+                        argc -= argchange;
+                        argv += argchange;
+                        continue;
+                    }
+                    fi.close();
+                    if (g_app_state.device.device_mode == SPRD3) send_file(
+                        io, fn, addr, end_data, blk_size ? blk_size : 528, 0, 0);
+                    else send_file(io, fn, addr, 0, 528, 0, 0);
+                }
+            }
+            //FDL1, MAY NEED TO SEND CVE FILE
+            else
+            {
+                if (fdl1_loaded != -1)
+                {
+                    EnhancedFile fi = my_oxfopen_enhanced(fn, "r");
+                    if (!fi)
+                    {
+                        DEG_LOG(W, "File does not exist.\n");
+                        argc -= argchange;
+                        argv += argchange;
+                        continue;
+                    }
+                    fi.close();
+                    if (exec_addr_v2)
+                    {
+                        size_t execsize = send_file(io, fn, addr, 0, 528, 0, 0);
+                        int n, gapsize = exec_addr - addr - execsize;
+                        for (i = 0; i < gapsize; i += n)
+                        {
+                            n = gapsize - i;
+                            if (n > 528) n = 528;
+                            encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
+                            if (send_and_check(io)) ERR_EXIT("exec_addr v2 failed");;
+                        }
+                        fi = my_oxfopen_enhanced(execfile.c_str(), "rb");
+                        if (fi)
+                        {
+                            fi.seek(0, SEEK_END);
+                            n = fi.tell();
+                            fi.seek(0, SEEK_SET);
+                            execsize = fi.read(io->temp_buf, 1, n);
+                        }
+                        encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, execsize);
+                        if (send_and_check(io)) ERR_EXIT("exec_addr v2 failed");
+                        // if (execfile) delete[](execfile);
+                    }
+                    else
+                    {
+                        send_file(io, fn, addr, end_data, 528, 0, 0);
+                        if (exec_addr)
+                        {
+                            send_file(io, execfile.c_str(), exec_addr, 0, 528, 0, 0);
+                            // if (execfile) delete[](execfile);
+                        }
+                        else
+                        {
+                            encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+                            if (send_and_check(io)) ERR_EXIT("FDL exec failed");
+                        }
+                    }
+                }
+                else
+                {
+                    encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+                    if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
+                }
+                // if (execfile) delete[](execfile);
+                DEG_LOG(OP, "Execute FDL1");
 
-					// 添加所有分区节点
-					for (i = 0; i < io->part_count; i++) {
-						DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->ptable + i)).name, 
-								((*(io->ptable + i)).size >> 20));
-						
-						auto partitionNode = std::make_shared<XmlNode>("Partition");
-						partitionNode->setAttribute("id", (*(io->ptable + i)).name);
-						
-						if (i + 1 == io->part_count) {
-							partitionNode->setAttribute("size", "0xffffffff");
-						} else {
-							char sizeStr[32];
-							snprintf(sizeStr, sizeof(sizeStr), "%lld",
-									((*(io->ptable + i)).size >> 20));
-							partitionNode->setAttribute("size", sizeStr);
-						}
-						
-						root->addChild(partitionNode);
-					}
+                if (addr == 0x5500 || addr == 0x65000800)
+                {
+                    highspeed = 1;
+                    if (!baudrate) baudrate = 921600;
+                }
 
-					// 保存到文件
-					if (!root->saveXmlFile(str2[2])) {
-						ERR_EXIT("Failed to save XML file\n");
-					}
+                /* FDL1 (chk = sum) */
+                io->flags &= ~FLAGS_CRC16;
 
-					DEG_LOG(I, "Partition table saved to %s", str2[2]);
-				}
-			} else {
-				if (argcount <= 2) {
-					DEG_LOG(W, "part_table FILE");
-					argc = 1;
-					continue;
-				}
-				int c = io->part_count_c;
-				if (!c) {
-					DEG_LOG(E, "Partition table not available");
-					argc -= 2;
-					argv += 2;
-					continue;
-				} else {
-					DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
+                encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
+                for (i = 0; ; i++)
+                {
+                    send_msg(io);
+                    recv_msg(io);
+                    if (recv_type(io) == BSL_REP_VER) break;
+                    DEG_LOG(W, "Failed to check baud, retry...");
+                    if (i == 4)
+                    {
+                        o_exception = "Failed to check baud FDL1";
+                        ERR_EXIT(
+                            "Can not execute FDL: %s,please reboot your phone by pressing POWER and VOL_UP for 7-10 seconds.\n",
+                            o_exception);
+                    }
+                    usleep(500000);
+                }
+                DEG_LOG(I, "Check baud FDL1 done.");
 
-					// 创建根节点
-					auto root = std::make_shared<XmlNode>("Partitions");
+                DBG_LOG("Device REP_Version: ");
+                print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
 
-					// 保存原始 verbose 设置
-					int o = io->verbose;
-					io->verbose = -1;
+                if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
+                if (!memcmp(io->raw_buf + 4, "SPRD4", 5)) g_app_state.device.device_mode = SPRD4;
+                //special FDL1 MEM, DISABLED FOR STABILITY
+#if FDL1_DUMP_MEM
+                //read dump mem
+                int pagecount = 0;
+                char* pdump;
+                char chdump;
+                UniqueFile fdump;
+                fdump = my_oxfopen_unique("memdump.bin", "wb");
+                encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
+                while (1)
+                {
+                    send_msg(io);
+                    ret = recv_msg(io);
+                    if (!ret) ERR_EXIT("timeout reached\n");
+                    if (recv_type(io) == BSL_CMD_READ_END) break;
+                    pdump = (char*)(io->raw_buf + 4);
+                    for (i = 0; i < 512; i++)
+                    {
+                        chdump = *(pdump++);
+                        if (chdump == 0x7d)
+                        {
+                            if (*pdump == 0x5d || *pdump == 0x5e) chdump = *(pdump++) + 0x20;
+                        }
+                        fputc(chdump, fdump.get());
+                    }
+                    DEG_LOG(I, "dump page count %d", ++pagecount);
+                }
+                DEG_LOG(I, "dump mem end");
+                //end
+#endif
 
-					// 添加所有分区节点
-					for (i = 0; i < c; i++) {
-						char* name = (*(io->Cptable + i)).name;
-						DBG_LOG("%3d %36s %7lldMB\n", i + 1, name, ((*(io->Cptable + i)).size >> 20));
-						
-						auto partitionNode = std::make_shared<XmlNode>("Partition");
-						partitionNode->setAttribute("id", name);
-						
-						// 判断是否为最后一个分区且 userdata 存在
-						if (check_partition(io, "userdata", 0) != 0 && i + 1 == io->part_count_c) {
-							partitionNode->setAttribute("size", "0xffffffff");
-						} else {
-							char sizeStr[32];
-							snprintf(sizeStr, sizeof(sizeStr), "%lld",
-									((*(io->Cptable + i)).size >> 20));
-							partitionNode->setAttribute("size", sizeStr);
-						}
-						
-						root->addChild(partitionNode);
-					}
+                encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+                if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
+                DEG_LOG(I, "FDL1 connected.");
+#if !USE_LIBUSB
+                if (baudrate)
+                {
+                    uint8_t* data = io->temp_buf;
+                    WRITE32_BE(data, baudrate);
+                    encode_msg_nocpy(io, BSL_CMD_CHANGE_BAUD, 4);
+                    if (!send_and_check(io))
+                    {
+                        DEG_LOG(OP, "Change baud FDL1 to %d", baudrate);
+                        call_SetProperty(io->handle, 0, 100, (LPCVOID) & baudrate);
+                    }
+                }
+#endif
+                if (keep_charge)
+                {
+                    encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
+                    if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
+                }
+                fdl1_loaded = 1;
+                g_app_state.device.device_stage = FDL1;
+            }
+            argc -= argchange;
+            argv += argchange;
+        }
+        else if (!strcmp(str2[1], "exec"))
+        {
+            //sfd_tool exec command
+            if (isToolMode)
+            {
+                if ((argcount <= 2 && fdl1_loaded <= 0) || (argcount <= 1 && fdl1_loaded > 0))
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    if (fdl1_loaded <= 0)
+                    {
+                        argc -= 2;
+                        argv += 2;
+                    }
+                    else
+                    {
+                        argc -= 1;
+                        argv += 1;
+                    }
+                }
+                continue;
+            }
+            if (fdl2_executed > 0)
+            {
+                DEG_LOG(W, "FDL2 is already executed, skipped.");
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            else if (fdl1_loaded > 0)
+            {
+                memset(&Da_Info, 0, sizeof(Da_Info));
+                encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+                send_msg(io);
+                // Feature phones respond immediately,
+                // but it may take a second for a smartphone to respond.
+                ret = recv_msg_timeout(io, 15000);
+                if (!ret)
+                {
+                    ThrowExit();
+                    ERR_EXIT("%s: timeout reached\n", o_exception);
+                }
+                ret = recv_type(io);
+                // Is it always bullshit?
+                if (ret == BSL_REP_INCOMPATIBLE_PARTITION)
+                    get_Da_Info(io);
+                else if (ret != BSL_REP_ACK)
+                {
+                    ThrowExit();
+                    const char* name = get_bsl_enum_name(ret);
+                    ERR_EXIT("%s: unexpected response (%s : 0x%04x)\n", name, o_exception, ret);
+                }
+                DEG_LOG(OP, "Execute FDL2");
+                //remove 0d detection for nand device
+                //This is not supported on certain devices.
+                /*
+                encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
+                send_msg(io);
+                ret = recv_msg(io);
+                if (ret) {
+                    ret = recv_type(io);
+                    if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"unexpected response (0x%04x)\n", ret);
+                    else Da_Info.dwStorageType = 0x101;
+                    // need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
+                    // for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
+                }
+                */
+                if (Da_Info.bDisableHDLC)
+                {
+                    encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
+                    if (!send_and_check(io))
+                    {
+                        io->flags &= ~FLAGS_TRANSCODE;
+                        DEG_LOG(OP, "Try to disable transcode 0x7D.");
+                    }
+                }
+                int o = io->verbose;
+                io->verbose = -1;
+                g_spl_size = check_partition(io, "splloader", 1);
+                io->verbose = o;
+                if (Da_Info.bSupportRawData)
+                {
+                    blk_size = 0xf800;
+                    io->ptable = partition_list(io, &io->part_count);
+                    if (fdl2_executed)
+                    {
+                        Da_Info.bSupportRawData = 0;
+                        DEG_LOG(OP, "Raw data mode disabled for SPRD4.");
+                    }
+                    else
+                    {
+                        encode_msg_nocpy(io, BSL_CMD_ENABLE_RAW_DATA, 0);
+                        if (!send_and_check(io)) DEG_LOG(OP, "Raw data mode enabled.");
+                    }
+                }
 
-					// 恢复 verbose 设置
-					io->verbose = o;
 
-					// 保存到文件
-					if (!root->saveXmlFile(str2[2])) {
-						ERR_EXIT("Failed to save XML file\n");
-					}
+                else if (highspeed || Da_Info.dwStorageType == 0x103)
+                {
+                    blk_size = 0xf800;
+                    io->ptable = partition_list(io, &io->part_count);
+                }
+                else if (Da_Info.dwStorageType == 0x102)
+                {
+                    io->ptable = partition_list(io, &io->part_count);
+                }
+                else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
+                if (g_app_state.flash.gpt_failed != 1)
+                {
+                    if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b");
+                    else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a");
+                    else
+                    {
+                        DEG_LOG(I, "Device is not using VAB");
+                        if (Da_Info.bSupportRawData)
+                        {
+                            DEG_LOG(
+                                I,
+                                "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.",
+                                (unsigned)Da_Info.bSupportRawData);
+                            Da_Info.bSupportRawData = 0;
+                        }
+                    }
+                }
+                else if (isUseCptable)
+                {
+                    io->Cptable = partition_list_d(io);
+                    if (io->Cptable) isCMethod = 1;
+                }
+                if (!isUseCptable && !io->part_count)
+                {
+                    DEG_LOG(W, "No partition table found on current device");
+                    DEG_LOG(I, "You may get partition table through compatibility method.");
+                    DEG_LOG(I, "(Use command `cptable` to do it.)");
+                }
+                if (nand_id == DEFAULT_NAND_ID)
+                {
+                    nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+                    nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+                    nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+                }
+                fdl2_executed = 1;
+                g_app_state.device.device_stage = FDL2;
+                if (exec_addr > 0)
+                {
+                    DEG_LOG(OP, "w_force enabled (exec_addr > 0)");
+                    g_app_state.flash.g_w_force = 1;
+                }
+                argc -= 1;
+                argv += 1;
+            }
+            else if (fdl1_loaded != 1)
+            {
+                //Execute FDL1 manually
+                if (argcount <= 2)
+                {
+                    DEG_LOG(W, "`exec` command need fdl addr when exec in FDL1");
+                    argc = 1;
+                    continue;
+                }
+                uint32_t addr = strtoul(str2[2], nullptr, 0);
+                encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+                if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
+                DEG_LOG(OP, "Execute FDL1");
+                if (addr == 0x5500 || addr == 0x65000800)
+                {
+                    highspeed = 1;
+                    if (!baudrate) baudrate = 921600;
+                }
 
-					DEG_LOG(I, "Partition table saved to %s", str2[2]);
-				}
-			}
+                /* FDL1 (chk = sum) */
+                io->flags &= ~FLAGS_CRC16;
 
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(str2[1], "get_pgpt"))
-		{
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount <= 2) {
-				DEG_LOG(W, "get_pgpt FILE");
-				argc = 1;
-				continue;
-			}
-			if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
-			if (!io->part_count)
-			{
-				DEG_LOG(E, "No original partition list found.");
-				argc = 1;
-				continue;
-			}
-			if (!g_app_state.flash.is_pgpt)
-			{
-				DEG_LOG(E, "Device is not support pgpt");
-				argc = 1;
-				continue;
-			}
-			uint64_t size = dump_partition(io, "user_partition", 0, 32 * 1024, str2[2], 4096);
-			if (size != 32 * 1024) DEG_LOG(W, "Read size is not 32 * 1024");
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(str2[1], "get_sprdpart")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount <= 2) {
-				DEG_LOG(W, "get_sprdpart FILE");
-				argc = 1;
-				continue;
-			}
-			if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
-			if (!io->part_count)
-			{
-				DEG_LOG(E, "No original partition list found.");
-				argc = 1;
-				continue;
-			}
-			if (g_app_state.flash.is_pgpt)
-			{
-				DEG_LOG(E, "Device is using pgpt, use 'get_pgpt' instead.");
-				argc = 1;
-				continue;
-			}
-			encode_msg_nocpy(io, BSL_CMD_READ_PARTITION, 0);
-			send_msg(io);
-			ret = recv_msg(io);
-			if (!ret) ERR_EXIT("timeout reached\n");
-			ret = recv_type(io);
-			if (ret != BSL_REP_READ_PARTITION) {
-				const char* name = get_bsl_enum_name(ret);
-				DEG_LOG(E,"unexpected response (%s : 0x%04x)",name, ret);
-				argc = 1;
-				continue;
-			}
-			uint64_t size = READ16_BE(io->raw_buf + 2);
-			if (size % 0x4c) {
-				DEG_LOG(I,"Not divisible by struct size (0x%04lx)", size);
-				argc = 1;
-				continue;
-			}
-			EnhancedFile fpkt = my_oxfopen_enhanced(str2[2], "wb");
-			if (!fpkt) ERR_EXIT("fopen failed\n");
-			fpkt.write(io->raw_buf + 4, 1, size);
-			fpkt.close();
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(str2[1], "repartition")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			const char* fn;
-			if (argcount <= 2) {
-				DEG_LOG(W, "repartition FILE");
-				argc = 1;
-				continue;
-			}
-			fn = str2[2];
-			EnhancedFile fi = oxfopen_enhanced(fn, "r");
-			if (!fi) {
-				DEG_LOG(E, "File does not exist.");
-				argc -= 2;
-				argv += 2;
-				continue;
-			}
-			fi.close();
-			if (skip_confirm) repartition(io, str2[2]);
-			else if (check_confirm("repartition")) repartition(io, str2[2]);
-			argc -= 2;
-			argv += 2;
+                encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
+                for (i = 0; ; i++)
+                {
+                    send_msg(io);
+                    recv_msg(io);
+                    if (recv_type(io) == BSL_REP_VER) break;
+                    DEG_LOG(W, "Failed to check baud, retry...");
+                    if (i == 4)
+                    {
+                        o_exception = "Failed to check baud FDL1";
+                        ERR_EXIT(
+                            "Can not execute FDL: %s,please reboot your phone by pressing POWER and VOL_UP for 7-10 seconds.\n",
+                            o_exception);
+                    }
+                    usleep(500000);
+                }
+                DEG_LOG(I, "Check baud FDL1 done.");
 
-		} else if (!strcmp(str2[1], "erase_part") || !strcmp(str2[1], "e")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			const char* name = str2[2];
-			if (argcount <= 2) {
-				DEG_LOG(W, "erase_part part_name/part_id\n");
-				argc = 1;
-				continue;
-			}
-			if (!strcmp(name, "all")) {
-				if (!check_confirm("erase all")) {
-					argc -= 2;
-					argv += 2;
-					continue;
-				}
-				strcpy(gPartInfo.name, "all");
-			} else {
-				if (!skip_confirm)
-					if (!check_confirm("erase partition")) {
-						argc -= 2;
-						argv += 2;
-						continue;
-					}
-				get_partition_info(io, name, 0);
-			}
-			if (!gPartInfo.size) {
-				DBG_LOG("part not exist\n");
-				argc -= 2;
-				argv += 2;
-				continue;
-			}
-			erase_partition(io, gPartInfo.name, isCMethod);
-			argc -= 2;
-			argv += 2;
+                DBG_LOG("Device REP_Version: ");
+                print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+                if (!memcmp(io->raw_buf + 4, "SPRD4", 5) && no_fdl_mode) fdl2_executed = -1;
+                if (!memcmp(io->raw_buf + 4, "SPRD4", 5)) g_app_state.device.device_mode = SPRD4;
+                //special FDL1 MEM, DISABLED FOR STABILITY
+#if FDL1_DUMP_MEM
+                //read dump mem
+                int pagecount = 0;
+                char* pdump;
+                char chdump;
+                UniqueFile fdump;
+                fdump = my_oxfopen_unique("memdump.bin", "wb");
+                encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
+                while (1)
+                {
+                    send_msg(io);
+                    ret = recv_msg(io);
+                    if (!ret) ERR_EXIT("timeout reached\n");
+                    if (recv_type(io) == BSL_CMD_READ_END) break;
+                    pdump = (char*)(io->raw_buf + 4);
+                    for (i = 0; i < 512; i++)
+                    {
+                        chdump = *(pdump++);
+                        if (chdump == 0x7d)
+                        {
+                            if (*pdump == 0x5d || *pdump == 0x5e) chdump = *(pdump++) + 0x20;
+                        }
+                        fputc(chdump, fdump.get());
+                    }
+                    DEG_LOG(I, "dump page count %d", ++pagecount);
+                }
+                DEG_LOG(I, "dump mem end");
+                //end
+#endif
 
-		} else if (!strcmp(str2[1], "erase_all")) {
-			if (isToolMode)
-			{
-				argc -= 1;
-				argv += 1;		
-				continue;
-			}
-			if (!check_confirm("erase all")) {
-				argc -= 1;
-				argv += 1;
-				continue;
-			}
-			erase_partition(io, "all", isCMethod);
-			argc -= 1;
-			argv += 1;
-		
-		} else if (!strcmp(str2[1], "g_w_force")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			int mode = atoi(str2[2]);
-			if (mode < 0 || mode > 1) {
-				DEG_LOG(W, "g_w_force {0,1}");
-			}
-			else {
-				if (mode == 1 && Da_Info.dwStorageType == 0x101) {
-					DEG_LOG(E, "g_w_force is not allowed on NAND(UBI) devices");
-				} else {
-					g_app_state.flash.g_w_force = mode;
-					DEG_LOG(I, "g_w_force is %d", g_app_state.flash.g_w_force);
-				}
-			}
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(str2[1], "cptable")) {
-			if (isToolMode)
-			{
-				argc -= 1;
-				argv += 1;
-				continue;
-			}
-			if (!io->part_count_c && !io->part_count) {
-				io->Cptable = partition_list_d(io);
-				if (io->Cptable) isCMethod = 1;
-			} else {
-				DEG_LOG(I, "Partition table already loaded");
-			}
-			argc -= 1;
-			argv += 1;
-		} else if (!strcmp(str2[1], "read_nand")) {
-			if (isToolMode)
-			{
-				
-				argc -= 1;
-				argv += 1;
-				
-				continue;
-			}
-			encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
-			send_msg(io);
-			ret = recv_msg(io);
-			if (ret) {
-				ret = recv_type(io);
-				const char* name = get_bsl_enum_name(ret);
-				if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E, "unexpected response (%s : 0x%04x)\n", name, ret);
-				else Da_Info.dwStorageType = 0x101;
-				// need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
-				// for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
-			}
-			if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand");
-			else DEG_LOG(I, "Device storage is not nand");
-			argc -= 1;
-			argv += 1;
-		} else if (!strcmp(str2[1], "w") || !strcmp(str2[1], "write_part")) {
-			if (isToolMode)
-			{
-				if (argcount <= 3)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 3;
-					argv += 3;
-				}
-				continue;
-			}
-			const char* fn;
-			EnhancedFile fi;
-			const char* name = str2[2];
-			if (argcount <= 3) {
-				DEG_LOG(W, "w/write_part part_name/part_id FILE\n");
-				argc = 1;
-				continue;
-			}
-			fn = str2[3];
-			fi = oxfopen_enhanced(fn, "r");
-			if (!fi) {
-				DEG_LOG(E, "File does not exist.\n");
-				argc -= 3;
-				argv += 3;
-				continue;
-			}
-			fi.close();
-			if (!skip_confirm)
-				if (!check_confirm("write partition")) {
-					argc -= 3;
-					argv += 3;
-					continue;
-				}
-			get_partition_info(io, name, 0);
-			if (!gPartInfo.size) {
-				DEG_LOG(E, "Partition does not exist\n");
-				argc -= 3;
-				argv += 3;
-				continue;
-			}
+                encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+                if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
+                DEG_LOG(I, "FDL1 connected.");
+#if !USE_LIBUSB
+                if (baudrate)
+                {
+                    uint8_t* data = io->temp_buf;
+                    WRITE32_BE(data, baudrate);
+                    encode_msg_nocpy(io, BSL_CMD_CHANGE_BAUD, 4);
+                    if (!send_and_check(io))
+                    {
+                        DEG_LOG(OP, "Change baud FDL1 to %d", baudrate);
+                        call_SetProperty(io->handle, 0, 100, (LPCVOID) & baudrate);
+                    }
+                }
+#endif
+                if (keep_charge)
+                {
+                    encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
+                    if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
+                }
+                fdl1_loaded = 1;
+                g_app_state.device.device_mode = FDL1;
+                argc -= 2;
+                argv += 2;
+            }
 
-			load_partition_unify(io, gPartInfo.name, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-			argc -= 3;
-			argv += 3;
 
-		} else if (!strncmp(str2[1], "write_parts", 11)) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount <= 2) {
-				DEG_LOG(W, "write_parts/write_parts_a/write_parts_b save_location\n");
-				argc = 1;
-				continue;
-			}
-			int force_ab = 0;
-			if (!strcmp(str2[1], "write_parts_a")) force_ab = 1;
-			else if (!strcmp(str2[1], "write_parts_b")) force_ab = 2;
-			if (skip_confirm || check_confirm("write partitions")) load_partitions(io, str2[2], blk_size ? blk_size : DEFAULT_BLK_SIZE, force_ab, isCMethod);
-			argc -= 2;
-			argv += 2;
+#if !USE_LIBUSB
+		} else if (!strcmp(str2[1], "baudrate"))
+            {
+                if (isToolMode)
+                {
+                    if (argcount <= 2)
+                    {
+                        argc = 1;
+                    }
+                    else
+                    {
+                        argc -= 2;
+                        argv += 2;
+                    }
+                    continue;
+                }
+                if (argcount > 2)
+                {
+                    baudrate = strtoul(str2[2], nullptr, 0);
+                    if (fdl2_executed) call_SetProperty(io->handle, 0, 100, (LPCVOID) & baudrate);
+                }
+                DEG_LOG(I, "Baudrate is %u", baudrate);
+                argc -= 2;
+                argv += 2;
+#else
+        }
+        else if (!strcmp(str2[1], "baudrate"))
+        {
+            if (argcount > 2)
+            {
+                argc -= 2;
+                argv += 2;
+            }
+            else argc = 1;
+            DEG_LOG(E, "Only Windows Driver support this command.");
+#endif
+        }
+        else if (!strcmp(str2[1], "path"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount > 2)
+            {
+                if (strlen(str2[2]) < sizeof(savepath))
+                {
+                    snprintf(savepath, sizeof(savepath), "%s", str2[2]);
+                }
+                else
+                {
+                    DEG_LOG(E, "Path too long");
+                    argc -= 2;
+                    argv += 2;
+                    continue;
+                }
+            }
+            DEG_LOG(I, "Save dir is %s", savepath);
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "nand_id"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            //sfd_tool func
+            if (argcount > 2)
+            {
+                nand_id = strtol(str2[2], nullptr, 0);
+                nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+                nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+                nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+            }
+            DEG_LOG(I, "Current nand ID is 0x%x", nand_id);
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strncmp(str2[1], "read_flash", 10))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 5)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 5;
+                    argv += 5;
+                }
+                continue;
+            }
+            const char* fn;
+            uint64_t addr, offset, size;
+            if (argcount <= 5)
+            {
+                DEG_LOG(W, "read_flash addr offset size FILE");
+                argc = 1;
+                continue;
+            }
+            int isReadDHTB = 0;
+            if (!strncmp(str2[1], "read_flash_dhtb", 15)) isReadDHTB = 1;
+            addr = str_to_size(str2[2]);
+            offset = str_to_size(str2[3]);
+            size = str_to_size(str2[4]);
+            fn = str2[5];
+            if ((addr | size | offset | (addr + offset + size)) >> 32)
+            {
+                DEG_LOG(E, "32-bit limit reached");
+                argc -= 5;
+                argv += 5;
+                continue;
+            }
+            //func
+            dump_flash(io, (uint32_t)addr, (uint32_t)offset, (uint32_t)size, fn, blk_size ? blk_size : 1024,
+                       isReadDHTB);
+            argc -= 5;
+            argv += 5;
+        }
+        else if (!strcmp(str2[1], "bl"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount < 2)
+            {
+                DEG_LOG(W, "bl {0,1}");
+                argc = 1;
+                continue;
+            }
+            int status = strtol(str2[2], nullptr, 0);
+            if (status < 0 || status > 1)
+            {
+                DEG_LOG(W, "bl {0,1}");
+                argc -= 2;
+                argv += 2;
+                continue;
+            }
+            set_bootloader_status(io, status);
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "erase_flash"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 3)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 3;
+                    argv += 3;
+                }
+                continue;
+            }
+            uint64_t addr, size;
+            if (argcount <= 3)
+            {
+                DEG_LOG(W, "erase_flash addr size");
+                argc = 1;
+                continue;
+            }
+            if (!skip_confirm)
+                if (!check_confirm("erase flash"))
+                {
+                    argc -= 3;
+                    argv += 3;
+                    continue;
+                }
+            addr = str_to_size(str2[2]);
+            size = str_to_size(str2[3]);
+            if ((addr | size | (addr + size)) >> 32)
+                ERR_EXIT("Error: 32-bit limit reached\n");
+            uint32_t* data = (uint32_t*)io->temp_buf;
+            WRITE32_BE(data, addr);
+            WRITE32_BE(data + 1, size);
+            encode_msg_nocpy(io, BSL_CMD_ERASE_FLASH, 4 * 2);
+            if (!send_and_check(io)) DEG_LOG(I, "Erase flash successfully: 0x%08x\n", (int)addr);
+            argc -= 3;
+            argv += 3;
+        }
+        else if (!strcmp(str2[1], "show_cmd"))
+        {
+            print_all_bsl_commands();
+            argc--;
+            argv++;
+        }
+        else if (!strcmp(str2[1], "find_cmd"))
+        {
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "find_cmd [TYPE]");
+                argc = 1;
+                continue;
+            }
+            const char* name = get_bsl_enum_name(strtoul(str2[2], nullptr, 0));
+            DEG_LOG(I, "%s", name);
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "read_mem"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 4)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 4;
+                    argv += 4;
+                }
+                continue;
+            }
+            const char* fn;
+            uint64_t addr, size;
+            if (argcount <= 4)
+            {
+                DEG_LOG(W, "read_mem addr size FILE");
+                argc = 1;
+                continue;
+            }
 
-		} else if (!strcmp(str2[1], "w_force")) {
-			if (isToolMode)
-			{
-				if (argcount <= 3)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 3;
-					argv += 3;
-				}
-				continue;
-			}
-			const char* fn;
-			const char* name = str2[2];
-			if (argcount <= 3) {
-				DEG_LOG(W, "w_force part_name/part_id FILE");
-				argc = 1;
-				continue;
-			}
-			if (Da_Info.dwStorageType == 0x101) {
-				DEG_LOG(E, "w_force is not allowed on NAND(UBI) devices");
-				argc -= 3;
-				argv += 3;
-				continue;
-			}
-			if (g_app_state.flash.g_w_force == 0) {
-				DEG_LOG(E, "w_force is disabled for stability, use 'g_w_force 1' to enable it first");
-				argc = 1;
-				continue;
-			}
-			if (!isCMethod) {
-				if (!io->part_count) {
-					DEG_LOG(E, "Partition table not available");
-					argc -= 3;
-					argv += 3;
-					continue;
-				}
-				fn = str2[3];
-				EnhancedFile fi = oxfopen_enhanced(fn, "r");
-				if (!fi) {
-					DEG_LOG(E, "File does not exist.");
-					argc -= 3;
-					argv += 3;
-					continue;
-				}
-				fi.close();
-				get_partition_info(io, name, 0);
-				if (!gPartInfo.size) {
-					DEG_LOG(E, "Partition does not exist");
-					argc -= 3;
-					argv += 3;
-					continue;
-				}
+            addr = str_to_size(str2[2]);
+            size = str_to_size(str2[3]);
+            fn = str2[4];
+            if ((addr | size | (addr + size)) >> 32)
+            {
+                DEG_LOG(E, "32-bit limit reached");
+                argc -= 4;
+                argv += 4;
+                continue;
+            }
+            dump_mem(io, addr, size, fn, blk_size ? blk_size : 1024);
+            argc -= 4;
+            argv += 4;
+        }
+        else if (!strcmp(str2[1], "part_size") || !strcmp(str2[1], "ps"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            const char* name;
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "part_size|ps [partition name]");
+                argc = 1;
+                continue;
+            }
 
-				if (!strncmp(gPartInfo.name, "splloader", 9)) {
-					DEG_LOG(E, "Partition 'splloader' can not be force-written!");
-					argc -= 3;
-					argv += 3;
-					continue;
-				} else if (isdigit(str2[2][0])) load_partition_force(io, atoi(str2[2]) - 1, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
-				else {
-					for (i = 0; i < io->part_count; i++)
-					{
-						if (!strcmp(gPartInfo.name, (*(io->ptable + i)).name)) {
-							load_partition_force(io, i, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
-							break;
-						}
-					}
-				}
-			} else if (io->part_count_c) {
-				DEG_LOG(W, "compatibility-method mode detected,for security,recommanded not to force write!");
-				if (check_confirm("Force write partition") == 0) {
-					argc -= 3;
-					argv += 3;
-					continue;
-				}
-				fn = str2[3];
-				EnhancedFile fi = oxfopen_enhanced(fn, "r");
-				if (!fi) {
-					DEG_LOG(E, "File does not exist.");
-					argc -= 3;
-					argv += 3;
-					continue;
-				}
-				fi.close();
-				get_partition_info(io, name, 0);
-				if (!gPartInfo.size) {
-					DEG_LOG(E, "Partition does not exist");
-					argc -= 3;
-					argv += 3;
-					continue;
-				}
+            name = str2[2];
+            if (g_app_state.flash.selected_ab < 0) select_ab(io);
+            int v = io->verbose;
+            io->verbose = -1;
+            DEG_LOG(I, "%s: ", name);
+            DEG_LOG(I, "%lld Bytes", (long long)check_partition(io, name, 1));
+            io->verbose = v;
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "check_part") || !strcmp(str2[1], "cp"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            const char* name;
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "check_part|cp [partition name]");
+                argc = 1;
+                continue;
+            }
 
-				if (!strncmp(gPartInfo.name, "splloader", 9)) {
-					DEG_LOG(E, "Partition 'splloader' can not be force-written!");
-					argc -= 3;
-					argv += 3;
-					continue;
-				} else if (isdigit(str2[2][0])) load_partition_force(io, atoi(str2[2]) - 1, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE, 1);
-				else {
-					for (i = 0; i < io->part_count_c; i++)
-						if (!strcmp(gPartInfo.name, (*(io->Cptable + i)).name)) {
-							load_partition_force(io, i, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE, 1);
-							break;
-						}
-				}
-			} else {
-				DEG_LOG(E, "Partition table not available");
-			}
-			argc -= 3;
-			argv += 3;
+            name = str2[2];
+            if (g_app_state.flash.selected_ab < 0) select_ab(io);
+            long long r = (long long)check_partition(io, name, 0);
+            if (r == 1)
+            {
+                DEG_LOG(I, "%s: Exist.", name);
+            }
+            else if (r == 0)
+            {
+                DEG_LOG(I, "%s: NotExist.", name);
+            }
+            else DEG_LOG(E, "Failed to check.");
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "sendcmd"))
+        {
+            if (isToolMode)
+            {
+                int argchange = (argcount > 3) ? 3 : 2;
+                if (argcount <= argchange)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= argchange;
+                    argv += argchange;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "sendcmd [TYPE] <FILE>");
+                argc = 1;
+                continue;
+            }
+            size_t length = 0;
+            EnhancedFile fi;
+            if (argcount > 3)
+            {
+                fi = my_oxfopen_enhanced(str2[3], "rb");
+                fi.seek(0, SEEK_END);
+                length = fi.tell();
+                if (length)
+                {
+                    fi.seek(0, SEEK_SET);
+                    size_t temp_fread_res = fi.read(io->temp_buf, 1, length);
+                    (void)temp_fread_res;
+                }
+            }
+            encode_msg_nocpy(io, strtoul(str2[2], nullptr, 0), length);
+            int verb = io->verbose;
+            io->verbose = 2;
+            int ret;
+            send_msg(io);
+            ret = recv_msg(io);
+            if (!ret) ERR_EXIT("timeout reached\n");
+            DEG_LOG(I, "Sent cmd 0x%x with %zu bytes data", strtoul(str2[2], nullptr, 0), length);
+            ret = recv_type(io);
+            const char* name = get_bsl_enum_name(ret);
+            DEG_LOG(I, "Response 0x%04x(%s) with %u bytes data", ret, name, READ16_BE(io->raw_buf + 2));
+            io->verbose = verb;
+            argc -= (argcount > 3) ? 3 : 2;
+            argv += (argcount > 3) ? 3 : 2;
+        }
+        else if (!strcmp(str2[1], "read_spec"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 5)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 5;
+                    argv += 5;
+                }
+                continue;
+            }
+            const char *name, *fn;
+            uint64_t offset, size;
+            uint64_t realsize = 0;
+            if (argcount <= 5)
+            {
+                DEG_LOG(
+                    W, "read_spec part_name offset size FILE\n(read ubi on nand) read_spec system 0 ubi40m system.bin");
+                argc = 1;
+                continue;
+            }
 
-		} else if (!strcmp(str2[1], "wof") || !strcmp(str2[1], "wov")) {
-			if (isToolMode)
-			{
-				if (argcount <= 4)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 4;
-					argv += 4;
-				}
-				continue;
-			}
-			uint64_t offset;
-			size_t length;
-			uint8_t* src;
-			const char* name = str2[2];
-			if (argcount <= 4) {
-				DEG_LOG(W, "wof part_name offset FILE\nwov part_name offset VALUE(max is 0xFFFFFFFF)");
-				argc = 1;
-				continue;
-			}
-			if (strstr(name, "fixnv") || strstr(name, "runtimenv") || strstr(name, "userdata")) {
-				DEG_LOG(E, "Partitions 'fixnv_x', 'runtimenv', 'userdata' can not be written offsetly");
-				argc -= 4;
-				argv += 4;
-				continue;
-			}
+            offset = str_to_size_ubi(str2[3], nand_info);
+            size = str_to_size_ubi(str2[4], nand_info);
+            fn = str2[5];
 
-			offset = str_to_size(str2[3]);
-			if (!strcmp(str2[1], "wov")) {
-				src = NEWN uint8_t[4];
-				if (!src) {
-					DEG_LOG(E, "malloc failed");
-					argc -= 4;
-					argv += 4;
-					continue;
-				}
-				length = 4;
-				*(uint32_t*)src = strtoul(str2[4], nullptr, 0);
-			} else {
-				const char* fn = str2[4];
-				src = loadfile(fn, &length, 0);
-				if (!src) {
-					DEG_LOG(E, "Open %s failed", fn);
-					argc -= 4;
-					argv += 4;
-					continue;
-				}
-			}
-			w_mem_to_part_offset(io, name, (size_t)offset, src, length, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-			delete[](src);
-			argc -= 4;
-			argv += 4;
+            name = str2[2];
+            get_partition_info(io, name, 0);
+            if (!gPartInfo.size)
+            {
+                DEG_LOG(W, "Partition not exist");
+                argc -= 5;
+                argv += 5;
+                continue;
+            }
 
-		}
-		else if (!strcmp(str2[1], "mergenv-xml")) {
-			if (isToolMode)
-			{
-				if (argcount <= 3)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 3;
-					argv += 3;
-				}
-				continue;
-			}
-			if (argcount <= 3) { DEG_LOG(W,"mergenv-xml xml new_nv\n"); argc = 1; continue; }
-			get_partition_info(io, "nr_fixnv1", 1);
-			if (!gPartInfo.size) get_partition_info(io, "l_fixnv1", 1);
-			if (!gPartInfo.size) { DEG_LOG(E, "part not exist\n");  argc -= 3; argv += 3; continue; }
-			uint64_t size = 0;
-			uint8_t *mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
-			if (!size)
-			{
-				DEG_LOG(E, "dump_partition_to_mem failed");
-				argc = 1;
-				continue;
-			}
-			if (get_nvlist_xml(io, str2[2])) {
-				size_t a_size = 0, b_size = 0, c_size = 0;
-				uint8_t *a = mem;
-				uint8_t *b = loadfile(str2[3], &b_size, 0);
-				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
-				merge_nv(io, a, a_size, b, b_size, c, &c_size);
-				load_nv_partition_from_mem(io, gPartInfo.name, c, 4096);
-				delete[](a); delete[](b); free(c);
-			}
-			delete[](io->nvid_list);
-			io->nvid_list = NULL;
-			argc -= 3; argv += 3;
+            if (0xffffffff == size) size = check_partition(io, gPartInfo.name, 1);
+            if (offset + size < offset)
+            {
+                DEG_LOG(E, "64-bit limit reached");
+                argc -= 5;
+                argv += 5;
+                continue;
+            }
+            dump_partition(io, gPartInfo.name, offset, size, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE);
+            argc -= 5;
+            argv += 5;
+        }
+        else if (!strcmp(str2[1], "r") || !strcmp(str2[1], "read_part"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            const char* name = str2[2];
+            int loop_count = 0, in_loop = 0;
+            const char* list[] = {"vbmeta", "splloader", "uboot", "sml", "trustos", "teecfg", "boot", "recovery"};
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "r|read_part all/all_lite/partition_name/part_id");
+                argc = 1;
+                continue;
+            }
+            if (!strcmp(name, "preset_modem"))
+            {
+                start_signal();
+                if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
+                if (!io->part_count)
+                {
+                    DEG_LOG(W, "Partition table not available");
+                    argc -= 2;
+                    argv += 2;
+                    continue;
+                }
+                if (g_app_state.flash.selected_ab > 0)
+                {
+                    DEG_LOG(OP, "Saving slot info");
+                    dump_partition(io, "misc", 0, 1048576, "misc.bin", blk_size);
+                }
+                for (i = 0; i < io->part_count; i++)
+                    if (isCancel) break;
+                if (0 == strncmp("l_", (*(io->ptable + i)).name, 2) || 0 == strncmp("nr_", (*(io->ptable + i)).name, 3))
+                {
+                    char dfile[40];
+                    snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->ptable + i)).name);
+                    dump_partition(io, (*(io->ptable + i)).name, 0, (*(io->ptable + i)).size, dfile,
+                                   blk_size ? blk_size : DEFAULT_BLK_SIZE);
+                }
+                argc -= 2;
+                argv += 2;
+                continue;
+            }
+            else if (!strcmp(name, "all"))
+            {
+                start_signal();
 
-		}
-		else if (!strcmp(str2[1], "mergenv-xml-ex")) {
-			if (argcount <= 5) { DEG_LOG(W,"mergenv-xml-ex xml old_nv new_nv FILE\n"); argc = 1; continue; }
-			if (get_nvlist_xml(io, str2[2])) {
-				size_t a_size = 0, b_size = 0, c_size = 0;
-				uint8_t *a = loadfile(str2[3], &a_size, 0);
-				uint8_t *b = loadfile(str2[4], &b_size, 0);
-				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
-				merge_nv(io, a, a_size, b, b_size, c, &c_size);
-				EnhancedFile fi = oxfopen_enhanced(str2[5], "wb");
-				if (!fi) ERR_EXIT("fopen failed\n");
-				if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-				if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
-				fi.close();
-				delete[](a); delete[](b); free(c);
-			}
-			delete[](io->nvid_list);
-			io->nvid_list = NULL;
-			argc -= 5; argv += 5;
+                if (!isCMethod)
+                {
+                    if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
+                    if (!io->part_count)
+                    {
+                        DEG_LOG(W, "Partition table not available\n");
+                        argc -= 2;
+                        argv += 2;
+                        continue;
+                    }
+                    dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin",
+                                   blk_size ? blk_size : DEFAULT_BLK_SIZE);
+                    for (i = 0; i < io->part_count; i++)
+                    {
+                        if (isCancel)
+                        {
+                            break;
+                        }
+                        char dfile[40];
+                        if (!strncmp((*(io->ptable + i)).name, "blackbox", 8)) continue;
+                        else if (!strncmp((*(io->ptable + i)).name, "cache", 5)) continue;
+                        else if (!strncmp((*(io->ptable + i)).name, "userdata", 8)) continue;
+                        snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->ptable + i)).name);
+                        dump_partition(io, (*(io->ptable + i)).name, 0, (*(io->ptable + i)).size, dfile,
+                                       blk_size ? blk_size : DEFAULT_BLK_SIZE);
+                    }
+                }
+                else
+                {
+                    if (!io->part_count_c)
+                    {
+                        DEG_LOG(W, "Partition table not available\n");
+                        argc -= 2;
+                        argv += 2;
+                        continue;
+                    }
+                    dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin",
+                                   blk_size ? blk_size : DEFAULT_BLK_SIZE);
+                    for (i = 0; i < io->part_count_c; i++)
+                    {
+                        if (isCancel) break;
+                        char dfile[40];
+                        if (!strncmp((*(io->Cptable + i)).name, "blackbox", 8)) continue;
+                        else if (!strncmp((*(io->Cptable + i)).name, "cache", 5)) continue;
+                        else if (!strncmp((*(io->Cptable + i)).name, "userdata", 8)) continue;
+                        snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->Cptable + i)).name);
+                        dump_partition(io, (*(io->Cptable + i)).name, 0, (*(io->Cptable + i)).size, dfile,
+                                       blk_size ? blk_size : DEFAULT_BLK_SIZE);
+                    }
+                }
+                argc -= 2;
+                argv += 2;
+                continue;
+            }
+            else if (!strcmp(name, "all_lite"))
+            {
+                start_signal();
 
-		}
-		else if (!strcmp(str2[1], "mergenv-cfg")) {
-			if (isToolMode)
-			{
-				if (argcount <= 3)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 3;
-					argv += 3;
-				}
-				continue;
-			}
-			if (argcount <= 3) { DEG_LOG(W, "mergenv-cfg cfg new_nv\n"); argc = 1; continue; }
-			get_partition_info(io, "nr_fixnv1", 1);
-			if (!gPartInfo.size) get_partition_info(io, "l_fixnv1", 1);
-			if (!gPartInfo.size) { DEG_LOG(E, "part not exist\n");  argc -= 3; argv += 3; continue; }
-			uint64_t size = 0;
-			uint8_t *mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
-			if (!size) {
-				DEG_LOG(E, "dump_partition_to_mem failed");
-				argc = 1;
-				continue;
-			}
-			if (get_nvlist_cfg(io, str2[2])) {
-				size_t a_size = 0, b_size = 0, c_size = 0;
-				uint8_t *a = mem;
-				uint8_t *b = loadfile(str2[3], &b_size, 0);
-				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
-				merge_nv(io, a, a_size, b, b_size, c, &c_size);
-				load_nv_partition_from_mem(io, gPartInfo.name, c, 4096);
-				delete[](a); delete[](b); free(c);
-			}
-			delete[](io->nvid_list);
-			io->nvid_list = NULL;
-			argc -= 3; argv += 3;
-		} 
-		else if (!strcmp(str2[1], "mergenv-cfg-ex")) {
-			if (argcount <= 5) { DEG_LOG(W, "mergenv-cfg-ex cfg old_nv new_nv FILE\n"); argc = 1; continue; }
-			if (get_nvlist_cfg(io, str2[2])) {
-				size_t a_size = 0, b_size = 0, c_size = 0;
-				uint8_t *a = loadfile(str2[3], &a_size, 0);
-				uint8_t *b = loadfile(str2[4], &b_size, 0);
-				uint8_t *c = (uint8_t*)malloc(a_size + b_size);
-				merge_nv(io, a, a_size, b, b_size, c, &c_size);
-				EnhancedFile fi = oxfopen_enhanced(str2[5], "wb");
-				if (!fi) ERR_EXIT("fopen failed\n");
-				if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
-				if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
-				fi.close();
-				delete[](a); delete[](b); free(c);
-			}
-			delete[](io->nvid_list);
-			io->nvid_list = NULL;
-			argc -= 5; argv += 5;
-		} 
-		else if (!strcmp(str2[1], "blk_size") || !strcmp(str2[1], "bs")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount <= 2) {
-				DEG_LOG(E, "blk_size byte\n\tmax is 65535");
-				argc = 1;
-				continue;
-			}
-			blk_size = strtol(str2[2], nullptr, 0);
-			blk_size = blk_size < 0 ? 0 :
-			           blk_size > 0xf800 ? 0xf800 : ((blk_size + 0x7FF) & ~0x7FF);
-			argc -= 2;
-			argv += 2;
+                if (!isCMethod)
+                {
+                    if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
+                    if (!io->part_count)
+                    {
+                        DEG_LOG(E, "Partition table not available\n");
+                        argc -= 2;
+                        argv += 2;
+                        continue;
+                    }
+                    dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin",
+                                   blk_size ? blk_size : DEFAULT_BLK_SIZE);
+                    for (i = 0; i < io->part_count; i++)
+                    {
+                        if (isCancel) break;
+                        char dfile[40];
+                        size_t namelen = strlen((*(io->ptable + i)).name);
+                        if (!strncmp((*(io->ptable + i)).name, "blackbox", 8)) continue;
+                        else if (!strncmp((*(io->ptable + i)).name, "cache", 5)) continue;
+                        else if (!strncmp((*(io->ptable + i)).name, "userdata", 8)) continue;
+                        if (g_app_state.flash.selected_ab == 1 && namelen > 2 && 0 == strcmp(
+                            (*(io->ptable + i)).name + namelen - 2, "_b")) continue;
+                        else if (g_app_state.flash.selected_ab == 2 && namelen > 2 && 0 == strcmp(
+                            (*(io->ptable + i)).name + namelen - 2, "_a")) continue;
+                        snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->ptable + i)).name);
+                        dump_partition(io, (*(io->ptable + i)).name, 0, (*(io->ptable + i)).size, dfile,
+                                       blk_size ? blk_size : DEFAULT_BLK_SIZE);
+                    }
+                }
+                else
+                {
+                    if (!io->part_count_c)
+                    {
+                        DEG_LOG(E, "Partition table not available\n");
+                        argc -= 2;
+                        argv += 2;
+                        continue;
+                    }
+                    dump_partition(io, "splloader", 0, g_spl_size, "splloader.bin",
+                                   blk_size ? blk_size : DEFAULT_BLK_SIZE);
+                    for (i = 0; i < io->part_count_c; i++)
+                    {
+                        if (isCancel) break;
+                        char dfile[40];
+                        size_t namelen = strlen((*(io->Cptable + i)).name);
+                        if (!strncmp((*(io->Cptable + i)).name, "blackbox", 8)) continue;
+                        else if (!strncmp((*(io->Cptable + i)).name, "cache", 5)) continue;
+                        else if (!strncmp((*(io->Cptable + i)).name, "userdata", 8)) continue;
+                        if (g_app_state.flash.selected_ab == 1 && namelen > 2 && 0 == strcmp(
+                            (*(io->Cptable + i)).name + namelen - 2, "_b")) continue;
+                        else if (g_app_state.flash.selected_ab == 2 && namelen > 2 && 0 == strcmp(
+                            (*(io->Cptable + i)).name + namelen - 2, "_a")) continue;
+                        snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->Cptable + i)).name);
+                        dump_partition(io, (*(io->Cptable + i)).name, 0, (*(io->Cptable + i)).size, dfile,
+                                       blk_size ? blk_size : DEFAULT_BLK_SIZE);
+                    }
+                }
+                argc -= 2;
+                argv += 2;
+                continue;
+            }
+            else
+            {
+                if (!strcmp(name, "preset_resign"))
+                {
+                    loop_count = 7;
+                    name = list[loop_count];
+                    in_loop = 1;
+                }
+            rloop:
+                get_partition_info(io, name, 1);
+                if (!gPartInfo.size)
+                {
+                    if (loop_count)
+                    {
+                        name = list[--loop_count];
+                        goto rloop;
+                    }
+                    DEG_LOG(E, "Partition not exist\n");
+                    argc -= 2;
+                    argv += 2;
+                    continue;
+                }
+            }
+            char dfile[40];
+            if (isdigit(str2[2][0])) snprintf(dfile, sizeof(dfile), "%s.img", gPartInfo.name);
+            else if (in_loop) snprintf(dfile, sizeof(dfile), "%s.img", list[loop_count]);
+            else snprintf(dfile, sizeof(dfile), "%s.img", name);
+            dump_partition(io, gPartInfo.name, 0, gPartInfo.size, dfile, blk_size ? blk_size : DEFAULT_BLK_SIZE);
+            if (loop_count--)
+            {
+                name = list[loop_count];
+                goto rloop;
+            }
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "read_parts"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            const char* fn;
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "read_parts partition_table_file");
+                argc = 1;
+                continue;
+            }
+            fn = str2[2];
+            EnhancedFile fi = oxfopen_enhanced(fn, "r");
+            if (!fi)
+            {
+                DEG_LOG(E, "File does not exist.");
+                argc -= 2;
+                argv += 2;
+                continue;
+            }
+            fi.close();
+            dump_partitions(io, fn, nand_info, blk_size ? blk_size : DEFAULT_BLK_SIZE);
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "pac"))
+        {
+            const char* fn;
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "pac FILE");
+                argc = 1;
+                continue;
+            }
+            fn = str2[2];
+            EnhancedFile fi = oxfopen_enhanced(fn, "r");
+            if (!fi)
+            {
+                DEG_LOG(E, "File does not exist.");
+                argc -= 2;
+                argv += 2;
+                continue;
+            }
+            fi.close();
+            bool i_is = pac_extract(fn, "pac_unpack_output");
+            if (g_app_state.device.device_stage != FDL2)
+            {
+                DEG_LOG(E, "Pac flashing is only supported in FDL2 stage.");
+                argc -= 2;
+                argv += 2;
+                continue;
+            }
+            if (!isToolMode && check_confirm("flash pac"))
+            {
+                if (i_is)
+                {
+                    pac_flash(io, "pac_unpack_output");
+                }
+            }
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "part_table"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (!isCMethod)
+            {
+                if (argcount <= 2)
+                {
+                    DEG_LOG(W, "part_table FILE");
+                    argc = 1;
+                    continue;
+                }
+                if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
+                if (!io->part_count)
+                {
+                    DEG_LOG(E, "Partition table not available");
+                    argc -= 2;
+                    argv += 2;
+                    continue;
+                }
+                else
+                {
+                    DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
 
-		} else if (!strcmp(str2[1], "fblk_size") || !strcmp(str2[1], "fbs")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount <= 2) {
-				DEG_LOG(E, "fblk_size [value]\n\tvalue unit: MB");
-				argc = 1;
-				continue;
-			}
-			fblk_size = strtoull(str2[2], nullptr, 0) * 1024 * 1024; // Not safe with `<<`
-			argc -= 2;
-			argv += 2;
-		
-		}
-		else if (!strcmp(str2[1], "gen_tos"))
-		{
-			if (argcount <= 3) {
-				DEG_LOG(E, "gen_tos [TRUSTOS IMAGE] [SAVE PATH]");
-				argc = 1;
-				continue;
-			}
-			TosPatcher patcher;
-			int o = patcher.AvbFxxker(nullptr, str2[2], str2[3], true, false);
-			if (!o)
-			{
-				DEG_LOG(I, "Patched image saved to %s.", str2[3]);
-			}
-			else DEG_LOG(E, "Failed.");
-			argc -= 3;
-			argv += 3;
-		}
-		else if(!strcmp(str2[1], "bsp_patch"))
-		{
-			if (argcount <= 4) {
-				DEG_LOG(E, "bsp_patch [ORIG IMAGE SIGNED] [MODIFIED IMAGE] [SAVE PATH]");
-				argc = 1;
-				continue;
-			}
-			TosPatcher patcher;
-			int o = patcher.AvbFxxker(str2[2], str2[3], str2[4], false, true);
-			if (!o)
-			{
-				DEG_LOG(I, "Patched image saved to %s.", str2[4]);
-			}
-			else DEG_LOG(E, "Failed.");
-			argc -= 4;
-			argv += 4;
-		}
-		else if (!strcmp(str2[1], "dis_avb_tos")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount <= 2)
-			{
-				DEG_LOG(W, "dis_avb_tos [BACKUP FILE]");
-				argc = 1;
-				continue;
-			}
-			DEG_LOG(W, "This operation may brick your device, and not all devices support this, if your device is broken, flash backup trustos-orig.bin or flash back all partitions");
-			DEG_LOG(W, "Please make a FULL backup for your device before execute this command.");
-			uint8_t *t_mem = nullptr;
-			uint8_t *s_mem = nullptr;
-			uint64_t t_size = 0;
-			uint64_t s_size = 0;
-			if (check_confirm("Disable AVB by patching trustos")) {
-				TosPatcher patcher;
-				get_partition_info(io, "trustos", 1);
-				if (gPartInfo.size)
-				{
-					dump_partition(io, gPartInfo.name, 0, gPartInfo.size, str2[2], blk_size ? blk_size : DEFAULT_BLK_SIZE);
-					t_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, &t_size);
-					if (!t_size || gPartInfo.size < 0 || s_size != static_cast<uint64_t>(gPartInfo.size))
-					{
-						DEG_LOG(E, "dump_partition_to_mem failed.");
-						if (t_mem) delete [] t_mem;
-						argc = 1;
-						continue;
-					}
-				}
-				else
-				{
-					DEG_LOG(E, "Trustos not found!");
-					argc = 1;
-					continue;
-				}
-				if (t_mem == nullptr)
-				{
-					DEG_LOG(E, "No trustos found!");
-					argc = 1;
-					continue;
-				}
-				get_partition_info(io, "sml", 1);
-				if (gPartInfo.size)
-				{
-					s_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, &s_size);
-					if (!s_size || gPartInfo.size < 0 || s_size != static_cast<uint64_t>(gPartInfo.size))
-					{
-						DEG_LOG(E, "dump_partition_to_mem failed.");
-						if (s_mem) delete [] s_mem;
-						if (t_mem) delete [] t_mem;
-						argc = 1;
-						continue;
-					}
-				}
-				else
-				{
-					DEG_LOG(E, "No sml partition found!");
-					if (t_mem) delete[] t_mem;
-					argc = 1;
-					continue;
-				}
-				if (s_mem == nullptr)
-				{
-					DEG_LOG(E, "No sml found!");
-					if (t_mem) delete [] t_mem;
-					argc = 1;
-					continue;
-				}
-				get_partition_info(io, "trustos", 1);
-				uint64_t save_size = gPartInfo.size;
-				uint8_t *save_mem = NEWN uint8_t[save_size];
-				int o = patcher.AvbFxxker_from_mem(s_mem, s_size,
-					t_mem, t_size,
-					save_mem, &save_size, true, true);
-				if (!o) {
-					if (!save_size)
-					{
-						DEG_LOG(E, "patch failed!");
-						if (save_mem) delete [] save_mem;
-						if (s_mem) delete [] s_mem;
-						if (t_mem) delete [] t_mem;
-						argc = 1;
-						continue;
-					}
-					w_mem_to_part_offset(io, gPartInfo.name, 0, save_mem, save_size, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-					DEG_LOG(I, "Done, backup trustos image %s", str2[2]);
-				} else {
-					DEG_LOG(E, "Failed.");
-				}
-				if (save_mem) delete [] save_mem;
-				if (s_mem) delete [] s_mem;
-				if (t_mem) delete [] t_mem;
-			}
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(str2[1], "verity")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount <= 2) {
-				DEG_LOG(W, "verity {0,1}");
-				argc = 1;
-				continue;
-			}
-			if (atoi(str2[2])) dm_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-			else {
-				DEG_LOG(W, "This operation may brick your device, if you want to restore, use `verity 1` command");
-				if (check_confirm("Disable dm-verity") == 0) {
-					argc -= 2;
-					argv += 2;
-					continue;
-				}
-				if (!io->part_count) {
-					DEG_LOG(W, "Disable dm-verity needs a valid partition table or a write-verification-disabled FDL2");
-					if (!skip_confirm)
-						if (!check_confirm("disable dm-verity")) {
-							argc -= 2;
-							argv += 2;
-							continue;
-						}
-				}
-				dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
-			}
-			argc -= 2;
-			argv += 2;
+                    // 创建根节点
+                    auto root = std::make_shared<XmlNode>("Partitions");
 
-		} else if (!strcmp(str2[1], "set_active")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount <= 2) {
-				DEG_LOG(W, "set_active {a,b}");
-				argc = 1;
-				continue;
-			}
-			if (selected_ab < 0) select_ab(io);
-			if (selected_ab != 1 && selected_ab != 2)
-			{
-				DEG_LOG(E, "Device is not using VAB");
-				argc -=2;
-				argv += 2;
-				continue;
-			}
-			set_active(io, str2[2], isCMethod);
-			argc -= 2;
-			argv += 2;
+                    // 添加所有分区节点
+                    for (i = 0; i < io->part_count; i++)
+                    {
+                        DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->ptable + i)).name,
+                                ((*(io->ptable + i)).size >> 20));
 
-		} else if (!strcmp(str2[1], "add_part")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount <= 2) {
-				DEG_LOG(W, "add_part part_name");
-				argc = 1;
-				continue;
-			}
-			if (isCMethod) {
-				const char* name = str2[2];
-				int n = io->part_count_c + 1;
-				if (check_partition(io, name, 0)) {
-					long long size = check_partition(io, name, 1);
-					if (!size) {
-						DEG_LOG(E, "Can not get partition size");
-						argc -= 2;
-						argv += 2;
-						continue;
-					} else {
-						add_partition(io, name, size);
-					}
-				} else {
-					DEG_LOG(E, "Partition does not exist");
-				}
-			} else {
-				DEG_LOG(E, "`add_part` command only supported in compatibility-method mode.");
-			}
-			argc -= 2;
-			argv += 2;
-		} 
-		else if(!strcmp(str2[1],"scan_partition")){
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount <= 2) {
-				DEG_LOG(W, "scan_partition [PARTITION_XML_FILE]");
-				argc = 1;
-				continue;
-			}
-			uint8_t *buf = io->temp_buf;
-			scan_xml_partitions(io, str2[2], buf, 0xffff);
-			for (int i = 0; i < io->part_count; i++)
-			{
-				if (strcmp(io->ptable[i].name, "userdata") == 0) {
-					io->ptable[i].size = check_partition(io, "userdata", 1);
-					break;
-				}
-			}
-			if(isCMethod){
-			    delete[] io->Cptable;
-			    io->Cptable = nullptr;
-			    io->part_count_c = 0;
-			    isCMethod = 0;
-			}
-			argc -= 2;
-			argv += 2;
-		}
-		else if (!strcmp(str2[1], "p") || !strcmp(str2[1], "print")) {
-			if (isToolMode)
-			{
-				argc -= 1;
-				argv += 1;
-				
-				continue;
-			}
-			if (io->part_count) {
-				DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
-				for (i = 0; i < io->part_count; i++) {
-					DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->ptable + i)).name, ((*(io->ptable + i)).size >> 20));
-				}
-			} else if (io->part_count_c) {
-				DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
-				for (i = 0; i < io->part_count_c; i++) {
-					DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->Cptable + i)).name, ((*(io->Cptable + i)).size >> 20));
-				}
+                        auto partitionNode = std::make_shared<XmlNode>("Partition");
+                        partitionNode->setAttribute("id", (*(io->ptable + i)).name);
 
-			}
+                        if (i + 1 == io->part_count)
+                        {
+                            partitionNode->setAttribute("size", "0xffffffff");
+                        }
+                        else
+                        {
+                            char sizeStr[32];
+                            snprintf(sizeStr, sizeof(sizeStr), "%lld",
+                                     ((*(io->ptable + i)).size >> 20));
+                            partitionNode->setAttribute("size", sizeStr);
+                        }
 
-			argc -= 1;
-			argv += 1;
+                        root->addChild(partitionNode);
+                    }
 
-		} else if (!strcmp(str2[1], "pactime")) {
-			if (isToolMode)
-			{
-				
-				argc -= 1;
-				argv += 1;
-				
-				continue;
-			}
-			read_pactime(io);
-			argc -= 1;
-			argv += 1;
-		} 
-		else if (!strcmp(str2[1], "status")){
-			if (fdl2_executed > 0) {
-				if (g_app_state.device.device_mode == SPRD3) {
-					DEG_LOG(I, "Device status: FDL2/SPRD3");
-				} 
-				else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: FDL2/SPRD4(AutoD)");
-				else DEG_LOG(I, "Device status: FDL2/Unknown");
-			} else if (fdl1_loaded > 0) {
-				if (g_app_state.device.device_mode == SPRD3) {
-					DEG_LOG(I, "Device status: FDL1/SPRD3");
-				} 
-				else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: FDL1/SPRD4(AutoD)");
-				else DEG_LOG(I, "Device status: FDL1/Unknown");
-			} else if (g_app_state.device.device_stage == BROM) {
-				if (g_app_state.device.device_mode == SPRD3) {
-					DEG_LOG(I, "Device status: BROM/SPRD3");
-				} 
-				else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: BROM/SPRD4(AutoD)");
-				else DEG_LOG(I, "Device status: BROM/Unknown");
-			} else {
-				if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device status: Unknown/SPRD3");
-				else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: Unknown/SPRD4(AutoD)");
-				else DEG_LOG(I, "Device status: Unknown/Unknown");
-			}
-			DEG_LOG(I, "CMethod: %d", isCMethod);
-			DEG_LOG(I, "rawdata: %u", (unsigned)Da_Info.bSupportRawData);
-			DEG_LOG(I, "storage: ");
-			if(Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Nand");
-			else if(Da_Info.dwStorageType == 0x102) DEG_LOG(I, "Emmc");
-			else if(Da_Info.dwStorageType == 0x103) DEG_LOG(I, "Ufs");
-			else DEG_LOG(I, "Unknown");
-			DEG_LOG(I, "Slot: ");
-			if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "A");
-			else if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "B");
-			else DEG_LOG(I, "Not VAB");
-			argc -= 1;
-			argv += 1;
-		}
-		else if (!strcmp(str2[1], "firstmode")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount <= 2) {
-				DEG_LOG(W, "firstmode mode_id");
-				argc = 1;
-				continue;
-			}
-			uint8_t* modebuf = NEWN uint8_t[4];
-			if (!modebuf) ERR_EXIT("malloc failed\n");
-			uint32_t mode = strtol(str2[2], nullptr, 0) + 0x53464D00;
-			memcpy(modebuf, &mode, 4);
-			w_mem_to_part_offset(io, "miscdata", 0x2420, modebuf, 4, 0x1000, isCMethod);
-			delete[](modebuf);
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(str2[1], "skip_confirm")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount <= 2) {
-				DEG_LOG(W, "skip_confirm {0,1}");
-				argc = 1;
-				continue;
-			}
-			skip_confirm = atoi(str2[2]);
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(str2[1], "rawdata")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount <= 2) {
-				DEG_LOG(W, "rawdata {0,1,2}");
-				argc = 1;
-				continue;
-			}
-			Da_Info.bSupportRawData = atoi(str2[2]);
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(str2[1], "slot")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount <= 2) {
-				DEG_LOG(W, "slot {0,1,2}");
-				argc = 1;
-				continue;
-			}
-			g_app_state.flash.selected_ab = atoi(str2[2]);
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(str2[1], "chip_uid")) {
-			if (isToolMode)
-			{
-				
-				argc -= 1;
-				argv += 1;
-				
-				continue;
-			}
-			encode_msg_nocpy(io, BSL_CMD_READ_CHIP_UID, 0);
-			send_msg(io);
-			ret = recv_msg(io);
-			if (!ret) ERR_EXIT("timeout reached\n");
-			if ((ret = recv_type(io)) != BSL_REP_READ_CHIP_UID) {
-				const char* name = get_bsl_enum_name(ret);
-				DEG_LOG(E, "unexpected response (%s : 0x%04x)\n", name, ret);
-				argc -= 1;
-				argv += 1;
-				continue;
-			}
-			DBG_LOG("Response: chip_uid:");
-			print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
-			argc -= 1;
-			argv += 1;
-		} else if (!strcmp(str2[1], "transcode")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			const char* se = str2[2];
-			if (strcmp(se, "1") == 0) {
-				unsigned a, f;
-				if (argcount <= 2) {
-					DEG_LOG(W, "transcode {0,1}");
-					argc = 1;
-					continue;
-				}
-				a = atoi(str2[2]);
-				if (a >> 1) {
-					DEG_LOG(E, "transcode {0,1}");
-					argc -= 2;
-					argv += 2;
-					continue;
-				}
-				f = (io->flags & ~FLAGS_TRANSCODE);
-				io->flags = f | (a ? FLAGS_TRANSCODE : 0);
-			} else if (strcmp(se, "0") == 0) {
-				unsigned a;
-				if (argcount <= 2) {
-					DEG_LOG(E, "transcode {0,1}");
-					argc = 1;
-					continue;
-				}
-				a = atoi(str2[2]);
-				if (a >> 1) {
-					DEG_LOG(E, "transcode {0,1}");
-					argc -= 2;
-					argv += 2;
-					continue;
-				}
-				encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
-				if (!send_and_check(io)) io->flags &= ~FLAGS_TRANSCODE;
+                    // 保存到文件
+                    if (!root->saveXmlFile(str2[2]))
+                    {
+                        ERR_EXIT("Failed to save XML file\n");
+                    }
 
-			}
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(str2[1], "keep_charge")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount <= 2) {
-				DEG_LOG(W, "keep_charge {0,1}");
-				argc = 1;
-				continue;
-			}
-			keep_charge = atoi(str2[2]);
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(str2[1], "timeout")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount <= 2) {
-				DEG_LOG(W, "timeout [time]\n\ttime unit: ms");
-				argc = 1;
-				continue;
-			}
-			io->timeout = atoi(str2[2]);
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(str2[1], "send_end_data")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount <= 2) {
-				DEG_LOG(E, "send_end_data {0,1}");
-				argc = 1;
-				continue;
-			}
-			end_data = atoi(str2[2]);
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(str2[1], "reset")) {
-			if (isToolMode)
-			{
-				
-				argc -= 1;
-				argv += 1;
-				
-				continue;
-			}
-			if (!fdl1_loaded) {
-				DEG_LOG(W, "FDL does not executed.");
-				argc -= 1;
-				argv += 1;
-				continue;
-			}
-			encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
-			if (!send_and_check(io)) break;
-		} else if (!strcmp(str2[1], "reboot-recovery")) {
-			if (isToolMode)
-			{
-				
-				argc -= 1;
-				argv += 1;
-				
-				continue;
-			}
-			if (!fdl1_loaded) {
-				DEG_LOG(W, "FDL does not executed.");
-				argc -= 1;
-				argv += 1;
-				continue;
-			}
-			char* miscbuf = NEWN char[0x800];
-			if (!miscbuf) ERR_EXIT("malloc failed\n");
-			memset(miscbuf, 0, 0x800);
-			strcpy(miscbuf, "boot-recovery");
-			w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000, isCMethod);
-			delete[](miscbuf);
-			encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
-			if (!send_and_check(io)) break;
-		} else if (!strcmp(str2[1], "reboot-fastboot")) {
-			if (isToolMode)
-			{
-				
-				argc -= 1;
-				argv += 1;
-				
-				continue;
-			}
-			if (!fdl1_loaded) {
-				DEG_LOG(W, "FDL does not executed.");
-				argc -= 1;
-				argv += 1;
-				continue;
-			}
-			char* miscbuf = NEWN char[0x800];
-			if (!miscbuf) ERR_EXIT("malloc failed\n");
-			memset(miscbuf, 0, 0x800);
-			strcpy(miscbuf, "boot-recovery");
-			strcpy(miscbuf + 0x40, "recovery\n--fastboot\n");
-			w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000, isCMethod);
-			delete[](miscbuf);
-			encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
-			if (!send_and_check(io)) break;
-		} else if (!strcmp(str2[1], "poweroff")) {
-			if (isToolMode)
-			{
-				
-				argc -= 1;
-				argv += 1;
-				
-				continue;
-			}
-			if (!fdl1_loaded) {
-				DEG_LOG(W, "FDL does not executed.");
-				argc -= 1;
-				argv += 1;
-				continue;
-			}
-			encode_msg_nocpy(io, BSL_CMD_POWER_OFF, 0);
-			if (!send_and_check(io)) break;
-		} else if (!strcmp(str2[1], "verbose")) {
-			if (isToolMode)
-			{
-				if (argcount <= 2)
-				{
-					argc = 1;
-				}
-				else
-				{
-					argc -= 2;
-					argv += 2;
-				}
-				continue;
-			}
-			if (argcount <= 2) {
-				DEG_LOG(W, "verbose {0,1,2}");
-				argc = 1;
-				continue;
-			}
-			io->verbose = atoi(str2[2]);
-			argc -= 2;
-			argv += 2;
-		} else if (!strcmp(str2[1], "exit")){
-			if (isToolMode)
-			{
-				break;
-			}
-			else
-			{
-				DEG_LOG(E, "Non-tool mode does not support `exit` command, use `poweroff`, `reset`, etc. instead.");
-				argc -= 1;
-				argv += 1;
-				continue;
-			}
-		}
-		else if (strlen(str2[1])) {
-			print_help();
-			argc = 1;
-		}
-		if (in_quote != -1)
-		{
-			for (i = 1; i < argcount; i++)
-				delete[](str2[i]);
-			delete[](str2);
-		}
-		if (!isToolMode && is_device_unattached_and_log(io)) {
-			break;
-		}
-	}
-	spdio_free(io);
-	return 0;
+                    DEG_LOG(I, "Partition table saved to %s", str2[2]);
+                }
+            }
+            else
+            {
+                if (argcount <= 2)
+                {
+                    DEG_LOG(W, "part_table FILE");
+                    argc = 1;
+                    continue;
+                }
+                int c = io->part_count_c;
+                if (!c)
+                {
+                    DEG_LOG(E, "Partition table not available");
+                    argc -= 2;
+                    argv += 2;
+                    continue;
+                }
+                else
+                {
+                    DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
+
+                    // 创建根节点
+                    auto root = std::make_shared<XmlNode>("Partitions");
+
+                    // 保存原始 verbose 设置
+                    int o = io->verbose;
+                    io->verbose = -1;
+
+                    // 添加所有分区节点
+                    for (i = 0; i < c; i++)
+                    {
+                        char* name = (*(io->Cptable + i)).name;
+                        DBG_LOG("%3d %36s %7lldMB\n", i + 1, name, ((*(io->Cptable + i)).size >> 20));
+
+                        auto partitionNode = std::make_shared<XmlNode>("Partition");
+                        partitionNode->setAttribute("id", name);
+
+                        // 判断是否为最后一个分区且 userdata 存在
+                        if (check_partition(io, "userdata", 0) != 0 && i + 1 == io->part_count_c)
+                        {
+                            partitionNode->setAttribute("size", "0xffffffff");
+                        }
+                        else
+                        {
+                            char sizeStr[32];
+                            snprintf(sizeStr, sizeof(sizeStr), "%lld",
+                                     ((*(io->Cptable + i)).size >> 20));
+                            partitionNode->setAttribute("size", sizeStr);
+                        }
+
+                        root->addChild(partitionNode);
+                    }
+
+                    // 恢复 verbose 设置
+                    io->verbose = o;
+
+                    // 保存到文件
+                    if (!root->saveXmlFile(str2[2]))
+                    {
+                        ERR_EXIT("Failed to save XML file\n");
+                    }
+
+                    DEG_LOG(I, "Partition table saved to %s", str2[2]);
+                }
+            }
+
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "get_pgpt"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "get_pgpt FILE");
+                argc = 1;
+                continue;
+            }
+            if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
+            if (!io->part_count)
+            {
+                DEG_LOG(E, "No original partition list found.");
+                argc = 1;
+                continue;
+            }
+            if (!g_app_state.flash.is_pgpt)
+            {
+                DEG_LOG(E, "Device is not support pgpt");
+                argc = 1;
+                continue;
+            }
+            uint64_t size = dump_partition(io, "user_partition", 0, 32 * 1024, str2[2], 4096);
+            if (size != 32 * 1024) DEG_LOG(W, "Read size is not 32 * 1024");
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "get_sprdpart"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "get_sprdpart FILE");
+                argc = 1;
+                continue;
+            }
+            if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
+            if (!io->part_count)
+            {
+                DEG_LOG(E, "No original partition list found.");
+                argc = 1;
+                continue;
+            }
+            if (g_app_state.flash.is_pgpt)
+            {
+                DEG_LOG(E, "Device is using pgpt, use 'get_pgpt' instead.");
+                argc = 1;
+                continue;
+            }
+            encode_msg_nocpy(io, BSL_CMD_READ_PARTITION, 0);
+            send_msg(io);
+            ret = recv_msg(io);
+            if (!ret) ERR_EXIT("timeout reached\n");
+            ret = recv_type(io);
+            if (ret != BSL_REP_READ_PARTITION)
+            {
+                const char* name = get_bsl_enum_name(ret);
+                DEG_LOG(E, "unexpected response (%s : 0x%04x)", name, ret);
+                argc = 1;
+                continue;
+            }
+            uint64_t size = READ16_BE(io->raw_buf + 2);
+            if (size % 0x4c)
+            {
+                DEG_LOG(I, "Not divisible by struct size (0x%04lx)", size);
+                argc = 1;
+                continue;
+            }
+            EnhancedFile fpkt = my_oxfopen_enhanced(str2[2], "wb");
+            if (!fpkt) ERR_EXIT("fopen failed\n");
+            fpkt.write(io->raw_buf + 4, 1, size);
+            fpkt.close();
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "repartition"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            const char* fn;
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "repartition FILE");
+                argc = 1;
+                continue;
+            }
+            fn = str2[2];
+            EnhancedFile fi = oxfopen_enhanced(fn, "r");
+            if (!fi)
+            {
+                DEG_LOG(E, "File does not exist.");
+                argc -= 2;
+                argv += 2;
+                continue;
+            }
+            fi.close();
+            if (skip_confirm) repartition(io, str2[2]);
+            else if (check_confirm("repartition")) repartition(io, str2[2]);
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "erase_part") || !strcmp(str2[1], "e"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            const char* name = str2[2];
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "erase_part part_name/part_id\n");
+                argc = 1;
+                continue;
+            }
+            if (!strcmp(name, "all"))
+            {
+                if (!check_confirm("erase all"))
+                {
+                    argc -= 2;
+                    argv += 2;
+                    continue;
+                }
+                strcpy(gPartInfo.name, "all");
+            }
+            else
+            {
+                if (!skip_confirm)
+                    if (!check_confirm("erase partition"))
+                    {
+                        argc -= 2;
+                        argv += 2;
+                        continue;
+                    }
+                get_partition_info(io, name, 0);
+            }
+            if (!gPartInfo.size)
+            {
+                DBG_LOG("part not exist\n");
+                argc -= 2;
+                argv += 2;
+                continue;
+            }
+            erase_partition(io, gPartInfo.name, isCMethod);
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "erase_all"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            if (!check_confirm("erase all"))
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            erase_partition(io, "all", isCMethod);
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(str2[1], "g_w_force"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            int mode = atoi(str2[2]);
+            if (mode < 0 || mode > 1)
+            {
+                DEG_LOG(W, "g_w_force {0,1}");
+            }
+            else
+            {
+                if (mode == 1 && Da_Info.dwStorageType == 0x101)
+                {
+                    DEG_LOG(E, "g_w_force is not allowed on NAND(UBI) devices");
+                }
+                else
+                {
+                    g_app_state.flash.g_w_force = mode;
+                    DEG_LOG(I, "g_w_force is %d", g_app_state.flash.g_w_force);
+                }
+            }
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "cptable"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            if (!io->part_count_c && !io->part_count)
+            {
+                io->Cptable = partition_list_d(io);
+                if (io->Cptable) isCMethod = 1;
+            }
+            else
+            {
+                DEG_LOG(I, "Partition table already loaded");
+            }
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(str2[1], "read_nand"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+
+                continue;
+            }
+            encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
+            send_msg(io);
+            ret = recv_msg(io);
+            if (ret)
+            {
+                ret = recv_type(io);
+                const char* name = get_bsl_enum_name(ret);
+                if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E, "unexpected response (%s : 0x%04x)\n", name, ret);
+                else Da_Info.dwStorageType = 0x101;
+                // need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
+                // for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
+            }
+            if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand");
+            else DEG_LOG(I, "Device storage is not nand");
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(str2[1], "w") || !strcmp(str2[1], "write_part"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 3)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 3;
+                    argv += 3;
+                }
+                continue;
+            }
+            const char* fn;
+            EnhancedFile fi;
+            const char* name = str2[2];
+            if (argcount <= 3)
+            {
+                DEG_LOG(W, "w/write_part part_name/part_id FILE\n");
+                argc = 1;
+                continue;
+            }
+            fn = str2[3];
+            fi = oxfopen_enhanced(fn, "r");
+            if (!fi)
+            {
+                DEG_LOG(E, "File does not exist.\n");
+                argc -= 3;
+                argv += 3;
+                continue;
+            }
+            fi.close();
+            if (!skip_confirm)
+                if (!check_confirm("write partition"))
+                {
+                    argc -= 3;
+                    argv += 3;
+                    continue;
+                }
+            get_partition_info(io, name, 0);
+            if (!gPartInfo.size)
+            {
+                DEG_LOG(E, "Partition does not exist\n");
+                argc -= 3;
+                argv += 3;
+                continue;
+            }
+
+            load_partition_unify(io, gPartInfo.name, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
+            argc -= 3;
+            argv += 3;
+        }
+        else if (!strncmp(str2[1], "write_parts", 11))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "write_parts/write_parts_a/write_parts_b save_location\n");
+                argc = 1;
+                continue;
+            }
+            int force_ab = 0;
+            if (!strcmp(str2[1], "write_parts_a")) force_ab = 1;
+            else if (!strcmp(str2[1], "write_parts_b")) force_ab = 2;
+            if (skip_confirm || check_confirm("write partitions")) load_partitions(
+                io, str2[2], blk_size ? blk_size : DEFAULT_BLK_SIZE, force_ab, isCMethod);
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "w_force"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 3)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 3;
+                    argv += 3;
+                }
+                continue;
+            }
+            const char* fn;
+            const char* name = str2[2];
+            if (argcount <= 3)
+            {
+                DEG_LOG(W, "w_force part_name/part_id FILE");
+                argc = 1;
+                continue;
+            }
+            if (Da_Info.dwStorageType == 0x101)
+            {
+                DEG_LOG(E, "w_force is not allowed on NAND(UBI) devices");
+                argc -= 3;
+                argv += 3;
+                continue;
+            }
+            if (g_app_state.flash.g_w_force == 0)
+            {
+                DEG_LOG(E, "w_force is disabled for stability, use 'g_w_force 1' to enable it first");
+                argc = 1;
+                continue;
+            }
+            if (!isCMethod)
+            {
+                if (!io->part_count)
+                {
+                    DEG_LOG(E, "Partition table not available");
+                    argc -= 3;
+                    argv += 3;
+                    continue;
+                }
+                fn = str2[3];
+                EnhancedFile fi = oxfopen_enhanced(fn, "r");
+                if (!fi)
+                {
+                    DEG_LOG(E, "File does not exist.");
+                    argc -= 3;
+                    argv += 3;
+                    continue;
+                }
+                fi.close();
+                get_partition_info(io, name, 0);
+                if (!gPartInfo.size)
+                {
+                    DEG_LOG(E, "Partition does not exist");
+                    argc -= 3;
+                    argv += 3;
+                    continue;
+                }
+
+                if (!strncmp(gPartInfo.name, "splloader", 9))
+                {
+                    DEG_LOG(E, "Partition 'splloader' can not be force-written!");
+                    argc -= 3;
+                    argv += 3;
+                    continue;
+                }
+                else if (isdigit(str2[2][0])) load_partition_force(io, atoi(str2[2]) - 1, fn,
+                                                                   blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
+                else
+                {
+                    for (i = 0; i < io->part_count; i++)
+                    {
+                        if (!strcmp(gPartInfo.name, (*(io->ptable + i)).name))
+                        {
+                            load_partition_force(io, i, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
+                            break;
+                        }
+                    }
+                }
+            }
+            else if (io->part_count_c)
+            {
+                DEG_LOG(W, "compatibility-method mode detected,for security,recommanded not to force write!");
+                if (check_confirm("Force write partition") == 0)
+                {
+                    argc -= 3;
+                    argv += 3;
+                    continue;
+                }
+                fn = str2[3];
+                EnhancedFile fi = oxfopen_enhanced(fn, "r");
+                if (!fi)
+                {
+                    DEG_LOG(E, "File does not exist.");
+                    argc -= 3;
+                    argv += 3;
+                    continue;
+                }
+                fi.close();
+                get_partition_info(io, name, 0);
+                if (!gPartInfo.size)
+                {
+                    DEG_LOG(E, "Partition does not exist");
+                    argc -= 3;
+                    argv += 3;
+                    continue;
+                }
+
+                if (!strncmp(gPartInfo.name, "splloader", 9))
+                {
+                    DEG_LOG(E, "Partition 'splloader' can not be force-written!");
+                    argc -= 3;
+                    argv += 3;
+                    continue;
+                }
+                else if (isdigit(str2[2][0])) load_partition_force(io, atoi(str2[2]) - 1, fn,
+                                                                   blk_size ? blk_size : DEFAULT_BLK_SIZE, 1);
+                else
+                {
+                    for (i = 0; i < io->part_count_c; i++)
+                        if (!strcmp(gPartInfo.name, (*(io->Cptable + i)).name))
+                        {
+                            load_partition_force(io, i, fn, blk_size ? blk_size : DEFAULT_BLK_SIZE, 1);
+                            break;
+                        }
+                }
+            }
+            else
+            {
+                DEG_LOG(E, "Partition table not available");
+            }
+            argc -= 3;
+            argv += 3;
+        }
+        else if (!strcmp(str2[1], "wof") || !strcmp(str2[1], "wov"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 4)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 4;
+                    argv += 4;
+                }
+                continue;
+            }
+            uint64_t offset;
+            size_t length;
+            uint8_t* src;
+            const char* name = str2[2];
+            if (argcount <= 4)
+            {
+                DEG_LOG(W, "wof part_name offset FILE\nwov part_name offset VALUE(max is 0xFFFFFFFF)");
+                argc = 1;
+                continue;
+            }
+            if (strstr(name, "fixnv") || strstr(name, "runtimenv") || strstr(name, "userdata"))
+            {
+                DEG_LOG(E, "Partitions 'fixnv_x', 'runtimenv', 'userdata' can not be written offsetly");
+                argc -= 4;
+                argv += 4;
+                continue;
+            }
+
+            offset = str_to_size(str2[3]);
+            if (!strcmp(str2[1], "wov"))
+            {
+                src = NEWN uint8_t[4];
+                if (!src)
+                {
+                    DEG_LOG(E, "malloc failed");
+                    argc -= 4;
+                    argv += 4;
+                    continue;
+                }
+                length = 4;
+                *(uint32_t*)src = strtoul(str2[4], nullptr, 0);
+            }
+            else
+            {
+                const char* fn = str2[4];
+                src = loadfile(fn, &length, 0);
+                if (!src)
+                {
+                    DEG_LOG(E, "Open %s failed", fn);
+                    argc -= 4;
+                    argv += 4;
+                    continue;
+                }
+            }
+            w_mem_to_part_offset(io, name, (size_t)offset, src, length, blk_size ? blk_size : DEFAULT_BLK_SIZE,
+                                 isCMethod);
+            delete[](src);
+            argc -= 4;
+            argv += 4;
+        }
+        else if (!strcmp(str2[1], "mergenv-xml"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 3)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 3;
+                    argv += 3;
+                }
+                continue;
+            }
+            if (argcount <= 3)
+            {
+                DEG_LOG(W, "mergenv-xml xml new_nv\n");
+                argc = 1;
+                continue;
+            }
+            get_partition_info(io, "nr_fixnv1", 1);
+            if (!gPartInfo.size) get_partition_info(io, "l_fixnv1", 1);
+            if (!gPartInfo.size)
+            {
+                DEG_LOG(E, "part not exist\n");
+                argc -= 3;
+                argv += 3;
+                continue;
+            }
+            uint64_t size = 0;
+            uint8_t* mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size,
+                                                 blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
+            if (!size)
+            {
+                DEG_LOG(E, "dump_partition_to_mem failed");
+                argc = 1;
+                continue;
+            }
+            if (get_nvlist_xml(io, str2[2]))
+            {
+                size_t a_size = 0, b_size = 0, c_size = 0;
+                uint8_t* a = mem;
+                uint8_t* b = loadfile(str2[3], &b_size, 0);
+                uint8_t* c = (uint8_t*)malloc(a_size + b_size);
+                merge_nv(io, a, a_size, b, b_size, c, &c_size);
+                load_nv_partition_from_mem(io, gPartInfo.name, c, 4096);
+                delete[](a);
+                delete[](b);
+                free(c);
+            }
+            delete[](io->nvid_list);
+            io->nvid_list = NULL;
+            argc -= 3;
+            argv += 3;
+        }
+        else if (!strcmp(str2[1], "mergenv-xml-ex"))
+        {
+            if (argcount <= 5)
+            {
+                DEG_LOG(W, "mergenv-xml-ex xml old_nv new_nv FILE\n");
+                argc = 1;
+                continue;
+            }
+            if (get_nvlist_xml(io, str2[2]))
+            {
+                size_t a_size = 0, b_size = 0, c_size = 0;
+                uint8_t* a = loadfile(str2[3], &a_size, 0);
+                uint8_t* b = loadfile(str2[4], &b_size, 0);
+                uint8_t* c = (uint8_t*)malloc(a_size + b_size);
+                merge_nv(io, a, a_size, b, b_size, c, &c_size);
+                EnhancedFile fi = oxfopen_enhanced(str2[5], "wb");
+                if (!fi) ERR_EXIT("fopen failed\n");
+                if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+                if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
+                fi.close();
+                delete[](a);
+                delete[](b);
+                free(c);
+            }
+            delete[](io->nvid_list);
+            io->nvid_list = NULL;
+            argc -= 5;
+            argv += 5;
+        }
+        else if (!strcmp(str2[1], "mergenv-cfg"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 3)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 3;
+                    argv += 3;
+                }
+                continue;
+            }
+            if (argcount <= 3)
+            {
+                DEG_LOG(W, "mergenv-cfg cfg new_nv\n");
+                argc = 1;
+                continue;
+            }
+            get_partition_info(io, "nr_fixnv1", 1);
+            if (!gPartInfo.size) get_partition_info(io, "l_fixnv1", 1);
+            if (!gPartInfo.size)
+            {
+                DEG_LOG(E, "part not exist\n");
+                argc -= 3;
+                argv += 3;
+                continue;
+            }
+            uint64_t size = 0;
+            uint8_t* mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size,
+                                                 blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
+            if (!size)
+            {
+                DEG_LOG(E, "dump_partition_to_mem failed");
+                argc = 1;
+                continue;
+            }
+            if (get_nvlist_cfg(io, str2[2]))
+            {
+                size_t a_size = 0, b_size = 0, c_size = 0;
+                uint8_t* a = mem;
+                uint8_t* b = loadfile(str2[3], &b_size, 0);
+                uint8_t* c = (uint8_t*)malloc(a_size + b_size);
+                merge_nv(io, a, a_size, b, b_size, c, &c_size);
+                load_nv_partition_from_mem(io, gPartInfo.name, c, 4096);
+                delete[](a);
+                delete[](b);
+                free(c);
+            }
+            delete[](io->nvid_list);
+            io->nvid_list = NULL;
+            argc -= 3;
+            argv += 3;
+        }
+        else if (!strcmp(str2[1], "mergenv-cfg-ex"))
+        {
+            if (argcount <= 5)
+            {
+                DEG_LOG(W, "mergenv-cfg-ex cfg old_nv new_nv FILE\n");
+                argc = 1;
+                continue;
+            }
+            if (get_nvlist_cfg(io, str2[2]))
+            {
+                size_t a_size = 0, b_size = 0, c_size = 0;
+                uint8_t* a = loadfile(str2[3], &a_size, 0);
+                uint8_t* b = loadfile(str2[4], &b_size, 0);
+                uint8_t* c = (uint8_t*)malloc(a_size + b_size);
+                merge_nv(io, a, a_size, b, b_size, c, &c_size);
+                EnhancedFile fi = oxfopen_enhanced(str2[5], "wb");
+                if (!fi) ERR_EXIT("fopen failed\n");
+                if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+                if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
+                fi.close();
+                delete[](a);
+                delete[](b);
+                free(c);
+            }
+            delete[](io->nvid_list);
+            io->nvid_list = NULL;
+            argc -= 5;
+            argv += 5;
+        }
+        else if (!strcmp(str2[1], "blk_size") || !strcmp(str2[1], "bs"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(E, "blk_size byte\n\tmax is 65535");
+                argc = 1;
+                continue;
+            }
+            blk_size = strtol(str2[2], nullptr, 0);
+            blk_size = blk_size < 0 ? 0 : blk_size > 0xf800 ? 0xf800 : ((blk_size + 0x7FF) & ~0x7FF);
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "fblk_size") || !strcmp(str2[1], "fbs"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(E, "fblk_size [value]\n\tvalue unit: MB");
+                argc = 1;
+                continue;
+            }
+            fblk_size = strtoull(str2[2], nullptr, 0) * 1024 * 1024; // Not safe with `<<`
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "gen_tos"))
+        {
+            if (argcount <= 3)
+            {
+                DEG_LOG(E, "gen_tos [TRUSTOS IMAGE] [SAVE PATH]");
+                argc = 1;
+                continue;
+            }
+            TosPatcher patcher;
+            int o = patcher.AvbFxxker(nullptr, str2[2], str2[3], true, false);
+            if (!o)
+            {
+                DEG_LOG(I, "Patched image saved to %s.", str2[3]);
+            }
+            else DEG_LOG(E, "Failed.");
+            argc -= 3;
+            argv += 3;
+        }
+        else if (!strcmp(str2[1], "bsp_patch"))
+        {
+            if (argcount <= 4)
+            {
+                DEG_LOG(E, "bsp_patch [ORIG IMAGE SIGNED] [MODIFIED IMAGE] [SAVE PATH]");
+                argc = 1;
+                continue;
+            }
+            TosPatcher patcher;
+            int o = patcher.AvbFxxker(str2[2], str2[3], str2[4], false, true);
+            if (!o)
+            {
+                DEG_LOG(I, "Patched image saved to %s.", str2[4]);
+            }
+            else DEG_LOG(E, "Failed.");
+            argc -= 4;
+            argv += 4;
+        }
+        else if (!strcmp(str2[1], "dis_avb_tos"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "dis_avb_tos [BACKUP FILE]");
+                argc = 1;
+                continue;
+            }
+            DEG_LOG(
+                W,
+                "This operation may brick your device, and not all devices support this, if your device is broken, flash backup trustos-orig.bin or flash back all partitions");
+            DEG_LOG(W, "Please make a FULL backup for your device before execute this command.");
+            uint8_t* t_mem = nullptr;
+            uint8_t* s_mem = nullptr;
+            uint64_t t_size = 0;
+            uint64_t s_size = 0;
+            if (check_confirm("Disable AVB by patching trustos"))
+            {
+                TosPatcher patcher;
+                get_partition_info(io, "trustos", 1);
+                if (gPartInfo.size)
+                {
+                    dump_partition(io, gPartInfo.name, 0, gPartInfo.size, str2[2],
+                                   blk_size ? blk_size : DEFAULT_BLK_SIZE);
+                    if (isCancel)
+                    {
+                        argc = 1;
+                        continue;
+                    }
+                    t_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size,
+                                                  blk_size ? blk_size : DEFAULT_BLK_SIZE, &t_size);
+                    if (!t_size || isCancel)
+                    {
+                        DEG_LOG(E, "dump_partition_to_mem failed.");
+                        if (t_mem) delete [] t_mem;
+                        argc = 1;
+                        continue;
+                    }
+                }
+                else
+                {
+                    DEG_LOG(E, "Trustos not found!");
+                    argc = 1;
+                    continue;
+                }
+                if (t_mem == nullptr)
+                {
+                    DEG_LOG(E, "No trustos found!");
+                    argc = 1;
+                    continue;
+                }
+                get_partition_info(io, "sml", 1);
+                if (gPartInfo.size)
+                {
+                    s_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size,
+                                                  blk_size ? blk_size : DEFAULT_BLK_SIZE, &s_size);
+                    if (!s_size || isCancel)
+                    {
+                        DEG_LOG(E, "dump_partition_to_mem failed.");
+                        if (s_mem) delete [] s_mem;
+                        if (t_mem) delete [] t_mem;
+                        argc = 1;
+                        continue;
+                    }
+                }
+                else
+                {
+                    DEG_LOG(E, "No sml partition found!");
+                    if (t_mem) delete[] t_mem;
+                    argc = 1;
+                    continue;
+                }
+                if (s_mem == nullptr)
+                {
+                    DEG_LOG(E, "No sml found!");
+                    if (t_mem) delete [] t_mem;
+                    argc = 1;
+                    continue;
+                }
+                get_partition_info(io, "trustos", 1);
+                uint64_t save_size = gPartInfo.size;
+                uint8_t* save_mem = NEWN uint8_t[save_size];
+                int o = patcher.AvbFxxker_from_mem(s_mem, s_size,
+                                                   t_mem, t_size,
+                                                   save_mem, &save_size, true, true);
+                if (!o)
+                {
+                    if (!save_size)
+                    {
+                        DEG_LOG(E, "patch failed!");
+                        if (save_mem) delete [] save_mem;
+                        if (s_mem) delete [] s_mem;
+                        if (t_mem) delete [] t_mem;
+                        argc = 1;
+                        continue;
+                    }
+                    w_mem_to_part_offset(io, gPartInfo.name, 0, save_mem, save_size,
+                                         blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
+                    DEG_LOG(I, "Done, backup trustos image %s", str2[2]);
+                }
+                else
+                {
+                    DEG_LOG(E, "Failed.");
+                }
+                if (save_mem) delete [] save_mem;
+                if (s_mem) delete [] s_mem;
+                if (t_mem) delete [] t_mem;
+            }
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "verity"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "verity {0,1}");
+                argc = 1;
+                continue;
+            }
+            if (atoi(str2[2])) dm_enable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
+            else
+            {
+                DEG_LOG(W, "This operation may brick your device, if you want to restore, use `verity 1` command");
+                if (check_confirm("Disable dm-verity") == 0)
+                {
+                    argc -= 2;
+                    argv += 2;
+                    continue;
+                }
+                if (!io->part_count)
+                {
+                    DEG_LOG(W, "Disable dm-verity needs a valid partition table or a write-verification-disabled FDL2");
+                    if (!skip_confirm)
+                        if (!check_confirm("disable dm-verity"))
+                        {
+                            argc -= 2;
+                            argv += 2;
+                            continue;
+                        }
+                }
+                dm_disable(io, blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
+            }
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "set_active"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "set_active {a,b}");
+                argc = 1;
+                continue;
+            }
+            if (selected_ab < 0) select_ab(io);
+            if (selected_ab != 1 && selected_ab != 2)
+            {
+                DEG_LOG(E, "Device is not using VAB");
+                argc -= 2;
+                argv += 2;
+                continue;
+            }
+            set_active(io, str2[2], isCMethod);
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "add_part"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "add_part part_name");
+                argc = 1;
+                continue;
+            }
+            if (isCMethod)
+            {
+                const char* name = str2[2];
+                int n = io->part_count_c + 1;
+                if (check_partition(io, name, 0))
+                {
+                    long long size = check_partition(io, name, 1);
+                    if (!size)
+                    {
+                        DEG_LOG(E, "Can not get partition size");
+                        argc -= 2;
+                        argv += 2;
+                        continue;
+                    }
+                    else
+                    {
+                        add_partition(io, name, size);
+                    }
+                }
+                else
+                {
+                    DEG_LOG(E, "Partition does not exist");
+                }
+            }
+            else
+            {
+                DEG_LOG(E, "`add_part` command only supported in compatibility-method mode.");
+            }
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "scan_partition"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "scan_partition [PARTITION_XML_FILE]");
+                argc = 1;
+                continue;
+            }
+            uint8_t* buf = io->temp_buf;
+            scan_xml_partitions(io, str2[2], buf, 0xffff);
+            for (int i = 0; i < io->part_count; i++)
+            {
+                if (strcmp(io->ptable[i].name, "userdata") == 0)
+                {
+                    io->ptable[i].size = check_partition(io, "userdata", 1);
+                    break;
+                }
+            }
+            if (isCMethod)
+            {
+                delete[] io->Cptable;
+                io->Cptable = nullptr;
+                io->part_count_c = 0;
+                isCMethod = 0;
+            }
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "p") || !strcmp(str2[1], "print"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+
+                continue;
+            }
+            if (io->part_count)
+            {
+                DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
+                for (i = 0; i < io->part_count; i++)
+                {
+                    DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->ptable + i)).name, ((*(io->ptable + i)).size >> 20));
+                }
+            }
+            else if (io->part_count_c)
+            {
+                DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
+                for (i = 0; i < io->part_count_c; i++)
+                {
+                    DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->Cptable + i)).name, ((*(io->Cptable + i)).size >> 20));
+                }
+            }
+
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(str2[1], "pactime"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+
+                continue;
+            }
+            read_pactime(io);
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(str2[1], "status"))
+        {
+            if (fdl2_executed > 0)
+            {
+                if (g_app_state.device.device_mode == SPRD3)
+                {
+                    DEG_LOG(I, "Device status: FDL2/SPRD3");
+                }
+                else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: FDL2/SPRD4(AutoD)");
+                else DEG_LOG(I, "Device status: FDL2/Unknown");
+            }
+            else if (fdl1_loaded > 0)
+            {
+                if (g_app_state.device.device_mode == SPRD3)
+                {
+                    DEG_LOG(I, "Device status: FDL1/SPRD3");
+                }
+                else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: FDL1/SPRD4(AutoD)");
+                else DEG_LOG(I, "Device status: FDL1/Unknown");
+            }
+            else if (g_app_state.device.device_stage == BROM)
+            {
+                if (g_app_state.device.device_mode == SPRD3)
+                {
+                    DEG_LOG(I, "Device status: BROM/SPRD3");
+                }
+                else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: BROM/SPRD4(AutoD)");
+                else DEG_LOG(I, "Device status: BROM/Unknown");
+            }
+            else
+            {
+                if (g_app_state.device.device_mode == SPRD3) DEG_LOG(I, "Device status: Unknown/SPRD3");
+                else if (g_app_state.device.device_mode == SPRD4) DEG_LOG(I, "Device status: Unknown/SPRD4(AutoD)");
+                else DEG_LOG(I, "Device status: Unknown/Unknown");
+            }
+            DEG_LOG(I, "CMethod: %d", isCMethod);
+            DEG_LOG(I, "rawdata: %u", (unsigned)Da_Info.bSupportRawData);
+            DEG_LOG(I, "storage: ");
+            if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Nand");
+            else if (Da_Info.dwStorageType == 0x102) DEG_LOG(I, "Emmc");
+            else if (Da_Info.dwStorageType == 0x103) DEG_LOG(I, "Ufs");
+            else DEG_LOG(I, "Unknown");
+            DEG_LOG(I, "Slot: ");
+            if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "A");
+            else if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "B");
+            else DEG_LOG(I, "Not VAB");
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(str2[1], "firstmode"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "firstmode mode_id");
+                argc = 1;
+                continue;
+            }
+            uint8_t* modebuf = NEWN uint8_t[4];
+            if (!modebuf) ERR_EXIT("malloc failed\n");
+            uint32_t mode = strtol(str2[2], nullptr, 0) + 0x53464D00;
+            memcpy(modebuf, &mode, 4);
+            w_mem_to_part_offset(io, "miscdata", 0x2420, modebuf, 4, 0x1000, isCMethod);
+            delete[](modebuf);
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "skip_confirm"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "skip_confirm {0,1}");
+                argc = 1;
+                continue;
+            }
+            skip_confirm = atoi(str2[2]);
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "rawdata"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "rawdata {0,1,2}");
+                argc = 1;
+                continue;
+            }
+            Da_Info.bSupportRawData = atoi(str2[2]);
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "slot"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "slot {0,1,2}");
+                argc = 1;
+                continue;
+            }
+            g_app_state.flash.selected_ab = atoi(str2[2]);
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "chip_uid"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+
+                continue;
+            }
+            encode_msg_nocpy(io, BSL_CMD_READ_CHIP_UID, 0);
+            send_msg(io);
+            ret = recv_msg(io);
+            if (!ret) ERR_EXIT("timeout reached\n");
+            if ((ret = recv_type(io)) != BSL_REP_READ_CHIP_UID)
+            {
+                const char* name = get_bsl_enum_name(ret);
+                DEG_LOG(E, "unexpected response (%s : 0x%04x)\n", name, ret);
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            DBG_LOG("Response: chip_uid:");
+            print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(str2[1], "transcode"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            const char* se = str2[2];
+            if (strcmp(se, "1") == 0)
+            {
+                unsigned a, f;
+                if (argcount <= 2)
+                {
+                    DEG_LOG(W, "transcode {0,1}");
+                    argc = 1;
+                    continue;
+                }
+                a = atoi(str2[2]);
+                if (a >> 1)
+                {
+                    DEG_LOG(E, "transcode {0,1}");
+                    argc -= 2;
+                    argv += 2;
+                    continue;
+                }
+                f = (io->flags & ~FLAGS_TRANSCODE);
+                io->flags = f | (a ? FLAGS_TRANSCODE : 0);
+            }
+            else if (strcmp(se, "0") == 0)
+            {
+                unsigned a;
+                if (argcount <= 2)
+                {
+                    DEG_LOG(E, "transcode {0,1}");
+                    argc = 1;
+                    continue;
+                }
+                a = atoi(str2[2]);
+                if (a >> 1)
+                {
+                    DEG_LOG(E, "transcode {0,1}");
+                    argc -= 2;
+                    argv += 2;
+                    continue;
+                }
+                encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
+                if (!send_and_check(io)) io->flags &= ~FLAGS_TRANSCODE;
+            }
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "keep_charge"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "keep_charge {0,1}");
+                argc = 1;
+                continue;
+            }
+            keep_charge = atoi(str2[2]);
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "timeout"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "timeout [time]\n\ttime unit: ms");
+                argc = 1;
+                continue;
+            }
+            io->timeout = atoi(str2[2]);
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "send_end_data"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(E, "send_end_data {0,1}");
+                argc = 1;
+                continue;
+            }
+            end_data = atoi(str2[2]);
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "reset"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+
+                continue;
+            }
+            if (!fdl1_loaded)
+            {
+                DEG_LOG(W, "FDL does not executed.");
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
+            if (!send_and_check(io)) break;
+        }
+        else if (!strcmp(str2[1], "reboot-recovery"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+
+                continue;
+            }
+            if (!fdl1_loaded)
+            {
+                DEG_LOG(W, "FDL does not executed.");
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            char* miscbuf = NEWN char[0x800];
+            if (!miscbuf) ERR_EXIT("malloc failed\n");
+            memset(miscbuf, 0, 0x800);
+            strcpy(miscbuf, "boot-recovery");
+            w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000, isCMethod);
+            delete[](miscbuf);
+            encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
+            if (!send_and_check(io)) break;
+        }
+        else if (!strcmp(str2[1], "reboot-fastboot"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+
+                continue;
+            }
+            if (!fdl1_loaded)
+            {
+                DEG_LOG(W, "FDL does not executed.");
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            char* miscbuf = NEWN char[0x800];
+            if (!miscbuf) ERR_EXIT("malloc failed\n");
+            memset(miscbuf, 0, 0x800);
+            strcpy(miscbuf, "boot-recovery");
+            strcpy(miscbuf + 0x40, "recovery\n--fastboot\n");
+            w_mem_to_part_offset(io, "misc", 0, (uint8_t*)miscbuf, 0x800, 0x1000, isCMethod);
+            delete[](miscbuf);
+            encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
+            if (!send_and_check(io)) break;
+        }
+        else if (!strcmp(str2[1], "poweroff"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+
+                continue;
+            }
+            if (!fdl1_loaded)
+            {
+                DEG_LOG(W, "FDL does not executed.");
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            encode_msg_nocpy(io, BSL_CMD_POWER_OFF, 0);
+            if (!send_and_check(io)) break;
+        }
+        else if (!strcmp(str2[1], "verbose"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "verbose {0,1,2}");
+                argc = 1;
+                continue;
+            }
+            io->verbose = atoi(str2[2]);
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "exit"))
+        {
+            if (isToolMode)
+            {
+                break;
+            }
+            else
+            {
+                DEG_LOG(E, "Non-tool mode does not support `exit` command, use `poweroff`, `reset`, etc. instead.");
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+        }
+        else if (strlen(str2[1]))
+        {
+            print_help();
+            argc = 1;
+        }
+        if (in_quote != -1)
+        {
+            for (i = 1; i < argcount; i++)
+                delete[](str2[i]);
+            delete[](str2);
+        }
+        if (!isToolMode && is_device_unattached_and_log(io))
+        {
+            break;
+        }
+    }
+    spdio_free(io);
+    return 0;
 }
 #endif
