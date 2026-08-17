@@ -2014,7 +2014,7 @@ rloop:
 							partitionNode->setAttribute("size", "0xffffffff");
 						} else {
 							char sizeStr[32];
-							snprintf(sizeStr, sizeof(sizeStr), "%lld", 
+							snprintf(sizeStr, sizeof(sizeStr), "%lld",
 									((*(io->ptable + i)).size >> 20));
 							partitionNode->setAttribute("size", sizeStr);
 						}
@@ -2064,7 +2064,7 @@ rloop:
 							partitionNode->setAttribute("size", "0xffffffff");
 						} else {
 							char sizeStr[32];
-							snprintf(sizeStr, sizeof(sizeStr), "%lld", 
+							snprintf(sizeStr, sizeof(sizeStr), "%lld",
 									((*(io->Cptable + i)).size >> 20));
 							partitionNode->setAttribute("size", sizeStr);
 						}
