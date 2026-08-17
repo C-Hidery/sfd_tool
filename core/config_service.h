@@ -27,9 +27,6 @@ struct ConfigStatus {
 
 // 应用级配置：承载 UI 与 Service 共享的领域配置
 struct AppConfig {
-    // 配置文件路径（运行时信息，记录当前加载/保存位置）
-    std::string config_path;
-
     // 最近使用路径
     std::string last_pac_path;
     std::string last_fdl1_path;

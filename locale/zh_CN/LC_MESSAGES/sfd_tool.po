@@ -1224,3 +1224,33 @@ msgstr "强制刷写已被禁用以保证稳定性，请在高级设置中启用
 
 msgid "Force flash enabled due to EXEC_ADDR mode set."
 msgstr "强制刷写因 EXEC_ADDR 模式设置已启用。"
+
+msgid "Config Settings"
+msgstr "配置设置"
+
+msgid "Clean config settings"
+msgstr "清除配置设置"
+
+msgid "Import config settings"
+msgstr "导入配置设置"
+
+msgid "Save config settings to file"
+msgstr "保存配置到文件"
+
+msgid "Config cleaned successfully, please restart program."
+msgstr "清除配置成功，请重启程序。"
+
+msgid "Could not load config"
+msgstr "无法加载配置"
+
+msgid "Config file selected is empty!"
+msgstr "选择的配置文件为空！"
+
+msgid "Config imported successfully, please restart program."
+msgstr "配置导入成功，请重启程序。"
+
+msgid "Could not import config"
+msgstr "无法导入配置"
+
+msgid "Config saved successfully."
+msgstr "保存配置成功"
