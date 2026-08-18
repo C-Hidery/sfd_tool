@@ -1147,7 +1147,7 @@ bool pac_flash(spdio_t* io, const char* folder)
     if (isHelperInit)
     {
         if (!showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")),
-            _("Confirm"), _("Do you really want to start flashing PAC firmware?"))))
+            _("Confirm"), _("Do you really want to start flashing PAC firmware?")))
         {
             return false;
         }
