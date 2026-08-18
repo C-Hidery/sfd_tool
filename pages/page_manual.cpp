@@ -15,36 +15,6 @@ extern int& m_bOpened;
 extern int blk_size;
 extern AppState g_app_state;
 
-namespace {
-void packBoxChild(GtkWidget* box, GtkWidget* child, bool expand, bool fill, int padding) {
-#if GTK_CHECK_VERSION(4, 0, 0)
-    (void)expand;
-    (void)fill;
-    (void)padding;
-    gtk_box_append(GTK_BOX(box), child);
-#else
-    gtk_box_pack_start(GTK_BOX(box), child, expand, fill, padding);
-#endif
-}
-
-void setFrameChild(GtkWidget* frame, GtkWidget* child) {
-#if GTK_CHECK_VERSION(4, 0, 0)
-    gtk_frame_set_child(GTK_FRAME(frame), child);
-#else
-    gtk_container_add(GTK_CONTAINER(frame), child);
-#endif
-}
-
-void setFrameLabelAlign(GtkWidget* frame, float xalign, float yalign) {
-#if GTK_CHECK_VERSION(4, 0, 0)
-    (void)yalign;
-    gtk_frame_set_label_align(GTK_FRAME(frame), xalign);
-#else
-    gtk_frame_set_label_align(GTK_FRAME(frame), xalign, yalign);
-#endif
-}
-}
-
 // 兼容旧逻辑：isCMethod 始终映射到 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
 
