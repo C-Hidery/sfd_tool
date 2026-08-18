@@ -229,13 +229,19 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper)
             {
                 helper.setLabelText(helper.getWidget("slot_mode"), "Not VAB");
             });
-            if (Da_Info.bSupportRawData)
+        }
+        if (g_app_state.flash.gpt_failed != 1)
+        {
+            if (selected_ab != 1 && selected_ab != 2)
             {
-                DEG_LOG(
-                    I,
-                    "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.",
-                    (unsigned)Da_Info.bSupportRawData);
-                Da_Info.bSupportRawData = 0;
+                if (Da_Info.bSupportRawData)
+                {
+                    DEG_LOG(
+                        I,
+                        "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.",
+                        (unsigned)Da_Info.bSupportRawData);
+                    Da_Info.bSupportRawData = 0;
+                }
             }
         }
 
