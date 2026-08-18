@@ -1436,13 +1436,14 @@ int main_console(int argc, char** argv)
                     io->ptable = partition_list(io, &io->part_count);
                 }
                 else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
+                if (selected_ab < 0) select_ab(io);
+                if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b");
+                else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a");
+                else DEG_LOG(I, "Device is not using VAB");
                 if (g_app_state.flash.gpt_failed != 1)
                 {
-                    if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b");
-                    else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a");
-                    else
+                    if (selected_ab != 1 && selected_ab != 2)
                     {
-                        DEG_LOG(I, "Device is not using VAB");
                         if (Da_Info.bSupportRawData)
                         {
                             DEG_LOG(
