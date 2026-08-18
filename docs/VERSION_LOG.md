@@ -407,7 +407,7 @@ Remove unstable blk_size detection
 修复一个严重的PAC刷写问题
 
 ---v 2.7.6---
-修复了VAB检测逻辑（CLI）
+修复了VAB检测逻辑
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
