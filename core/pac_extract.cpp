@@ -1064,17 +1064,17 @@ bool pac_flash(spdio_t* io, const char* folder)
             get_partition_info(io, "nr_fixnv1", 1);
             if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
             {
-                g_app_state.pac.nr_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size, &g_app_state.pac.nr_fixnv1_mem_size);
+                g_app_state.pac.nr_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE , &g_app_state.pac.nr_fixnv1_mem_size);
             }
             get_partition_info(io, "l_fixnv1", 1);
             if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
             {
-                g_app_state.pac.l_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size, &g_app_state.pac.l_fixnv1_mem_size);
+                g_app_state.pac.l_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE , &g_app_state.pac.l_fixnv1_mem_size);
             }
             get_partition_info(io, "downloadnv", 1);
             if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
             {
-                g_app_state.pac.downloadnv_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size, &g_app_state.pac.downloadnv_mem_size);
+                g_app_state.pac.downloadnv_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE , &g_app_state.pac.downloadnv_mem_size);
             }
         }
         bool i_is = false;
@@ -1105,7 +1105,7 @@ bool pac_flash(spdio_t* io, const char* folder)
         }
         g_app_state.flash.isPacFlashing = true;
 
-        load_partitions(io, "pac_unpack_output", blk_size, g_app_state.flash.selected_ab, 0);
+        load_partitions(io, "pac_unpack_output", blk_size ? blk_size : DEFAULT_BLK_SIZE , g_app_state.flash.selected_ab, 0);
         encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
         if (!send_and_check(io))
         {
