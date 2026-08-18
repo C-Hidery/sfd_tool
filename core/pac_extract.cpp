@@ -1144,25 +1144,48 @@ bool pac_flash(spdio_t* io, const char* folder)
         DEG_LOG(E, "No XML file found in the extracted folder.");
         return false;
     }
+    if (isHelperInit)
+    {
+        if (!showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")),
+            _("Confirm"), _("Do you really want to start flashing PAC firmware?"))))
+        {
+            return false;
+        }
+    }
     g_app_state.flash.pac_xmlPath = xmlPath;
+    if (isHelperInit)
+    {
+        g_app_state.flash.isPacMergingNV = showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")),
+            _("Confirm"), _("Do you want to merge NV partition?"));
+    }
+    else
+    {
+        std::cout << "Do you want to merge NV partition(Y/n)?" << std::endl;
+        std::string n;
+        std::getline(std::cin, n);
+        g_app_state.flash.isPacMergingNV = (n == "Y" || n == "y");
+    }
 
     auto into_func = [io, xmlPath]() mutable
     {
-        auto pacptable = getSelectedPartitions(helper);
-        get_partition_info(io, "nr_fixnv1", 1);
-        if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
+        if (g_app_state.flash.isPacMergingNV)
         {
-            g_app_state.pac.nr_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size, &g_app_state.pac.nr_fixnv1_mem_size);
-        }
-        get_partition_info(io, "l_fixnv1", 1);
-        if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
-        {
-            g_app_state.pac.l_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size, &g_app_state.pac.l_fixnv1_mem_size);
-        }
-        get_partition_info(io, "downloadnv", 1);
-        if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
-        {
-            g_app_state.pac.downloadnv_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size, &g_app_state.pac.downloadnv_mem_size);
+            auto pacptable = getSelectedPartitions(helper);
+            get_partition_info(io, "nr_fixnv1", 1);
+            if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
+            {
+                g_app_state.pac.nr_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size, &g_app_state.pac.nr_fixnv1_mem_size);
+            }
+            get_partition_info(io, "l_fixnv1", 1);
+            if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
+            {
+                g_app_state.pac.l_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size, &g_app_state.pac.l_fixnv1_mem_size);
+            }
+            get_partition_info(io, "downloadnv", 1);
+            if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
+            {
+                g_app_state.pac.downloadnv_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size, &g_app_state.pac.downloadnv_mem_size);
+            }
         }
         bool i_is = false;
         if (isHelperInit)
@@ -1173,9 +1196,9 @@ bool pac_flash(spdio_t* io, const char* folder)
         else
         {
             std::cout << "Do you want to repartition? (Y/n): ";
-            char response;
-            std::cin >> response;
-            i_is = (response == 'y' || response == 'Y');
+            std::string response;
+            std::getline(std::cin, response);
+            i_is = (response == "y" || response == "Y");
         }
         if (i_is)
         {

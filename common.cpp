@@ -2548,6 +2548,8 @@ std::string case_part(const std::vector<std::string>& partitions,
         });
     
     if (case_insensitive_it != partitions.end()) {
+    	DEG_LOG(W, "Warning: File name '%s' does not match case of existing partition '%s'. Using '%s'.",
+				partitionName.c_str(), case_insensitive_it->c_str(), case_insensitive_it->c_str());
         return *case_insensitive_it;
     }
     
@@ -2559,6 +2561,8 @@ std::string case_part(const std::vector<std::string>& partitions,
     }
     for (int i = 0; i < io->part_count; ++i) {
         if (iequals(partitionName, io->ptable[i].name)) {
+        	DEG_LOG(W, "Warning: File name '%s' does not match case of existing partition '%s'. Using '%s'.",
+        		partitionName.c_str(), io->ptable[i].name, io->ptable[i].name);
             return io->ptable[i].name;
         }
     }
@@ -2571,6 +2575,8 @@ std::string case_part(const std::vector<std::string>& partitions,
     }
     for (int i = 0; i < io->part_count_c; ++i) {
         if (iequals(partitionName, io->Cptable[i].name)) {
+        	DEG_LOG(W, "Warning: File name '%s' does not match case of existing partition '%s'. Using '%s'.",
+				partitionName.c_str(), io->Cptable[i].name, io->Cptable[i].name);
             return io->Cptable[i].name;
         }
     }
@@ -2963,60 +2969,65 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 			continue;
 		}
 		// NV Merge process for PAC flashing
-		if ((my_stristr(fn, "fixnv1") && g_app_state.flash.isPacFlashing))
+		if (g_app_state.flash.isPacFlashing && g_app_state.flash.isPacMergingNV)
 		{
-			if (my_stristr(fn, "nr_fixnv1"))
+			if (my_stristr(fn, "fixnv1"))
 			{
-				get_partition_info(io, "nr_fixnv1", 1);
-				flashed_parts.emplace_back(gPartInfo.name);
-				if (gPartInfo.size && hasPartition(pac_parts, std::string(gPartInfo.name))) 
+				if (my_stristr(fn, "nr_fixnv1"))
 				{
-					if (!g_app_state.pac.nr_fixnv1_mem)
+					get_partition_info(io, "nr_fixnv1", 1);
+					if (gPartInfo.size && hasPartition(pac_parts, std::string(gPartInfo.name)))
 					{
-						DEG_LOG(W, "Failed to load old NV data for nr_fixnv1, skipping writing.");
+						if (!g_app_state.pac.nr_fixnv1_mem)
+						{
+							DEG_LOG(W, "Failed to load old NV data for nr_fixnv1, skipping writing.");
+							partitions[i].written_flag = 1;
+							continue;
+						}
+						if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
+							size_t a_size = 0, b_size = 0, c_size = 0;
+							uint8_t *a = g_app_state.pac.nr_fixnv1_mem;
+							uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
+							uint8_t *c = (uint8_t*)malloc(a_size + b_size);
+							merge_nv(io, a, a_size, b, b_size, c, &c_size);
+							load_nv_partition_from_mem(io, gPartInfo.name, c, step);
+							delete[](a); delete[](b); free(c);
+							partitions[i].written_flag = 1;
+							flashed_parts.emplace_back(gPartInfo.name);
+							continue;
+						}
+						delete[](io->nvid_list);
+						io->nvid_list = NULL;
+					}
+				}
+				else if (my_stristr(fn, "l_fixnv1"))
+				{
+					get_partition_info(io, "l_fixnv1", 1);
+					if (!g_app_state.pac.l_fixnv1_mem)
+					{
+						DEG_LOG(W, "Failed to load old NV data for l_fixnv1, skipping writing.");
 						partitions[i].written_flag = 1;
 						continue;
 					}
-					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
-						size_t a_size = 0, b_size = 0, c_size = 0;
-						uint8_t *a = g_app_state.pac.nr_fixnv1_mem;
-						uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
-						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
-						merge_nv(io, a, a_size, b, b_size, c, &c_size);
-						load_nv_partition_from_mem(io, gPartInfo.name, c, step);
-						delete[](a); delete[](b); free(c);
+					if (gPartInfo.size && hasPartition(pac_parts, std::string(gPartInfo.name)))
+					{
+						if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
+							size_t a_size = 0, b_size = 0, c_size = 0;
+							uint8_t *a = g_app_state.pac.l_fixnv1_mem;
+							uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
+							uint8_t *c = (uint8_t*)malloc(a_size + b_size);
+							merge_nv(io, a, a_size, b, b_size, c, &c_size);
+							load_nv_partition_from_mem(io, gPartInfo.name, c, step);
+							delete[](a); delete[](b); free(c);
+							partitions[i].written_flag = 1;
+							flashed_parts.emplace_back(gPartInfo.name);
+							continue;
+						}
+						delete[](io->nvid_list);
+						io->nvid_list = NULL;
 					}
-					delete[](io->nvid_list);
-					io->nvid_list = NULL;
 				}
 			}
-			else if (my_stristr(fn, "l_fixnv1"))
-			{
-				get_partition_info(io, "l_fixnv1", 1);
-				flashed_parts.emplace_back(gPartInfo.name);
-				if (!g_app_state.pac.l_fixnv1_mem)
-				{
-					DEG_LOG(W, "Failed to load old NV data for l_fixnv1, skipping writing.");
-					partitions[i].written_flag = 1;
-					continue;
-				}
-				if (gPartInfo.size && hasPartition(pac_parts, std::string(gPartInfo.name))) 
-				{
-					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
-						size_t a_size = 0, b_size = 0, c_size = 0;
-						uint8_t *a = g_app_state.pac.l_fixnv1_mem;
-						uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
-						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
-						merge_nv(io, a, a_size, b, b_size, c, &c_size);
-						load_nv_partition_from_mem(io, gPartInfo.name, c, step);
-						delete[](a); delete[](b); free(c);
-					}
-					delete[](io->nvid_list);
-					io->nvid_list = NULL;
-				}
-			}
-			partitions[i].written_flag = 1;
-			continue;
 		}
 		int spl_index = primary_index > -1 ? primary_index : fallback_index;
 		if (spl_index > -1) 
@@ -3205,7 +3216,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 	selected_ab = selected_ab_bak;
 	if (isHasDownloadNV && dlnv_id)
 	{
-		if (!g_app_state.flash.isPacFlashing) {
+		if (!g_app_state.flash.isPacFlashing || !g_app_state.flash.isPacMergingNV) {
 			std::string relfn = case_part({}, std::string(partitions[dlnv_id].name), io);
 			if (relfn.empty())
 				get_partition_info(io, partitions[dlnv_id].name, 1);
