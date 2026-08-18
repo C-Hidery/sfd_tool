@@ -1263,3 +1263,6 @@ msgstr "是否开始烧录PAC固件？"
 
 msgid "Do you want to repartition?"
 msgstr "是否重新分区？"
+
+msgid "Please unpack the PAC file first."
+msgstr "请先解包一个PAC固件。"

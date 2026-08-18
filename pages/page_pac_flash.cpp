@@ -119,7 +119,7 @@ void on_button_clicked_pac_select(GtkWidgetHelper helper) {
     	}
 	}
 }
-
+bool isUnpacked = false;
 void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
 	const char* pac_path = helper.getEntryText(helper.getWidget("pac_file_path"));
@@ -136,6 +136,7 @@ void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 		gui_idle_call_wait_drag([helper]() {
 			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC unpacked successfully."));
 		}, GTK_WINDOW(helper.getWidget("main_window")));
+		isUnpacked = true;
 	}
 	else
 	{
@@ -149,6 +150,11 @@ void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 
 void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
+	if (!isUnpacked)
+	{
+		showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Please unpack the PAC file first."));
+		return;
+	}
 	pac_flash(io, "pac_unpack_output");
 }
 
