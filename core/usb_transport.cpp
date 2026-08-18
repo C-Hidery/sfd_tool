@@ -679,7 +679,7 @@ void ChangeMode(spdio_t *io, int ms, int bootmode, int at) {
 	int done = 0;
 
 	while (done != 1) {
-		DBG_LOG("<waiting for connection,mode:cali/boot/dl,%ds>\n", ms / 1000);
+		DBG_LOG("Waiting for connection of diags: cali_diag/boot_diag/dl_diag (%ds)\n", ms / 1000);
 		for (int i = 0; ; i++) {
 			if (curPort) {
 				if (!call_ConnectChannel(io->handle, curPort, WM_RCV_CHANNEL_DATA, io->m_dwRecvThreadID)) ERR_EXIT("Connection failed\n");
