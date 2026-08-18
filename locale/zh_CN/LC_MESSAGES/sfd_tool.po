@@ -1266,3 +1266,9 @@ msgstr "是否重新分区？"
 
 msgid "Please unpack the PAC file first."
 msgstr "请先解包一个PAC固件。"
+
+msgid "Yes"
+msgstr "是"
+
+msgid "No"
+msgstr "否"
