@@ -23,8 +23,6 @@
 #endif
 #endif
 
-// 兼容旧逻辑：isCMethod 始终映射到 AppState::flash.isCMethod
-static int& isCMethod = g_app_state.flash.isCMethod;
 static int& selected_ab = g_app_state.flash.selected_ab;
 using nlohmann::json;
 
@@ -207,43 +205,40 @@ void on_button_clicked_fdl_exec(GtkWidgetHelper helper)
                 helper.setLabelText(helper.getWidget("storage_mode"), "Nand");
             });
         }
-        if (g_app_state.flash.gpt_failed != 1)
+        if (selected_ab < 0) select_ab(io);
+        if (g_app_state.flash.selected_ab == 2)
         {
-            if (g_app_state.flash.selected_ab == 2)
+            DEG_LOG(I, "Device is using slot b\n");
+            gui_idle_call([helper]() mutable
             {
-                DEG_LOG(I, "Device is using slot b\n");
-                gui_idle_call([helper]() mutable
-                {
-                    helper.setLabelText(helper.getWidget("slot_mode"), "Slot B");
-                    Enable_VAB_widget(helper);
-                });
-            }
-            else if (g_app_state.flash.selected_ab == 1)
+                helper.setLabelText(helper.getWidget("slot_mode"), "Slot B");
+            });
+        }
+        else if (g_app_state.flash.selected_ab == 1)
+        {
+            DEG_LOG(I, "Device is using slot a\n");
+            gui_idle_call([helper]() mutable
             {
-                DEG_LOG(I, "Device is using slot a\n");
-                gui_idle_call([helper]() mutable
-                {
-                    helper.setLabelText(helper.getWidget("slot_mode"), "Slot A");
-                    Enable_VAB_widget(helper);
-                });
-            }
-            else
+                helper.setLabelText(helper.getWidget("slot_mode"), "Slot A");
+            });
+        }
+        else
+        {
+            DEG_LOG(I, "Device is not using VAB");
+            gui_idle_call([helper]() mutable
             {
-                DEG_LOG(I, "Device is not using VAB");
-                gui_idle_call([helper]() mutable
-                {
-                    helper.setLabelText(helper.getWidget("slot_mode"), "Not VAB");
-                });
-                if (Da_Info.bSupportRawData)
-                {
-                    DEG_LOG(
-                        I,
-                        "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.",
-                        (unsigned)Da_Info.bSupportRawData);
-                    Da_Info.bSupportRawData = 0;
-                }
+                helper.setLabelText(helper.getWidget("slot_mode"), "Not VAB");
+            });
+            if (Da_Info.bSupportRawData)
+            {
+                DEG_LOG(
+                    I,
+                    "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.",
+                    (unsigned)Da_Info.bSupportRawData);
+                Da_Info.bSupportRawData = 0;
             }
         }
+
         if (io->part_count)
         {
             std::vector<sfd::DevicePartitionInfo> partitions;
@@ -1041,7 +1036,6 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv)
                 gui_idle_call([helper]() mutable
                 {
                     helper.setLabelText(helper.getWidget("slot_mode"), "Slot A");
-                    Enable_VAB_widget(helper);
                 });
             }
             else if (selected_ab == 2)
@@ -1050,7 +1044,6 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv)
                 gui_idle_call([helper]() mutable
                 {
                     helper.setLabelText(helper.getWidget("slot_mode"), "Slot B");
-                    Enable_VAB_widget(helper);
                 });
             }
             else

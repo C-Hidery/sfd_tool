@@ -3477,13 +3477,6 @@ int main_console(int argc, char** argv)
                 continue;
             }
             if (selected_ab < 0) select_ab(io);
-            if (selected_ab != 1 && selected_ab != 2)
-            {
-                DEG_LOG(E, "Device is not using VAB");
-                argc -= 2;
-                argv += 2;
-                continue;
-            }
             set_active(io, str2[2], isCMethod);
             argc -= 2;
             argv += 2;

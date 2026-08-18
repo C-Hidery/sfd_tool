@@ -127,21 +127,18 @@ void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("modify_rm_part");
 	helper.enableWidget("modify_ren_part");
 	helper.enableWidget("xml_get");
+	helper.enableWidget("set_active_a");
+	helper.enableWidget("set_active_b");
+	helper.enableWidget("abpart_a");
+	helper.enableWidget("abpart_b");
+	helper.enableWidget("ad_abpart_a");
+	helper.enableWidget("ad_abpart_b");
 	helper.enableWidget("abpart_auto");
 	helper.enableWidget("ad_abpart_auto");
 	helper.enableWidget("pac_flash_start");
 	helper.enableWidget("export_part_xml");
 	helper.enableWidget("force_flash_en");
 	helper.enableWidget("force_flash_dis");
-}
-void Enable_VAB_widget(GtkWidgetHelper helper)
-{
-    helper.enableWidget("set_active_a");
-	helper.enableWidget("set_active_b");
-	helper.enableWidget("abpart_a");
-	helper.enableWidget("abpart_b");
-	helper.enableWidget("ad_abpart_a");
-	helper.enableWidget("ad_abpart_b");
 }
 
 void DisableWidgets(GtkWidgetHelper helper) {
