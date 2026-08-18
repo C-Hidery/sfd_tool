@@ -91,24 +91,34 @@ static void logMessageInternal(int type, const char* message) {
 
 void DEG_LOG(int type, const char* format, ...) {
 	va_list args;
+
+	// 计算格式化后所需的长度（不含终止符）
 	va_start(args, format);
-	char buffer[1024];
-	vsnprintf(buffer, sizeof(buffer), format, args);
+	int len = vsnprintf(nullptr, 0, format, args);
 	va_end(args);
-	if (type == NOLOG)
-	{
-		fprintf(stderr, "%s", buffer);
-		append_log_to_ui(I, buffer);
+
+	if (len < 0) {
 		return;
 	}
 
-	// 若消息末尾有换行符，则移除它，由 logMessageInternal 统一追加一个换行
-	size_t len = strlen(buffer);
-	if (len > 0 && buffer[len - 1] == '\n') {
-		buffer[len - 1] = '\0';
+	std::string buffer;
+	buffer.resize(len + 1);          // 多分配一个字符用于存放 '\0'
+	va_start(args, format);
+	vsnprintf(&buffer[0], buffer.size(), format, args);
+	va_end(args);
+	buffer.resize(len);              // 截断至实际长度，移除末尾的 '\0'
+
+	if (type == NOLOG) {
+		fprintf(stderr, "%s", buffer.c_str());
+		append_log_to_ui(I, buffer.c_str());
+		return;
 	}
 
-	logMessageInternal(type, buffer);
+	// 非 NOLOG：移除末尾换行符（如果有），再交给 logMessageInternal
+	if (!buffer.empty() && buffer.back() == '\n') {
+		buffer.pop_back();
+	}
+	logMessageInternal(type, buffer.c_str());
 }
 
 int logLevelToType(LogLevel level) {
