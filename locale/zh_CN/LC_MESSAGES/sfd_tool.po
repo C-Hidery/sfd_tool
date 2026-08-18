@@ -1260,3 +1260,6 @@ msgstr "是否合并 NV 分区？"
 
 msgid "Do you really want to start flashing PAC firmware?"
 msgstr "是否开始烧录PAC固件？"
+
+msgid "Do you want to repartition?"
+msgstr "是否重新分区？"
