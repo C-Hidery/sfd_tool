@@ -1054,7 +1054,7 @@ void on_button_clicked_connect(GtkWidgetHelper helper, int argc, char** argv)
             }
             else
             {
-                DEG_LOG(I, "Device is not using VAB.");
+                DEG_LOG(I, "Device is not using VAB");
                 gui_idle_call([helper]() mutable
                 {
                     helper.setLabelText(helper.getWidget("slot_mode"), "Not VAB");
