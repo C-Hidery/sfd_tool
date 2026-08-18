@@ -40,21 +40,6 @@ static void on_cell_toggled(GtkCellRendererToggle *renderer,
     gtk_tree_path_free(path);
 }
 
-static std::string format_size(std::uint64_t bytes) {
-	// 非常简单的格式化：优先用 MB，否则用 KB
-	const double kb = 1024.0;
-	const double mb = kb * 1024.0;
-	char buf[64] = {0};
-	if (bytes >= static_cast<std::uint64_t>(mb)) {
-		std::snprintf(buf, sizeof(buf), "%.1f MB", bytes / mb);
-	} else if (bytes >= static_cast<std::uint64_t>(kb)) {
-		std::snprintf(buf, sizeof(buf), "%.0f KB", bytes / kb);
-	} else {
-		std::snprintf(buf, sizeof(buf), "%llu B", static_cast<unsigned long long>(bytes));
-	}
-	return std::string(buf);
-}
-
 std::vector<std::string> getSelectedPartitions(GtkWidgetHelper helper)
 {
     std::vector<std::string> selected;
@@ -72,7 +57,7 @@ std::vector<std::string> getSelectedPartitions(GtkWidgetHelper helper)
         gtk_tree_model_get(model, &iter, 0, &is_selected, -1);
         if (is_selected) {
             gchar* partition_name = NULL;
-            gtk_tree_model_get(model, &iter, 1, &partition_name, -1);
+            gtk_tree_model_get(model, &iter, 3, &partition_name, -1); // 第4项：原始分区名
             if (partition_name) {
                 selected.push_back(std::string(partition_name));
                 g_free(partition_name);
@@ -119,7 +104,7 @@ void on_button_clicked_pac_select(GtkWidgetHelper helper) {
     	}
 	}
 }
-
+bool isUnpacked = false;
 void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
 	const char* pac_path = helper.getEntryText(helper.getWidget("pac_file_path"));
@@ -136,6 +121,7 @@ void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 		gui_idle_call_wait_drag([helper]() {
 			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC unpacked successfully."));
 		}, GTK_WINDOW(helper.getWidget("main_window")));
+		isUnpacked = true;
 	}
 	else
 	{
@@ -149,6 +135,11 @@ void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 
 void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
+	if (!isUnpacked)
+	{
+		showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Please unpack the PAC file first."));
+		return;
+	}
 	pac_flash(io, "pac_unpack_output");
 }
 

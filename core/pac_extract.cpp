@@ -811,116 +811,6 @@ std::string FindFirstXMLFile(const std::string& folderPath)
     return "";
 }
 
-std::string FindFDLInExtFolder(const char* folder, Stages mode)
-{
-    if (!folder || !*folder)
-    {
-        return "";
-    }
-
-    namespace fs = std::filesystem;
-
-    auto to_lower = [](std::string s)
-    {
-        for (char& ch : s)
-        {
-            ch = static_cast<char>(::tolower(static_cast<unsigned char>(ch)));
-        }
-        return s;
-    };
-
-    auto find_in_dir = [&](const char* stage_tag) -> std::string
-    {
-        try
-        {
-#ifdef _WIN32
-            fs::path dir = utf8_to_utf16(folder);
-#else
-            fs::path dir = folder;
-#endif
-            if (!fs::exists(dir) || !fs::is_directory(dir)) return "";
-
-            std::string best_path;
-            int best_score = 0;
-
-            for (const auto& entry : fs::directory_iterator(dir))
-            {
-                if (!entry.is_regular_file()) continue;
-
-                fs::path p = entry.path();
-#ifdef _WIN32
-                std::wstring wfilename = p.filename().wstring();
-                int len = WideCharToMultiByte(CP_UTF8, 0, wfilename.c_str(), -1, nullptr, 0, nullptr, nullptr);
-                if (len <= 0) continue;
-                std::string filename(len, '\0');
-                WideCharToMultiByte(CP_UTF8, 0, wfilename.c_str(), -1, filename.data(), len, nullptr, nullptr);
-                filename.pop_back();
-                std::wstring wext = p.extension().wstring();
-                len = WideCharToMultiByte(CP_UTF8, 0, wext.c_str(), -1, nullptr, 0, nullptr, nullptr);
-                if (len <= 0) continue;
-                std::string ext(len, '\0');
-                WideCharToMultiByte(CP_UTF8, 0, wext.c_str(), -1, ext.data(), len, nullptr, nullptr);
-                ext.pop_back();
-#else
-                std::string filename = p.filename().string();
-                std::string ext = p.extension().string();
-#endif
-
-                int score = 0;
-                std::string tag(stage_tag);
-                if (ext == "." + tag + "-sign")
-                {
-                    score = 3; // strongest match: .fdl1-sign / .fdl2-sign
-                }
-                else if (ext == "." + tag)
-                {
-                    score = 2; // .fdl1 / .fdl2
-                }
-                else if (filename.find(tag) != std::string::npos)
-                {
-                    score = 1; // filename contains "fdl1" or "fdl2"
-                }
-
-                if (score > best_score)
-                {
-                    best_score = score;
-#ifdef _WIN32
-                    std::wstring wpath = p.wstring();
-                    int len = WideCharToMultiByte(CP_UTF8, 0, wpath.c_str(), -1, nullptr, 0, nullptr, nullptr);
-                    if (len > 0) {
-                        std::string utf8_path(len, '\0');
-                        WideCharToMultiByte(CP_UTF8, 0, wpath.c_str(), -1, utf8_path.data(), len, nullptr, nullptr);
-                        utf8_path.pop_back();
-                        best_path = utf8_path;
-                    } else {
-                        best_path.clear();
-                    }
-#else
-                    best_path = p.string();
-#endif
-                }
-            }
-
-            return best_path;
-        }
-        catch (const fs::filesystem_error& e)
-        {
-            std::cerr << "File system error in FindFDLInExtFloder: " << e.what() << std::endl;
-            return "";
-        }
-    };
-
-    switch (mode)
-    {
-    case FDL1:
-        return find_in_dir("fdl1");
-    case FDL2:
-        return find_in_dir("fdl2");
-    default:
-        return "";
-    }
-}
-
 bool pac_extract(const char* fn, const char* floder)
 {
     auto *pacptable = NEWN partition_t[128];
@@ -1144,25 +1034,48 @@ bool pac_flash(spdio_t* io, const char* folder)
         DEG_LOG(E, "No XML file found in the extracted folder.");
         return false;
     }
+    if (isHelperInit)
+    {
+        if (!showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")),
+            _("Confirm"), _("Do you really want to start flashing PAC firmware?")))
+        {
+            return false;
+        }
+    }
     g_app_state.flash.pac_xmlPath = xmlPath;
+    if (isHelperInit)
+    {
+        g_app_state.flash.isPacMergingNV = showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")),
+            _("Confirm"), _("Do you want to merge NV partition?"));
+    }
+    else
+    {
+        std::cout << "Do you want to merge NV partition(Y/n)?" << std::endl;
+        std::string n;
+        std::getline(std::cin, n);
+        g_app_state.flash.isPacMergingNV = (n == "Y" || n == "y");
+    }
 
     auto into_func = [io, xmlPath]() mutable
     {
-        auto pacptable = getSelectedPartitions(helper);
-        get_partition_info(io, "nr_fixnv1", 1);
-        if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
+        if (g_app_state.flash.isPacMergingNV)
         {
-            g_app_state.pac.nr_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size, &g_app_state.pac.nr_fixnv1_mem_size);
-        }
-        get_partition_info(io, "l_fixnv1", 1);
-        if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
-        {
-            g_app_state.pac.l_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size, &g_app_state.pac.l_fixnv1_mem_size);
-        }
-        get_partition_info(io, "downloadnv", 1);
-        if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
-        {
-            g_app_state.pac.downloadnv_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size, &g_app_state.pac.downloadnv_mem_size);
+            auto pacptable = getSelectedPartitions(helper);
+            get_partition_info(io, "nr_fixnv1", 1);
+            if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
+            {
+                g_app_state.pac.nr_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE , &g_app_state.pac.nr_fixnv1_mem_size);
+            }
+            get_partition_info(io, "l_fixnv1", 1);
+            if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
+            {
+                g_app_state.pac.l_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE , &g_app_state.pac.l_fixnv1_mem_size);
+            }
+            get_partition_info(io, "downloadnv", 1);
+            if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
+            {
+                g_app_state.pac.downloadnv_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE , &g_app_state.pac.downloadnv_mem_size);
+            }
         }
         bool i_is = false;
         if (isHelperInit)
@@ -1173,9 +1086,9 @@ bool pac_flash(spdio_t* io, const char* folder)
         else
         {
             std::cout << "Do you want to repartition? (Y/n): ";
-            char response;
-            std::cin >> response;
-            i_is = (response == 'y' || response == 'Y');
+            std::string response;
+            std::getline(std::cin, response);
+            i_is = (response == "y" || response == "Y");
         }
         if (i_is)
         {
@@ -1192,7 +1105,7 @@ bool pac_flash(spdio_t* io, const char* folder)
         }
         g_app_state.flash.isPacFlashing = true;
 
-        load_partitions(io, "pac_unpack_output", blk_size, g_app_state.flash.selected_ab, 0);
+        load_partitions(io, "pac_unpack_output", blk_size ? blk_size : DEFAULT_BLK_SIZE , g_app_state.flash.selected_ab, 0);
         encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
         if (!send_and_check(io))
         {

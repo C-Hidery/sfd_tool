@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 2.7.4 LTV Edition
+Version 2.7.5 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -402,6 +402,9 @@ Remove unstable blk_size detection
 
 ---v 2.7.4---
 修复了一些已知问题
+
+---v 2.7.5---
+修复一个严重的PAC刷写问题
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
