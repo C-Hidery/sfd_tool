@@ -165,8 +165,8 @@ void print_help()
             "\t\tDisable AVB verification by patching trustos(FDL2 only)\n"
             "\t37.scan_partition [PARTITION TABLE XML]\n"
             "\t\tGet partition table through scanning a partition xml file\n"
-            "\t38.pac [PAC FILE]\n"
-            "\t\tFlash PAC firmware to the device (BROM stage only)\n"
+            "\t38.pac FILE [EXTRACT PATH]\n"
+            "\t\tFlash PAC firmware to the device.\n"
             "\t39.g_w_force {0,1}\n"
             "\t\tSet if w_force action allowed, default is 0.\n"
             "\t40.w_force [PARTITION NAME] [FILE]\n"
@@ -2279,28 +2279,28 @@ int main_console(int argc, char** argv)
         else if (!strcmp(str2[1], "pac"))
         {
             const char* fn;
-            if (argcount <= 2)
+            if (argcount <= 3)
             {
-                DEG_LOG(W, "pac FILE");
+                DEG_LOG(W, "pac FILE [EXTRACT PATH]");
                 argc = 1;
                 continue;
             }
             fn = str2[2];
+            const char* path = str2[3];
             EnhancedFile fi = oxfopen_enhanced(fn, "r");
             if (!fi)
             {
                 DEG_LOG(E, "File does not exist.");
-                argc -= 2;
-                argv += 2;
+                argc = 1;
                 continue;
             }
             fi.close();
-            bool i_is = pac_extract(fn, "pac_unpack_output");
+            bool i_is = pac_extract(fn, path);
             if (!isToolMode && check_confirm("flash pac"))
             {
                 if (i_is)
                 {
-                    pac_flash(io, "pac_unpack_output");
+                    pac_flash(io, path);
                 }
                 else
                 {
@@ -2308,8 +2308,8 @@ int main_console(int argc, char** argv)
                     continue;
                 }
             }
-            argc -= 2;
-            argv += 2;
+            argc -= 3;
+            argv += 3;
         }
         else if (!strcmp(str2[1], "part_table"))
         {
