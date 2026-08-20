@@ -141,7 +141,7 @@ bool PacFile::changeToDirectory(const wchar_t* dir) {
         m_originalCwd = cwd;
         free(cwd);
     }
-    if (chdir(utf8_to_utf16(std::string(dir)).c_str()) != 0) {
+    if (chdir(dir) != 0) {
         perror("chdir");
         return false;
     }
