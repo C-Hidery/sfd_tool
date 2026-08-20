@@ -252,7 +252,7 @@ unsigned dump_flash(spdio_t *io,
 		const char *fn, unsigned step, int mode) {
 	uint32_t nread = 0;
 	EnhancedFile fo = my_oxfopen_enhanced(fn, "wb");
-	if (!fo) ERR_EXIT("fopen(dump) failed\n");
+	if (!fo) ERR_EXIT("fopen(dump) failed, please check if program has permission to write file in current dir.\n");
 
 	if (mode == 1) {
 		uint8_t buf[0x34];
@@ -299,7 +299,7 @@ unsigned dump_mem(spdio_t *io,
 	uint32_t n, offset, nread;
 	int ret;
 	EnhancedFile fo = my_oxfopen_enhanced(fn, "wb");
-	if (!fo) ERR_EXIT("fopen(dump) failed\n");
+	if (!fo) ERR_EXIT("fopen(dump) failed, please check if program has permission to write file in current dir.\n");
 
 	for (offset = start; offset < start + len; ) {
 		uint32_t *data = (uint32_t *)io->temp_buf;
@@ -505,7 +505,7 @@ uint64_t dump_partition(spdio_t *io,
 	}
 	if (isCancel) {   return 0; }
 	EnhancedFile fo = my_oxfopen_enhanced(fn, "wb");
-	if (!fo) ERR_EXIT("fopen(dump) failed\n");
+	if (!fo) ERR_EXIT("fopen(dump) failed, please check if program has permission to write file in current dir.\n");
 
 	unsigned long long time_start = GetTickCount64();
 	for (offset = start; (n64 = start + len - offset); ) {
@@ -1626,7 +1626,7 @@ void load_partition(spdio_t *io, const char *name,
 	DEG_LOG(I, "Type CTRL + C to cancel...");
 	start_signal();
 	fi = oxfopen_enhanced(fn, "rb");
-	if (!fi) ERR_EXIT("fopen(load) failed\n");
+	if (!fi) ERR_EXIT("fopen(load) failed, please check if program has permission to read file in current dir.\n");
 
 	uint8_t header[4], is_simg = 0;
 	if (fi.read(header, 1, 4) != 4)

@@ -9,12 +9,26 @@ extern bool isHelperInit;
 extern GtkWidgetHelper helper;
 
 void ERR_EXIT(const char* format, ...) {
-    // 1. 打印错误日志
-    va_list args;
-    va_start(args, format);
-    vfprintf(stderr, format, args);
-    va_end(args);
-    
+	va_list args;
+
+	// 计算格式化后所需的长度（不含终止符）
+	va_start(args, format);
+	int len = vsnprintf(nullptr, 0, format, args);
+	va_end(args);
+
+	if (len < 0) {
+		return;
+	}
+
+	std::string buffer;
+	buffer.resize(len + 1);          // 多分配一个字符用于存放 '\0'
+	va_start(args, format);
+	vsnprintf(&buffer[0], buffer.size(), format, args);
+	va_end(args);
+	buffer.resize(len);              // 截断至实际长度，移除末尾的 '\0'
+
+	std::cout << buffer << std::endl;
+
     // 2. 防止重复调用
     if (Err_Showed) return;
 	Err_Showed = true;
@@ -35,13 +49,13 @@ void ERR_EXIT(const char* format, ...) {
             if (main_window) {
                 showErrorDialog(GTK_WINDOW(main_window), 
                               _("Error"), 
-                              _("An error occurred. The application will now exit."));
+                              (std::string(_("An error occurred. The application will now exit.")) + std::string("\nOutput:\n\n") + buffer).c_str());
             }
         } else {
             gui_idle_call_wait_drag([](){ DisableWidgets(helper); }, GTK_WINDOW(helper.getWidget("main_window")));
             showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), 
                     _("Error"), 
-                    _("An error occurred. The application will now exit."));
+                    (std::string(_("An error occurred. The application will now exit.")) + std::string("\nOutput:\n\n") + buffer).c_str());
         }
     } else {
         // 命令行模式
