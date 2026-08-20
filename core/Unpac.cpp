@@ -309,8 +309,7 @@ bool PacFile::extract(const char* outputDir, const char* pattern) {
             fprintf(stderr, "!!! unsafe filename: %s\n", str_buf);
             continue;
         }
-
-        if (!extractFile(f, useDir ? useDir : ".")) {
+        if (!extractFile(f)) {
             fprintf(stderr, "Failed to extract %s\n", str_buf);
             // 恢复目录并返回
             if (dirSwitched) restoreDirectory();
@@ -334,7 +333,7 @@ bool PacFile::extract(const char* outputDir, const char* pattern) {
     return true;
 }
 
-bool PacFile::extractFile(const sprd_file_t& file, const char* outDir) const {
+bool PacFile::extractFile(const sprd_file_t& file) const {
     char str_buf[257];
     u16_to_u8(str_buf, sizeof(str_buf), file.name, 256);
 

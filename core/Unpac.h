@@ -87,8 +87,12 @@ private:
     static int check_path(const char* path);
 
     bool parseDirectory();
-    bool extractFile(const sprd_file_t& file, const char* outDir) const;
+    bool extractFile(const sprd_file_t& file) const;
+#ifndef _WIN32
     bool changeToDirectory(const char* dir);       // 内部切换（平台无关）
+#else
+    bool changeToDirectory(const wchar_t* dir);
+#endif
     bool restoreDirectory();                       // 恢复原始目录
 };
 
