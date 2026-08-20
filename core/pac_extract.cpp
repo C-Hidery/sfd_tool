@@ -591,6 +591,15 @@ bool pac_flash(spdio_t* io, const char* folder)
         DEG_LOG(I, "FDL2_BASE_ADDR=%u", fdl2_base_addr);
         if (g_app_state.device.device_stage == BROM)
         {
+            if (fdl1_base_addr == 0 || fdl1_path.empty())
+            {
+                if (isHelperInit)
+                {
+                    showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Can not read FDL1 info from PAC, please execute FDL manually."));
+                }
+                DEG_LOG(E, "Can not read FDL1 info from PAC");
+                return;
+            }
             EnhancedFile fi = oxfopen_enhanced(fdl1_path.c_str(), "r");
             if (!fi)
             {
@@ -663,6 +672,15 @@ bool pac_flash(spdio_t* io, const char* folder)
         }
         if (g_app_state.device.device_stage == FDL1)
         {
+            if (fdl2_base_addr == 0 || fdl2_path.empty())
+            {
+                if (isHelperInit)
+                {
+                    showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Can not read FDL2 info from PAC, please execute FDL manually."));
+                }
+                DEG_LOG(E, "Can not read FDL2 info from PAC");
+                return;
+            }
             // FDL2
             send_file(io, fdl2_path.c_str(), fdl2_base_addr, 0, 528, 0, 0);
             memset(&Da_Info, 0, sizeof(Da_Info));
