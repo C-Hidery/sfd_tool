@@ -549,7 +549,11 @@ bool pac_flash(spdio_t* io, const char* folder)
                 if (!strncmp(chr_buf, "FDL", 3))
                 {
                     unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
-                    fdl1_path = chr_buf;
+#ifndef _WIN32
+                    fdl1_path = std::string("pac_unpack_output/") + std::string(chr_buf);
+#else
+                    fdl1_path = std::string("pac_unpack_output\\") + std::string(chr_buf);
+#endif
                     fdl1_base_addr = file.addr[0];
                     break;
                 }
@@ -564,7 +568,11 @@ bool pac_flash(spdio_t* io, const char* folder)
                 if (!strncmp(chr_buf, "FDL2", 4))
                 {
                     unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
-                    fdl2_path = chr_buf;
+#ifndef _WIN32
+                    fdl2_path = std::string("pac_unpack_output/") + std::string(chr_buf);
+#else
+                    fdl2_path = std::string("pac_unpack_output\\") + std::string(chr_buf);
+#endif
                     fdl2_base_addr = file.addr[0];
                     break;
                 }
