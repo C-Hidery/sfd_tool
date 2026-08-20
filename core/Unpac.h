@@ -73,6 +73,8 @@ public:
     // 获取头部信息
     const sprd_head_t& getHead() const { return head; }
 
+    static size_t u16_to_u8(char* d, size_t dn, const uint16_t* s, size_t sn);
+
 private:
     sprd_head_t head;
     EnhancedFile fp;
@@ -86,7 +88,6 @@ private:
 
     // 辅助静态函数
     static uint16_t crc16(uint32_t crc, const void* src, unsigned len);
-    static size_t u16_to_u8(char* d, size_t dn, const uint16_t* s, size_t sn);
     static int compare_u8_u16(int depth, const char* d, const uint16_t* s, size_t sn);
     static int check_path(const char* path);
 

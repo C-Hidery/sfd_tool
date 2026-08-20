@@ -115,13 +115,17 @@ This option will let tool try to reconnect to device, equivalent to `-r` in CLI.
 
 ## PAC Flashing Notes
 
-**Device must be in FDL2 stage when you decide to flash a PAC firmware.**
+**Device must be in any stage when you decide to flash a PAC firmware.**
 
- - supports custom FDL during flashing
+**SFD Tool will automatically execute FDL in PAC firmware if device is not in FDL2.**
+
+Of course, you can execute your own FDL file before flashing PAC.
+
+Notice:
 
  - only supports partname-based partition table (UBIFS / GPT)
 
- - legacy **ID-based (RDA) table** not supported
+ - legacy **ID-based (RDA) (Nand) table** not supported
 
  - region/OCDT selection (e.g. OPPO/Realme PAC) not supported
 
