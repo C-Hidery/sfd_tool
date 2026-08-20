@@ -681,6 +681,18 @@ bool pac_flash(spdio_t* io, const char* folder)
                 DEG_LOG(E, "Can not read FDL2 info from PAC");
                 return;
             }
+            EnhancedFile fi = oxfopen_enhanced(fdl2_path.c_str(), "r");
+            if (!fi)
+            {
+                DEG_LOG(W, "File does not exist.\n");
+                if (isHelperInit)
+                    gui_idle_call_wait_drag([]()
+                    {
+                        showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
+                    }, GTK_WINDOW(helper.getWidget("main_window")));
+                return;
+            }
+            fi.close();
             // FDL2
             send_file(io, fdl2_path.c_str(), fdl2_base_addr, 0, 528, 0, 0);
             memset(&Da_Info, 0, sizeof(Da_Info));
