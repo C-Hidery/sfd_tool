@@ -54,7 +54,11 @@ public:
     bool load(const char* filename);
 
     // 设置输出目录（后续提取使用）
+#ifndef _WIN32
     void setDirectory(const char* dir);
+#else
+    void setDirectory(const wchar_t* dir);
+#endif
 
     // 准备目录：创建（若不存在）并切换工作目录到该目录
     // 返回 true 表示成功，内部会保存原始目录以便恢复

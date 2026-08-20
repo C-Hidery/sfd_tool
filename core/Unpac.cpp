@@ -137,7 +137,11 @@ bool PacFile::prepareDirectory() {
 }
 
 // ---------- 内部切换和恢复 ----------
+#ifndef _WIN32
 bool PacFile::changeToDirectory(const char* dir) {
+#else
+bool PacFile::changeToDirectory(const wchar_t* dir) {}
+#endif
     if (!dir) return true;  // 无需切换
     // 保存原始目录（如果尚未保存）
 #ifndef _WIN32
@@ -164,7 +168,7 @@ bool PacFile::changeToDirectory(const char* dir) {
         m_originalCwd = cwd;
         free(cwd);
     }
-    if (chdir(utf8_to_utf16(std::string(dir))) != 0) {
+    if (chdir(utf8_to_utf16(std::string(dir)).c_str()) != 0) {
         perror("chdir");
         return false;
     }
@@ -302,7 +306,11 @@ bool PacFile::extract(const char* outputDir, const char* pattern) {
     }
 
     // 确定实际使用的输出目录
+#ifndef _WIN32
     const char* useDir = outputDir;
+#else
+    const wchar_t* useDir = utf8_to_utf16(std::string(outputDir)).c_str();
+#endif
     if (!useDir && !m_outputDir.empty()) {
         useDir = m_outputDir.c_str();
     }
