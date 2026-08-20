@@ -654,7 +654,7 @@ bool pac_flash(spdio_t* io, const char* folder)
             fdl1_loaded = 1;
             g_app_state.device.device_stage = FDL1;
         }
-        else if (g_app_state.device.device_stage == FDL1)
+        if (g_app_state.device.device_stage == FDL1)
         {
             // FDL2
             send_file(io, fdl2_path.c_str(), fdl2_base_addr, 0, 528, 0, 0);
