@@ -539,7 +539,7 @@ bool pac_flash(spdio_t* io, const char* folder)
         g_app_state.flash.isPacMergingNV = (n == "Y" || n == "y");
     }
 
-    auto into_func = [io, xmlPath]() mutable
+    auto into_func = [io, xmlPath, folder]() mutable
     {
         std::string fdl1_path;
         uint32_t fdl1_base_addr = 0;
@@ -855,7 +855,7 @@ bool pac_flash(spdio_t* io, const char* folder)
         }
         g_app_state.flash.isPacFlashing = true;
 
-        load_partitions(io, "pac_unpack_output", blk_size ? blk_size : DEFAULT_BLK_SIZE, g_app_state.flash.selected_ab,
+        load_partitions(io, folder, blk_size ? blk_size : DEFAULT_BLK_SIZE, g_app_state.flash.selected_ab,
                         0);
         encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
         if (!send_and_check(io))

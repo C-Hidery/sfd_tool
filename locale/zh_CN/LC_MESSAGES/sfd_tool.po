@@ -1272,3 +1272,9 @@ msgstr "读取FDL1信息失败，请手动执行FDL"
 
 msgid "Can not read FDL2 info from PAC, please execute FDL manually."
 msgstr "读取FDL2信息失败，请手动执行FDL"
+
+msgid "Please select a folder to unpack the PAC file."
+msgstr "请选择一个文件夹来解包PAC文件。"
+
+msgid "No folder selected."
+msgstr "未选择文件夹。"
