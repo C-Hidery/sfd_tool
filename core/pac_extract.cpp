@@ -34,13 +34,13 @@
 #include "../pages/page_pac_flash.h"
 #include "Unpac.h"
 
-static sfd::Result<void> parse_partitions_xml_result(const char* temp_xml_path,
+static sfd::Result<void> parse_partitions_xml_result(const std::string& pxml,
                                                      partition_t* pacptable,
                                                      int* pac_part_count)
 {
     // 1. 解析 XML 文件
     XmlParser parser;
-    auto root = parser.parseFile(temp_xml_path);
+    auto root = parser.parseString(pxml);
     if (!root)
     {
         DEG_LOG(E, "Failed to parse XML file\n");
@@ -354,19 +354,7 @@ bool pac_extract(const char* fn, const char* folder)
         DEG_LOG(E, "No partition info found in xml");
         return false;
     }
-    EnhancedFile fi = oxfopen_enhanced("partitions_temp.xml", "w");
-    if (fi)
-    {
-        fi << partxml;
-        fi.close();
-    }
-    else
-    {
-        DEG_LOG(E, "Failed to create temporary partitions XML file.");
-        ERR_EXIT("Failed to create temporary partitions XML file.");
-    }
-
-    auto r = parse_partitions_xml_result("partitions_temp.xml", pacptable, &pac_part_count);
+    auto r = parse_partitions_xml_result(partxml, pacptable, &pac_part_count);
     if (!r)
     {
         // parse_partitions_xml_result 已经处理了日志和 GUI 提示，这里维持返回 false 即可
