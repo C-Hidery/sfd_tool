@@ -16,6 +16,9 @@
 #include <stdint.h>
 #include <filesystem>  // C++17 filesystem
 #include <sstream>
+#include <sys/stat.h>
+#include <cerrno>
+
 #include "XmlParser.hpp"
 #ifdef _WIN32
 #include <io.h>
@@ -281,9 +284,13 @@ std::string FindFirstXMLFile(const std::string& folderPath)
 }
 
 PacFile& unpac = g_app_state.pacFile;
-
 bool pac_extract(const char* fn, const char* folder)
 {
+#ifndef _WIN32
+    if (mkdir(folder, 0755) != 0 && errno != EEXIST) return false;
+#else
+    if (_wmkdir(utf8_to_utf16(std::string(folder)).c_str()) != 0 && errno != EEXIST) return false;
+#endif
     auto* pacptable = NEWN partition_t[128];
     if (!pacptable) ERR_EXIT("Failed to allocate memory for partition table.\n");
     int pac_part_count = 0;

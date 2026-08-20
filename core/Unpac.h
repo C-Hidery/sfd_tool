@@ -55,17 +55,6 @@ public:
     // 加载 PAC 文件
     bool load(const char* filename);
 
-    // 设置输出目录（后续提取使用）
-#ifndef _WIN32
-    void setDirectory(const char* dir);
-#else
-    void setDirectory(const wchar_t* dir);
-#endif
-
-    // 准备目录：创建（若不存在）并切换工作目录到该目录
-    // 返回 true 表示成功，内部会保存原始目录以便恢复
-    bool prepareDirectory();
-
     // 列出文件（可选 pattern 匹配）
     void list(const char* pattern = nullptr) const;
 
@@ -74,10 +63,10 @@ public:
     bool extract(const char* outputDir = nullptr, const char* pattern = nullptr);
 
     // 校验数据 CRC
-    bool check() const;
+    [[nodiscard]] bool check() const;
 
     // 获取头部信息
-    const sprd_head_t& getHead() const { return head; }
+    [[nodiscard]] const sprd_head_t& getHead() const { return head; }
 
     static size_t u16_to_u8(char* d, size_t dn, const uint16_t* s, size_t sn);
 

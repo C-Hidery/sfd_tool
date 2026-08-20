@@ -8,13 +8,8 @@
 #include "../common.h"
 #ifdef _WIN32
     #include <direct.h>
-    #define mkdir _wmkdir
     #define chdir _wchdir
     #define getcwd _wgetcwd
-#else
-    #include <sys/stat.h>
-    #include <unistd.h>
-    #define mkdir(path, mode) mkdir(path, mode)
 #endif
 
 // ---------- 静态辅助函数（移植自原代码） ----------
@@ -114,61 +109,6 @@ PacFile::~PacFile() {
     if (fp) fp.close();
     if (files) free(files);
 }
-// ---------- 设置目录 ----------
-void PacFile::setDirectory(const char* dir) {
-#ifndef _WIN32
-    if (dir) m_outputDir = dir;
-    else m_outputDir.clear();
-#else
-    if (dir) m_outputDir = utf8_to_utf16(std::string(dir));
-    else m_outputDir.clear();
-#endif
-}
-
-// ---------- 准备目录 ----------
-bool PacFile::prepareDirectory() {
-    if (m_outputDir.empty()) {
-        fprintf(stderr, "No output directory set.\n");
-        return false;
-    }
-#ifndef _WIN32
-    // 保存当前工作目录（如果尚未保存）
-    if (m_originalCwd.empty()) {
-        char* cwd = getcwd(nullptr, 0);
-        if (!cwd) {
-            perror("getcwd");
-            return false;
-        }
-        m_originalCwd = cwd;
-        free(cwd);
-    }
-#else
-    if (m_originalCwd.empty()) {
-        wchar_t* cwd = getcwd(nullptr, 0);
-        if (!cwd) {
-            perror("getcwd");
-            return false;
-        }
-        m_originalCwd = cwd;
-        free(cwd);
-    }
-#endif
-
-    // 创建目录（如果不存在）
-    if (mkdir(m_outputDir.c_str(), 0755) != 0 && errno != EEXIST) {
-        perror("mkdir");
-        return false;
-    }
-
-    // 切换工作目录
-    if (chdir(m_outputDir.c_str()) != 0) {
-        perror("chdir");
-        return false;
-    }
-
-    return true;
-}
-
 // ---------- 内部切换和恢复 ----------
 #ifndef _WIN32
 bool PacFile::changeToDirectory(const char* dir) {
@@ -337,17 +277,11 @@ bool PacFile::extract(const char* outputDir, const char* pattern) {
         fprintf(stderr, "No PAC file loaded\n");
         return false;
     }
-
-    // 确定实际使用的输出目录
 #ifndef _WIN32
     const char* useDir = outputDir;
 #else
     const wchar_t* useDir = utf8_to_utf16(std::string(outputDir)).c_str();
 #endif
-    if (!useDir && !m_outputDir.empty()) {
-        useDir = m_outputDir.c_str();
-    }
-
     // 切换工作目录（如果指定了输出目录）
     bool dirSwitched = false;
     if (useDir) {
