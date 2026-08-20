@@ -16,6 +16,9 @@
 #include <stdint.h>
 #include <filesystem>  // C++17 filesystem
 #include <sstream>
+#include <sys/stat.h>
+#include <cerrno>
+
 #include "XmlParser.hpp"
 #ifdef _WIN32
 #include <io.h>
@@ -29,538 +32,7 @@
 #include "logging.h"  // 使用统一的 ERR_EXIT
 #include "result.h"   // T2-02: Result/ErrorCode
 #include "../pages/page_pac_flash.h"
-
-typedef struct
-{
-    uint16_t pac_version[24];
-    uint32_t pac_size;
-    uint16_t fw_name[256];
-    uint16_t fw_version[256];
-    uint32_t file_count;
-    uint32_t dir_offset;
-    uint32_t unknown1[5];
-    uint16_t fw_alias[100];
-    uint32_t unknown2[3];
-    uint32_t unknown[200];
-    uint32_t pac_magic;
-    uint16_t head_crc, data_crc;
-} sprd_head_t;
-
-typedef struct
-{
-    uint32_t struct_size;
-    uint16_t id[256];
-    uint16_t name[256];
-    uint16_t unknown1[256 - 4];
-    uint32_t size_high;
-    uint32_t pac_offset_high;
-    uint32_t size;
-    uint32_t type; // 0 - operation, 1 - file, 2 - xml, 0x101 - fdl
-    uint32_t flash_use; // 1 - used during flashing process
-    uint32_t pac_offset;
-    uint32_t omit_flag;
-    uint32_t addr_num;
-    uint32_t addr[5];
-    uint32_t unknown2[249];
-} sprd_file_t;
-
-static unsigned u_crc16(uint32_t crc, const void* src, unsigned len)
-{
-    uint8_t* s = (uint8_t*)src;
-    int i;
-    while (len--)
-    {
-        crc ^= *s++;
-        for (i = 0; i < 8; i++)
-            crc = crc >> 1 ^ ((0 - (crc & 1)) & 0xa001);
-    }
-    return crc;
-}
-
-// 使用统一的 ERR_EXIT 而不是本地 U_ERR_EXIT
-#define READ(p, n, name) \
-    if (fread(p, n, 1, fi) != 1) \
-        ERR_EXIT("fread(%s) failed\n", #name)
-#define READ1(p) READ(&p, sizeof(p), #p)
-
-enum
-{
-    MODE_NONE = 0,
-    MODE_LIST,
-    MODE_EXTRACT,
-    MODE_CHECK
-};
-
-static size_t u16_to_u8(char* d, size_t dn, const uint16_t* s, size_t sn)
-{
-    size_t i = 0, j = 0;
-    unsigned a;
-    if (!d) dn = 0;
-    while (i < sn)
-    {
-        a = s[i++];
-        if (!a) break;
-        if ((a - 0x20) >= 0x5f) a = '?';
-        if (j + 1 < dn) d[j++] = a;
-    }
-    if (dn) d[j] = 0;
-    return i;
-}
-
-static int compare_u8_u16(int depth, char* d, const uint16_t* s, size_t sn)
-{
-    size_t i = 0;
-    int a, b;
-    if (depth > 10) ERR_EXIT("use less wildcards\n");
-    for (;;)
-    {
-        a = *d++;
-        if (a == '*') goto wildcard;
-        b = i < sn ? s[i++] : 0;
-        if (a == '?')
-        {
-            if (!b) return 1;
-        }
-        else
-        {
-            if (a != b) return 1;
-            if (!a) break;
-        }
-    }
-    return 0;
-
-wildcard:
-    for (;;)
-    {
-        if (!compare_u8_u16(depth + 1, d, s + i, sn - i)) return 0;
-        b = i < sn ? s[i++] : 0;
-        if (!b) break;
-    }
-    return 1;
-}
-
-static int check_path(char* path)
-{
-    char* s = path;
-    int a;
-    for (; (a = *s); s++)
-    {
-        if (a == '/' || a == '\\' || a == ':') return -1;
-    }
-    return s - path;
-}
-
-class Unpac
-{
-private:
-    EnhancedFile fi;
-    sprd_head_t head;
-    char str_buf[257];
-    unsigned chunk;
-    const char* dir;
-    uint8_t* buf;
-    int argc;
-    char** argv;
-    std::filesystem::path orig_dir;
-
-public:
-    Unpac() : fi(NULL), chunk(0x1000), dir(NULL), buf(NULL), argc(0), argv(NULL),
-              orig_dir(std::filesystem::current_path())
-    {
-        memset(&head, 0, sizeof(head));
-        memset(str_buf, 0, sizeof(str_buf));
-    }
-
-    ~Unpac()
-    {
-        if (buf) free(buf);
-        if (fi) fi.close();
-    }
-
-    void setDirectory(const char* directory)
-    {
-        dir = directory;
-        orig_dir = std::filesystem::current_path();
-    }
-
-    // 新增：检查和准备输出目录的函数
-    void prepareOutputDirectory()
-    {
-        if (!dir) ERR_EXIT("Error: Output directory not set\n");
-        namespace fs = std::filesystem;
-        try
-        {
-#ifdef _WIN32
-            fs::path outputPath = utf8_to_utf16(dir);
-#else
-            fs::path outputPath = dir;
-#endif
-            if (fs::exists(outputPath)) fs::remove_all(outputPath);
-            fs::create_directories(outputPath);
-        }
-        catch (const fs::filesystem_error& e) { ERR_EXIT("Filesystem error: %s\n", e.what()); }
-    }
-
-    bool openPacFile(const char* filename)
-    {
-        fi = my_oxfopen_enhanced(filename, "rb");
-        if (!fi)
-        {
-            printf("fopen(input) failed\n");
-            return false;
-        }
-
-        READ1(head);
-        if (head.pac_magic != ~0x50005u)
-        {
-            printf("bad pac_magic\n");
-            return false;
-        }
-
-        if (head.dir_offset != sizeof(head))
-        {
-            printf("unexpected directory offset\n");
-            return false;
-        }
-
-        if (head.file_count >> 10)
-        {
-            printf("too many files\n");
-            return false;
-        }
-
-        return true;
-    }
-
-    void setFilter(int filter_argc, char** filter_argv)
-    {
-        argc = filter_argc;
-        argv = filter_argv;
-    }
-
-#define CONV_STR(x) \
-        u16_to_u8(str_buf, sizeof(str_buf), x, sizeof(x) / 2)
-
-    bool listFiles();
-    bool extractFiles();
-    bool checkCrc();
-    sfd::Result<void> checkCrc_result();
-    void close();
-};
-
-
-bool Unpac::listFiles()
-{
-    if (!fi)
-    {
-        printf("PAC file not opened\n");
-        return false;
-    }
-
-    CONV_STR(head.pac_version);
-    printf("pac_version: %s\n", str_buf);
-    printf("pac_size: %u\n", head.pac_size);
-
-    CONV_STR(head.fw_name);
-    printf("fw_name: %s\n", str_buf);
-    CONV_STR(head.fw_version);
-    printf("fw_version: %s\n", str_buf);
-    CONV_STR(head.fw_alias);
-    printf("fw_alias: %s\n", str_buf);
-
-    // CRC check
-    uint32_t head_crc = u_crc16(0, &head, sizeof(head) - 4);
-    printf("head_crc: 0x%04x", head.head_crc);
-    if (head.head_crc != head_crc)
-        printf(" (expected 0x%04x)", head_crc);
-    printf("\n");
-
-    // List files
-    for (unsigned i = 0; i < head.file_count; i++)
-    {
-        sprd_file_t file;
-        int j;
-        READ1(file);
-        if (file.struct_size != sizeof(sprd_file_t))
-        {
-            printf("unexpected struct size\n");
-            return false;
-        }
-
-        long long file_size = (long long)file.size_high << 32 | file.size;
-        long long pac_offset = (long long)file.pac_offset_high << 32 | file.pac_offset;
-
-        // Apply filter
-        for (j = 0; j < argc; j++)
-            if (!compare_u8_u16(0, argv[j], file.name, 256) ||
-                (file.id[0] && !compare_u8_u16(0, argv[j], file.id, 256)))
-                break;
-
-        if (argc && j == argc) continue;
-
-        printf(file.type > 9 ? "type = 0x%x" : "type = %u", file.type);
-        if (file_size)
-            printf(", size = 0x%llx", file_size);
-        if (pac_offset)
-            printf(", offset = 0x%llx", pac_offset);
-
-        if (file.addr_num <= 5)
-            for (j = 0; j < (int)file.addr_num; j++)
-            {
-                if (!file.addr[j]) continue;
-                if (!j) printf(", addr = 0x%x", file.addr[j]);
-                else printf(", addr%u = 0x%x", j, file.addr[j]);
-            }
-
-        if (file.id[0])
-        {
-            CONV_STR(file.id);
-            printf(", id = \"%s\"", str_buf);
-        }
-        if (file.name[0])
-        {
-            CONV_STR(file.name);
-            printf(", name = \"%s\"", str_buf);
-        }
-        printf("\n");
-    }
-    return true;
-}
-
-bool Unpac::extractFiles()
-{
-    if (!fi)
-    {
-        printf("PAC file not opened\n");
-        return false;
-    }
-
-    // 在提取文件前准备输出目录
-    prepareOutputDirectory();
-
-#ifdef _WIN32
-    std::wstring wdir = utf8_to_utf16(dir);
-    if (_wchdir(wdir.c_str())) { printf("chdir failed\n"); return false; }
-#else
-    if (dir && chdir(dir)) { printf("chdir failed\n"); return false; }
-#endif
-
-    for (unsigned i = 0; i < head.file_count; i++)
-    {
-        sprd_file_t file;
-        int j;
-        long long file_size, pac_offset;
-        READ1(file);
-        if (file.struct_size != sizeof(sprd_file_t))
-        {
-            printf("unexpected struct size\n");
-            return false;
-        }
-
-        file_size = (long long)file.size_high << 32 | file.size;
-        pac_offset = (long long)file.pac_offset_high << 32 | file.pac_offset;
-
-        if (!file.name[0] || !pac_offset || !file_size) continue;
-
-        // Apply filter
-        for (j = 0; j < argc; j++)
-            if (!compare_u8_u16(0, argv[j], file.name, 256) ||
-                (file.id[0] && !compare_u8_u16(0, argv[j], file.id, 256)))
-                break;
-
-        if (argc && j == argc) continue;
-
-        EnhancedFile fo;
-        uint64_t l;
-        uint32_t n;
-
-        CONV_STR(file.name);
-        printf("%s\n", str_buf);
-
-        if (fi.seeko(pac_offset, SEEK_SET))
-        {
-            printf("fseek failed\n");
-            return false;
-        }
-
-        if (check_path(str_buf) < 1)
-        {
-            printf("!!! unsafe filename detected\n");
-            continue;
-        }
-
-        if (!buf)
-        {
-            buf = (uint8_t*)malloc(chunk);
-            if (!buf)
-            {
-                printf("malloc failed\n");
-                return false;
-            }
-        }
-
-        fo = oxfopen_enhanced(str_buf, "wb");
-        if (!fo)
-        {
-            printf("fopen(output) failed\n");
-            return false;
-        }
-
-        l = file_size;
-        for (; l; l -= n)
-        {
-            n = (uint32_t)(l > chunk ? chunk : l);
-            READ(buf, n, "chunk");
-            fo.write(buf, n, 1);
-        }
-        fo.close();
-
-        if (fi.seek(sizeof(head) + (i + 1) * sizeof(sprd_file_t), SEEK_SET))
-        {
-            printf("fseek failed\n");
-            return false;
-        }
-    }
-#ifdef _WIN32
-    std::wstring w_orig = orig_dir.wstring();
-    int len = WideCharToMultiByte(CP_UTF8, 0, w_orig.c_str(), -1, nullptr, 0, nullptr, nullptr);
-    std::string path_str;
-    if (len > 0) {
-        path_str.resize(len);
-        WideCharToMultiByte(CP_UTF8, 0, w_orig.c_str(), -1, path_str.data(), len, nullptr, nullptr);
-        path_str.pop_back();
-    }
-#else
-    const std::string path_str = orig_dir.string();
-#endif
-    const char* path = path_str.c_str();
-#ifndef _WIN32
-    if (path && chdir(path))
-    {
-        printf("chdir failed\n");
-        return false;
-    }
-#else
-    if (path)
-    {
-        if (_chdir(path))
-        {
-            printf("chdir failed\n");
-            return false;
-        }
-    }
-#endif
-    return true;
-}
-
-bool Unpac::checkCrc()
-{
-    auto r = checkCrc_result();
-    return static_cast<bool>(r);
-}
-
-sfd::Result<void> Unpac::checkCrc_result()
-{
-    if (!fi)
-    {
-        printf("PAC file not opened\n");
-        return sfd::Result<void>::error(sfd::ErrorCode::InvalidArgument, "pac file not opened");
-    }
-
-    // Head CRC
-    uint32_t head_crc = u_crc16(0, &head, sizeof(head) - 4);
-    printf("head_crc: 0x%04x", head.head_crc);
-    bool head_mismatch = false;
-    if (head.head_crc != head_crc)
-    {
-        printf(" (expected 0x%04x)", head_crc);
-        head_mismatch = true;
-    }
-    printf("\n");
-
-    // Data CRC
-    uint32_t l = head.pac_size;
-    if (l < sizeof(head))
-    {
-        printf("unexpected pac size\n");
-        return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "unexpected pac size");
-    }
-
-    if (fi.seeko(sizeof(head), SEEK_SET))
-    {
-        printf("fseeko failed in checkCrc\n");
-        return sfd::Result<void>::error(sfd::ErrorCode::IoError, "fseeko failed in checkCrc");
-    }
-
-    uint32_t data_crc = 0;
-    uint32_t chunk_size = chunk ? chunk : 0x1000;
-    uint8_t* local_buf = (uint8_t*)malloc(chunk_size);
-    if (!local_buf)
-    {
-        printf("malloc failed\n");
-        return sfd::Result<void>::error(sfd::ErrorCode::InternalError, "malloc failed in checkCrc");
-    }
-
-    l -= sizeof(head);
-    while (l)
-    {
-        uint32_t n = l > chunk_size ? chunk_size : l;
-        size_t read_count = fi.read(local_buf, 1, n);
-        if (read_count != n)
-        {
-            printf("fread failed in checkCrc\n");
-            free(local_buf);
-            return sfd::Result<void>::error(sfd::ErrorCode::IoError, "fread failed in checkCrc");
-        }
-        data_crc = u_crc16(data_crc, local_buf, n);
-        l -= n;
-    }
-
-    free(local_buf);
-
-    printf("data_crc: 0x%04x", head.data_crc);
-    bool data_mismatch = false;
-    if (head.data_crc != data_crc)
-    {
-        printf(" (expected 0x%04x)", data_crc);
-        data_mismatch = true;
-    }
-    printf("\n");
-
-    if (head_mismatch || data_mismatch)
-    {
-        if (head_mismatch && data_mismatch)
-        {
-            return sfd::Result<void>::error(sfd::ErrorCode::ParseError,
-                                            "PAC CRC mismatch (head and data)");
-        }
-        else if (head_mismatch)
-        {
-            return sfd::Result<void>::error(sfd::ErrorCode::ParseError,
-                                            "PAC CRC mismatch (head)");
-        }
-        else
-        {
-            return sfd::Result<void>::error(sfd::ErrorCode::ParseError,
-                                            "PAC CRC mismatch (data)");
-        }
-    }
-
-    return sfd::Result<void>::ok();
-}
-
-void Unpac::close()
-{
-    if (buf)
-    {
-        free(buf);
-        buf = NULL;
-    }
-    if (fi)
-    {
-        fi.close();
-    }
-}
+#include "Unpac.h"
 
 static sfd::Result<void> parse_partitions_xml_result(const char* temp_xml_path,
                                                      partition_t* pacptable,
@@ -811,14 +283,18 @@ std::string FindFirstXMLFile(const std::string& folderPath)
     return "";
 }
 
-bool pac_extract(const char* fn, const char* floder)
+PacFile& unpac = g_app_state.pacFile;
+bool pac_extract(const char* fn, const char* folder)
 {
-    auto *pacptable = NEWN partition_t[128];
+#ifndef _WIN32
+    if (mkdir(folder, 0755) != 0 && errno != EEXIST) return false;
+#else
+    if (_wmkdir(utf8_to_utf16(std::string(folder)).c_str()) != 0 && errno != EEXIST) return false;
+#endif
+    auto* pacptable = NEWN partition_t[128];
     if (!pacptable) ERR_EXIT("Failed to allocate memory for partition table.\n");
     int pac_part_count = 0;
-    Unpac unpac;
-    unpac.setDirectory(floder);
-    if (!unpac.openPacFile(fn))
+    if (!unpac.load(fn))
     {
         DEG_LOG(E, "Failed to open PAC file.\n");
         if (isHelperInit)
@@ -830,8 +306,7 @@ bool pac_extract(const char* fn, const char* floder)
         }
         return false;
     }
-    unpac.setFilter(0, NULL);
-    if (!unpac.extractFiles())
+    if (!unpac.extract(folder))
     {
         DEG_LOG(E, "Failed to extract files from PAC file.\n");
         if (isHelperInit)
@@ -845,9 +320,8 @@ bool pac_extract(const char* fn, const char* floder)
         }
         return false;
     }
-    unpac.listFiles();
-    unpac.close();
-    std::string xmlPath = FindFirstXMLFile(floder);
+    unpac.list(nullptr);
+    std::string xmlPath = FindFirstXMLFile(folder);
     if (xmlPath.empty())
     {
         if (isHelperInit)
@@ -861,7 +335,11 @@ bool pac_extract(const char* fn, const char* floder)
         return false;
     }
     EnhancedFile file = oxfopen_enhanced(xmlPath.c_str(), "r");
-    if (!file) { DEG_LOG(E, "Failed to open xml for reading"); return false;}
+    if (!file)
+    {
+        DEG_LOG(E, "Failed to open xml for reading");
+        return false;
+    }
     std::string content;
     content = file.read_all_chunked();
     std::string partxml = ExtractPartitionsWithTags(content);
@@ -1002,25 +480,29 @@ bool pac_extract(const char* fn, const char* floder)
     if (pacptable) delete[] pacptable;
     return true;
 }
-static inline bool iequals(const std::string& a, const std::string& b) {
+
+static inline bool iequals(const std::string& a, const std::string& b)
+{
     return a.size() == b.size() &&
-           std::equal(a.begin(), a.end(), b.begin(),
-               [](char a, char b) {
-                   return std::tolower(static_cast<unsigned char>(a)) ==
-                          std::tolower(static_cast<unsigned char>(b));
-               });
+        std::equal(a.begin(), a.end(), b.begin(),
+                   [](char a, char b)
+                   {
+                       return std::tolower(static_cast<unsigned char>(a)) ==
+                           std::tolower(static_cast<unsigned char>(b));
+                   });
 }
+
 static bool hasPartition(const std::vector<std::string>& partitions, const std::string& partitionName)
 {
     return std::find_if(partitions.begin(), partitions.end(),
-        [&partitionName](const std::string& s) {
-            return iequals(s, partitionName);
-        }) != partitions.end();
+                        [&partitionName](const std::string& s)
+                        {
+                            return iequals(s, partitionName);
+                        }) != partitions.end();
 }
 
 bool pac_flash(spdio_t* io, const char* folder)
 {
-    if (g_app_state.device.device_stage != FDL2) {DEG_LOG(E, "Device is not in FDL2 stage!"); return false;}
     std::string xmlPath = FindFirstXMLFile(folder);
     if (xmlPath.empty())
     {
@@ -1037,7 +519,7 @@ bool pac_flash(spdio_t* io, const char* folder)
     if (isHelperInit)
     {
         if (!showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")),
-            _("Confirm"), _("Do you really want to start flashing PAC firmware?")))
+                                           _("Confirm"), _("Do you really want to start flashing PAC firmware?")))
         {
             return false;
         }
@@ -1046,7 +528,8 @@ bool pac_flash(spdio_t* io, const char* folder)
     if (isHelperInit)
     {
         g_app_state.flash.isPacMergingNV = showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")),
-            _("Confirm"), _("Do you want to merge NV partition?"));
+                                                                         _("Confirm"),
+                                                                         _("Do you want to merge NV partition?"));
     }
     else
     {
@@ -1058,23 +541,290 @@ bool pac_flash(spdio_t* io, const char* folder)
 
     auto into_func = [io, xmlPath]() mutable
     {
+        std::string fdl1_path;
+        uint32_t fdl1_base_addr = 0;
+        std::string fdl2_path;
+        uint32_t fdl2_base_addr = 0;
+        PacFile& unpac = g_app_state.pacFile;
+        char chr_buf[257] = {0};
+        for (int i = 0; i < unpac.fileCount; i++)
+        {
+            const sprd_file_t& file = unpac.files[i];
+            if (file.id[0])
+            {
+                unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.id, 256);
+                if (!strncmp(chr_buf, "FDL", 3))
+                {
+                    unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
+#ifndef _WIN32
+                    fdl1_path = std::string("pac_unpack_output/") + std::string(chr_buf);
+#else
+                    fdl1_path = std::string("pac_unpack_output\\") + std::string(chr_buf);
+#endif
+                    fdl1_base_addr = file.addr[0];
+                    break;
+                }
+            }
+        }
+        for (int i = 0; i < unpac.fileCount; i++)
+        {
+            const sprd_file_t& file = unpac.files[i];
+            if (file.id[0])
+            {
+                unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.id, 256);
+                if (!strncmp(chr_buf, "FDL2", 4))
+                {
+                    unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
+#ifndef _WIN32
+                    fdl2_path = std::string("pac_unpack_output/") + std::string(chr_buf);
+#else
+                    fdl2_path = std::string("pac_unpack_output\\") + std::string(chr_buf);
+#endif
+                    fdl2_base_addr = file.addr[0];
+                    break;
+                }
+            }
+        }
+        DEG_LOG(I, "FDL1_PATH=%s", fdl1_path.c_str());
+        DEG_LOG(I, "FDL1_BASE_ADDR=%u", fdl1_base_addr);
+        DEG_LOG(I, "FDL2_PATH=%s", fdl2_path.c_str());
+        DEG_LOG(I, "FDL2_BASE_ADDR=%u", fdl2_base_addr);
+        if (g_app_state.device.device_stage == BROM)
+        {
+            if (fdl1_base_addr == 0 || fdl1_path.empty())
+            {
+                if (isHelperInit)
+                {
+                    showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Can not read FDL1 info from PAC, please execute FDL manually."));
+                }
+                DEG_LOG(E, "Can not read FDL1 info from PAC");
+                return;
+            }
+            EnhancedFile fi = oxfopen_enhanced(fdl1_path.c_str(), "r");
+            if (!fi)
+            {
+                DEG_LOG(W, "File does not exist.\n");
+                if (isHelperInit)
+                    gui_idle_call_wait_drag([]()
+                    {
+                        showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
+                    }, GTK_WINDOW(helper.getWidget("main_window")));
+                return;
+            }
+            fi.close();
+            send_file(io, fdl1_path.c_str(), fdl1_base_addr, 0, 528, 0, 0);
+            encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+            if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
+
+            DEG_LOG(OP, "Execute FDL1");
+
+            if (fdl1_base_addr == 0x5500 || fdl1_base_addr == 0x65000800)
+            {
+                highspeed = 1;
+                if (!baudrate) baudrate = 921600;
+            }
+
+            /* FDL1 (chk = sum) */
+            io->flags &= ~FLAGS_CRC16;
+
+            encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
+            for (int i = 0; ; i++)
+            {
+                send_msg(io);
+                recv_msg(io);
+                if (recv_type(io) == BSL_REP_VER) break;
+                DEG_LOG(W, "Failed to check baud, retry...");
+                if (i == 4)
+                {
+                    ERR_EXIT(
+                        "Can not execute FDL, please reboot your phone by pressing POWER and VOL_UP for 7-10 seconds.\n");
+                }
+                usleep(500000);
+            }
+            DEG_LOG(I, "Check baud FDL1 done.");
+
+            DEG_LOG(I, "Device REP_Version: ");
+            print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+
+
+            encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+            if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
+            DEG_LOG(I, "FDL1 connected.");
+#if !USE_LIBUSB
+            if (baudrate)
+            {
+                uint8_t* data = io->temp_buf;
+                WRITE32_BE(data, baudrate);
+                encode_msg_nocpy(io, BSL_CMD_CHANGE_BAUD, 4);
+                if (!send_and_check(io))
+                {
+                    DEG_LOG(OP, "Change baud FDL1 to %d", baudrate);
+                    call_SetProperty(io->handle, 0, 100, (LPCVOID) & baudrate);
+                }
+            }
+#endif
+
+            encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
+            if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
+
+            fdl1_loaded = 1;
+            g_app_state.device.device_stage = FDL1;
+        }
+        if (g_app_state.device.device_stage == FDL1)
+        {
+            if (fdl2_base_addr == 0 || fdl2_path.empty())
+            {
+                if (isHelperInit)
+                {
+                    showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Can not read FDL2 info from PAC, please execute FDL manually."));
+                }
+                DEG_LOG(E, "Can not read FDL2 info from PAC");
+                return;
+            }
+            EnhancedFile fi = oxfopen_enhanced(fdl2_path.c_str(), "r");
+            if (!fi)
+            {
+                DEG_LOG(W, "File does not exist.\n");
+                if (isHelperInit)
+                    gui_idle_call_wait_drag([]()
+                    {
+                        showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
+                    }, GTK_WINDOW(helper.getWidget("main_window")));
+                return;
+            }
+            fi.close();
+            // FDL2
+            send_file(io, fdl2_path.c_str(), fdl2_base_addr, 0, 528, 0, 0);
+            memset(&Da_Info, 0, sizeof(Da_Info));
+            encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+            send_msg(io);
+            // Feature phones respond immediately,
+            // but it may take a second for a smartphone to respond.
+            int ret = recv_msg_timeout(io, 15000);
+            if (!ret)
+            {
+                ERR_EXIT("timeout reached\n");
+            }
+            ret = recv_type(io);
+            // Is it always bullshit?
+            if (ret == BSL_REP_INCOMPATIBLE_PARTITION)
+                get_Da_Info(io);
+            else if (ret != BSL_REP_ACK)
+            {
+                const char* name = get_bsl_enum_name(ret);
+                ERR_EXIT("unexpected response (%s : 0x%04x)\n", name, ret);
+            }
+            DEG_LOG(OP, "Execute FDL2");
+            //remove 0d detection for nand device
+            //This is not supported on certain devices.
+            /*
+            encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
+            send_msg(io);
+            ret = recv_msg(io);
+            if (ret) {
+                ret = recv_type(io);
+                if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"unexpected response (0x%04x)\n", ret);
+                else Da_Info.dwStorageType = 0x101;
+                // need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
+                // for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
+            }
+            */
+            if (Da_Info.bDisableHDLC)
+            {
+                encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
+                if (!send_and_check(io))
+                {
+                    io->flags &= ~FLAGS_TRANSCODE;
+                    DEG_LOG(OP, "Try to disable transcode 0x7D.");
+                }
+            }
+            int o = io->verbose;
+            io->verbose = -1;
+            g_spl_size = check_partition(io, "splloader", 1);
+            io->verbose = o;
+            if (Da_Info.bSupportRawData)
+            {
+                blk_size = 0xf800;
+                io->ptable = partition_list(io, &io->part_count);
+                if (fdl2_executed)
+                {
+                    Da_Info.bSupportRawData = 0;
+                    DEG_LOG(OP, "Raw data mode disabled for SPRD4.");
+                }
+                else
+                {
+                    encode_msg_nocpy(io, BSL_CMD_ENABLE_RAW_DATA, 0);
+                    if (!send_and_check(io)) DEG_LOG(OP, "Raw data mode enabled.");
+                }
+            }
+
+
+            else if (highspeed || Da_Info.dwStorageType == 0x103)
+            {
+                blk_size = 0xf800;
+                io->ptable = partition_list(io, &io->part_count);
+            }
+            else if (Da_Info.dwStorageType == 0x102)
+            {
+                io->ptable = partition_list(io, &io->part_count);
+            }
+            else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
+            if (g_app_state.flash.gpt_failed != 1)
+            {
+                if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
+                else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
+                else
+                {
+                    DEG_LOG(I, "Device is not using VAB\n");
+                    if (Da_Info.bSupportRawData)
+                    {
+                        DEG_LOG(
+                            I,
+                            "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.",
+                            (unsigned)Da_Info.bSupportRawData);
+                        Da_Info.bSupportRawData = 0;
+                    }
+                }
+            }
+            if (!io->part_count)
+            {
+                DEG_LOG(W, "No partition table found on current device");
+            }
+            int nand_id = DEFAULT_NAND_ID;
+            uint8_t nand_info[3] = {0}; // page size, spare area size, block size
+            if (nand_id == DEFAULT_NAND_ID)
+            {
+                nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+                nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+                nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+            }
+            fdl2_executed = 1;
+            g_app_state.device.device_stage = FDL2;
+        }
+        DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
         if (g_app_state.flash.isPacMergingNV)
         {
             auto pacptable = getSelectedPartitions(helper);
             get_partition_info(io, "nr_fixnv1", 1);
             if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
             {
-                g_app_state.pac.nr_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE , &g_app_state.pac.nr_fixnv1_mem_size);
+                g_app_state.pac.nr_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size,
+                                                                      blk_size ? blk_size : DEFAULT_BLK_SIZE,
+                                                                      &g_app_state.pac.nr_fixnv1_mem_size);
             }
             get_partition_info(io, "l_fixnv1", 1);
             if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
             {
-                g_app_state.pac.l_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE , &g_app_state.pac.l_fixnv1_mem_size);
+                g_app_state.pac.l_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size,
+                                                                     blk_size ? blk_size : DEFAULT_BLK_SIZE,
+                                                                     &g_app_state.pac.l_fixnv1_mem_size);
             }
             get_partition_info(io, "downloadnv", 1);
             if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
             {
-                g_app_state.pac.downloadnv_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size, blk_size ? blk_size : DEFAULT_BLK_SIZE , &g_app_state.pac.downloadnv_mem_size);
+                g_app_state.pac.downloadnv_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size,
+                                                                       blk_size ? blk_size : DEFAULT_BLK_SIZE,
+                                                                       &g_app_state.pac.downloadnv_mem_size);
             }
         }
         bool i_is = false;
@@ -1105,7 +855,8 @@ bool pac_flash(spdio_t* io, const char* folder)
         }
         g_app_state.flash.isPacFlashing = true;
 
-        load_partitions(io, "pac_unpack_output", blk_size ? blk_size : DEFAULT_BLK_SIZE , g_app_state.flash.selected_ab, 0);
+        load_partitions(io, "pac_unpack_output", blk_size ? blk_size : DEFAULT_BLK_SIZE, g_app_state.flash.selected_ab,
+                        0);
         encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
         if (!send_and_check(io))
         {

@@ -149,13 +149,17 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 
 ## PAC刷写
 
-**当你决定刷写PAC固件时，设备必须处于FDL2模式**
+**当你决定刷写PAC固件时，设备可以处于任意模式**
 
- - 工具支持自定义FDL刷写
+**工具将根据阶段来执行PAC里的FDL文件**
+
+当然，你可以手动执行自己的FDL再来烧录
+
+注意事项：
 
  - 仅支持以分区名为单项的分区表 (UBIFS / GPT)
 
- - 以前以ID为单项的分区表 (RDA) 不支持
+ - 以前以ID为单项的分区表 (RDA) (Nand) 不支持
 
  - 厂商魔改的PAC固件 (比如OPPO、Realme) 不支持
 

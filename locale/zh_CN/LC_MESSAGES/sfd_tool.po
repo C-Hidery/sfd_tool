@@ -878,8 +878,8 @@ msgstr "PAC烧录时间"
 msgid "PAC Time"
 msgstr "PAC烧录时间"
 
-msgid "Please check partitions to flash, and execute FDL into FDL2 stage to start (FDL can be from extracted PAC folder)."
-msgstr "请选择要烧录的分区并将设备执行到FDL2阶段以开始烧录（FDL可以是来自解包了的PAC文件夹里）。"
+msgid "Please check partitions to flash"
+msgstr "请选择要烧录的分区"
 
 
 
@@ -1266,3 +1266,9 @@ msgstr "是否重新分区？"
 
 msgid "Please unpack the PAC file first."
 msgstr "请先解包一个PAC固件。"
+
+msgid "Can not read FDL1 info from PAC, please execute FDL manually."
+msgstr "读取FDL1信息失败，请手动执行FDL"
+
+msgid "Can not read FDL2 info from PAC, please execute FDL manually."
+msgstr "读取FDL2信息失败，请手动执行FDL"

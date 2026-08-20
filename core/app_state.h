@@ -5,6 +5,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include "Unpac.h"
 
 struct spdio_t; // 前向声明，避免头文件循环依赖
 
@@ -58,6 +59,7 @@ struct AppState {
     TransportState transport; // 传输相关（libusb 监听标志、IO 句柄），后续可进一步收缩
     ErrorState     error;     // 临时错误状态，占位以便后续 T2-02 引入统一错误模型
     PacNVMem        pac;
+    PacFile        pacFile;
 };
 
 extern AppState g_app_state;
