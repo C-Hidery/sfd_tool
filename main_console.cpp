@@ -2302,6 +2302,11 @@ int main_console(int argc, char** argv)
                 {
                     pac_flash(io, "pac_unpack_output");
                 }
+                else
+                {
+                    argc = 1;
+                    continue;
+                }
             }
             argc -= 2;
             argv += 2;
