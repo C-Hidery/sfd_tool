@@ -2296,13 +2296,6 @@ int main_console(int argc, char** argv)
             }
             fi.close();
             bool i_is = pac_extract(fn, "pac_unpack_output");
-            if (g_app_state.device.device_stage != FDL2)
-            {
-                DEG_LOG(E, "Pac flashing is only supported in FDL2 stage.");
-                argc -= 2;
-                argv += 2;
-                continue;
-            }
             if (!isToolMode && check_confirm("flash pac"))
             {
                 if (i_is)
