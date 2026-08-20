@@ -27,7 +27,7 @@ void ERR_EXIT(const char* format, ...) {
 	va_end(args);
 	buffer.resize(len);              // 截断至实际长度，移除末尾的 '\0'
 
-	std::cout << buffer << std::endl;
+	std::cerr << buffer << std::endl;
 
     // 2. 防止重复调用
     if (Err_Showed) return;
