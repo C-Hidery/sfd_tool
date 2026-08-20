@@ -539,7 +539,7 @@ bool pac_flash(spdio_t* io, const char* folder)
         g_app_state.flash.isPacMergingNV = (n == "Y" || n == "y");
     }
 
-    auto into_func = [io, xmlPath]() mutable
+    auto into_func = [io, xmlPath, folder]() mutable
     {
         std::string fdl1_path;
         uint32_t fdl1_base_addr = 0;
@@ -557,9 +557,9 @@ bool pac_flash(spdio_t* io, const char* folder)
                 {
                     unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
 #ifndef _WIN32
-                    fdl1_path = std::string("pac_unpack_output/") + std::string(chr_buf);
+                    fdl1_path = g_app_state.flash.pac_folder + "/" + std::string(chr_buf);
 #else
-                    fdl1_path = std::string("pac_unpack_output\\") + std::string(chr_buf);
+                    fdl1_path = g_app_state.flash.pac_folder + "\\" + std::string(chr_buf);
 #endif
                     fdl1_base_addr = file.addr[0];
                     break;
@@ -576,9 +576,9 @@ bool pac_flash(spdio_t* io, const char* folder)
                 {
                     unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
 #ifndef _WIN32
-                    fdl2_path = std::string("pac_unpack_output/") + std::string(chr_buf);
+                    fdl2_path = g_app_state.flash.pac_folder + "/" + std::string(chr_buf);
 #else
-                    fdl2_path = std::string("pac_unpack_output\\") + std::string(chr_buf);
+                    fdl2_path = g_app_state.flash.pac_folder + "\\" + std::string(chr_buf);
 #endif
                     fdl2_base_addr = file.addr[0];
                     break;
@@ -855,7 +855,7 @@ bool pac_flash(spdio_t* io, const char* folder)
         }
         g_app_state.flash.isPacFlashing = true;
 
-        load_partitions(io, "pac_unpack_output", blk_size ? blk_size : DEFAULT_BLK_SIZE, g_app_state.flash.selected_ab,
+        load_partitions(io, folder, blk_size ? blk_size : DEFAULT_BLK_SIZE, g_app_state.flash.selected_ab,
                         0);
         encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
         if (!send_and_check(io))

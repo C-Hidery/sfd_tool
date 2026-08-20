@@ -109,28 +109,33 @@ void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 	ensure_device_attached_or_exit(helper);
 	const char* pac_path = helper.getEntryText(helper.getWidget("pac_file_path"));
 	if (!pac_path || !*pac_path) {
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
-		}, GTK_WINDOW(helper.getWidget("main_window")));
+		showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
 		return;
 	}
-
-	bool i_is = pac_extract(pac_path, "pac_unpack_output");
-	if (i_is)
-	{
-		gui_idle_call_wait_drag([helper]() {
-			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC unpacked successfully."));
-		}, GTK_WINDOW(helper.getWidget("main_window")));
-		isUnpacked = true;
-	}
-	else
-	{
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Failed to unpack PAC."));
-		}, GTK_WINDOW(helper.getWidget("main_window")));
+	showInfoDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Info"), _("Please select a folder to unpack the PAC file."));
+	g_app_state.flash.pac_folder = showFolderChooserSyncInThread(GTK_WINDOW(helper.getWidget("main_window")));
+	if (g_app_state.flash.pac_folder.empty()) {
+		showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("No folder selected."));
 		return;
 	}
-
+	std::thread([pac_path, helper]()
+	{
+		bool i_is = pac_extract(pac_path, g_app_state.flash.pac_folder.c_str());
+		if (i_is)
+		{
+			gui_idle_call_wait_drag([helper]() {
+				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC unpacked successfully."));
+			}, GTK_WINDOW(helper.getWidget("main_window")));
+			isUnpacked = true;
+		}
+		else
+		{
+			gui_idle_call_wait_drag([helper]() {
+				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Failed to unpack PAC."));
+			}, GTK_WINDOW(helper.getWidget("main_window")));
+			return;
+		}
+	}).detach();
 }
 
 void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
@@ -140,7 +145,7 @@ void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 		showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Please unpack the PAC file first."));
 		return;
 	}
-	pac_flash(io, "pac_unpack_output");
+	pac_flash(io, g_app_state.flash.pac_folder.c_str());
 }
 
 // ===== UI 构建 =====
