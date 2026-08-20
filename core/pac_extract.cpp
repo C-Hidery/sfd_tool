@@ -570,6 +570,10 @@ bool pac_flash(spdio_t* io, const char* folder)
                 }
             }
         }
+        DEG_LOG(I, "FDL1_PATH=%s", fdl1_path.c_str());
+        DEG_LOG(I, "FDL1_BASE_ADDR=%u", fdl1_base_addr);
+        DEG_LOG(I, "FDL2_PATH=%s", fdl2_path.c_str());
+        DEG_LOG(I, "FDL2_BASE_ADDR=%u", fdl2_base_addr);
         if (g_app_state.device.device_stage == BROM)
         {
             EnhancedFile fi = oxfopen_enhanced(fdl1_path.c_str(), "r");
