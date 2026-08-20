@@ -287,18 +287,6 @@ bool pac_extract(const char* fn, const char* folder)
     auto* pacptable = NEWN partition_t[128];
     if (!pacptable) ERR_EXIT("Failed to allocate memory for partition table.\n");
     int pac_part_count = 0;
-    if (!unpac.load(fn))
-    {
-        DEG_LOG(E, "Failed to open PAC file.\n");
-        if (isHelperInit)
-        {
-            gui_idle_call_wait_drag([]()
-            {
-                showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Failed to open PAC file."));
-            },GTK_WINDOW(helper.getWidget("main_window")));
-        }
-        return false;
-    }
     if (!unpac.extract(folder))
     {
         DEG_LOG(E, "Failed to extract files from PAC file.\n");
@@ -309,6 +297,18 @@ bool pac_extract(const char* fn, const char* folder)
                 showErrorDialog(
                     GTK_WINDOW(helper.getWidget("main_window")), _("Error"),
                     _("Failed to extract files from PAC file."));
+            },GTK_WINDOW(helper.getWidget("main_window")));
+        }
+        return false;
+    }
+    if (!unpac.load(fn))
+    {
+        DEG_LOG(E, "Failed to open PAC file.\n");
+        if (isHelperInit)
+        {
+            gui_idle_call_wait_drag([]()
+            {
+                showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Failed to open PAC file."));
             },GTK_WINDOW(helper.getWidget("main_window")));
         }
         return false;

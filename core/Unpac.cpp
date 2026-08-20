@@ -173,7 +173,7 @@ bool PacFile::prepareDirectory() {
 #ifndef _WIN32
 bool PacFile::changeToDirectory(const char* dir) {
 #else
-bool PacFile::changeToDirectory(const wchar_t* dir) {}
+bool PacFile::changeToDirectory(const wchar_t* dir) {
 #endif
     if (!dir) return true;  // 无需切换
     // 保存原始目录（如果尚未保存）
