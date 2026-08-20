@@ -118,23 +118,24 @@ void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 		showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("No folder selected."));
 		return;
 	}
-
-	bool i_is = pac_extract(pac_path, g_app_state.flash.pac_folder.c_str());
-	if (i_is)
+	std::thread([pac_path, helper]()
 	{
-		gui_idle_call_wait_drag([helper]() {
-			showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC unpacked successfully."));
-		}, GTK_WINDOW(helper.getWidget("main_window")));
-		isUnpacked = true;
-	}
-	else
-	{
-		gui_idle_call_wait_drag([helper]() {
-			showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Failed to unpack PAC."));
-		}, GTK_WINDOW(helper.getWidget("main_window")));
-		return;
-	}
-
+		bool i_is = pac_extract(pac_path, g_app_state.flash.pac_folder.c_str());
+		if (i_is)
+		{
+			gui_idle_call_wait_drag([helper]() {
+				showInfoDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Success"), _("PAC unpacked successfully."));
+			}, GTK_WINDOW(helper.getWidget("main_window")));
+			isUnpacked = true;
+		}
+		else
+		{
+			gui_idle_call_wait_drag([helper]() {
+				showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Failed to unpack PAC."));
+			}, GTK_WINDOW(helper.getWidget("main_window")));
+			return;
+		}
+	}).detach();
 }
 
 void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
