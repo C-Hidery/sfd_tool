@@ -46,7 +46,7 @@ TEST_CASE("backupPartitions enumerates partitions and builds X/name.img paths") 
 
     // 清空全局状态，避免上一次测试运行留下的副作用
     io = nullptr;
-    g_app_state = std::move(AppState{});
+    g_app_state = AppState{};
     g_app_state.flash.isCMethod = 0;
 
     std::unique_ptr<FlashService> svc = createFlashService();
@@ -67,7 +67,7 @@ TEST_CASE("backupPartitions auto mode should include splloader when g_spl_size >
     // 因此先保留一个最小占位测试，后续可在引入更完备的协议层 stub 后再细化。
 
     io = nullptr;
-    g_app_state = std::move(AppState{});
+    g_app_state = AppState{};
     g_app_state.flash.isCMethod = 0;
 
     extern uint64_t g_spl_size;

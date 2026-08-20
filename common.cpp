@@ -22,8 +22,8 @@
 #include "core/logging.h"
 #include "core/app_state.h"
 #include "core/XmlParser.hpp"
-#include <string.h>
-#include <ctype.h>
+#include <cstring>
+#include <cctype>
 
 int my_strnicmp(const char* s1, const char* s2, size_t len)
 {

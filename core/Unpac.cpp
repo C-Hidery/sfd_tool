@@ -73,8 +73,41 @@ int PacFile::check_path(const char* path) {
 }
 
 // ---------- 类构造/析构 ----------
-PacFile::PacFile() : files(nullptr), fileCount(0), fp(nullptr) {
-    memset(&head, 0, sizeof(head));
+PacFile::PacFile() noexcept = default;
+
+PacFile::PacFile(PacFile&& other) noexcept
+    : files(other.files)
+    , fileCount(other.fileCount)
+    , head(other.head)
+    , fp(std::move(other.fp))
+    , m_outputDir(std::move(other.m_outputDir))
+    , m_originalCwd(std::move(other.m_originalCwd))
+
+{
+    // 使源对象处于有效但为空的状态
+    other.files = nullptr;
+    other.fileCount = 0;
+    // 其他成员（head、字符串）已在移动后默认清空，无需显式重置
+}
+
+PacFile& PacFile::operator=(PacFile&& other) noexcept {
+    if (this != &other) {
+        // 先释放当前资源
+        if (files) free(files);
+        // 移动资源
+        files = other.files;
+        fileCount = other.fileCount;
+        head = other.head;
+        fp = std::move(other.fp);
+        m_outputDir = std::move(other.m_outputDir);
+        m_originalCwd = std::move(other.m_originalCwd);
+
+        // 重置源对象
+        other.files = nullptr;
+        other.fileCount = 0;
+        // 其他成员已通过移动构造完成，无需额外操作
+    }
+    return *this;
 }
 
 PacFile::~PacFile() {
