@@ -327,6 +327,10 @@ unsigned dump_flash(spdio_t *io, uint32_t addr, uint32_t start, uint32_t len, co
 unsigned read_flash(spdio_t *io,
 		uint32_t addr, uint32_t start, uint32_t len,
 		uint8_t *mem, FILE *fo, unsigned step) ;
+uint8_t* dump_flash_to_mem(spdio_t *io,
+						   uint32_t addr, uint32_t start, uint32_t len,
+						   unsigned step, int mode,
+						   uint64_t *out_size);
 unsigned dump_mem(spdio_t *io, uint32_t start, uint32_t len, const char *fn, unsigned step);
 uint64_t dump_partition(spdio_t *io, const char *name, uint64_t start, uint64_t len, const char *fn, unsigned step);
 uint8_t* dump_partition_to_mem(spdio_t *io,
