@@ -257,6 +257,41 @@ void ThrowExit()
     }
 }
 
+std::string readConsoleLineUtf8() {
+    char buffer[4096];
+    if (!fgets(buffer, sizeof(buffer), stdin)) {
+        return "";
+    }
+
+    // 移除换行符
+    size_t len = strlen(buffer);
+    if (len > 0 && buffer[len - 1] == '\n') {
+        buffer[--len] = '\0';
+    }
+
+    // 获取当前控制台的实际字符编码
+    const char* charset = nullptr;
+    g_get_console_charset(&charset);
+
+    // 如果编码不是 UTF-8，则进行转换
+    if (charset && strcmp(charset, "UTF-8") != 0) {
+        GError* error = nullptr;
+        gchar* utf8 = g_convert(buffer, -1, "UTF-8", charset, nullptr, nullptr, &error);
+        if (error) {
+            // 转换失败时打印错误并返回原始字符串
+            g_printerr("Code convert failed: %s\n", error->message);
+            g_error_free(error);
+            return std::string(buffer);
+        }
+        std::string result(utf8);
+        g_free(utf8);
+        return result;
+    }
+
+    // 已经是 UTF-8，直接返回
+    return std::string(buffer);
+}
+
 int main_console(int argc, char** argv)
 {
     ThrowExit();
@@ -849,8 +884,13 @@ int main_console(int argc, char** argv)
             {
                 DBG_LOG("[TMODE]: ");
             }
-            ret = scanf("%[^\n]", str1);
-            while ('\n' != getchar());
+            std::string inputLine = readConsoleLineUtf8();
+            if (inputLine.empty()) {
+                continue;
+            }
+            // 复制到 str1 以兼容现有分词逻辑
+            strncpy(str1, inputLine.c_str(), sizeof(str1) - 1);
+            str1[sizeof(str1) - 1] = '\0';
 
             temp = strtok(str1, " ");
             while (temp)
