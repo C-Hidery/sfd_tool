@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 2.8.2 LTV Edition
+Version 2.8.3 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -419,6 +419,9 @@ Remove unstable blk_size detection
 修复了一些已知问题
 
 ---v 2.8.2---
+修复了一些已知问题
+
+---v 2.8.3---
 修复了一些已知问题
 
 Under GPL v3 License

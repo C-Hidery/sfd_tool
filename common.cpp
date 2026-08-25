@@ -294,6 +294,98 @@ unsigned dump_flash(spdio_t *io,
 	DEG_LOG(I,"Read flash successfully: 0x%08x+0x%x, target: 0x%x, read: 0x%x\n", addr, start, len, nread);
 	return nread;
 }
+uint8_t* dump_flash_to_mem(spdio_t *io,
+                           uint32_t addr, uint32_t start, uint32_t len,
+                           unsigned step, int mode,
+                           uint64_t *out_size) {
+    if (out_size) *out_size = 0;
+
+    uint32_t total_read = 0;
+    uint8_t* mem = nullptr;
+
+    // ---- mode == 1：处理 DHTB（含签名） ----
+    if (mode == 1) {
+        uint8_t header[0x34];
+        uint32_t n = read_flash(io, addr, start, sizeof(header), header, NULL, step);
+        if (n != sizeof(header))
+            ERR_EXIT("can't read DHTB header\n");
+
+        // 检查 "BTHD" (0x42544844) 和版本
+        if (READ32_LE(header) != 0x42544844 || READ32_LE(header + 4) != 1)
+            ERR_EXIT("unexpected DHTB header\n");
+
+        uint32_t data_len = READ32_LE(header + 0x30);
+        if (data_len >> 31)
+            ERR_EXIT("unexpected DHTB size (0x%x)\n", data_len);
+
+        // 基础大小 = data_len + 0x200
+        uint32_t base_size = data_len + 0x200;
+        mem = new (std::nothrow) uint8_t[base_size];
+        if (!mem)
+            ERR_EXIT("memory allocation failed\n");
+
+        // 拷贝头部到内存
+        memcpy(mem, header, sizeof(header));
+        total_read = sizeof(header);
+
+        // 读取剩余数据（从 start + total_read 开始，长度 base_size - total_read）
+        uint32_t remaining = base_size - total_read;
+        if (remaining > 0) {
+            uint32_t r = read_flash(io, addr, start + total_read, remaining,
+                                    mem + total_read, NULL, step);
+            total_read += r;
+            // 如果读取不完整，原函数未处理，这里保持原行为（继续执行）
+        }
+
+        // ---- 尝试读取签名 ----
+        uint8_t sig_hdr[0x60];
+        uint32_t nread2 = read_flash(io, addr, start + total_read, sizeof(sig_hdr),
+                                     sig_hdr, NULL, step);
+        if (nread2 == sizeof(sig_hdr)) {
+            // 检查签名有效性（不是全0或全1）
+            if (!(READ32_LE(sig_hdr + 0x10) == 0 || READ32_LE(sig_hdr + 0x10) == 0xFFFFFFFF)) {
+                // 需要追加签名
+                uint32_t sig_data_size = READ32_LE(sig_hdr + 0x20);
+                uint32_t new_size = base_size + sizeof(sig_hdr) + sig_data_size;
+                uint8_t* new_mem = new (std::nothrow) uint8_t[new_size];
+                if (!new_mem) {
+                    delete[] mem;
+                    ERR_EXIT("memory reallocation failed\n");
+                }
+                memcpy(new_mem, mem, total_read);  // 拷贝已有数据
+                delete[] mem;
+                mem = new_mem;
+
+                // 写入签名头部
+                memcpy(mem + total_read, sig_hdr, sizeof(sig_hdr));
+                total_read += sizeof(sig_hdr);
+
+                // 读取签名数据
+                uint32_t sig_read = read_flash(io, addr, start + total_read,
+                                               sig_data_size, mem + total_read,
+                                               NULL, step);
+                total_read += sig_read;
+                // 原函数不检查读取是否完整
+            }
+        }
+
+        if (out_size) *out_size = total_read;
+        return mem;
+    }
+
+    // ---- mode != 1：直接读取 len 字节 ----
+    mem = new (std::nothrow) uint8_t[len];
+    if (!mem)
+        ERR_EXIT("memory allocation failed\n");
+
+    uint32_t nread = read_flash(io, addr, start, len, mem, NULL, step);
+    if (nread != len) {
+        // 原函数未处理读取不完整，但这里保留警告（可选）
+        DEG_LOG(W, "dump_flash_to_mem: read only %u of %u bytes\n", nread, len);
+    }
+    if (out_size) *out_size = nread;
+    return mem;
+}
 unsigned dump_mem(spdio_t *io,
 	uint32_t start, uint32_t len, const char *fn, unsigned step) {
 	uint32_t n, offset, nread;
@@ -567,16 +659,10 @@ uint8_t* dump_partition_to_mem(spdio_t *io,
                                uint64_t len,
                                unsigned step,
                                uint64_t *out_size) {
-    if (out_size) *out_size = 0;
-    if (len == 0) return nullptr;
-
-    // 分配内存（不抛出异常）
-    uint8_t* mem = NEWN uint8_t[len];
-    if (!mem) return nullptr;
-
     uint32_t n, nread, t32;
     uint64_t offset, n64, saved_size = 0;
     int ret, mode64 = (start + len) >> 32;
+    char name_tmp[36];
 
     DEG_LOG(OP, "dump_partition_to_mem: name=%s start=0x%llx len=0x%llx step=%u fblk_size=%llu",
             name,
@@ -591,38 +677,67 @@ uint8_t* dump_partition_to_mem(spdio_t *io,
 
     set_progress_desc(name);
 
-    // 取消检测
+    if (!strncmp(name, "userdata", 8)) {
+        if (!check_confirm("read userdata")) {
+            *out_size = 0;
+            return nullptr;
+        }
+    }
+    else if (strstr(name, "nv1")) {
+        strcpy(name_tmp, name);
+        char *dot = strrchr(name_tmp, '1');
+        if (dot != nullptr) *dot = '2';
+        name = name_tmp;
+        start = 512;
+        if (len > 512)
+            len -= 512;
+    }
+    else if (strstr(name, "downloadnv") || strstr(name, "factorynv")) {
+        start = 0;
+        if (len > 512)
+            len -= 512;
+    }
+
     if (isCancel) {
-        delete[] mem;
+        *out_size = 0;
         return nullptr;
     }
 
-    // 选择分区并开始读取
+    // ---- 分配内存 ----
+    uint8_t* mem = NEWN uint8_t[len];
+    if (!mem) {
+        ERR_EXIT("memory allocation failed\n");
+        return nullptr;
+    }
+
+    // ---- 发送读取开始命令 ----
     select_partition(io, name, start + len, mode64, BSL_CMD_READ_START);
     if (send_and_check(io)) {
         encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
         send_and_check(io);
         delete[] mem;
+        *out_size = 0;
         return nullptr;
     }
     if (isCancel) {
         delete[] mem;
+        *out_size = 0;
         return nullptr;
     }
 
+    // ---- 读取循环 ----
     unsigned long long time_start = GetTickCount64();
-
     for (offset = start; (n64 = start + len - offset); ) {
         uint32_t *data = (uint32_t *)io->temp_buf;
         n = (uint32_t)(n64 > step ? step : n64);
 
-        // 取消检测：发送结束命令并返回已读数据
         if (isCancel) {
-            if (out_size) *out_size = offset - start;
+            // 取消时返回已读数据
+            *out_size = offset - start;
             set_progress_desc(nullptr);
             encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
             send_and_check(io);
-            return mem;
+            return mem;   // 调用者需释放 mem，但读入的数据长度由 out_size 指示
         }
 
         WRITE32_LE(data, n);
@@ -646,7 +761,7 @@ uint8_t* dump_partition_to_mem(spdio_t *io,
         if (n < nread)
             ERR_EXIT("unexpected length\n");
 
-        // 将数据写入内存（而非文件）
+        // 写入内存（而非文件）
         memcpy(mem + (offset - start), io->raw_buf + 4, nread);
 
         print_progress_bar(io, offset + nread - start, len, time_start);
@@ -662,7 +777,7 @@ uint8_t* dump_partition_to_mem(spdio_t *io,
         }
     }
 
-    // 统计和日志
+    // ---- 结束 ----
     double etime = get_time();
     double time_spent = etime - rtime;
     double mb = len / (1024.0 * 1024.0);
@@ -675,11 +790,10 @@ uint8_t* dump_partition_to_mem(spdio_t *io,
 
     set_progress_desc(nullptr);
 
-    // 结束读取
     encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
     send_and_check(io);
 
-    if (out_size) *out_size = offset - start;
+    *out_size = offset - start;
     return mem;
 }
 
@@ -2786,62 +2900,120 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 	if (partitions == nullptr) return;
 	char *fn;
 #if _WIN32
-	// 将 path (UTF-8) 转为 UTF-16
-	char fn_buffer[MAX_PATH];
+    char fn_buffer[MAX_PATH];
+    WIN32_FIND_DATAW findDataW;
+    WIN32_FIND_DATAA findDataA;
+    HANDLE hFind = INVALID_HANDLE_VALUE;
+    BOOL useW = FALSE;
+
+    // 1. 尝试 UTF-16 版本（UTF-8 → UTF-16）
     wchar_t wpath[ARGV_LEN * 2];
-    MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, ARGV_LEN * 2);
-    
+    int len = MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, ARGV_LEN * 2);
+    if (len == 0) {
+        DEG_LOG(W, "MultiByteToWideChar conversion failed, fallback to ANSI.\n");
+        goto fallback_to_ansi;
+    }
+
     wchar_t wsearchPath[ARGV_LEN * 2];
-    swprintf(wsearchPath, ARGV_LEN * 2, L"%s\\*", wpath);
-    
-    WIN32_FIND_DATAW findData;
-    HANDLE hFind = FindFirstFileW(wsearchPath, &findData);
+    swprintf(wsearchPath, ARGV_LEN * 2, L"%ls\\*", wpath);
 
-	if (hFind == INVALID_HANDLE_VALUE) {
-		DEG_LOG(E,"Failed to open directory.\n");
-		return;
-	}
-	do {
-		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
-        WideCharToMultiByte(CP_UTF8, 0, findData.cFileName, -1, fn_buffer, MAX_PATH, NULL, NULL);
-		fn = fn_buffer;
-		namelen = strlen(fn);
-		if (!my_strnicmp(fn, primary_id, strlen(primary_id)))
-		{
-			primary_index = partition_count;
-		}
-		else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id)))
-		{
-			fallback_index = partition_count;
-		}
-		if (namelen >= 4) {
-			if (!my_stricmp(fn + namelen - 4, ".xml") ||
-				!my_stricmp(fn + namelen - 4, ".exe") ||
-				!my_stricmp(fn + namelen - 4, ".txt")) continue;
-		}
-		if (!my_strnicmp(fn, "pgpt", 4) ||
-			!my_strnicmp(fn, "sprdpart", 8) ||
-			!my_strnicmp(fn, "fdl", 3) ||
-			!my_strnicmp(fn, "lk", 2) ||
-			!my_strnicmp(fn, "0x", 2) ||
-			!my_strnicmp(fn, "custom_exec", 11) ||
-		    my_stristr(fn, "factorynv")) continue;
-		snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s", path, fn);
-		char *dot = strrchr(fn, '.');
-		if (dot != nullptr) *dot = '\0';
-		namelen = strlen(fn);
-		if (namelen >= 4 && my_stricmp(fn + namelen - 4, "_bak") == 0) continue;
-		if (!my_stricmp(fn, "misc")) snprintf(miscname, 1024, "%s", partitions[partition_count].file_path);
-		if (namelen > 2) {
-			if (!my_stricmp(fn + namelen - 2, "_a")) VAB |= 1;
-			else if (!my_stricmp(fn + namelen - 2, "_b")) VAB |= 2;
-		}
+    hFind = FindFirstFileW(wsearchPath, &findDataW);
+    if (hFind != INVALID_HANDLE_VALUE) {
+        useW = TRUE;
+    } else {
+        DWORD err = GetLastError();
+        DEG_LOG(W, "FindFirstFileW failed (err=%d), fallback to ANSI.\n", err);
+    }
 
-		strcpy(partitions[partition_count].name, fn);
-		partitions[partition_count].written_flag = 0;
-		partition_count++;
-	} while (FindNextFileW(hFind, &findData));
-	FindClose(hFind);
+fallback_to_ansi:
+    if (!useW) {
+        char searchPath[ARGV_LEN];
+        snprintf(searchPath, ARGV_LEN, "%s\\*", path);
+        hFind = FindFirstFileA(searchPath, &findDataA);
+        if (hFind == INVALID_HANDLE_VALUE) {
+            DEG_LOG(E, "Both W and A versions failed to open directory.\n");
+            return;
+        }
+    }
+
+    // 2. 遍历目录
+    if (useW) {
+        do {
+            if (findDataW.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+            WideCharToMultiByte(CP_UTF8, 0, findDataW.cFileName, -1, fn_buffer, MAX_PATH, NULL, NULL);
+            fn = fn_buffer;
+            // 以下处理逻辑与原版完全相同（使用窄字符 fn）
+            namelen = strlen(fn);
+            if (!my_strnicmp(fn, primary_id, strlen(primary_id))) {
+                primary_index = partition_count;
+            } else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id))) {
+                fallback_index = partition_count;
+            }
+            if (namelen >= 4) {
+                if (!my_stricmp(fn + namelen - 4, ".xml") ||
+                    !my_stricmp(fn + namelen - 4, ".exe") ||
+                    !my_stricmp(fn + namelen - 4, ".txt")) continue;
+            }
+            if (!my_strnicmp(fn, "pgpt", 4) ||
+                !my_strnicmp(fn, "sprdpart", 8) ||
+                !my_strnicmp(fn, "fdl", 3) ||
+                !my_strnicmp(fn, "lk", 2) ||
+                !my_strnicmp(fn, "0x", 2) ||
+                !my_strnicmp(fn, "custom_exec", 11) ||
+                my_stristr(fn, "factorynv")) continue;
+            snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s", path, fn);
+            char *dot = strrchr(fn, '.');
+            if (dot != nullptr) *dot = '\0';
+            namelen = strlen(fn);
+            if (namelen >= 4 && my_stricmp(fn + namelen - 4, "_bak") == 0) continue;
+            if (!my_stricmp(fn, "misc")) snprintf(miscname, 1024, "%s", partitions[partition_count].file_path);
+            if (namelen > 2) {
+                if (!my_stricmp(fn + namelen - 2, "_a")) VAB |= 1;
+                else if (!my_stricmp(fn + namelen - 2, "_b")) VAB |= 2;
+            }
+            strcpy(partitions[partition_count].name, fn);
+            partitions[partition_count].written_flag = 0;
+            partition_count++;
+        } while (FindNextFileW(hFind, &findDataW));
+    } else {
+        do {
+            if (findDataA.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+            fn = findDataA.cFileName;  // 直接获得窄字符
+            namelen = strlen(fn);
+            if (!my_strnicmp(fn, primary_id, strlen(primary_id))) {
+                primary_index = partition_count;
+            } else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id))) {
+                fallback_index = partition_count;
+            }
+            if (namelen >= 4) {
+                if (!my_stricmp(fn + namelen - 4, ".xml") ||
+                    !my_stricmp(fn + namelen - 4, ".exe") ||
+                    !my_stricmp(fn + namelen - 4, ".txt")) continue;
+            }
+            if (!my_strnicmp(fn, "pgpt", 4) ||
+                !my_strnicmp(fn, "sprdpart", 8) ||
+                !my_strnicmp(fn, "fdl", 3) ||
+                !my_strnicmp(fn, "lk", 2) ||
+                !my_strnicmp(fn, "0x", 2) ||
+                !my_strnicmp(fn, "custom_exec", 11) ||
+                my_stristr(fn, "factorynv")) continue;
+            snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s", path, fn);
+            char *dot = strrchr(fn, '.');
+            if (dot != nullptr) *dot = '\0';
+            namelen = strlen(fn);
+            if (namelen >= 4 && my_stricmp(fn + namelen - 4, "_bak") == 0) continue;
+            if (!my_stricmp(fn, "misc")) snprintf(miscname, 1024, "%s", partitions[partition_count].file_path);
+            if (namelen > 2) {
+                if (!my_stricmp(fn + namelen - 2, "_a")) VAB |= 1;
+                else if (!my_stricmp(fn + namelen - 2, "_b")) VAB |= 2;
+            }
+            strcpy(partitions[partition_count].name, fn);
+            partitions[partition_count].written_flag = 0;
+            partition_count++;
+        } while (FindNextFileA(hFind, &findDataA));
+    }
+
+    FindClose(hFind);
 #else
 	DIR *dir;
 	struct dirent *entry;

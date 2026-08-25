@@ -98,8 +98,10 @@ namespace sfd
         {
             std::error_code ec;
 #ifdef _WIN32
+            std::filesystem::path p;
             std::wstring wpath = utf8_to_utf16(path);
-            std::filesystem::path p(wpath);  // 宽字符构造
+            if (wpath.empty()) p = std::filesystem::path(path);
+            else p = std::filesystem::path(wpath);
 #else
             std::filesystem::path p(path);
 #endif
@@ -208,7 +210,7 @@ namespace sfd
 #ifndef _WIN32
             if (std::filesystem::exists(legacy))
 #else
-            if (std::filesystem::exists(utf8_to_utf16(legacy)))
+            if (std::filesystem::exists(utf8_to_utf16(legacy)) || std::filesystem::exists(legacy))
 #endif
             {
                 ConfigStatus st = loadAppConfigFromFile(legacy, out_config);
@@ -248,7 +250,7 @@ namespace sfd
 #ifndef _WIN32
             if (!std::filesystem::exists(path))
 #else
-            if (!std::filesystem::exists(utf8_to_utf16(path)))
+            if (!std::filesystem::exists(utf8_to_utf16(path)) || !std::filesystem::exists(path))
 #endif
             {
                 return make_error(ConfigErrorCode::NotFound, "config file not found");

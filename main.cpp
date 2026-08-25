@@ -660,7 +660,10 @@ int main(int argc, char** argv) {
 #ifndef _WIN32
 		bindtextdomain("sfd_tool", locale_dir.c_str());
 #else
-		wbindtextdomain("sfd_tool", utf8_to_utf16(locale_dir).c_str());
+		if (!wbindtextdomain("sfd_tool", utf8_to_utf16(locale_dir).c_str()))
+		{
+			bindtextdomain("sfd_tool", locale_dir.c_str());
+		}
 #endif
 	}
 	// 如果 locale_dir 为空：不调用 bindtextdomain，

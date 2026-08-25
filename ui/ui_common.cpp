@@ -75,7 +75,7 @@ void ResetBlockSizeToDefault() {
     // 重置为当前握手得到的默认块大小（例如 0xF800）。
     s.mode = sfd::BlockSizeMode::AUTO_DEFAULT;
     s.manual_block_size = g_default_blk_size > 0 ? (uint32_t)g_default_blk_size : DEFAULT_BLK_SIZE;
-    blk_size = g_default_blk_size > 0 ? (uint32_t)g_default_blk_size : DEFAULT_BLK_SIZE;
+    blk_size = g_default_blk_size > 0 ? g_default_blk_size : DEFAULT_BLK_SIZE;
     LogBlkState("reset_blk_size");
 }
 
@@ -98,6 +98,8 @@ void Enable_Startup(GtkWidgetHelper helper) {
 	helper.enableWidget("abpart_b");
 	helper.enableWidget("pac_flash_start");
 	helper.enableWidget("abpart_auto");
+	helper.enableWidget("nand_id_set");
+	helper.enableWidget("nand_id_rec");
 }
 
 void EnableWidgets(GtkWidgetHelper helper) {
@@ -195,6 +197,8 @@ void DisableWidgets(GtkWidgetHelper helper) {
 	helper.disableWidget("export_part_xml");
 	helper.disableWidget("force_flash_en");
 	helper.disableWidget("force_flash_dis");
+	helper.disableWidget("nand_id_set");
+	helper.disableWidget("nand_id_rec");
 }
 
 void ensure_device_attached_or_exit(GtkWidgetHelper helper) {
