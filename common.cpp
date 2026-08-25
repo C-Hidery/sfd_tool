@@ -2786,62 +2786,120 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 	if (partitions == nullptr) return;
 	char *fn;
 #if _WIN32
-	// 将 path (UTF-8) 转为 UTF-16
-	char fn_buffer[MAX_PATH];
+    char fn_buffer[MAX_PATH];
+    WIN32_FIND_DATAW findDataW;
+    WIN32_FIND_DATAA findDataA;
+    HANDLE hFind = INVALID_HANDLE_VALUE;
+    BOOL useW = FALSE;
+
+    // 1. 尝试 UTF-16 版本（UTF-8 → UTF-16）
     wchar_t wpath[ARGV_LEN * 2];
-    MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, ARGV_LEN * 2);
-    
+    int len = MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, ARGV_LEN * 2);
+    if (len == 0) {
+        DEG_LOG(W, "MultiByteToWideChar conversion failed, fallback to ANSI.\n");
+        goto fallback_to_ansi;
+    }
+
     wchar_t wsearchPath[ARGV_LEN * 2];
-    swprintf(wsearchPath, ARGV_LEN * 2, L"%s\\*", wpath);
-    
-    WIN32_FIND_DATAW findData;
-    HANDLE hFind = FindFirstFileW(wsearchPath, &findData);
+    swprintf(wsearchPath, ARGV_LEN * 2, L"%ls\\*", wpath);
 
-	if (hFind == INVALID_HANDLE_VALUE) {
-		DEG_LOG(E,"Failed to open directory.\n");
-		return;
-	}
-	do {
-		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
-        WideCharToMultiByte(CP_UTF8, 0, findData.cFileName, -1, fn_buffer, MAX_PATH, NULL, NULL);
-		fn = fn_buffer;
-		namelen = strlen(fn);
-		if (!my_strnicmp(fn, primary_id, strlen(primary_id)))
-		{
-			primary_index = partition_count;
-		}
-		else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id)))
-		{
-			fallback_index = partition_count;
-		}
-		if (namelen >= 4) {
-			if (!my_stricmp(fn + namelen - 4, ".xml") ||
-				!my_stricmp(fn + namelen - 4, ".exe") ||
-				!my_stricmp(fn + namelen - 4, ".txt")) continue;
-		}
-		if (!my_strnicmp(fn, "pgpt", 4) ||
-			!my_strnicmp(fn, "sprdpart", 8) ||
-			!my_strnicmp(fn, "fdl", 3) ||
-			!my_strnicmp(fn, "lk", 2) ||
-			!my_strnicmp(fn, "0x", 2) ||
-			!my_strnicmp(fn, "custom_exec", 11) ||
-		    my_stristr(fn, "factorynv")) continue;
-		snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s", path, fn);
-		char *dot = strrchr(fn, '.');
-		if (dot != nullptr) *dot = '\0';
-		namelen = strlen(fn);
-		if (namelen >= 4 && my_stricmp(fn + namelen - 4, "_bak") == 0) continue;
-		if (!my_stricmp(fn, "misc")) snprintf(miscname, 1024, "%s", partitions[partition_count].file_path);
-		if (namelen > 2) {
-			if (!my_stricmp(fn + namelen - 2, "_a")) VAB |= 1;
-			else if (!my_stricmp(fn + namelen - 2, "_b")) VAB |= 2;
-		}
+    hFind = FindFirstFileW(wsearchPath, &findDataW);
+    if (hFind != INVALID_HANDLE_VALUE) {
+        useW = TRUE;
+    } else {
+        DWORD err = GetLastError();
+        DEG_LOG(W, "FindFirstFileW failed (err=%d), fallback to ANSI.\n", err);
+    }
 
-		strcpy(partitions[partition_count].name, fn);
-		partitions[partition_count].written_flag = 0;
-		partition_count++;
-	} while (FindNextFileW(hFind, &findData));
-	FindClose(hFind);
+fallback_to_ansi:
+    if (!useW) {
+        char searchPath[ARGV_LEN];
+        snprintf(searchPath, ARGV_LEN, "%s\\*", path);
+        hFind = FindFirstFileA(searchPath, &findDataA);
+        if (hFind == INVALID_HANDLE_VALUE) {
+            DEG_LOG(E, "Both W and A versions failed to open directory.\n");
+            return;
+        }
+    }
+
+    // 2. 遍历目录
+    if (useW) {
+        do {
+            if (findDataW.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+            WideCharToMultiByte(CP_UTF8, 0, findDataW.cFileName, -1, fn_buffer, MAX_PATH, NULL, NULL);
+            fn = fn_buffer;
+            // 以下处理逻辑与原版完全相同（使用窄字符 fn）
+            namelen = strlen(fn);
+            if (!my_strnicmp(fn, primary_id, strlen(primary_id))) {
+                primary_index = partition_count;
+            } else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id))) {
+                fallback_index = partition_count;
+            }
+            if (namelen >= 4) {
+                if (!my_stricmp(fn + namelen - 4, ".xml") ||
+                    !my_stricmp(fn + namelen - 4, ".exe") ||
+                    !my_stricmp(fn + namelen - 4, ".txt")) continue;
+            }
+            if (!my_strnicmp(fn, "pgpt", 4) ||
+                !my_strnicmp(fn, "sprdpart", 8) ||
+                !my_strnicmp(fn, "fdl", 3) ||
+                !my_strnicmp(fn, "lk", 2) ||
+                !my_strnicmp(fn, "0x", 2) ||
+                !my_strnicmp(fn, "custom_exec", 11) ||
+                my_stristr(fn, "factorynv")) continue;
+            snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s", path, fn);
+            char *dot = strrchr(fn, '.');
+            if (dot != nullptr) *dot = '\0';
+            namelen = strlen(fn);
+            if (namelen >= 4 && my_stricmp(fn + namelen - 4, "_bak") == 0) continue;
+            if (!my_stricmp(fn, "misc")) snprintf(miscname, 1024, "%s", partitions[partition_count].file_path);
+            if (namelen > 2) {
+                if (!my_stricmp(fn + namelen - 2, "_a")) VAB |= 1;
+                else if (!my_stricmp(fn + namelen - 2, "_b")) VAB |= 2;
+            }
+            strcpy(partitions[partition_count].name, fn);
+            partitions[partition_count].written_flag = 0;
+            partition_count++;
+        } while (FindNextFileW(hFind, &findDataW));
+    } else {
+        do {
+            if (findDataA.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+            fn = findDataA.cFileName;  // 直接获得窄字符
+            namelen = strlen(fn);
+            if (!my_strnicmp(fn, primary_id, strlen(primary_id))) {
+                primary_index = partition_count;
+            } else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id))) {
+                fallback_index = partition_count;
+            }
+            if (namelen >= 4) {
+                if (!my_stricmp(fn + namelen - 4, ".xml") ||
+                    !my_stricmp(fn + namelen - 4, ".exe") ||
+                    !my_stricmp(fn + namelen - 4, ".txt")) continue;
+            }
+            if (!my_strnicmp(fn, "pgpt", 4) ||
+                !my_strnicmp(fn, "sprdpart", 8) ||
+                !my_strnicmp(fn, "fdl", 3) ||
+                !my_strnicmp(fn, "lk", 2) ||
+                !my_strnicmp(fn, "0x", 2) ||
+                !my_strnicmp(fn, "custom_exec", 11) ||
+                my_stristr(fn, "factorynv")) continue;
+            snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s", path, fn);
+            char *dot = strrchr(fn, '.');
+            if (dot != nullptr) *dot = '\0';
+            namelen = strlen(fn);
+            if (namelen >= 4 && my_stricmp(fn + namelen - 4, "_bak") == 0) continue;
+            if (!my_stricmp(fn, "misc")) snprintf(miscname, 1024, "%s", partitions[partition_count].file_path);
+            if (namelen > 2) {
+                if (!my_stricmp(fn + namelen - 2, "_a")) VAB |= 1;
+                else if (!my_stricmp(fn + namelen - 2, "_b")) VAB |= 2;
+            }
+            strcpy(partitions[partition_count].name, fn);
+            partitions[partition_count].written_flag = 0;
+            partition_count++;
+        } while (FindNextFileA(hFind, &findDataA));
+    }
+
+    FindClose(hFind);
 #else
 	DIR *dir;
 	struct dirent *entry;

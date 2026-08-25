@@ -208,6 +208,30 @@ static void on_button_clicked_config_save(GtkWidgetHelper helper)
 		}
 	}
 }
+static void on_button_clicked_nand_id_set(GtkWidgetHelper helper)
+{
+	auto parent = GTK_WINDOW(helper.getWidget("main_window"));
+	std::string enand_id = helper.getEntryText(helper.getWidget("nand_id_entry"));
+	if (enand_id.empty())
+	{
+		showErrorDialogSyncInThread(parent, _("Error"), _("NAND ID cannot be empty."));
+		return;
+	}
+	nand_id = atoi(enand_id.c_str());
+	nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+	nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+	nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+	showInfoDialogSyncInThread(parent, _("Info"), _("NAND ID set successfully."));
+}
+static void on_button_clicked_nand_id_rec(GtkWidgetHelper helper)
+{
+	auto parent = GTK_WINDOW(helper.getWidget("main_window"));
+	nand_id = DEFAULT_NAND_ID;
+	nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+	nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+	nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+	showInfoDialogSyncInThread(parent, _("Info"), _("NAND ID recovered successfully."));
+}
 
 
 GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
@@ -557,6 +581,52 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     gtk_box_append(GTK_BOX(forceFlashBox), forceFlashButtonBox);
     gtk_box_append(GTK_BOX(mainBox), forceFlashFrame);
 
+	// 9. NAND ID设置
+	GtkWidget* NandIDFrame = gtk_frame_new(NULL);
+	GtkWidget* NandIDTitle = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(NandIDTitle), (std::string("<b>") + _("NAND ID Settings") + "</b>").c_str());
+	gtk_widget_set_halign(NandIDTitle, GTK_ALIGN_CENTER);
+	gtk_frame_set_label_widget(GTK_FRAME(NandIDFrame), NandIDTitle);
+	gtkFrameSetLabelAlign(NandIDFrame, 0.5, 0.5);
+	helper.addWidget("nand_id_label", NandIDTitle);
+
+	GtkWidget* NandIDBox = makeCardBox(32, 16);
+	gtk_frame_set_child(GTK_FRAME(NandIDFrame), NandIDBox);
+
+	GtkWidget* NandIDSet = gtk_button_new_with_label(_("Set NAND ID"));
+	gtk_widget_set_name(NandIDSet, "nand_id_set");
+	gtk_widget_set_size_request(NandIDSet, 210, 36);
+	helper.addWidget("nand_id_set", NandIDSet);
+
+	GtkWidget* NandIDRec = gtk_button_new_with_label(_("Recover default NAND ID"));
+	gtk_widget_set_name(NandIDRec, "nand_id_rec");
+	gtk_widget_set_size_request(NandIDRec, 210, 36);
+	helper.addWidget("nand_id_rec", NandIDRec);
+
+	GtkWidget* eLabel = gtk_label_new(_("Value:"));
+	gtk_widget_set_name(eLabel, "nand_v_label");
+	gtk_widget_set_size_request(eLabel, 48, 36);
+	helper.addWidget("nand_v_label", eLabel);
+
+	GtkWidget* NandIDEntry = gtk_entry_new();
+	gtk_widget_set_name(NandIDEntry, "nand_id_entry");
+	gtk_widget_set_size_request(NandIDEntry, 48, 36);
+	helper.addWidget("nand_id_entry", NandIDEntry);
+
+	GtkWidget* NandIDButtonBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+	gtk_widget_set_halign(NandIDButtonBox, GTK_ALIGN_CENTER);
+	gtk_box_append(GTK_BOX(NandIDButtonBox), NandIDSet);
+	gtk_box_append(GTK_BOX(NandIDButtonBox), NandIDRec);
+
+	GtkWidget* nandValLinked = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+	gtk_widget_add_css_class((nandValLinked), "linked");
+	gtk_box_append(GTK_BOX(nandValLinked), eLabel);
+	gtk_box_append(GTK_BOX(nandValLinked), NandIDEntry);
+
+	gtk_box_append(GTK_BOX(NandIDButtonBox), nandValLinked);
+	gtk_box_append(GTK_BOX(NandIDBox), NandIDButtonBox);
+	gtk_box_append(GTK_BOX(mainBox), NandIDFrame);
+
 	// 配置设置
 	GtkWidget* cfgFrame = gtk_frame_new(NULL);
 	GtkWidget* cfgTitle = gtk_label_new(NULL);
@@ -694,6 +764,12 @@ void AdvancedSetPage::bindSignals(GtkWidgetHelper& helper) {
 	helper.bindClick(helper.getWidget("config_save"), [&]()
 	{
 		on_button_clicked_config_save(helper);
+	});
+	helper.bindClick(helper.getWidget("nand_id_set"), [&]() {)
+		on_button_clicked_nand_id_set(helper);
+	});
+	helper.bindClick(helper.getWidget("nand_id_rec"), [&]() {)
+		on_button_clicked_nand_id_rec(helper);
 	});
 
 	// 语言应用按钮：保存 ui_language 并提示重启后生效

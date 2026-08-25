@@ -1278,3 +1278,21 @@ msgstr "请选择一个文件夹来解包PAC文件。"
 
 msgid "No folder selected."
 msgstr "未选择文件夹。"
+
+msgid "NAND ID Settings"
+msgstr "NAND ID 设置"
+
+msgid "Set NAND ID"
+msgstr "设置 NAND ID"
+
+msgid "Recover default NAND ID"
+msgstr "恢复默认 NAND ID"
+
+msgid "NAND ID cannot be empty."
+msgstr "NAND ID 不能为空。"
+
+msgid "NAND ID set successfully."
+msgstr "NAND ID 设置成功。"
+
+msgid "NAND ID recovered successfully."
+msgstr "NAND ID 恢复成功。"
