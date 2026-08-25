@@ -1,3 +1,9 @@
+sfd-tool (2.8.4-1-ltv) unstable; urgency=medium
+
+  * 完全支持中文输入(UTF-8)
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Wed, 26 Aug 2026 07:36:36 +0800
+
 sfd-tool (2.8.3-1-ltv) unstable; urgency=medium
 
   * 修复了一些已知问题
