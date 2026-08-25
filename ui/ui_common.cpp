@@ -98,6 +98,8 @@ void Enable_Startup(GtkWidgetHelper helper) {
 	helper.enableWidget("abpart_b");
 	helper.enableWidget("pac_flash_start");
 	helper.enableWidget("abpart_auto");
+	helper.enableWidget("nand_id_set");
+	helper.enableWidget("nand_id_rec");
 }
 
 void EnableWidgets(GtkWidgetHelper helper) {
@@ -195,6 +197,8 @@ void DisableWidgets(GtkWidgetHelper helper) {
 	helper.disableWidget("export_part_xml");
 	helper.disableWidget("force_flash_en");
 	helper.disableWidget("force_flash_dis");
+	helper.disableWidget("nand_id_set");
+	helper.disableWidget("nand_id_rec");
 }
 
 void ensure_device_attached_or_exit(GtkWidgetHelper helper) {

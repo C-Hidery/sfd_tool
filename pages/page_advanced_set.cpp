@@ -609,6 +609,7 @@ GtkWidget* AdvancedSetPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
 	helper.addWidget("nand_v_label", eLabel);
 
 	GtkWidget* NandIDEntry = gtk_entry_new();
+	gtk_editable_set_text(GTK_EDITABLE(NandIDEntry), "0x15");
 	gtk_widget_set_name(NandIDEntry, "nand_id_entry");
 	gtk_widget_set_size_request(NandIDEntry, 48, 36);
 	helper.addWidget("nand_id_entry", NandIDEntry);
