@@ -75,7 +75,7 @@ void ResetBlockSizeToDefault() {
     // 重置为当前握手得到的默认块大小（例如 0xF800）。
     s.mode = sfd::BlockSizeMode::AUTO_DEFAULT;
     s.manual_block_size = g_default_blk_size > 0 ? (uint32_t)g_default_blk_size : DEFAULT_BLK_SIZE;
-    blk_size = g_default_blk_size > 0 ? (uint32_t)g_default_blk_size : DEFAULT_BLK_SIZE;
+    blk_size = g_default_blk_size > 0 ? g_default_blk_size : DEFAULT_BLK_SIZE;
     LogBlkState("reset_blk_size");
 }
 
