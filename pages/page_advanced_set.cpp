@@ -765,10 +765,10 @@ void AdvancedSetPage::bindSignals(GtkWidgetHelper& helper) {
 	{
 		on_button_clicked_config_save(helper);
 	});
-	helper.bindClick(helper.getWidget("nand_id_set"), [&]() {)
+	helper.bindClick(helper.getWidget("nand_id_set"), [&]() {
 		on_button_clicked_nand_id_set(helper);
 	});
-	helper.bindClick(helper.getWidget("nand_id_rec"), [&]() {)
+	helper.bindClick(helper.getWidget("nand_id_rec"), [&]() {
 		on_button_clicked_nand_id_rec(helper);
 	});
 
