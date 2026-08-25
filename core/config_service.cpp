@@ -250,7 +250,7 @@ namespace sfd
 #ifndef _WIN32
             if (!std::filesystem::exists(path))
 #else
-            if (!std::filesystem::exists(utf8_to_utf16(path)) || std::filesystem::exists(path))
+            if (!std::filesystem::exists(utf8_to_utf16(path)) || !std::filesystem::exists(path))
 #endif
             {
                 return make_error(ConfigErrorCode::NotFound, "config file not found");
