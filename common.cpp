@@ -303,14 +303,12 @@ uint8_t* dump_flash_to_mem(spdio_t *io,
     uint32_t total_read = 0;
     uint8_t* mem = nullptr;
 
-    // ---- mode == 1：处理 DHTB（含签名） ----
     if (mode == 1) {
         uint8_t header[0x34];
-        uint32_t n = read_flash(io, addr, start, sizeof(header), header, NULL, step);
+        uint32_t n = read_flash(io, addr, start, sizeof(header), header, nullptr, step);
         if (n != sizeof(header))
             ERR_EXIT("can't read DHTB header\n");
 
-        // 检查 "BTHD" (0x42544844) 和版本
         if (READ32_LE(header) != 0x42544844 || READ32_LE(header + 4) != 1)
             ERR_EXIT("unexpected DHTB header\n");
 
@@ -318,54 +316,47 @@ uint8_t* dump_flash_to_mem(spdio_t *io,
         if (data_len >> 31)
             ERR_EXIT("unexpected DHTB size (0x%x)\n", data_len);
 
-        // 基础大小 = data_len + 0x200
         uint32_t base_size = data_len + 0x200;
         mem = new (std::nothrow) uint8_t[base_size];
         if (!mem)
             ERR_EXIT("memory allocation failed\n");
 
-        // 拷贝头部到内存
         memcpy(mem, header, sizeof(header));
         total_read = sizeof(header);
 
-        // 读取剩余数据（从 start + total_read 开始，长度 base_size - total_read）
         uint32_t remaining = base_size - total_read;
         if (remaining > 0) {
             uint32_t r = read_flash(io, addr, start + total_read, remaining,
-                                    mem + total_read, NULL, step);
+                                    mem + total_read, nullptr, step);
             total_read += r;
-            // 如果读取不完整，原函数未处理，这里保持原行为（继续执行）
         }
 
-        // ---- 尝试读取签名 ----
+        // ---- 读取签名 ----
         uint8_t sig_hdr[0x60];
         uint32_t nread2 = read_flash(io, addr, start + total_read, sizeof(sig_hdr),
-                                     sig_hdr, NULL, step);
+                                     sig_hdr, nullptr, step);
         if (nread2 == sizeof(sig_hdr)) {
-            // 检查签名有效性（不是全0或全1）
-            if (!(READ32_LE(sig_hdr + 0x10) == 0 || READ32_LE(sig_hdr + 0x10) == 0xFFFFFFFF)) {
-                // 需要追加签名
+            uint32_t sig_val = READ32_LE(sig_hdr + 0x10);
+            // 检查既不是全0也不是全1
+            if (!(sig_val == 0 || sig_val == 0xFFFFFFFFU)) {
                 uint32_t sig_data_size = READ32_LE(sig_hdr + 0x20);
                 uint32_t new_size = base_size + sizeof(sig_hdr) + sig_data_size;
-                uint8_t* new_mem = new (std::nothrow) uint8_t[new_size];
+                uint8_t* new_mem = NEWN uint8_t[new_size];
                 if (!new_mem) {
                     delete[] mem;
                     ERR_EXIT("memory reallocation failed\n");
                 }
-                memcpy(new_mem, mem, total_read);  // 拷贝已有数据
+                memcpy(new_mem, mem, total_read);
                 delete[] mem;
                 mem = new_mem;
 
-                // 写入签名头部
                 memcpy(mem + total_read, sig_hdr, sizeof(sig_hdr));
                 total_read += sizeof(sig_hdr);
 
-                // 读取签名数据
                 uint32_t sig_read = read_flash(io, addr, start + total_read,
                                                sig_data_size, mem + total_read,
-                                               NULL, step);
+                                               nullptr, step);
                 total_read += sig_read;
-                // 原函数不检查读取是否完整
             }
         }
 
@@ -373,16 +364,12 @@ uint8_t* dump_flash_to_mem(spdio_t *io,
         return mem;
     }
 
-    // ---- mode != 1：直接读取 len 字节 ----
+    // ---- mode != 1 ----
     mem = new (std::nothrow) uint8_t[len];
     if (!mem)
         ERR_EXIT("memory allocation failed\n");
 
-    uint32_t nread = read_flash(io, addr, start, len, mem, NULL, step);
-    if (nread != len) {
-        // 原函数未处理读取不完整，但这里保留警告（可选）
-        DEG_LOG(W, "dump_flash_to_mem: read only %u of %u bytes\n", nread, len);
-    }
+    uint32_t nread = read_flash(io, addr, start, len, mem, nullptr, step);
     if (out_size) *out_size = nread;
     return mem;
 }
@@ -2872,14 +2859,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 	DEG_LOG(OP,"Start to write partitions");
 	DEG_LOG(I,"Type CTRL + C to cancel...");
 	start_signal();
-	std::vector<std::string> pac_parts;
-	if (g_app_state.flash.isPacFlashing) {
-		pac_parts = getSelectedPartitions(helper);
-		if (pac_parts.empty()) {
-			DEG_LOG(E,"Failed to get partition list from partition list.");
-			return;
-		}
-	}
+	std::vector<std::string>& pac_parts = g_app_state.flash.pacptable;
 	bool isHasDownloadNV = false;
 	int dlnv_id = 0;
 	const char* primary_id = nullptr;
@@ -2944,9 +2924,9 @@ fallback_to_ansi:
             fn = fn_buffer;
             // 以下处理逻辑与原版完全相同（使用窄字符 fn）
             namelen = strlen(fn);
-            if (!my_strnicmp(fn, primary_id, strlen(primary_id))) {
+            if (!strncmp(fn, primary_id, strlen(primary_id))) { // SPL
                 primary_index = partition_count;
-            } else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id))) {
+            } else if (!strncmp(fn, fallback_id, strlen(fallback_id))) { // SPL
                 fallback_index = partition_count;
             }
             if (namelen >= 4) {
@@ -2980,9 +2960,9 @@ fallback_to_ansi:
             if (findDataA.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
             fn = findDataA.cFileName;  // 直接获得窄字符
             namelen = strlen(fn);
-            if (!my_strnicmp(fn, primary_id, strlen(primary_id))) {
+            if (!strncmp(fn, primary_id, strlen(primary_id))) { // SPL
                 primary_index = partition_count;
-            } else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id))) {
+            } else if (!strncmp(fn, fallback_id, strlen(fallback_id))) { // SPL
                 fallback_index = partition_count;
             }
             if (namelen >= 4) {
@@ -3028,11 +3008,11 @@ fallback_to_ansi:
 		if (stat(fn, &st) == 0 && S_ISDIR(st.st_mode)) continue;
 		if (entry->d_type == DT_DIR) continue;
 		namelen = strlen(fn);
-		if (!my_strnicmp(fn, primary_id, strlen(primary_id)))
+		if (!strncmp(fn, primary_id, strlen(primary_id))) // SPL
 		{
 			primary_index = partition_count;
 		}
-		else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id)))
+		else if (!strncmp(fn, fallback_id, strlen(fallback_id))) //SPL
 		{
 			fallback_index = partition_count;
 		}
@@ -3103,12 +3083,13 @@ fallback_to_ansi:
 		}
 		if (relfn.empty()) get_partition_info(io, fn, 1);
 		else get_partition_info(io, relfn.c_str(), 1);
+		if (relfn.empty() == false) fn = const_cast<char*>(relfn.c_str());
 		bool isRejected = false;
 		for (auto& kv : flashed_parts)
 		{
 			if (!my_stricmp(kv.c_str(), gPartInfo.name))
 			{
-				DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: ", kv.c_str());
+				DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s", kv.c_str());
 				DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
 				isRejected = true;
 				continue;
@@ -3136,6 +3117,7 @@ fallback_to_ansi:
 		}
 		if (!my_stricmp(fn, "userdata") && g_app_state.flash.isPacFlashing)
 		{
+			erase_partition(io, gPartInfo.name, CMethod);
 			flashed_parts.emplace_back(gPartInfo.name);
 			partitions[i].written_flag = 1;
 			continue;
@@ -3234,7 +3216,7 @@ fallback_to_ansi:
 				{
 					if (!my_stricmp(gPartInfo.name, kv.c_str()))
 					{
-						DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: ", kv.c_str());
+						DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s", kv.c_str());
 						DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
 						isAllowed = false;
 						continue;
@@ -3260,7 +3242,7 @@ fallback_to_ansi:
 				{
 					if (!my_stricmp(gPartInfo.name, kv.c_str()))
 					{
-						DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: ", kv.c_str());
+						DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s", kv.c_str());
 						DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
 						isAllowed = false;
 						continue;
@@ -3294,7 +3276,7 @@ fallback_to_ansi:
 				{
 					if (!my_stricmp(gPartInfo.name, kv.c_str()))
 					{
-						DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: ", kv.c_str());
+						DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s", kv.c_str());
 						DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
 						isAllowed = false;
 						continue;
@@ -3337,7 +3319,7 @@ fallback_to_ansi:
 			{
 				if (!my_stricmp(kv.c_str(), gPartInfo.name))
 				{
-					DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: ", kv.c_str());
+					DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s", kv.c_str());
 					DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
 					bool isAllowed = false;
 					continue;
@@ -3358,7 +3340,7 @@ fallback_to_ansi:
 			{
 				if (!my_stricmp("super", kv.c_str()))
 				{
-					DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: ", kv.c_str());
+					DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s", kv.c_str());
 					DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
 					isAllowed = false;
 					continue;
@@ -3371,7 +3353,7 @@ fallback_to_ansi:
 			{
 				if (!my_stricmp("metadata", kv.c_str()))
 				{
-					DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: ", kv.c_str());
+					DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s", kv.c_str());
 					DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
 					isAllowed = false;
 					continue;
@@ -3399,7 +3381,7 @@ fallback_to_ansi:
 			{
 				if (!my_stricmp(gPartInfo.name, kv.c_str()))
 				{
-					DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: ", kv.c_str());
+					DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s", kv.c_str());
 					DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
 					isAllowed = false;
 					continue;
@@ -3420,7 +3402,7 @@ fallback_to_ansi:
 			{
 				if (!my_stricmp(gPartInfo.name, kv.c_str()))
 				{
-					DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: ", kv.c_str());
+					DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s", kv.c_str());
 					DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
 					isAllowed = false;
 					continue;

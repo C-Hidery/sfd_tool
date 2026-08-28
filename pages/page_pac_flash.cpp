@@ -40,7 +40,7 @@ static void on_cell_toggled(GtkCellRendererToggle *renderer,
     gtk_tree_path_free(path);
 }
 
-std::vector<std::string> getSelectedPartitions(GtkWidgetHelper helper)
+std::vector<std::string> getSelectedPartitions(GtkWidgetHelper& helper)
 {
     std::vector<std::string> selected;
 

@@ -291,9 +291,6 @@ bool pac_extract(const char* fn, const char* folder)
 #else
     if (_wmkdir(utf8_to_utf16(std::string(folder)).c_str()) != 0 && errno != EEXIST) return false;
 #endif
-    auto* pacptable = NEWN partition_t[128];
-    if (!pacptable) ERR_EXIT("Failed to allocate memory for partition table.\n");
-    int pac_part_count = 0;
     if (!unpac.load(fn))
     {
         DEG_LOG(E, "Failed to open PAC file.\n");
@@ -354,17 +351,24 @@ bool pac_extract(const char* fn, const char* folder)
         DEG_LOG(E, "No partition info found in xml");
         return false;
     }
-    auto r = parse_partitions_xml_result(partxml, pacptable, &pac_part_count);
+    if (!io->ptable)
+    {
+        io->ptable = NEWN partition_t[128];
+        if (!io->ptable)
+        {
+            DEG_LOG(E, "Failed to allocate memory for partition table");
+            return false;
+        }
+    }
+    auto r = parse_partitions_xml_result(partxml, io->ptable, &io->part_count);
     if (!r)
     {
-        // parse_partitions_xml_result 已经处理了日志和 GUI 提示，这里维持返回 false 即可
-        if (pacptable) delete[] pacptable;
         return false;
     }
 
     if (isHelperInit)
     {
-        const std::vector<partition_t>& partitions = std::vector<partition_t>(pacptable, pacptable + pac_part_count);
+        const std::vector<partition_t>& partitions = std::vector<partition_t>(io->ptable, io->ptable + io->part_count);
         // 获取列表视图
         GtkWidget* part_list = helper.getWidget("pac_list");
         if (!part_list || !GTK_IS_TREE_VIEW(part_list))
@@ -376,7 +380,6 @@ bool pac_extract(const char* fn, const char* folder)
                     showErrorDialog(
                         GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Partition list view not found."));
                 },GTK_WINDOW(helper.getWidget("main_window")));
-            delete[] pacptable;
             return false;
         }
 
@@ -391,7 +394,6 @@ bool pac_extract(const char* fn, const char* folder)
                     showErrorDialog(
                         GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Partition list model not found."));
                 },GTK_WINDOW(helper.getWidget("main_window")));
-            delete[] pacptable;
             return false;
         }
 
@@ -447,7 +449,7 @@ bool pac_extract(const char* fn, const char* folder)
             }
             else
             {
-                size_str = "DEFAULT";
+                size_str = "DEFAULT, ERASE!!!";
             }
 
 
@@ -465,7 +467,6 @@ bool pac_extract(const char* fn, const char* folder)
         // 更新显示
         gtk_widget_queue_draw(part_list);
     }
-    if (pacptable) delete[] pacptable;
     return true;
 }
 
@@ -513,6 +514,8 @@ bool pac_flash(spdio_t* io, const char* folder)
         }
     }
     g_app_state.flash.pac_xmlPath = xmlPath;
+    g_app_state.flash.pacptable.clear();
+    g_app_state.flash.pacptable = getSelectedPartitions(helper);
     if (isHelperInit)
     {
         g_app_state.flash.isPacMergingNV = showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")),
