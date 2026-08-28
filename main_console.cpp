@@ -2336,7 +2336,7 @@ int main_console(int argc, char** argv)
             fi.close();
             bool i_is = pac_extract(fn, path);
             pac_part_select_t* select_table = nullptr;
-            if (!isToolMode)
+            if (isToolMode)
             {
                 if (i_is)
                 {
@@ -2354,11 +2354,14 @@ int main_console(int argc, char** argv)
                         }
                         while (true)
                         {
-                            DEG_LOG(I, "Select partitions to flash, type the partition name to toggle selection, type 'done' to finish:");
                             for (int k = 0; k < io->part_count; k++)
                             {
-                                DEG_LOG(I, "%s, toggle=%s", select_table[k].name, select_table[k].Selected ? "yes" : "no");
+                                if (strcmp(select_table[k].name, "userdata") != 0)
+                                    DEG_LOG(I, "%s, toggle=%s", select_table[k].name, select_table[k].Selected ? "yes" : "no");
+                                else
+                                    DEG_LOG(I, "%s, toggle=%s, ERASE!!!", select_table[k].name, select_table[k].Selected ? "yes" : "no");
                             }
+                            DEG_LOG(I, "Select partitions to flash, type the partition name to toggle selection, type 'done' to finish:");
                             printf("[PAC FLASH]: ");
                             std::string name;
                             std::getline(std::cin, name);

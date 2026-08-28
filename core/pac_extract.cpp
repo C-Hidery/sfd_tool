@@ -351,6 +351,15 @@ bool pac_extract(const char* fn, const char* folder)
         DEG_LOG(E, "No partition info found in xml");
         return false;
     }
+    if (!io->ptable)
+    {
+        io->ptable = NEWN partition_t[128];
+        if (!io->ptable)
+        {
+            DEG_LOG(E, "Failed to allocate memory for partition table");
+            return false;
+        }
+    }
     auto r = parse_partitions_xml_result(partxml, io->ptable, &io->part_count);
     if (!r)
     {
@@ -440,7 +449,7 @@ bool pac_extract(const char* fn, const char* folder)
             }
             else
             {
-                size_str = "DEFAULT";
+                size_str = "DEFAULT, ERASE!!!";
             }
 
 
