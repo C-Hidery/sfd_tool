@@ -2336,7 +2336,7 @@ int main_console(int argc, char** argv)
             fi.close();
             bool i_is = pac_extract(fn, path);
             pac_part_select_t* select_table = nullptr;
-            if (isToolMode)
+            if (!isToolMode)
             {
                 if (i_is)
                 {
