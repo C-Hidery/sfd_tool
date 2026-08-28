@@ -27,6 +27,7 @@ struct FlashState {
     bool isPacMergingNV = false;
     std::string pac_folder;  // PAC 刷机时解压的临时文件夹路径
     std::string pac_xmlPath; // PAC 刷机时解析出的 XML 路径，供后续分区信息查询使用
+    std::vector<std::string> pacptable; // PAC 刷机时解析出的分区表（仅包含分区名，顺序与 XML 中一致）
     bool isToolMode = false; // 是否处于 Tool 模式（影响日志输出、错误处理、用户交互等）
 };
 

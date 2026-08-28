@@ -2872,14 +2872,7 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 	DEG_LOG(OP,"Start to write partitions");
 	DEG_LOG(I,"Type CTRL + C to cancel...");
 	start_signal();
-	std::vector<std::string> pac_parts;
-	if (g_app_state.flash.isPacFlashing) {
-		pac_parts = getSelectedPartitions(helper);
-		if (pac_parts.empty()) {
-			DEG_LOG(E,"Failed to get partition list from partition list.");
-			return;
-		}
-	}
+	std::vector<std::string>& pac_parts = g_app_state.flash.pacptable;
 	bool isHasDownloadNV = false;
 	int dlnv_id = 0;
 	const char* primary_id = nullptr;

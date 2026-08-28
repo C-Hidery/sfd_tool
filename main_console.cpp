@@ -285,6 +285,11 @@ std::string readConsoleLineUtf8() {
     // 已经是 UTF-8，直接返回
     return buffer;
 }
+typedef struct pac_part_select_t
+{
+    char name[36] = {0};
+    bool Selected = true;
+} pac_part_select_t;
 
 int main_console(int argc, char** argv)
 {
@@ -829,7 +834,7 @@ int main_console(int argc, char** argv)
 
     //get in interaction
     char** save_argv = nullptr;
-    while (1)
+    while (true)
     {
         signal(SIGINT, SIG_DFL);
         if (argc > 1)
@@ -952,7 +957,7 @@ int main_console(int argc, char** argv)
 
             uint8_t data[4] = {0};
             addr = strtoul(str2[2], nullptr, 0);
-            while (1)
+            while (true)
             {
                 send_buf(io, addr, 0, 528, data, 4);
                 DEG_LOG(OP, "SEND 4 bytes to 0x%x", addr);
@@ -2330,11 +2335,67 @@ int main_console(int argc, char** argv)
             }
             fi.close();
             bool i_is = pac_extract(fn, path);
-            if (!isToolMode && check_confirm("flash pac"))
+            pac_part_select_t* select_table = nullptr;
+            if (!isToolMode)
             {
                 if (i_is)
                 {
-                    pac_flash(io, path);
+                    if (io->part_count > 0)
+                    {
+                        select_table = NEWN pac_part_select_t[128];
+                        if (!select_table)
+                        {
+                            ERR_EXIT("Memory allocation failed for partition selection table.");
+                        }
+                        for (int k = 0; k < io->part_count; k++)
+                        {
+                            snprintf(select_table[k].name, sizeof(select_table[k].name), "%s", (*(io->ptable + k)).name);
+                            select_table[k].Selected = true;
+                        }
+                        while (true)
+                        {
+                            DEG_LOG(I, "Select partitions to flash, type the partition name to toggle selection, type 'done' to finish:");
+                            for (int k = 0; k < io->part_count; k++)
+                            {
+                                DEG_LOG(I, "%s, toggle=%s", select_table[k].name, select_table[k].Selected ? "yes" : "no");
+                            }
+                            printf("[PAC FLASH]: ");
+                            std::string name;
+                            std::getline(std::cin, name);
+                            if (name == "done") break;
+                            bool found = false;
+                            for (int k = 0; k < io->part_count; k++)
+                            {
+                                if (name == select_table[k].name)
+                                {
+                                    select_table[k].Selected = !select_table[k].Selected;
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            if (!found)
+                            {
+                                DEG_LOG(W, "Partition not found in PAC firmware.");
+                            }
+                        }
+                        g_app_state.flash.pacptable.clear();
+                        for (int l = 0; l < io->part_count; l++)
+                        {
+                            if (select_table[l].Selected)
+                            {
+                                DEG_LOG(I, "Selected partition: %s", select_table[l].name);
+                                g_app_state.flash.pacptable.emplace_back(select_table[l].name);
+                            }
+                        }
+                        delete[] select_table;
+                        if (check_confirm("flash pac")) pac_flash(io, path);
+                    }
+                    else
+                    {
+                        DEG_LOG(E, "Partition table not available");
+                        argc = 1;
+                        continue;
+                    }
                 }
                 else
                 {
