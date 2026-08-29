@@ -29,6 +29,7 @@ struct FlashState {
     std::string pac_xmlPath; // PAC 刷机时解析出的 XML 路径，供后续分区信息查询使用
     std::vector<std::string> pacptable; // PAC 刷机时解析出的分区表（仅包含分区名，顺序与 XML 中一致）
     bool isToolMode = false; // 是否处于 Tool 模式（影响日志输出、错误处理、用户交互等）
+    bool isPacRdaTable = false; // PAC是否使用 RDA 分区表（影响分区选择和写入策略）
 };
 
 // 与具体传输实现相关的状态（平台/IO 细节），暂时仍放在这里，后续可进一步下沉到传输层

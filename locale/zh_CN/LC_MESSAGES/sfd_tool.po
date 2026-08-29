@@ -1296,3 +1296,6 @@ msgstr "NAND ID 设置成功。"
 
 msgid "NAND ID recovered successfully."
 msgstr "NAND ID 恢复成功。"
+
+msgid "RDA Table PAC detected, please operate in CLI mode (via '--no-gui' first parameter)."
+msgstr "检测到RDA分区表型的PAC固件，请在 CLI 模式下操作（通过 '--no-gui' 第一个参数）。"

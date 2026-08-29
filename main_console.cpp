@@ -257,9 +257,11 @@ void ThrowExit()
     }
 }
 
-std::string readConsoleLineUtf8() {
+std::string readConsoleLineUtf8()
+{
     std::string buffer;
-    if (!std::getline(std::cin, buffer)) {
+    if (!std::getline(std::cin, buffer))
+    {
         return "";
     }
 
@@ -268,10 +270,12 @@ std::string readConsoleLineUtf8() {
     g_get_console_charset(&charset);
 
     // 如果编码不是 UTF-8，则进行转换
-    if (charset && strcmp(charset, "UTF-8") != 0) {
+    if (charset && strcmp(charset, "UTF-8") != 0)
+    {
         GError* error = nullptr;
         gchar* utf8 = g_convert(buffer.c_str(), -1, "UTF-8", charset, nullptr, nullptr, &error);
-        if (error) {
+        if (error)
+        {
             // 转换失败时打印错误并返回原始字符串
             g_printerr("Code convert failed: %s\n", error->message);
             g_error_free(error);
@@ -285,6 +289,7 @@ std::string readConsoleLineUtf8() {
     // 已经是 UTF-8，直接返回
     return buffer;
 }
+
 typedef struct pac_part_select_t
 {
     char name[36] = {0};
@@ -564,8 +569,9 @@ int main_console(int argc, char** argv)
                     DBG_LOG("Cost: %.1f, Found: %d\n", (float)i / REOPEN_FREQ, curPort);
                 if (curPort)
                 {
-                    if (!call_ConnectChannel(io->handle, curPort, WM_RCV_CHANNEL_DATA, io->m_dwRecvThreadID)) ERR_EXIT(
-                        "Connection failed\n");
+                    if (!call_ConnectChannel(io->handle, curPort, WM_RCV_CHANNEL_DATA, io->m_dwRecvThreadID))
+                        ERR_EXIT(
+                            "Connection failed\n");
                     break;
                 }
                 if (!(i % 4))
@@ -622,9 +628,10 @@ int main_console(int argc, char** argv)
                     ret = io->recv_buf[2];
                     io->recv_buf[2] = 0;
                 }
-                else ERR_EXIT(
-                    "Failed to connect to device: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n",
-                    o_exception);
+                else
+                    ERR_EXIT(
+                        "Failed to connect to device: %s, please reboot your phone by pressing POWER and VOLUME_UP for 7-10 seconds.\n",
+                        o_exception);
             }
             else
             {
@@ -884,7 +891,8 @@ int main_console(int argc, char** argv)
                 DBG_LOG("[TMODE]: ");
             }
             std::string inputLine = readConsoleLineUtf8();
-            if (inputLine.empty()) {
+            if (inputLine.empty())
+            {
                 continue;
             }
             // 复制到 str1 以兼容现有分词逻辑
@@ -1211,8 +1219,9 @@ int main_console(int argc, char** argv)
                         continue;
                     }
                     fi.close();
-                    if (g_app_state.device.device_mode == SPRD3) send_file(
-                        io, fn, addr, end_data, blk_size ? blk_size : 528, 0, 0);
+                    if (g_app_state.device.device_mode == SPRD3)
+                        send_file(
+                            io, fn, addr, end_data, blk_size ? blk_size : 528, 0, 0);
                     else send_file(io, fn, addr, 0, 528, 0, 0);
                 }
             }
@@ -2203,9 +2212,11 @@ int main_console(int argc, char** argv)
                         else if (!strncmp((*(io->ptable + i)).name, "cache", 5)) continue;
                         else if (!strncmp((*(io->ptable + i)).name, "userdata", 8)) continue;
                         if (g_app_state.flash.selected_ab == 1 && namelen > 2 && 0 == strcmp(
-                            (*(io->ptable + i)).name + namelen - 2, "_b")) continue;
+                            (*(io->ptable + i)).name + namelen - 2, "_b"))
+                            continue;
                         else if (g_app_state.flash.selected_ab == 2 && namelen > 2 && 0 == strcmp(
-                            (*(io->ptable + i)).name + namelen - 2, "_a")) continue;
+                            (*(io->ptable + i)).name + namelen - 2, "_a"))
+                            continue;
                         snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->ptable + i)).name);
                         dump_partition(io, (*(io->ptable + i)).name, 0, (*(io->ptable + i)).size, dfile,
                                        blk_size ? blk_size : DEFAULT_BLK_SIZE);
@@ -2231,9 +2242,11 @@ int main_console(int argc, char** argv)
                         else if (!strncmp((*(io->Cptable + i)).name, "cache", 5)) continue;
                         else if (!strncmp((*(io->Cptable + i)).name, "userdata", 8)) continue;
                         if (g_app_state.flash.selected_ab == 1 && namelen > 2 && 0 == strcmp(
-                            (*(io->Cptable + i)).name + namelen - 2, "_b")) continue;
+                            (*(io->Cptable + i)).name + namelen - 2, "_b"))
+                            continue;
                         else if (g_app_state.flash.selected_ab == 2 && namelen > 2 && 0 == strcmp(
-                            (*(io->Cptable + i)).name + namelen - 2, "_a")) continue;
+                            (*(io->Cptable + i)).name + namelen - 2, "_a"))
+                            continue;
                         snprintf(dfile, sizeof(dfile), "%s.bin", (*(io->Cptable + i)).name);
                         dump_partition(io, (*(io->Cptable + i)).name, 0, (*(io->Cptable + i)).size, dfile,
                                        blk_size ? blk_size : DEFAULT_BLK_SIZE);
@@ -2326,6 +2339,7 @@ int main_console(int argc, char** argv)
             }
             fn = str2[2];
             const char* path = str2[3];
+            g_app_state.flash.pac_folder = path;
             EnhancedFile fi = oxfopen_enhanced(fn, "r");
             if (!fi)
             {
@@ -2338,7 +2352,7 @@ int main_console(int argc, char** argv)
             pac_part_select_t* select_table = nullptr;
             if (!isToolMode)
             {
-                if (i_is)
+                if (i_is && g_app_state.flash.isPacRdaTable == false)
                 {
                     if (io->part_count > 0)
                     {
@@ -2349,7 +2363,8 @@ int main_console(int argc, char** argv)
                         }
                         for (int k = 0; k < io->part_count; k++)
                         {
-                            snprintf(select_table[k].name, sizeof(select_table[k].name), "%s", (*(io->ptable + k)).name);
+                            snprintf(select_table[k].name, sizeof(select_table[k].name), "%s",
+                                     (*(io->ptable + k)).name);
                             select_table[k].Selected = true;
                         }
                         while (true)
@@ -2357,12 +2372,16 @@ int main_console(int argc, char** argv)
                             for (int k = 0; k < io->part_count; k++)
                             {
                                 if (strcmp(select_table[k].name, "userdata") != 0)
-                                    DEG_LOG(I, "%s, toggle=%s", select_table[k].name, select_table[k].Selected ? "yes" : "no");
+                                    DEG_LOG(I, "%s, toggle=%s", select_table[k].name,
+                                            select_table[k].Selected ? "yes" : "no");
                                 else
-                                    DEG_LOG(I, "%s, toggle=%s, ERASE!!!", select_table[k].name, select_table[k].Selected ? "yes" : "no");
+                                    DEG_LOG(I, "%s, toggle=%s, ERASE!!!", select_table[k].name,
+                                            select_table[k].Selected ? "yes" : "no");
                             }
-                            DEG_LOG(I, "Select partitions to flash, type the partition name to toggle selection, type 'done' to finish:");
-                            printf("[PAC FLASH]: ");
+                            DEG_LOG(
+                                I,
+                                "Select partitions to flash, type the partition name to toggle selection, type 'done' to finish:");
+                            printf("[SELECT]: ");
                             std::string name;
                             std::getline(std::cin, name);
                             if (name == "done") break;
@@ -2393,9 +2412,309 @@ int main_console(int argc, char** argv)
                         delete[] select_table;
                         if (check_confirm("flash pac")) pac_flash(io, path);
                     }
+                    else if (i_is && g_app_state.flash.isPacRdaTable)
+                    {
+                        DEG_LOG(I, "RDA Table detected.");
+                        if (check_confirm("flash pac"))
+                        {
+                            std::string fdl1_path;
+                            uint32_t fdl1_base_addr = 0;
+                            std::string fdl2_path;
+                            uint32_t fdl2_base_addr = 0;
+                            PacFile& unpac = g_app_state.pacFile;
+                            char chr_buf[257] = {0};
+                            for (int i = 0; i < unpac.fileCount; i++)
+                            {
+                                const sprd_file_t& file = unpac.files[i];
+                                if (file.id[0])
+                                {
+                                    unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.id, 256);
+                                    if (!my_strnicmp(chr_buf, "FDL", 3))
+                                    {
+                                        unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
+#ifndef _WIN32
+                                        fdl1_path = g_app_state.flash.pac_folder + "/" + std::string(chr_buf);
+#else
+                                        fdl1_path = g_app_state.flash.pac_folder + "\\" + std::string(chr_buf);
+#endif
+                                        fdl1_base_addr = file.addr[0];
+                                        break;
+                                    }
+                                }
+                            }
+                            for (int i = 0; i < unpac.fileCount; i++)
+                            {
+                                const sprd_file_t& file = unpac.files[i];
+                                if (file.id[0])
+                                {
+                                    unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.id, 256);
+                                    if (!my_strnicmp(chr_buf, "FDL2", 4))
+                                    {
+                                        unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
+#ifndef _WIN32
+                                        fdl2_path = g_app_state.flash.pac_folder + "/" + std::string(chr_buf);
+#else
+                                        fdl2_path = g_app_state.flash.pac_folder + "\\" + std::string(chr_buf);
+#endif
+                                        fdl2_base_addr = file.addr[0];
+                                        break;
+                                    }
+                                }
+                            }
+                            DEG_LOG(I, "FDL1_PATH=%s", fdl1_path.c_str());
+                            DEG_LOG(I, "FDL1_BASE_ADDR=%u", fdl1_base_addr);
+                            DEG_LOG(I, "FDL2_PATH=%s", fdl2_path.c_str());
+                            DEG_LOG(I, "FDL2_BASE_ADDR=%u", fdl2_base_addr);
+                            if (g_app_state.device.device_stage == BROM)
+                            {
+                                if (fdl1_base_addr == 0 || fdl1_path.empty())
+                                {
+                                    DEG_LOG(E, "Can not read FDL1 info from PAC");
+                                    argc = 1;
+                                    continue;
+                                }
+                                EnhancedFile fi = oxfopen_enhanced(fdl1_path.c_str(), "r");
+                                if (!fi)
+                                {
+                                    DEG_LOG(W, "File does not exist.\n");
+                                    argc = 1;
+                                    continue;
+                                }
+                                fi.close();
+                                send_file(io, fdl1_path.c_str(), fdl1_base_addr, 0, 528, 0, 0);
+                                encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+                                if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
+
+                                DEG_LOG(OP, "Execute FDL1");
+
+                                if (fdl1_base_addr == 0x5500 || fdl1_base_addr == 0x65000800)
+                                {
+                                    highspeed = 1;
+                                    if (!baudrate) baudrate = 921600;
+                                }
+
+                                /* FDL1 (chk = sum) */
+                                io->flags &= ~FLAGS_CRC16;
+
+                                encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
+                                for (int i = 0; ; i++)
+                                {
+                                    send_msg(io);
+                                    recv_msg(io);
+                                    if (recv_type(io) == BSL_REP_VER) break;
+                                    DEG_LOG(W, "Failed to check baud, retry...");
+                                    if (i == 4)
+                                    {
+                                        ERR_EXIT(
+                                            "Can not execute FDL, please reboot your phone by pressing POWER and VOL_UP for 7-10 seconds.\n");
+                                    }
+                                    usleep(500000);
+                                }
+                                DEG_LOG(I, "Check baud FDL1 done.");
+
+                                DEG_LOG(I, "Device REP_Version: ");
+                                print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+
+
+                                encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+                                if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
+                                DEG_LOG(I, "FDL1 connected.");
+#if !USE_LIBUSB
+                                if (baudrate)
+                                {
+                                    uint8_t* data = io->temp_buf;
+                                    WRITE32_BE(data, baudrate);
+                                    encode_msg_nocpy(io, BSL_CMD_CHANGE_BAUD, 4);
+                                    if (!send_and_check(io))
+                                    {
+                                        DEG_LOG(OP, "Change baud FDL1 to %d", baudrate);
+                                        call_SetProperty(io->handle, 0, 100, (LPCVOID) & baudrate);
+                                    }
+                                }
+#endif
+
+                                encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
+                                if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
+
+                                fdl1_loaded = 1;
+                                g_app_state.device.device_stage = FDL1;
+                            }
+                            if (g_app_state.device.device_stage == FDL1)
+                            {
+                                if (fdl2_base_addr == 0 || fdl2_path.empty())
+                                {
+                                    DEG_LOG(E, "Can not read FDL2 info from PAC");
+                                    argc = 1;
+                                    continue;
+                                }
+                                EnhancedFile fi = oxfopen_enhanced(fdl2_path.c_str(), "r");
+                                if (!fi)
+                                {
+                                    DEG_LOG(W, "File does not exist.\n");
+                                    argc = 1;
+                                    continue;
+                                }
+                                fi.close();
+                                // FDL2
+                                send_file(io, fdl2_path.c_str(), fdl2_base_addr, 0, 528, 0, 0);
+                                memset(&Da_Info, 0, sizeof(Da_Info));
+                                encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+                                send_msg(io);
+                                // Feature phones respond immediately,
+                                // but it may take a second for a smartphone to respond.
+                                int ret = recv_msg_timeout(io, 15000);
+                                if (!ret)
+                                {
+                                    ERR_EXIT("timeout reached\n");
+                                }
+                                ret = recv_type(io);
+                                // Is it always bullshit?
+                                if (ret == BSL_REP_INCOMPATIBLE_PARTITION)
+                                    get_Da_Info(io);
+                                else if (ret != BSL_REP_ACK)
+                                {
+                                    const char* name = get_bsl_enum_name(ret);
+                                    ERR_EXIT("unexpected response (%s : 0x%04x)\n", name, ret);
+                                }
+                                DEG_LOG(OP, "Execute FDL2");
+                                //remove 0d detection for nand device
+                                //This is not supported on certain devices.
+                                /*
+                                encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
+                                send_msg(io);
+                                ret = recv_msg(io);
+                                if (ret) {
+                                    ret = recv_type(io);
+                                    if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"unexpected response (0x%04x)\n", ret);
+                                    else Da_Info.dwStorageType = 0x101;
+                                    // need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
+                                    // for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
+                                }
+                                */
+                                if (Da_Info.bDisableHDLC)
+                                {
+                                    encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
+                                    if (!send_and_check(io))
+                                    {
+                                        io->flags &= ~FLAGS_TRANSCODE;
+                                        DEG_LOG(OP, "Try to disable transcode 0x7D.");
+                                    }
+                                }
+                                int o = io->verbose;
+                                io->verbose = -1;
+                                g_spl_size = check_partition(io, "splloader", 1);
+                                io->verbose = o;
+                                if (Da_Info.bSupportRawData)
+                                {
+                                    blk_size = 0xf800;
+                                    io->ptable = partition_list(io, &io->part_count);
+                                    if (fdl2_executed)
+                                    {
+                                        Da_Info.bSupportRawData = 0;
+                                        DEG_LOG(OP, "Raw data mode disabled for SPRD4.");
+                                    }
+                                    else
+                                    {
+                                        encode_msg_nocpy(io, BSL_CMD_ENABLE_RAW_DATA, 0);
+                                        if (!send_and_check(io)) DEG_LOG(OP, "Raw data mode enabled.");
+                                    }
+                                }
+
+
+                                else if (highspeed || Da_Info.dwStorageType == 0x103)
+                                {
+                                    blk_size = 0xf800;
+                                    io->ptable = partition_list(io, &io->part_count);
+                                }
+                                else if (Da_Info.dwStorageType == 0x102)
+                                {
+                                    io->ptable = partition_list(io, &io->part_count);
+                                }
+                                else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
+                                if (g_app_state.flash.gpt_failed != 1)
+                                {
+                                    if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
+                                    else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
+                                    else
+                                    {
+                                        DEG_LOG(I, "Device is not using VAB\n");
+                                        if (Da_Info.bSupportRawData)
+                                        {
+                                            DEG_LOG(
+                                                I,
+                                                "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.",
+                                                (unsigned)Da_Info.bSupportRawData);
+                                            Da_Info.bSupportRawData = 0;
+                                        }
+                                    }
+                                }
+                                if (!io->part_count)
+                                {
+                                    DEG_LOG(W, "No partition table found on current device");
+                                }
+                                if (nand_id == DEFAULT_NAND_ID)
+                                {
+                                    nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+                                    nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+                                    nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+                                }
+                                fdl2_executed = 1;
+                                g_app_state.device.device_stage = FDL2;
+                            }
+                            DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
+                            char str_buf[257];
+                            for (int o = 1; o < g_app_state.pacFile.fileCount; ++o)
+                            {
+                                unpac.u16_to_u8(str_buf, sizeof(str_buf), unpac.files->id, 256);
+                                if (my_strnicmp(str_buf, "FDL", 3) == 0 || my_strnicmp(str_buf, "FDL2", 4) == 0) continue;
+                                if (my_stricmp(str_buf, "NV"))
+                                {
+                                    // Merge NV process
+                                    bool mergenv = false;
+                                    std::string res;
+                                    std::cout << "Do you want to Merge NV partition(Y/n)?" << std::endl;
+                                    std::getline(std::cin, res);
+                                    mergenv = (res == "Y" || res == "y");
+                                    if (mergenv)
+                                    {
+                                        uint64_t size = 0;
+                                        uint8_t* NVmem = dump_flash_to_mem(io, unpac.files->addr[0], 0,
+                                            unpac.files->size, blk_size ? blk_size : DEFAULT_BLK_SIZE, 0, &size);
+                                        unpac.u16_to_u8(str_buf, sizeof(str_buf), unpac.files->name, 256);
+                                        if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
+                                            size_t a_size = 0, b_size = 0, c_size = 0;
+                                            uint8_t *a = NVmem;
+#ifndef _WIN32
+                                            uint8_t *b = loadfile((g_app_state.flash.pac_folder + "/" + std::string(str_buf)).c_str(), &b_size, 0);
+#else
+                                            uint8_t *b = loadfile((g_app_state.flash.pac_folder + "\\" + std::string(str_buf)).c_str(), &b_size, 0);
+#endif
+                                            uint8_t *c = (uint8_t*)malloc(a_size + b_size);
+                                            merge_nv(io, a, a_size, b, b_size, c, &c_size);
+                                            send_buf(io, unpac.files->addr[0], end_data, blk_size ? blk_size : DEFAULT_BLK_SIZE, c, c_size);
+                                            DEG_LOG(OP, "Sent 0x%x to 0x%x.", c_size, unpac.files->addr[0]);
+                                            delete[](a); delete[](b); free(c);
+                                            continue;
+                                        }
+                                        delete[](io->nvid_list);
+                                        io->nvid_list = NULL;
+                                    }
+                                }
+                                size_t b_size = 0;
+#ifndef _WIN32
+                                uint8_t *b = loadfile((g_app_state.flash.pac_folder + "/" + std::string(str_buf)).c_str(), &b_size, 0);
+#else
+                                uint8_t *b = loadfile((g_app_state.flash.pac_folder + "\\" + std::string(str_buf)).c_str(), &b_size, 0);
+#endif
+                                send_buf(io, unpac.files->addr[0], end_data, blk_size ? blk_size : DEFAULT_BLK_SIZE, b, b_size);
+                                DEG_LOG(OP, "Sent 0x%x to 0x%x.", b_size, unpac.files->addr[0]);
+                                delete[] b;
+                            }
+                        }
+                    }
                     else
                     {
-                        DEG_LOG(E, "Partition table not available");
+                        DEG_LOG(E, "Partition table not available and not RDA.");
                         argc = 1;
                         continue;
                     }
@@ -2915,8 +3234,9 @@ int main_console(int argc, char** argv)
             int force_ab = 0;
             if (!strcmp(str2[1], "write_parts_a")) force_ab = 1;
             else if (!strcmp(str2[1], "write_parts_b")) force_ab = 2;
-            if (skip_confirm || check_confirm("write partitions")) load_partitions(
-                io, str2[2], blk_size ? blk_size : DEFAULT_BLK_SIZE, force_ab, isCMethod);
+            if (skip_confirm || check_confirm("write partitions"))
+                load_partitions(
+                    io, str2[2], blk_size ? blk_size : DEFAULT_BLK_SIZE, force_ab, isCMethod);
             argc -= 2;
             argv += 2;
         }
@@ -2991,8 +3311,9 @@ int main_console(int argc, char** argv)
                     argv += 3;
                     continue;
                 }
-                else if (isdigit(str2[2][0])) load_partition_force(io, atoi(str2[2]) - 1, fn,
-                                                                   blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
+                else if (isdigit(str2[2][0]))
+                    load_partition_force(io, atoi(str2[2]) - 1, fn,
+                                         blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
                 else
                 {
                     for (i = 0; i < io->part_count; i++)
@@ -3040,8 +3361,9 @@ int main_console(int argc, char** argv)
                     argv += 3;
                     continue;
                 }
-                else if (isdigit(str2[2][0])) load_partition_force(io, atoi(str2[2]) - 1, fn,
-                                                                   blk_size ? blk_size : DEFAULT_BLK_SIZE, 1);
+                else if (isdigit(str2[2][0]))
+                    load_partition_force(io, atoi(str2[2]) - 1, fn,
+                                         blk_size ? blk_size : DEFAULT_BLK_SIZE, 1);
                 else
                 {
                     for (i = 0; i < io->part_count_c; i++)
