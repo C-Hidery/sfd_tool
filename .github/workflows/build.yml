@@ -80,7 +80,7 @@ jobs:
         shell: pwsh
         run: |
           $env:Path = "C:\msys64\${{ matrix.msys_gtk_arch }}\bin;C:\msys64\usr\bin;" + $env:Path
-          cmake --build build_cmake --
+          cmake --build build_cmake -- -j $env:NUMBER_OF_PROCESSORS
           ctest --test-dir build_cmake --output-on-failure
           Copy-Item "build_cmake/sfd_tool.exe" "./build/${{ matrix.artifact_name }}/${{ matrix.config }}/" -Force
 
