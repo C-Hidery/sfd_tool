@@ -31,8 +31,8 @@ typedef struct {
     uint32_t size_high;
     uint32_t pac_offset_high;
     uint32_t size;
-    uint32_t type;
-    uint32_t flash_use;
+    uint32_t type; // 0 - operation, 1 - file, 2 - xml, 0x101 - fdl
+    uint32_t flash_use; // 1 - used during flashing process
     uint32_t pac_offset;
     uint32_t omit_flag;
     uint32_t addr_num;

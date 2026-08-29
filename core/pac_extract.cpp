@@ -337,11 +337,41 @@ bool pac_extract(const char* fn, const char* folder)
         DEG_LOG(E, "Failed to open xml for reading");
         return false;
     }
+    g_app_state.flash.pac_xmlPath = xmlPath;
     std::string content;
     content = file.read_all_chunked();
     std::string partxml = ExtractPartitionsWithTags(content);
     if (partxml.empty())
     {
+        for (int k = 0; k < unpac.fileCount; ++k)
+        {
+            const sprd_file_t& f = unpac.files[k];
+            char str_buf[257]{};
+            unpac.u16_to_u8(str_buf, sizeof(str_buf), f.id, 256);
+            if (my_stricmp(str_buf, "NV"))
+            {
+                if (f.addr[0] != 0)
+                {
+                    // RDA Table PAC!!!
+                    if (isHelperInit)
+                    {
+                        showErrorDialogSyncInThread(
+                                GTK_WINDOW(helper.getWidget("main_window")), _("Error"),
+                                _("RDA Table PAC detected, please operate in CLI mode (via '--no-gui' first parameter)."));
+                        return false;
+                    }
+                    else
+                    {
+                        g_app_state.flash.isPacRdaTable = true;
+                        return true;
+                    }
+                }
+                else
+                {
+                    break;
+                }
+            }
+        }
         if (isHelperInit)
             gui_idle_call_wait_drag([]()
             {
@@ -544,7 +574,7 @@ bool pac_flash(spdio_t* io, const char* folder)
             if (file.id[0])
             {
                 unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.id, 256);
-                if (!strncmp(chr_buf, "FDL", 3))
+                if (!my_strnicmp(chr_buf, "FDL", 3))
                 {
                     unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
 #ifndef _WIN32
@@ -563,7 +593,7 @@ bool pac_flash(spdio_t* io, const char* folder)
             if (file.id[0])
             {
                 unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.id, 256);
-                if (!strncmp(chr_buf, "FDL2", 4))
+                if (!my_strnicmp(chr_buf, "FDL2", 4))
                 {
                     unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
 #ifndef _WIN32
@@ -596,10 +626,7 @@ bool pac_flash(spdio_t* io, const char* folder)
             {
                 DEG_LOG(W, "File does not exist.\n");
                 if (isHelperInit)
-                    gui_idle_call_wait_drag([]()
-                    {
-                        showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
-                    }, GTK_WINDOW(helper.getWidget("main_window")));
+                    showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
                 return;
             }
             fi.close();
@@ -677,10 +704,7 @@ bool pac_flash(spdio_t* io, const char* folder)
             {
                 DEG_LOG(W, "File does not exist.\n");
                 if (isHelperInit)
-                    gui_idle_call_wait_drag([]()
-                    {
-                        showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
-                    }, GTK_WINDOW(helper.getWidget("main_window")));
+                    showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("File does not exist."));
                 return;
             }
             fi.close();
@@ -781,8 +805,6 @@ bool pac_flash(spdio_t* io, const char* folder)
             {
                 DEG_LOG(W, "No partition table found on current device");
             }
-            int nand_id = DEFAULT_NAND_ID;
-            uint8_t nand_info[3] = {0}; // page size, spare area size, block size
             if (nand_id == DEFAULT_NAND_ID)
             {
                 nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size

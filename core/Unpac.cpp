@@ -224,10 +224,25 @@ bool PacFile::parseDirectory() {
     }
     return true;
 }
-
+#define CONV_STR(x) \
+	u16_to_u8(str_buf, sizeof(str_buf), x, sizeof(x) / 2)
 // ---------- 列出文件 ----------
 void PacFile::list(const char* pattern) const {
     char str_buf[257];
+    CONV_STR(head.pac_version);
+    DEG_LOG(I, "pac_version: %s\n", str_buf);
+    DEG_LOG(I, "pac_size: %u\n", head.pac_size);
+
+    CONV_STR(head.fw_name);
+    DEG_LOG(I, "fw_name: %s\n", str_buf);
+    CONV_STR(head.fw_version);
+    DEG_LOG(I, "fw_version: %s\n", str_buf);
+    CONV_STR(head.fw_alias);
+    DEG_LOG(I, "fw_alias: %s\n", str_buf);
+    uint32_t head_crc = crc16(0, &head, sizeof(head) - 4);
+    DEG_LOG(I, "head_crc: 0x%04x", head.head_crc);
+    if (head.head_crc != head_crc)
+        DEG_LOG(I, "head_crc: (expected 0x%04x)", head_crc);
     for (int i = 0; i < fileCount; ++i) {
         const sprd_file_t& f = files[i];
 
