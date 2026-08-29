@@ -2663,10 +2663,11 @@ int main_console(int argc, char** argv)
                             }
                             DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
                             char str_buf[257];
-                            for (int o = 1; o < g_app_state.pacFile.fileCount; ++o)
+                            for (int o = 0; o < g_app_state.pacFile.fileCount; ++o)
                             {
-                                unpac.u16_to_u8(str_buf, sizeof(str_buf), unpac.files->id, 256);
-                                if (my_strnicmp(str_buf, "FDL", 3) == 0 || my_strnicmp(str_buf, "FDL2", 4) == 0) continue;
+                                const sprd_file_t& f = unpac.files[o];
+                                if (f.type == 0 || f.type == 0x101) continue; // No file or FDL
+                                unpac.u16_to_u8(str_buf, sizeof(str_buf), f.id, 256);
                                 if (my_stricmp(str_buf, "NV"))
                                 {
                                     // Merge NV process
@@ -2678,9 +2679,9 @@ int main_console(int argc, char** argv)
                                     if (mergenv)
                                     {
                                         uint64_t size = 0;
-                                        uint8_t* NVmem = dump_flash_to_mem(io, unpac.files->addr[0], 0,
-                                            unpac.files->size, blk_size ? blk_size : DEFAULT_BLK_SIZE, 0, &size);
-                                        unpac.u16_to_u8(str_buf, sizeof(str_buf), unpac.files->name, 256);
+                                        uint8_t* NVmem = dump_flash_to_mem(io, f.addr[0], 0,
+                                            f.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, 0, &size);
+                                        unpac.u16_to_u8(str_buf, sizeof(str_buf), f.name, 256);
                                         if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
                                             size_t a_size = 0, b_size = 0, c_size = 0;
                                             uint8_t *a = NVmem;
@@ -2691,8 +2692,8 @@ int main_console(int argc, char** argv)
 #endif
                                             uint8_t *c = (uint8_t*)malloc(a_size + b_size);
                                             merge_nv(io, a, a_size, b, b_size, c, &c_size);
-                                            send_buf(io, unpac.files->addr[0], end_data, blk_size ? blk_size : DEFAULT_BLK_SIZE, c, c_size);
-                                            DEG_LOG(OP, "Sent 0x%x to 0x%x.", c_size, unpac.files->addr[0]);
+                                            send_buf(io, f.addr[0], end_data, blk_size ? blk_size : DEFAULT_BLK_SIZE, c, c_size);
+                                            DEG_LOG(OP, "Sent 0x%x to 0x%x.", c_size, f.addr[0]);
                                             delete[](a); delete[](b); free(c);
                                             continue;
                                         }
@@ -2700,14 +2701,15 @@ int main_console(int argc, char** argv)
                                         io->nvid_list = NULL;
                                     }
                                 }
+                                unpac.u16_to_u8(str_buf, sizeof(str_buf), f.name, 256);
                                 size_t b_size = 0;
 #ifndef _WIN32
                                 uint8_t *b = loadfile((g_app_state.flash.pac_folder + "/" + std::string(str_buf)).c_str(), &b_size, 0);
 #else
                                 uint8_t *b = loadfile((g_app_state.flash.pac_folder + "\\" + std::string(str_buf)).c_str(), &b_size, 0);
 #endif
-                                send_buf(io, unpac.files->addr[0], end_data, blk_size ? blk_size : DEFAULT_BLK_SIZE, b, b_size);
-                                DEG_LOG(OP, "Sent 0x%x to 0x%x.", b_size, unpac.files->addr[0]);
+                                send_buf(io, f.addr[0], end_data, blk_size ? blk_size : DEFAULT_BLK_SIZE, b, b_size);
+                                DEG_LOG(OP, "Sent 0x%x to 0x%x.", f.addr[0]);
                                 delete[] b;
                             }
                         }
