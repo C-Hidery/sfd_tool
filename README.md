@@ -123,10 +123,6 @@ Of course, you can execute your own FDL file before flashing PAC.
 
 Notice:
 
- - only supports partname-based partition table (UBIFS / GPT)
-
- - legacy **ID-based (RDA) (Nand) table** not supported
-
  - region/OCDT selection (e.g. OPPO/Realme PAC) not supported
 
 ## WARNING - DISABLE VERITY & AVB

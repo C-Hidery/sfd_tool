@@ -157,10 +157,6 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
 
 注意事项：
 
- - 仅支持以分区名为单项的分区表 (UBIFS / GPT)
-
- - 以前以ID为单项的分区表 (RDA) (Nand) 不支持
-
  - 厂商魔改的PAC固件 (比如OPPO、Realme) 不支持
 
 ## 警告 - 禁用 VERITY 与 AVB
