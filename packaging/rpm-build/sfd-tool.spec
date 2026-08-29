@@ -9,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        2.8.5
+Version:        2.9.0
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -63,6 +63,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Sat Aug 29 2026 RyanCrepa <Ryan110413@outlook.com> - 2.9.0-1-ltv
+- 支持RDA分区表的PAC固件(CLI only)
+
 * Fri Aug 28 2026 RyanCrepa <Ryan110413@outlook.com> - 2.8.5-1-ltv
 - 修复了PAC刷写逻辑
 

@@ -1,3 +1,9 @@
+sfd-tool (2.9.0-1-ltv) unstable; urgency=medium
+
+  * 支持RDA分区表的PAC固件(CLI only)
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sat, 29 Aug 2026 15:20:18 +0800
+
 sfd-tool (2.8.5-1-ltv) unstable; urgency=medium
 
   * 修复了PAC刷写逻辑
