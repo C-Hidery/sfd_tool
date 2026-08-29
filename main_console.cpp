@@ -2673,7 +2673,7 @@ int main_console(int argc, char** argv)
                                     bool mergenv = false;
                                     std::string res;
                                     std::cout << "Do you want to Merge NV partition(Y/n)?" << std::endl;
-                                    std::cin >> res;
+                                    std::getline(std::cin, res);
                                     mergenv = (res == "Y" || res == "y");
                                     if (mergenv)
                                     {
