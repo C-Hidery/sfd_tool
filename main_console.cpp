@@ -2604,54 +2604,7 @@ int main_console(int argc, char** argv)
                                 io->verbose = -1;
                                 g_spl_size = check_partition(io, "splloader", 1);
                                 io->verbose = o;
-                                if (Da_Info.bSupportRawData)
-                                {
-                                    blk_size = 0xf800;
-                                    io->ptable = partition_list(io, &io->part_count);
-                                    if (fdl2_executed)
-                                    {
-                                        Da_Info.bSupportRawData = 0;
-                                        DEG_LOG(OP, "Raw data mode disabled for SPRD4.");
-                                    }
-                                    else
-                                    {
-                                        encode_msg_nocpy(io, BSL_CMD_ENABLE_RAW_DATA, 0);
-                                        if (!send_and_check(io)) DEG_LOG(OP, "Raw data mode enabled.");
-                                    }
-                                }
-
-
-                                else if (highspeed || Da_Info.dwStorageType == 0x103)
-                                {
-                                    blk_size = 0xf800;
-                                    io->ptable = partition_list(io, &io->part_count);
-                                }
-                                else if (Da_Info.dwStorageType == 0x102)
-                                {
-                                    io->ptable = partition_list(io, &io->part_count);
-                                }
-                                else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
-                                if (g_app_state.flash.gpt_failed != 1)
-                                {
-                                    if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
-                                    else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
-                                    else
-                                    {
-                                        DEG_LOG(I, "Device is not using VAB\n");
-                                        if (Da_Info.bSupportRawData)
-                                        {
-                                            DEG_LOG(
-                                                I,
-                                                "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.",
-                                                (unsigned)Da_Info.bSupportRawData);
-                                            Da_Info.bSupportRawData = 0;
-                                        }
-                                    }
-                                }
-                                if (!io->part_count)
-                                {
-                                    DEG_LOG(W, "No partition table found on current device");
-                                }
+                                if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
                                 if (nand_id == DEFAULT_NAND_ID)
                                 {
                                     nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
@@ -2709,7 +2662,7 @@ int main_console(int argc, char** argv)
                                 uint8_t *b = loadfile((g_app_state.flash.pac_folder + "\\" + std::string(str_buf)).c_str(), &b_size, 0);
 #endif
                                 send_buf(io, f.addr[0], end_data, blk_size ? blk_size : DEFAULT_BLK_SIZE, b, b_size);
-                                DEG_LOG(OP, "Sent 0x%x to 0x%x.", f.addr[0]);
+                                DEG_LOG(OP, "Sent 0x%x to 0x%x.", b_size, f.addr[0]);
                                 delete[] b;
                             }
                         }
