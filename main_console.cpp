@@ -2621,6 +2621,7 @@ int main_console(int argc, char** argv)
                                 const sprd_file_t& f = unpac.files[o];
                                 if (f.type == 0 || f.type == 0x101) continue; // No file or FDL
                                 unpac.u16_to_u8(str_buf, sizeof(str_buf), f.id, 256);
+                                if (my_stricmp(str_buf, "FDL") == 0 || my_stricmp(str_buf, "FDL2") == 0) continue;
                                 if (my_stricmp(str_buf, "NV"))
                                 {
                                     // Merge NV process
