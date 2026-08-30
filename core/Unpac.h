@@ -43,9 +43,10 @@ typedef struct {
 
 class PacFile {
 public:
-    // 公有成员（按需求）
+    // 公有成员
     sprd_file_t* files{};     // 文件条目数组
     int fileCount{};          // 文件数量
+    sprd_head_t head{};
 
     PacFile() noexcept;
     PacFile(PacFile&& other) noexcept;
@@ -65,13 +66,9 @@ public:
     // 校验数据 CRC
     [[nodiscard]] bool check() const;
 
-    // 获取头部信息
-    [[nodiscard]] const sprd_head_t& getHead() const { return head; }
-
     static size_t u16_to_u8(char* d, size_t dn, const uint16_t* s, size_t sn);
 
 private:
-    sprd_head_t head{};
     EnhancedFile fp;
 #ifndef _WIN32
     std::string m_outputDir;      // 由 setDirectory 设置
