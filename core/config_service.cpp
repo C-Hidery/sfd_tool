@@ -74,6 +74,7 @@ namespace sfd
                     return utf8_dir + "\\sfd_tool";
                 }
             }
+            return std::string();
 #else
             // 其他平台暂时不指定 per-user 目录，统一退回旧路径
             return std::string();
