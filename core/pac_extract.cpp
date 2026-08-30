@@ -760,7 +760,7 @@ bool pac_flash(spdio_t* io, const char* folder)
             if (Da_Info.bSupportRawData)
             {
                 blk_size = 0xf800;
-                io->ptable = partition_list(io, &io->part_count);
+                // io->ptable = partition_list(io, &io->part_count);
                 if (fdl2_executed)
                 {
                     Da_Info.bSupportRawData = 0;
@@ -777,11 +777,11 @@ bool pac_flash(spdio_t* io, const char* folder)
             else if (highspeed || Da_Info.dwStorageType == 0x103)
             {
                 blk_size = 0xf800;
-                io->ptable = partition_list(io, &io->part_count);
+                // io->ptable = partition_list(io, &io->part_count);
             }
             else if (Da_Info.dwStorageType == 0x102)
             {
-                io->ptable = partition_list(io, &io->part_count);
+                // io->ptable = partition_list(io, &io->part_count);
             }
             else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
             if (g_app_state.flash.gpt_failed != 1)

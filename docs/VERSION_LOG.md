@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 2.9.1 LTV Edition
+Version 2.9.2 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -434,6 +434,9 @@ Remove unstable blk_size detection
 支持RDA分区表的PAC固件(CLI only)
 
 ---v 2.9.1---
+修复了一些已知问题
+
+---v 2.9.2---
 修复了一些已知问题
 
 Under GPL v3 License
