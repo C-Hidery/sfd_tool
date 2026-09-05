@@ -2924,9 +2924,9 @@ fallback_to_ansi:
             fn = fn_buffer;
             // 以下处理逻辑与原版完全相同（使用窄字符 fn）
             namelen = strlen(fn);
-            if (!strncmp(fn, primary_id, strlen(primary_id))) { // SPL
+            if (!my_strnicmp(fn, primary_id, strlen(primary_id))) { // SPL
                 primary_index = partition_count;
-            } else if (!strncmp(fn, fallback_id, strlen(fallback_id))) { // SPL
+            } else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id))) { // SPL
                 fallback_index = partition_count;
             }
             if (namelen >= 4) {
@@ -2960,9 +2960,9 @@ fallback_to_ansi:
             if (findDataA.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
             fn = findDataA.cFileName;  // 直接获得窄字符
             namelen = strlen(fn);
-            if (!strncmp(fn, primary_id, strlen(primary_id))) { // SPL
+            if (!my_strnicmp(fn, primary_id, strlen(primary_id))) { // SPL
                 primary_index = partition_count;
-            } else if (!strncmp(fn, fallback_id, strlen(fallback_id))) { // SPL
+            } else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id))) { // SPL
                 fallback_index = partition_count;
             }
             if (namelen >= 4) {
@@ -3008,11 +3008,11 @@ fallback_to_ansi:
 		if (stat(fn, &st) == 0 && S_ISDIR(st.st_mode)) continue;
 		if (entry->d_type == DT_DIR) continue;
 		namelen = strlen(fn);
-		if (!strncmp(fn, primary_id, strlen(primary_id))) // SPL
+		if (!my_strnicmp(fn, primary_id, strlen(primary_id))) // SPL
 		{
 			primary_index = partition_count;
 		}
-		else if (!strncmp(fn, fallback_id, strlen(fallback_id))) //SPL
+		else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id))) //SPL
 		{
 			fallback_index = partition_count;
 		}
@@ -3186,6 +3186,22 @@ fallback_to_ansi:
 		int spl_index = primary_index > -1 ? primary_index : fallback_index;
 		if (spl_index > -1) 
 		{
+			bool isRejected = false;
+			for (auto& kv : flashed_parts)
+			{
+				if (!my_stricmp(kv.c_str(), "splloader"))
+				{
+					DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s", kv.c_str());
+					DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
+					isRejected = true;
+					continue;
+				}
+			}
+			if (isRejected)
+			{
+				partitions[spl_index].written_flag = 1;
+				continue;
+			}
 			load_partition(io, "splloader", partitions[spl_index].file_path, step, CMethod);
 			partitions[spl_index].written_flag = 1;
 			for (int j = 0; j < partition_count; j++) {
