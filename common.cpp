@@ -48,7 +48,7 @@ char* my_stristr(const char* haystack, const char* needle) {
 
     size_t haystack_len = strlen(haystack);
     size_t needle_len = strlen(needle);
-    
+
     if (haystack_len < needle_len) return NULL;
 
     const char* end = haystack + haystack_len - needle_len;
@@ -146,7 +146,7 @@ uint8_t *loadfile(const char *fn, size_t *num, size_t extra) {
     if (fi) {
         if (fi.seek(0, SEEK_END) == 0) {
             long n_long = fi.tell();
-            if (n_long > 0) { 
+            if (n_long > 0) {
                 n = static_cast<size_t>(n_long);
                 if (n <= SIZE_MAX - extra) {
                     fi.rewind();
@@ -203,7 +203,7 @@ size_t send_file(spdio_t *io, const char *fn,
 	DEG_LOG(OP,"Sent %s to 0x%x", fn, start_addr);
 	return size;
 }
-int GetStage() {	
+int GetStage() {
 	if (fdl2_executed > 0) return FDL2;
 	else if (fdl1_loaded > 0) return FDL1;
 	else return BROM;
@@ -1224,7 +1224,7 @@ partition_t *partition_list(spdio_t *io, int *part_count_ptr) {
 			while (!(size >> divisor)) divisor--;
 		}
 
-		if (Da_Info.dwStorageType == 0) { 
+		if (Da_Info.dwStorageType == 0) {
 			if (divisor == 10) Da_Info.dwStorageType = 0x102; // emmc
 			else Da_Info.dwStorageType = 0x103; // ufs
 		}
@@ -1238,9 +1238,9 @@ partition_t *partition_list(spdio_t *io, int *part_count_ptr) {
 			size = READ32_LE(p + 0x48);
 			(*(ptable + i)).size = (long long)size << (20 - divisor);
 
-			DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(ptable + i)).name, 
+			DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(ptable + i)).name,
 					((*(ptable + i)).size >> 20));
-			
+
 			if (!selected_ab) {
 				size_t namelen = strlen((*(ptable + i)).name);
 				if (namelen > 2 && 0 == strcmp((*(ptable + i)).name + namelen - 2, "_a")) {
@@ -1591,19 +1591,19 @@ partition_t* partition_list_d(spdio_t* io) {
 		const char* part = CommonPartitions[i];
 		long long result = check_partition(io, part, 0);
 		//exist
-		
+
 		if (result) {
 			size = check_partition(io, part, 1);
-			
-		
+
+
 			if (strcmp(part, "splloader") != 0) {
 				strncpy(ptable[n].name, part, sizeof(ptable[n].name) - 1);
-				ptable[n].name[sizeof(ptable[n].name) - 1] = '\0'; 
+				ptable[n].name[sizeof(ptable[n].name) - 1] = '\0';
 				ptable[n].size = size;
 				n++;
 			}
 			if (strcmp(part, "splloader") != 0) { size = size >> 20; DBG_LOG("  %d %36s  %lldMB\n", n, part, size); }
-			
+
 		}
 	}
 	io->verbose = verbose;
@@ -1613,7 +1613,7 @@ partition_t* partition_list_d(spdio_t* io) {
 		{
 			DEG_LOG(I, "Normal partition list found on device, try to parse...");
 			io->ptable = partition_list(io, &io->part_count);
-			if (io->part_count) 
+			if (io->part_count)
 			{
 				DEG_LOG(I, "Parsed successfully, Compatibility-method mode disabled.");
 				if (ptable) delete[] ptable;
@@ -1704,8 +1704,8 @@ void erase_partition(spdio_t *io, const char *name, int CMethod) {
 	if (!send_and_check(io)) {
 		double etime = get_time();
 		double time_spent = etime - rtime;
-		
-		DEG_LOG(I, "Erase partition %s successfully", name0); 
+
+		DEG_LOG(I, "Erase partition %s successfully", name0);
 		DEG_LOG(I, "Cost time %.6f seconds", time_spent);
 	}
 	io->timeout = timeout0;
@@ -1713,7 +1713,7 @@ void erase_partition(spdio_t *io, const char *name, int CMethod) {
 
 void load_partition(spdio_t *io, const char *name,
 	const char *fn, unsigned step, int CMethod) {
-	
+
 	get_partition_info(io, name, 1);
 	if (!gPartInfo.size && strcmp(name, "w_force") != 0) return;
 	uint64_t offset, len, n64;
@@ -1828,7 +1828,7 @@ fallback_load:
 	if (!send_and_check(io)) {
 		double etime = get_time();
 		double time_spent = etime - rtime;
-		
+
 		DEG_LOG(I, "Write partition %s successfully, target: 0x%llx, written: 0x%llx",
 			name, (long long)len, (long long)offset);
 		DEG_LOG(I, "Cost time %.6f seconds", time_spent);
@@ -1899,11 +1899,11 @@ void load_partition_force(spdio_t *io, const int id, const char *fn, unsigned st
 			buf += 0x4c;
 		}
 		encode_msg_nocpy(io, BSL_CMD_REPARTITION, io->part_count * 0x4c);
-		if (!send_and_check(io)) { 
+		if (!send_and_check(io)) {
 			double etime = get_time();
 			double time_spent = etime - rtime;
-			
-			DEG_LOG(I, "Force write %s successfully", part_name); 
+
+			DEG_LOG(I, "Force write %s successfully", part_name);
 			DEG_LOG(I, "Cost time %.6f seconds", time_spent);
 		}
 	}
@@ -1935,11 +1935,11 @@ void load_partition_force(spdio_t *io, const int id, const char *fn, unsigned st
 			buf += 0x4c;
 		}
 		encode_msg_nocpy(io, BSL_CMD_REPARTITION, io->part_count_c * 0x4c);
-		if (!send_and_check(io)) { 
+		if (!send_and_check(io)) {
 			double etime = get_time();
 			double time_spent = etime - rtime;
-			
-			DEG_LOG(I, "Force write %s successfully", part_name); 
+
+			DEG_LOG(I, "Force write %s successfully", part_name);
 			DEG_LOG(I, "Cost time %.6f seconds", time_spent);
 		}
 	}
@@ -2032,7 +2032,7 @@ void load_nv_partition(spdio_t *io, const char *name,
 	else {
 		crc = crc16(crc, mem + 2, len - 2);
 		WRITE16_BE(mem, crc);
-	}	
+	}
 	*/
 	crc = crc16(crc, mem + 2, len - 2);
 	WRITE16_BE(mem, crc);
@@ -2070,7 +2070,7 @@ void load_nv_partition(spdio_t *io, const char *name,
 	if (!send_and_check(io)) {
 		double etime = get_time();
 		double t = etime - rtime;
-		
+
 		DEG_LOG(I, "Write NV partition %s successfully, target: 0x%llx, written: 0x%llx\n",
 			name, (long long)len, (long long)offset);
 		DEG_LOG(I, "Cost time %.6f seconds", t);
@@ -2368,7 +2368,7 @@ uint64_t check_partition(spdio_t *io, const char *name, int need_size) {
 		}
 	}
 	// NAND detection
-	if (end == 10) 
+	if (end == 10)
 	{
 		Da_Info.dwStorageType = 0x101;
 		DEG_LOG(I, "Storage is nand.");
@@ -2530,7 +2530,7 @@ void dump_partitions(spdio_t *io, const char *fn, int *nand_info, unsigned step)
     auto partitionNodes = partitions->getChildren("Partition");
 
     // 2. 动态分配分区数组（与原函数一致）
-    partition_t* partitionsArr = NEWN partition_t[128];  
+    partition_t* partitionsArr = NEWN partition_t[128];
     int found = 0;
 
     for (auto& partNode : partitionNodes) {
@@ -2616,24 +2616,7 @@ static inline bool iequals(const std::string& a, const std::string& b) {
                           std::tolower(static_cast<unsigned char>(b));
                });
 }
-static inline bool istartswith(const std::string& str, const std::string& prefix) {
-    if (str.size() < prefix.size()) return false;
-    return std::equal(str.begin(), str.begin() + prefix.size(),
-                      prefix.begin(),
-                      [](char a, char b) {
-                          return std::tolower(static_cast<unsigned char>(a)) ==
-                                 std::tolower(static_cast<unsigned char>(b));
-                      });
-}
-
-bool hasPartition(const std::vector<std::string>& partitions, const std::string& partitionName)
-{
-    return std::find_if(partitions.begin(), partitions.end(),
-        [&partitionName](const std::string& s) {
-            return iequals(s, partitionName);
-        }) != partitions.end();
-}
-std::string case_part(const std::vector<std::string>& partitions, 
+std::string case_part(const std::vector<std::string>& partitions,
                       const std::string& partitionName,
                       spdio_t* io) {
     // 1. 先找精确匹配（区分大小写）
@@ -2641,19 +2624,19 @@ std::string case_part(const std::vector<std::string>& partitions,
     if (exact_it != partitions.end()) {
         return partitionName;
     }
-    
+
     // 2. 精确匹配找不到，找不区分大小写的匹配
     auto case_insensitive_it = std::find_if(partitions.begin(), partitions.end(),
         [&partitionName](const std::string& s) {
             return iequals(s, partitionName);
         });
-    
+
     if (case_insensitive_it != partitions.end()) {
     	DEG_LOG(W, "Warning: File name '%s' does not match case of existing partition '%s'. Using '%s'.",
 				partitionName.c_str(), case_insensitive_it->c_str(), case_insensitive_it->c_str());
         return *case_insensitive_it;
     }
-    
+
     // 3. 从 io->ptable 中查找
     for (int i = 0; i < io->part_count; ++i) {
         if (partitionName == io->ptable[i].name) {
@@ -2667,7 +2650,7 @@ std::string case_part(const std::vector<std::string>& partitions,
             return io->ptable[i].name;
         }
     }
-    
+
     // 4. 从 io->Cptable 中查找
     for (int i = 0; i < io->part_count_c; ++i) {
         if (partitionName == io->Cptable[i].name) {
@@ -2681,7 +2664,7 @@ std::string case_part(const std::vector<std::string>& partitions,
             return io->Cptable[i].name;
         }
     }
-    
+
     return "";
 }
 int get_nvlist_xml(spdio_t *io, const char *fn) {
@@ -2737,7 +2720,7 @@ int get_nvlist_xml(spdio_t *io, const char *fn) {
     return 1;
 }
 
-int get_nvlist_cfg(spdio_t *io, char *fn) 
+int get_nvlist_cfg(spdio_t *io, char *fn)
 {
 	char line[512];
 	unsigned int id = 0;
@@ -2859,14 +2842,8 @@ void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab,
 	DEG_LOG(OP,"Start to write partitions");
 	DEG_LOG(I,"Type CTRL + C to cancel...");
 	start_signal();
-	std::vector<std::string>& pac_parts = g_app_state.flash.pacptable;
 	bool isHasDownloadNV = false;
 	int dlnv_id = 0;
-	const char* primary_id = nullptr;
-	const char* fallback_id = "SPLLoader";
-	if (Da_Info.dwStorageType != 0x103) primary_id = "SPLLoaderEMMC";
-	else primary_id = "SPLLoaderUFS";
-	int primary_index = -1, fallback_index = -1;
 	typedef struct {
 		char name[36];
 		char file_path[1024];
@@ -2924,11 +2901,6 @@ fallback_to_ansi:
             fn = fn_buffer;
             // 以下处理逻辑与原版完全相同（使用窄字符 fn）
             namelen = strlen(fn);
-            if (!my_strnicmp(fn, primary_id, strlen(primary_id))) { // SPL
-                primary_index = partition_count;
-            } else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id))) { // SPL
-                fallback_index = partition_count;
-            }
             if (namelen >= 4) {
                 if (!my_stricmp(fn + namelen - 4, ".xml") ||
                     !my_stricmp(fn + namelen - 4, ".exe") ||
@@ -2960,11 +2932,6 @@ fallback_to_ansi:
             if (findDataA.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
             fn = findDataA.cFileName;  // 直接获得窄字符
             namelen = strlen(fn);
-            if (!my_strnicmp(fn, primary_id, strlen(primary_id))) { // SPL
-                primary_index = partition_count;
-            } else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id))) { // SPL
-                fallback_index = partition_count;
-            }
             if (namelen >= 4) {
                 if (!my_stricmp(fn + namelen - 4, ".xml") ||
                     !my_stricmp(fn + namelen - 4, ".exe") ||
@@ -3008,14 +2975,6 @@ fallback_to_ansi:
 		if (stat(fn, &st) == 0 && S_ISDIR(st.st_mode)) continue;
 		if (entry->d_type == DT_DIR) continue;
 		namelen = strlen(fn);
-		if (!my_strnicmp(fn, primary_id, strlen(primary_id))) // SPL
-		{
-			primary_index = partition_count;
-		}
-		else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id))) //SPL
-		{
-			fallback_index = partition_count;
-		}
 		if (namelen >= 4) {
 			if (!my_stricmp(fn + namelen - 4, ".xml") ||
 				!my_stricmp(fn + namelen - 4, ".exe") ||
@@ -3073,14 +3032,7 @@ fallback_to_ansi:
 		if (isCancel) {  delete[](partitions); return; }
 		fn = partitions[i].name;
 		std::string relfn;
-		if (g_app_state.flash.isPacFlashing)
-		{
-			relfn = case_part(pac_parts, fn, io);
-		}
-		else
-		{
-			relfn = case_part({}, fn, io);
-		}
+		relfn = case_part({}, fn, io);
 		if (relfn.empty()) get_partition_info(io, fn, 1);
 		else get_partition_info(io, relfn.c_str(), 1);
 		if (relfn.empty() == false) fn = const_cast<char*>(relfn.c_str());
@@ -3103,125 +3055,13 @@ fallback_to_ansi:
 		namelen = strlen(relfn.empty() ? fn : relfn.c_str());
 		if (selected_ab == 1 && namelen > 2 && 0 == my_stricmp(fn + namelen - 2, "_b")) { partitions[i].written_flag = 1; continue; }
 		else if (selected_ab == 2 && namelen > 2 && 0 == my_stricmp(fn + namelen - 2, "_a")) { partitions[i].written_flag = 1; continue; }
-		if (!my_stricmp(fn, "miscdata") && g_app_state.flash.isPacFlashing)
-		{
-			flashed_parts.emplace_back(gPartInfo.name);
-			partitions[i].written_flag = 1;
-			continue;
-		}
-		if (!my_stricmp(fn, "prodnv") && g_app_state.flash.isPacFlashing)
-		{
-			flashed_parts.emplace_back(gPartInfo.name);
-			partitions[i].written_flag = 1;
-			continue;
-		}
-		if (!my_stricmp(fn, "userdata") && g_app_state.flash.isPacFlashing)
-		{
-			erase_partition(io, gPartInfo.name, CMethod);
-			flashed_parts.emplace_back(gPartInfo.name);
-			partitions[i].written_flag = 1;
-			continue;
-		}
-		// NV Merge process for PAC flashing
-		if (g_app_state.flash.isPacFlashing && g_app_state.flash.isPacMergingNV)
-		{
-			if (my_stristr(fn, "fixnv1"))
-			{
-				if (my_stristr(fn, "nr_fixnv1"))
-				{
-					get_partition_info(io, "nr_fixnv1", 1);
-					if (gPartInfo.size && hasPartition(pac_parts, std::string(gPartInfo.name)))
-					{
-						if (!g_app_state.pac.nr_fixnv1_mem)
-						{
-							DEG_LOG(W, "Failed to load old NV data for nr_fixnv1, skipping writing.");
-							partitions[i].written_flag = 1;
-							continue;
-						}
-						if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
-							size_t a_size = 0, b_size = 0, c_size = 0;
-							uint8_t *a = g_app_state.pac.nr_fixnv1_mem;
-							uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
-							uint8_t *c = (uint8_t*)malloc(a_size + b_size);
-							merge_nv(io, a, a_size, b, b_size, c, &c_size);
-							load_nv_partition_from_mem(io, gPartInfo.name, c, step);
-							delete[](a); delete[](b); free(c);
-							partitions[i].written_flag = 1;
-							flashed_parts.emplace_back(gPartInfo.name);
-							continue;
-						}
-						delete[](io->nvid_list);
-						io->nvid_list = NULL;
-					}
-				}
-				else if (my_stristr(fn, "l_fixnv1"))
-				{
-					get_partition_info(io, "l_fixnv1", 1);
-					if (!g_app_state.pac.l_fixnv1_mem)
-					{
-						DEG_LOG(W, "Failed to load old NV data for l_fixnv1, skipping writing.");
-						partitions[i].written_flag = 1;
-						continue;
-					}
-					if (gPartInfo.size && hasPartition(pac_parts, std::string(gPartInfo.name)))
-					{
-						if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
-							size_t a_size = 0, b_size = 0, c_size = 0;
-							uint8_t *a = g_app_state.pac.l_fixnv1_mem;
-							uint8_t *b = loadfile(partitions[i].file_path, &b_size, 0);
-							uint8_t *c = (uint8_t*)malloc(a_size + b_size);
-							merge_nv(io, a, a_size, b, b_size, c, &c_size);
-							load_nv_partition_from_mem(io, gPartInfo.name, c, step);
-							delete[](a); delete[](b); free(c);
-							partitions[i].written_flag = 1;
-							flashed_parts.emplace_back(gPartInfo.name);
-							continue;
-						}
-						delete[](io->nvid_list);
-						io->nvid_list = NULL;
-					}
-				}
-			}
-		}
-		int spl_index = primary_index > -1 ? primary_index : fallback_index;
-		if (spl_index > -1) 
-		{
-			bool isRejected = false;
-			for (auto& kv : flashed_parts)
-			{
-				if (!my_stricmp(kv.c_str(), "splloader"))
-				{
-					DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s", kv.c_str());
-					DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
-					isRejected = true;
-					continue;
-				}
-			}
-			if (isRejected)
-			{
-				partitions[spl_index].written_flag = 1;
-				continue;
-			}
-			load_partition(io, "splloader", partitions[spl_index].file_path, step, CMethod);
-			partitions[spl_index].written_flag = 1;
-			for (int j = 0; j < partition_count; j++) {
-				if (my_strnicmp(partitions[j].name, "splloader", 9) == 0) {
-					partitions[j].written_flag = 1;
-					break;
-				}
-			}
-			flashed_parts.emplace_back("splloader");
-		}
-		else
-		{
-			// Try "splloader" (following)
-		}
+
 		if (!my_stricmp(fn, "splloader") ||
 			!my_stricmp(fn, "uboot_a") ||
 			!my_stricmp(fn, "uboot_b") ||
 			!my_stricmp(fn, "vbmeta_a") ||
 			!my_stricmp(fn, "vbmeta_b")) {
-			if ((!g_app_state.flash.isPacFlashing || hasPartition(pac_parts, fn)) && partitions[i].written_flag == 0) {
+			if (partitions[i].written_flag == 0) {
 				if (relfn.empty())
 					get_partition_info(io, fn, 1);
 				else
@@ -3265,23 +3105,14 @@ fallback_to_ansi:
 					}
 				}
 			if (isAllowed)
-				if (!g_app_state.flash.isPacFlashing || hasPartition(pac_parts, fn)) 
-				{
-					load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
-					flashed_parts.emplace_back(gPartInfo.name);
-				}
+			{
+				load_partition(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
+				flashed_parts.emplace_back(gPartInfo.name);
+			}
 			partitions[i].written_flag = 1;
 			continue;
 		}
 		if (!my_strnicmp(fn, "vbmeta_", 7)) {
-		    if(g_app_state.flash.isPacFlashing)
-		    {
-    			auto it = std::find_if(pac_parts.begin(), pac_parts.end(),
-				[](const std::string& part) {
-					return istartswith(part, "vbmeta_");
-				});
-				if (it == pac_parts.end()) continue;
-			}
 			if (relfn.empty())
 				get_partition_info(io, fn, 0);
 			else
@@ -3313,15 +3144,7 @@ fallback_to_ansi:
 		if (!partitions[i].written_flag) {
 			fn = partitions[i].name;
 			std::string relfn;
-			if (g_app_state.flash.isPacFlashing)
-			{
-				relfn = case_part(pac_parts, fn, io);
-			}
-			else
-			{
-				relfn = case_part({}, fn, io);
-			}
-			if (g_app_state.flash.isPacFlashing && !hasPartition(pac_parts, fn)) continue;
+			relfn = case_part({}, fn, io);
 			if (relfn.empty())
 				get_partition_info(io, fn, 0);
 			else
@@ -3347,7 +3170,7 @@ fallback_to_ansi:
 				flashed_parts.emplace_back(gPartInfo.name);
 			}
 			partitions[i].written_flag = 1;
-			
+
 		}
 	}
 	if (super_in_dump) {
@@ -3386,67 +3209,24 @@ fallback_to_ansi:
 	selected_ab = selected_ab_bak;
 	if (isHasDownloadNV && dlnv_id)
 	{
-		if (!g_app_state.flash.isPacFlashing || !g_app_state.flash.isPacMergingNV) {
-			std::string relfn = case_part({}, std::string(partitions[dlnv_id].name), io);
-			if (relfn.empty())
-				get_partition_info(io, partitions[dlnv_id].name, 1);
-			else
-				get_partition_info(io, relfn.c_str(), 1);
-			bool isAllowed = true;
-			for (auto& kv : flashed_parts)
-			{
-				if (!my_stricmp(gPartInfo.name, kv.c_str()))
-				{
-					DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s", kv.c_str());
-					DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
-					isAllowed = false;
-					continue;
-				}
-			}
-			if (isAllowed)
-				load_partition_unify(io, gPartInfo.name, partitions[dlnv_id].file_path, step, CMethod);
-		}
+		std::string relfn = case_part({}, std::string(partitions[dlnv_id].name), io);
+		if (relfn.empty())
+			get_partition_info(io, partitions[dlnv_id].name, 1);
 		else
+			get_partition_info(io, relfn.c_str(), 1);
+		bool isAllowed = true;
+		for (auto& kv : flashed_parts)
 		{
-			std::string relfn = case_part(pac_parts, std::string(partitions[dlnv_id].name), io);
-			if (relfn.empty())
-				get_partition_info(io, partitions[dlnv_id].name, 1);
-			else
-				get_partition_info(io, relfn.c_str(), 1);
-			bool isAllowed = true;
-			for (auto& kv : flashed_parts)
+			if (!my_stricmp(gPartInfo.name, kv.c_str()))
 			{
-				if (!my_stricmp(gPartInfo.name, kv.c_str()))
-				{
-					DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s", kv.c_str());
-					DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
-					isAllowed = false;
-					continue;
-				}
+				DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s", kv.c_str());
+				DEG_LOG(I, "To protect this partition, duplicate flashing operations have been rejected.");
+				isAllowed = false;
+				continue;
 			}
-			if (isAllowed)
-				if (hasPartition(pac_parts, std::string(gPartInfo.name)))
-				{
-					if (!g_app_state.pac.downloadnv_mem)
-					{
-						DEG_LOG(W, "Failed to load old NV data for downloadnv, skipping writing.");
-						partitions[dlnv_id].written_flag = 1;
-						delete[](partitions);
-						return;
-					}
-					if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
-						size_t a_size = 0, b_size = 0, c_size = 0;
-						uint8_t *a = g_app_state.pac.downloadnv_mem;
-						uint8_t *b = loadfile(partitions[dlnv_id].file_path, &b_size, 0);
-						uint8_t *c = (uint8_t*)malloc(a_size + b_size);
-						merge_nv(io, a, a_size, b, b_size, c, &c_size);
-						load_nv_partition_from_mem(io, gPartInfo.name, c, step);
-						delete[](a); delete[](b); free(c);
-					}
-					delete[](io->nvid_list);
-					io->nvid_list = NULL;
-				}
 		}
+		if (isAllowed)
+			load_partition_unify(io, gPartInfo.name, partitions[dlnv_id].file_path, step, CMethod);
 	}
 	delete[](partitions);
 }
@@ -3609,7 +3389,7 @@ int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned
 	get_partition_info(io, name, 1);
 	if (!gPartInfo.size) return 0;
 
-	if (strstr(name, "fixnv1") || 
+	if (strstr(name, "fixnv1") ||
 		strstr(name, "downloadnv"))
 		{
 			load_nv_partition(io, name, fn, 4096);
