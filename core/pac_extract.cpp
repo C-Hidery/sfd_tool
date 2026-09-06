@@ -348,7 +348,7 @@ bool pac_extract(const char* fn, const char* folder)
     auto products = g_app_state.pacXml.getProductNames();
     for (const auto& name : products)
     {
-        std::cout << "Product: " << name << ", Scheme: " << g_app_state.pacXml.getSchemeName(name) << std::endl;
+        std::cout << "PacXMLParser: Product: " << name << ", Scheme: " << g_app_state.pacXml.getSchemeName(name) << std::endl;
     }
     std::string content;
     content = file.read_all_chunked();
@@ -532,7 +532,7 @@ static bool hasPartition(const std::vector<std::string>& partitions, const std::
                         }) != partitions.end();
 }
 
-std::string case_part(const std::vector<std::string>& partitions,
+static std::string case_part(const std::vector<std::string>& partitions,
                       const std::string& partitionName,
                       spdio_t* io)
 {
