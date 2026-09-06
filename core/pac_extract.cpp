@@ -967,7 +967,6 @@ bool pac_flash(spdio_t* io, const char* folder)
         if (Da_Info.dwStorageType != 0x103) primary_id = "SPLLoaderEMMC";
         else primary_id = "SPLLoaderUFS";
         int primary_index = -1, fallback_index = -1;
-        bool isHasDownloadNV = false;
         int dlnv_id = 0;
         typedef struct
         {
@@ -1050,6 +1049,14 @@ bool pac_flash(spdio_t* io, const char* folder)
                     !my_strnicmp(fn, "custom_exec", 11) ||
                     my_stristr(fn, "factorynv"))
                     continue;
+                if (!my_strnicmp(fn, primary_id, strlen(primary_id)))
+                {
+                    primary_index = partition_count;
+                }
+                else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id)))
+                {
+                    fallback_index = partition_count;
+                }
                 snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s",
                          folder, fn);
                 char* dot = strrchr(fn, '.');
@@ -1090,6 +1097,14 @@ bool pac_flash(spdio_t* io, const char* folder)
                     !my_strnicmp(fn, "custom_exec", 11) ||
                     my_stristr(fn, "factorynv"))
                     continue;
+                if (!my_strnicmp(fn, primary_id, strlen(primary_id)))
+                {
+                    primary_index = partition_count;
+                }
+                else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id)))
+                {
+                    fallback_index = partition_count;
+                }
                 snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s",
                          folder, fn);
                 char* dot = strrchr(fn, '.');
@@ -1141,6 +1156,14 @@ bool pac_flash(spdio_t* io, const char* folder)
                 !my_strnicmp(fn, "custom_exec", 11) ||
                 my_stristr(fn, "factorynv"))
                 continue;
+            if (!my_strnicmp(fn, primary_id, strlen(primary_id)))
+            {
+                primary_index = partition_count;
+            }
+            else if (!my_strnicmp(fn, fallback_id, strlen(fallback_id)))
+            {
+                fallback_index = partition_count;
+            }
             snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s",
                      folder, fn);
             char* dot = strrchr(fn, '.');
@@ -1161,6 +1184,8 @@ bool pac_flash(spdio_t* io, const char* folder)
         while ((entry = readdir(dir)));
         closedir(dir);
 #endif
+        int spl_index = primary_index > -1 ? primary_index : fallback_index;
+        int p_spl_index = -1;
         if (g_app_state.flash.selected_ab < 0) select_ab(io);
         std::vector<std::string> flashed_parts;
         if (g_app_state.pacFile.fileCount > 0)
@@ -1172,7 +1197,13 @@ bool pac_flash(spdio_t* io, const char* folder)
                 {
                     unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.id, 256);
                     std::string partition = g_app_state.pacXml.getPartitionByOperation(chr_buf);
-                    if (!my_stricmp(partition.c_str(), "miscdata") && hasPartition(g_app_state.flash.pacptable, "miscdata"))
+                    if (!my_strnicmp(partition.c_str(), primary_id, partition.length()))
+                    {
+                        p_spl_index = o;
+                        continue;
+                    }
+                    if (!my_stricmp(partition.c_str(), "miscdata") && hasPartition(
+                        g_app_state.flash.pacptable, "miscdata"))
                     {
                         flashed_parts.emplace_back(gPartInfo.name);
                         continue;
@@ -1182,7 +1213,8 @@ bool pac_flash(spdio_t* io, const char* folder)
                         flashed_parts.emplace_back(gPartInfo.name);
                         continue;
                     }
-                    if (!my_stricmp(partition.c_str(), "userdata") && hasPartition(g_app_state.flash.pacptable, "userdata"))
+                    if (!my_stricmp(partition.c_str(), "userdata") && hasPartition(
+                        g_app_state.flash.pacptable, "userdata"))
                     {
                         erase_partition(io, gPartInfo.name, 0);
                         flashed_parts.emplace_back(gPartInfo.name);
@@ -1190,9 +1222,9 @@ bool pac_flash(spdio_t* io, const char* folder)
                     }
                     if (g_app_state.flash.isPacMergingNV)
                     {
-                        if (my_stristr(fn, "fixnv1"))
+                        if (my_stristr(partition.c_str(), "fixnv1"))
                         {
-                            if (my_stristr(fn, "nr_fixnv1"))
+                            if (my_stristr(partition.c_str(), "nr_fixnv1"))
                             {
                                 get_partition_info(io, "nr_fixnv1", 1);
                                 if (gPartInfo.size && hasPartition(g_app_state.flash.pacptable,
@@ -1230,7 +1262,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                                     io->nvid_list = NULL;
                                 }
                             }
-                            else if (my_stristr(fn, "l_fixnv1"))
+                            else if (my_stristr(partition.c_str(), "l_fixnv1"))
                             {
                                 get_partition_info(io, "l_fixnv1", 1);
                                 if (!g_app_state.pac.l_fixnv1_mem)
@@ -1272,7 +1304,6 @@ bool pac_flash(spdio_t* io, const char* folder)
                     }
                     if (my_stristr(partition.c_str(), "downloadnv"))
                     {
-                        isHasDownloadNV = true;
                         dlnv_id = o;
                         continue;
                     }
@@ -1348,11 +1379,13 @@ bool pac_flash(spdio_t* io, const char* folder)
                                         size_t a_size = 0, b_size = 0, c_size = 0;
                                         uint8_t* a = g_app_state.pac.downloadnv_mem;
 #ifndef _WIN32
-                                        std::string file_path = g_app_state.flash.pac_folder + "/" + std::string(chr_buf);
+                                        std::string file_path = g_app_state.flash.pac_folder + "/" + std::string(
+                                            chr_buf);
 #else
-                                        std::string file_path = g_app_state.flash.pac_folder + "\\" + std::string(chr_buf);
+                                        std::string file_path = g_app_state.flash.pac_folder + "\\" + std::string(
+                                            chr_buf);
 #endif
-                                        uint8_t* b = loadfile(file_path.c_str(), &b_size,0);
+                                        uint8_t* b = loadfile(file_path.c_str(), &b_size, 0);
                                         uint8_t* c = (uint8_t*)malloc(a_size + b_size);
                                         merge_nv(io, a, a_size, b, b_size, c, &c_size);
                                         load_nv_partition_from_mem(io, gPartInfo.name, c,
@@ -1390,8 +1423,28 @@ bool pac_flash(spdio_t* io, const char* folder)
                 }
             }
         }
-        isHasDownloadNV = false;
         dlnv_id = 0;
+        if (spl_index > -1)
+        {
+            if (p_spl_index > -1)
+            {
+                const sprd_file_t& file = g_app_state.pacFile.files[p_spl_index];
+                unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
+#ifndef _WIN32
+                std::string file_path = g_app_state.flash.pac_folder + "/" + std::string(chr_buf);
+#else
+                std::string file_path = g_app_state.flash.pac_folder + "\\" + std::string(chr_buf);
+#endif
+                load_partition_unify(io, "splloader", file_path.c_str(), blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
+                flashed_parts.emplace_back("splloader");
+            }
+            else
+            {
+                load_partition_unify(io, "splloader", partitions[spl_index].file_path, blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
+                flashed_parts.emplace_back("splloader");
+                partitions[spl_index].written_flag = 1;
+            }
+        }
         for (int j = 0; j < partition_count; j++)
         {
             fn = partitions[j].name;
@@ -1408,150 +1461,156 @@ bool pac_flash(spdio_t* io, const char* folder)
             if (partitions[j].written_flag != 1)
             {
                 if (!my_stricmp(relfn.c_str(), "miscdata") && hasPartition(g_app_state.flash.pacptable, "miscdata"))
+                {
+                    flashed_parts.emplace_back(gPartInfo.name);
+                    continue;
+                }
+                if (!my_stricmp(relfn.c_str(), "prodnv") && hasPartition(g_app_state.flash.pacptable, "prodnv"))
+                {
+                    flashed_parts.emplace_back(gPartInfo.name);
+                    continue;
+                }
+                if (!my_stricmp(relfn.c_str(), "userdata") && hasPartition(g_app_state.flash.pacptable, "userdata"))
+                {
+                    erase_partition(io, gPartInfo.name, 0);
+                    flashed_parts.emplace_back(gPartInfo.name);
+                    continue;
+                }
+                if (g_app_state.flash.isPacMergingNV)
+                {
+                    if (my_stristr(relfn.c_str(), "fixnv1"))
                     {
-                        flashed_parts.emplace_back(gPartInfo.name);
-                        continue;
-                    }
-                    if (!my_stricmp(relfn.c_str(), "prodnv") && hasPartition(g_app_state.flash.pacptable, "prodnv"))
-                    {
-                        flashed_parts.emplace_back(gPartInfo.name);
-                        continue;
-                    }
-                    if (!my_stricmp(relfn.c_str(), "userdata") && hasPartition(g_app_state.flash.pacptable, "userdata"))
-                    {
-                        erase_partition(io, gPartInfo.name, 0);
-                        flashed_parts.emplace_back(gPartInfo.name);
-                        continue;
-                    }
-                    if (g_app_state.flash.isPacMergingNV)
-                    {
-                        if (my_stristr(fn, "fixnv1"))
+                        if (my_stristr(fn, "nr_fixnv1"))
                         {
-                            if (my_stristr(fn, "nr_fixnv1"))
+                            get_partition_info(io, "nr_fixnv1", 1);
+                            if (gPartInfo.size && hasPartition(g_app_state.flash.pacptable,
+                                                               std::string(gPartInfo.name)))
                             {
-                                get_partition_info(io, "nr_fixnv1", 1);
-                                if (gPartInfo.size && hasPartition(g_app_state.flash.pacptable,
-                                                                   std::string(gPartInfo.name)))
+                                if (!g_app_state.pac.nr_fixnv1_mem)
                                 {
-                                    if (!g_app_state.pac.nr_fixnv1_mem)
-                                    {
-                                        DEG_LOG(W, "Failed to load old NV data for nr_fixnv1, skipping writing.");
-                                        continue;
-                                    }
-                                    if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str()))
-                                    {
-                                        size_t a_size = 0, b_size = 0, c_size = 0;
-                                        uint8_t* a = g_app_state.pac.nr_fixnv1_mem;
-                                        unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
-#ifndef _WIN32
-                                        std::string file_path = g_app_state.flash.pac_folder + "/" + std::string(
-                                            chr_buf);
-#else
-                                        std::string file_path = g_app_state.flash.pac_folder + "\\" + std::string(
-                                            chr_buf);
-#endif
-                                        uint8_t* b = loadfile(file_path.c_str(), &b_size, 0);
-                                        uint8_t* c = (uint8_t*)malloc(a_size + b_size);
-                                        merge_nv(io, a, a_size, b, b_size, c, &c_size);
-                                        load_nv_partition_from_mem(io, gPartInfo.name, c,
-                                                                   blk_size ? blk_size : DEFAULT_BLK_SIZE);
-                                        delete[](a);
-                                        delete[](b);
-                                        free(c);
-                                        flashed_parts.emplace_back(gPartInfo.name);
-                                        continue;
-                                    }
-                                    delete[](io->nvid_list);
-                                    io->nvid_list = NULL;
-                                }
-                            }
-                            else if (my_stristr(fn, "l_fixnv1"))
-                            {
-                                get_partition_info(io, "l_fixnv1", 1);
-                                if (!g_app_state.pac.l_fixnv1_mem)
-                                {
-                                    DEG_LOG(W, "Failed to load old NV data for l_fixnv1, skipping writing.");
+                                    DEG_LOG(W, "Failed to load old NV data for nr_fixnv1, skipping writing.");
                                     continue;
                                 }
-                                if (gPartInfo.size && hasPartition(g_app_state.flash.pacptable,
-                                                                   std::string(gPartInfo.name)))
+                                if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str()))
                                 {
-                                    if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str()))
-                                    {
-                                        size_t a_size = 0, b_size = 0, c_size = 0;
-                                        uint8_t* a = g_app_state.pac.l_fixnv1_mem;
-                                        unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
-#ifndef _WIN32
-                                        std::string file_path = g_app_state.flash.pac_folder + "/" + std::string(
-                                            chr_buf);
-#else
-                                        std::string file_path = g_app_state.flash.pac_folder + "\\" + std::string(
-                                            chr_buf);
-#endif
-                                        uint8_t* b = loadfile(file_path.c_str(), &b_size, 0);
-                                        uint8_t* c = (uint8_t*)malloc(a_size + b_size);
-                                        merge_nv(io, a, a_size, b, b_size, c, &c_size);
-                                        load_nv_partition_from_mem(io, gPartInfo.name, c,
-                                                                   blk_size ? blk_size : DEFAULT_BLK_SIZE);
-                                        delete[](a);
-                                        delete[](b);
-                                        free(c);
-                                        flashed_parts.emplace_back(gPartInfo.name);
-                                        continue;
-                                    }
-                                    delete[](io->nvid_list);
-                                    io->nvid_list = NULL;
-                                }
-                            }
-                        }
-                    }
-                    if (my_stristr(partition.c_str(), "downloadnv"))
-                    {
-                        isHasDownloadNV = true;
-                        dlnv_id = o;
-                        continue;
-                    }
-                    if (!partition.empty())
-                    {
-                        std::string cased_partition = case_part(g_app_state.flash.pacptable, partition, io);
-                        if (cased_partition.empty())
-                            get_partition_info(io, partition.c_str(), 1);
-                        else
-                            get_partition_info(io, cased_partition.c_str(), 1);
-                        if (gPartInfo.size)
-                        {
-                            if (hasPartition(g_app_state.flash.pacptable, gPartInfo.name))
-                            {
-                                DEG_LOG(I, "Flashing partition: %s", gPartInfo.name);
-                                unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
-#ifndef _WIN32
-                                std::string file_path = g_app_state.flash.pac_folder + "/" + std::string(chr_buf);
-#else
-                                std::string file_path = g_app_state.flash.pac_folder + "\\" + std::string(chr_buf);
-#endif
-                                EnhancedFile f = oxfopen_enhanced(file_path.c_str(), "r");
-                                if (!f)
-                                {
-                                    DEG_LOG(E, "File %s does not exist.", file_path.c_str());
+                                    size_t a_size = 0, b_size = 0, c_size = 0;
+                                    uint8_t* a = g_app_state.pac.nr_fixnv1_mem;
+                                    uint8_t* b = loadfile(partitions[j].file_path, &b_size, 0);
+                                    uint8_t* c = (uint8_t*)malloc(a_size + b_size);
+                                    merge_nv(io, a, a_size, b, b_size, c, &c_size);
+                                    load_nv_partition_from_mem(io, gPartInfo.name, c,
+                                                               blk_size ? blk_size : DEFAULT_BLK_SIZE);
+                                    delete[](a);
+                                    delete[](b);
+                                    free(c);
+                                    flashed_parts.emplace_back(gPartInfo.name);
                                     continue;
                                 }
-                                f.close();
-                                load_partition_unify(io, gPartInfo.name, file_path.c_str(),
-                                                     blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
-                                flashed_parts.emplace_back(gPartInfo.name);
-                            }
-                            else
-                            {
-                                DEG_LOG(W, "Partition %s not selected for flashing, skipping.", gPartInfo.name);
+                                delete[](io->nvid_list);
+                                io->nvid_list = NULL;
                             }
                         }
-                        else
+                        else if (my_stristr(relfn.c_str(), "l_fixnv1"))
                         {
-                            DEG_LOG(W, "Partition info for %s not found in device.", partition.c_str());
+                            get_partition_info(io, "l_fixnv1", 1);
+                            if (!g_app_state.pac.l_fixnv1_mem)
+                            {
+                                DEG_LOG(W, "Failed to load old NV data for l_fixnv1, skipping writing.");
+                                continue;
+                            }
+                            if (gPartInfo.size && hasPartition(g_app_state.flash.pacptable,
+                                                               std::string(gPartInfo.name)))
+                            {
+                                if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str()))
+                                {
+                                    size_t a_size = 0, b_size = 0, c_size = 0;
+                                    uint8_t* a = g_app_state.pac.l_fixnv1_mem;
+                                    uint8_t* b = loadfile(partitions[j].file_path, &b_size, 0);
+                                    uint8_t* c = (uint8_t*)malloc(a_size + b_size);
+                                    merge_nv(io, a, a_size, b, b_size, c, &c_size);
+                                    load_nv_partition_from_mem(io, gPartInfo.name, c,
+                                                               blk_size ? blk_size : DEFAULT_BLK_SIZE);
+                                    delete[](a);
+                                    delete[](b);
+                                    free(c);
+                                    flashed_parts.emplace_back(gPartInfo.name);
+                                    continue;
+                                }
+                                delete[](io->nvid_list);
+                                io->nvid_list = NULL;
+                            }
                         }
                     }
+                }
+                if (my_stristr(relfn.c_str(), "downloadnv"))
+                {
+                    dlnv_id = j;
+                    continue;
+                }
+
+                std::string cased_partition = case_part(g_app_state.flash.pacptable, relfn, io);
+                if (cased_partition.empty())
+                    get_partition_info(io, relfn.c_str(), 1);
+                else
+                    get_partition_info(io, cased_partition.c_str(), 1);
+                if (gPartInfo.size)
+                {
+                    if (hasPartition(g_app_state.flash.pacptable, gPartInfo.name))
+                    {
+                        DEG_LOG(I, "Flashing partition: %s", gPartInfo.name);
+                        load_partition_unify(io, gPartInfo.name, partitions[j].file_path,
+                                             blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
+                        flashed_parts.emplace_back(gPartInfo.name);
+                    }
+                    else
+                    {
+                        DEG_LOG(W, "Partition %s not selected for flashing, skipping.", gPartInfo.name);
+                    }
+                }
+                else
+                {
+                    DEG_LOG(W, "Partition info for %s not found in device.", relfn.c_str());
+                }
             }
         }
+        if (dlnv_id && partitions[dlnv_id].written_flag != 1)
+        {
+            get_partition_info(io, "downloadnv", 1);
+            if (gPartInfo.size && hasPartition(g_app_state.flash.pacptable, std::string(gPartInfo.name)))
+            {
+                if (g_app_state.flash.isPacMergingNV)
+                {
+                    if (!g_app_state.pac.downloadnv_mem)
+                    {
+                        DEG_LOG(W, "Failed to load old NV data for downloadnv, skipping writing.");
+                    }
+                    else if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str()))
+                    {
+                        size_t a_size = 0, b_size = 0, c_size = 0;
+                        uint8_t* a = g_app_state.pac.downloadnv_mem;
+                        uint8_t* b = loadfile(partitions[dlnv_id].file_path, &b_size, 0);
+                        uint8_t* c = (uint8_t*)malloc(a_size + b_size);
+                        merge_nv(io, a, a_size, b, b_size, c, &c_size);
+                        load_nv_partition_from_mem(io, gPartInfo.name, c,
+                                                   blk_size ? blk_size : DEFAULT_BLK_SIZE);
+                        delete[](a);
+                        delete[](b);
+                        free(c);
+                        flashed_parts.emplace_back(gPartInfo.name);
+                    }
+                    delete[](io->nvid_list);
+                    io->nvid_list = NULL;
+                }
+                else
+                {
+                    load_partition_unify(io, gPartInfo.name, partitions[dlnv_id].file_path,
+                                         blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
+                    flashed_parts.emplace_back(gPartInfo.name);
+                }
+            }
+        }
+        delete[] partitions;
+
 
 
         encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
