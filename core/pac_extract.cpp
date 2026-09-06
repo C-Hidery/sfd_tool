@@ -662,6 +662,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                     if (!fdl1info.blocks.empty())
                     {
                         fdl1_base_addr = strtoul(fdl1info.blocks.front().base.c_str(), nullptr, 16);
+                        DEG_LOG(I, "XML: FDL1_BASE_ADDR=%u", fdl1_base_addr);
                     }
                     else fdl1_base_addr = file.addr[0];
                     break;
@@ -686,6 +687,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                     if (!fdl2info.blocks.empty())
                     {
                         fdl2_base_addr = strtoul(fdl2info.blocks.front().base.c_str(), nullptr, 16);
+                        DEG_LOG(I, "XML: FDL2_BASE_ADDR=%u", fdl2_base_addr);
                     }
                     else
                     {
