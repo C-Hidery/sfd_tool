@@ -1,3 +1,8 @@
+/*
+* SPDX-License-Identifier: GPL-3.0-or-later
+ * SFDTool Copyright (C) 2026 Ryan Crepa
+ */
+
 #include "Unpac.h"
 #include <cstring>
 #include <cstdlib>

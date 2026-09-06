@@ -283,6 +283,10 @@ std::string readConsoleLineUtf8()
         }
         std::string result(utf8);
         g_free(utf8);
+        if (io->verbose == 2)
+        {
+            DEG_LOG(I, "Converted input from %s to UTF-8: %s", charset, result.c_str());
+        }
         return result;
     }
 

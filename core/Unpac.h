@@ -1,3 +1,7 @@
+/*
+* SPDX-License-Identifier: GPL-3.0-or-later
+ * SFDTool Copyright (C) 2026 Ryan Crepa
+ */
 #ifndef PACFILE_H
 #define PACFILE_H
 
