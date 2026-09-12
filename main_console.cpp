@@ -2658,6 +2658,7 @@ int main_console(int argc, char** argv)
                                         uint8_t* NVmem = dump_flash_to_mem(io, f.addr[0], 0,
                                             f.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, 0, &size);
                                         unpac.u16_to_u8(str_buf, sizeof(str_buf), f.name, 256);
+                                        if (!str_buf[0]) { if (NVmem) delete[] NVmem; continue;}
                                         if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
                                             size_t a_size = 0, b_size = 0, c_size = 0;
                                             uint8_t *a = NVmem;
@@ -2673,11 +2674,13 @@ int main_console(int argc, char** argv)
                                             delete[](a); delete[](b); free(c);
                                             continue;
                                         }
+                                        if (NVmem) delete[] NVmem;
                                         delete[](io->nvid_list);
                                         io->nvid_list = NULL;
                                     }
                                 }
                                 unpac.u16_to_u8(str_buf, sizeof(str_buf), f.name, 256);
+                                if (!str_buf[0]) continue;
                                 size_t b_size = 0;
 #ifndef _WIN32
                                 uint8_t *b = loadfile((g_app_state.flash.pac_folder + "/" + std::string(str_buf)).c_str(), &b_size, 0);
