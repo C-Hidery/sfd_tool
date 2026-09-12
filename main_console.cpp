@@ -2441,7 +2441,16 @@ int main_console(int argc, char** argv)
 #else
                                         fdl1_path = g_app_state.flash.pac_folder + "\\" + std::string(chr_buf);
 #endif
-                                        fdl1_base_addr = file.addr[0];
+                                        auto fdl1info = g_app_state.pacXml.getFileInfoByOperation("FDL");
+                                        if (!fdl1info.blocks.empty())
+                                        {
+                                            fdl1_base_addr = strtoul(fdl1info.blocks.front().base.c_str(), nullptr, 16);
+                                            DEG_LOG(I, "XML: FDL1_BASE_ADDR=%u", fdl1_base_addr);
+                                        }
+                                        else
+                                        {
+                                            fdl1_base_addr = file.addr[0];
+                                        }
                                         break;
                                     }
                                 }
@@ -2460,7 +2469,16 @@ int main_console(int argc, char** argv)
 #else
                                         fdl2_path = g_app_state.flash.pac_folder + "\\" + std::string(chr_buf);
 #endif
-                                        fdl2_base_addr = file.addr[0];
+                                        auto fdl2info = g_app_state.pacXml.getFileInfoByOperation("FDL2");
+                                        if (!fdl2info.blocks.empty())
+                                        {
+                                            fdl2_base_addr = strtoul(fdl2info.blocks.front().base.c_str(), nullptr, 16);
+                                            DEG_LOG(I, "XML: FDL2_BASE_ADDR=%u", fdl2_base_addr);
+                                        }
+                                        else
+                                        {
+                                            fdl2_base_addr = file.addr[0];
+                                        }
                                         break;
                                     }
                                 }
@@ -2623,10 +2641,10 @@ int main_console(int argc, char** argv)
                             for (int o = 0; o < g_app_state.pacFile.fileCount; ++o)
                             {
                                 const sprd_file_t& f = unpac.files[o];
-                                if (f.type == 0 || f.type == 0x101) continue; // No file or FDL
+                                if (f.type == 0 || f.type == 0x101 || f.type == 2) continue; // No file or FDL or XML
                                 unpac.u16_to_u8(str_buf, sizeof(str_buf), f.id, 256);
-                                if (my_stricmp(str_buf, "FDL") == 0 || my_stricmp(str_buf, "FDL2") == 0) continue;
-                                if (my_stricmp(str_buf, "NV"))
+                                if (my_strnicmp(str_buf, "FDL", 3) == 0) continue;
+                                if (!my_stricmp(str_buf, "NV"))
                                 {
                                     // Merge NV process
                                     bool mergenv = false;

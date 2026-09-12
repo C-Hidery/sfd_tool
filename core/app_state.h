@@ -52,6 +52,12 @@ struct PacNVMem
     uint64_t l_fixnv1_mem_size = 0;
     uint8_t *downloadnv_mem = nullptr;
     uint64_t downloadnv_mem_size = 0;
+    ~PacNVMem()
+    {
+        if (nr_fixnv1_mem) delete[] nr_fixnv1_mem;
+        if (l_fixnv1_mem) delete[] l_fixnv1_mem;
+        if (downloadnv_mem) delete[] downloadnv_mem;
+    }
 };
 
 // 集中管理应用运行时状态，替代分散的 extern 全局变量

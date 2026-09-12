@@ -3469,15 +3469,12 @@ fallback_to_ansi:
             return;
         }
         fn = partitions[i].name;
-        std::string relfn;
-        relfn = case_part({}, fn, io);
-        if (relfn.empty()) get_partition_info(io, fn, 1);
-        else get_partition_info(io, relfn.c_str(), 1);
+        std::string relfn = case_part({}, fn, io);
         if (relfn.empty() == false) fn = const_cast<char*>(relfn.c_str());
         bool isRejected = false;
         for (auto& kv : flashed_parts)
         {
-            if (!my_stricmp(kv.c_str(), gPartInfo.name))
+            if (!my_stricmp(kv.c_str(), fn))
             {
                 DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s",
                         kv.c_str());
@@ -3491,7 +3488,7 @@ fallback_to_ansi:
             partitions[i].written_flag = 1;
             continue;
         }
-        namelen = strlen(relfn.empty() ? fn : relfn.c_str());
+        namelen = strlen(fn);
         if (selected_ab == 1 && namelen > 2 && 0 == my_stricmp(fn + namelen - 2, "_b"))
         {
             partitions[i].written_flag = 1;
@@ -3511,15 +3508,10 @@ fallback_to_ansi:
         {
             if (partitions[i].written_flag == 0)
             {
-                if (relfn.empty())
-                    get_partition_info(io, fn, 1);
-                else
-                    get_partition_info(io, relfn.c_str(), 1);
-                if (!gPartInfo.size) continue;
                 bool isAllowed = true;
                 for (auto& kv : flashed_parts)
                 {
-                    if (!my_stricmp(gPartInfo.name, kv.c_str()))
+                    if (!my_stricmp(fn, kv.c_str()))
                     {
                         DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s",
                                 kv.c_str());
@@ -3530,8 +3522,8 @@ fallback_to_ansi:
                 }
                 if (isAllowed)
                 {
-                    load_partition(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
-                    flashed_parts.emplace_back(gPartInfo.name);
+                    load_partition(io, fn, partitions[i].file_path, step, CMethod);
+                    flashed_parts.emplace_back(fn);
                 }
                 partitions[i].written_flag = 1;
             }
@@ -3539,15 +3531,10 @@ fallback_to_ansi:
         }
         if (!my_stricmp(fn, "uboot") || !my_stricmp(fn, "vbmeta"))
         {
-            if (relfn.empty())
-                get_partition_info(io, fn, 0);
-            else
-                get_partition_info(io, relfn.c_str(), 0);
-            if (!gPartInfo.size) continue;
             bool isAllowed = true;
             for (auto& kv : flashed_parts)
             {
-                if (!my_stricmp(gPartInfo.name, kv.c_str()))
+                if (!my_stricmp(fn, kv.c_str()))
                 {
                     DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s",
                             kv.c_str());
@@ -3558,23 +3545,18 @@ fallback_to_ansi:
             }
             if (isAllowed)
             {
-                load_partition(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
-                flashed_parts.emplace_back(gPartInfo.name);
+                load_partition(io, fn, partitions[i].file_path, step, CMethod);
+                flashed_parts.emplace_back(fn);
             }
             partitions[i].written_flag = 1;
             continue;
         }
         if (!my_strnicmp(fn, "vbmeta_", 7))
         {
-            if (relfn.empty())
-                get_partition_info(io, fn, 0);
-            else
-                get_partition_info(io, relfn.c_str(), 0);
-            if (!gPartInfo.size) continue;
             bool isAllowed = true;
             for (auto& kv : flashed_parts)
             {
-                if (!my_stricmp(gPartInfo.name, kv.c_str()))
+                if (!my_stricmp(fn, kv.c_str()))
                 {
                     DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s",
                             kv.c_str());
@@ -3585,8 +3567,8 @@ fallback_to_ansi:
             }
             if (isAllowed)
             {
-                load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
-                flashed_parts.emplace_back(gPartInfo.name);
+                load_partition_unify(io, fn, partitions[i].file_path, step, CMethod);
+                flashed_parts.emplace_back(fn);
             }
             partitions[i].written_flag = 1;
             continue;
@@ -3603,26 +3585,21 @@ fallback_to_ansi:
         if (!partitions[i].written_flag)
         {
             fn = partitions[i].name;
-            std::string relfn;
-            relfn = case_part({}, fn, io);
-            if (relfn.empty())
-                get_partition_info(io, fn, 0);
-            else
-                get_partition_info(io, relfn.c_str(), 0);
-            if (!gPartInfo.size) continue;
-            if (my_stristr(gPartInfo.name, "downloadnv"))
+            std::string relfn = case_part({}, fn, io);
+            if (relfn.empty() == false) fn = const_cast<char*>(relfn.c_str());
+            if (my_stristr(fn, "downloadnv"))
             {
                 isHasDownloadNV = true;
                 dlnv_id = i;
                 continue;
             }
-            if (!my_stricmp(gPartInfo.name, "metadata"))
+            if (!my_stricmp(fn, "metadata"))
             {
                 metadata_in_dump = 1;
                 metadata_id = i;
                 continue;
             }
-            if (!my_stricmp(gPartInfo.name, "super"))
+            if (!my_stricmp(fn, "super"))
             {
                 super_in_dump = 1;
                 super_id = i;
@@ -3631,7 +3608,7 @@ fallback_to_ansi:
             bool isAllowed = true;
             for (auto& kv : flashed_parts)
             {
-                if (!my_stricmp(kv.c_str(), gPartInfo.name))
+                if (!my_stricmp(kv.c_str(), fn))
                 {
                     DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s",
                             kv.c_str());
@@ -3642,8 +3619,8 @@ fallback_to_ansi:
             }
             if (isAllowed)
             {
-                load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
-                flashed_parts.emplace_back(gPartInfo.name);
+                load_partition_unify(io, fn, partitions[i].file_path, step, CMethod);
+                flashed_parts.emplace_back(fn);
             }
             partitions[i].written_flag = 1;
         }
@@ -3687,15 +3664,13 @@ fallback_to_ansi:
     selected_ab = selected_ab_bak;
     if (isHasDownloadNV && dlnv_id)
     {
-        std::string relfn = case_part({}, std::string(partitions[dlnv_id].name), io);
-        if (relfn.empty())
-            get_partition_info(io, partitions[dlnv_id].name, 1);
-        else
-            get_partition_info(io, relfn.c_str(), 1);
+        fn = partitions[dlnv_id].name;
+        std::string relfn = case_part({}, fn, io);
+        if (relfn.empty() == false) fn = const_cast<char*>(relfn.c_str());
         bool isAllowed = true;
         for (auto& kv : flashed_parts)
         {
-            if (!my_stricmp(gPartInfo.name, kv.c_str()))
+            if (!my_stricmp(fn, kv.c_str()))
             {
                 DEG_LOG(W, "Conflicting files were found in the file list, pointing to the same partition: %s",
                         kv.c_str());
@@ -3705,7 +3680,7 @@ fallback_to_ansi:
             }
         }
         if (isAllowed)
-            load_partition_unify(io, gPartInfo.name, partitions[dlnv_id].file_path, step, CMethod);
+            load_partition_unify(io, fn, partitions[dlnv_id].file_path, step, CMethod);
     }
     delete[](partitions);
 }
