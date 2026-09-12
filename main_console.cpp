@@ -2638,7 +2638,7 @@ int main_console(int argc, char** argv)
                             }
                             DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
                             char str_buf[257];
-                            for (int o = 0; o < g_app_state.pacFile.fileCount; ++o)
+                            for (int o = 0; o < unpac.fileCount; ++o)
                             {
                                 const sprd_file_t& f = unpac.files[o];
                                 if (f.type == 0 || f.type == 0x101 || f.type == 2) continue; // No file or FDL or XML

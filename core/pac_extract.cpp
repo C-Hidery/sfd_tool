@@ -964,11 +964,11 @@ bool pac_flash(spdio_t* io, const char* folder)
         g_app_state.flash.isPacFlashing = true;
         int dlnv_id = 0;
         if (g_app_state.flash.selected_ab < 0) select_ab(io);
-        if (g_app_state.pacFile.fileCount > 0)
+        if (unpac.fileCount > 0)
         {
-            for (int o = 0; o < g_app_state.pacFile.fileCount; o++)
+            for (int o = 0; o < unpac.fileCount; o++)
             {
-                const sprd_file_t& file = g_app_state.pacFile.files[o];
+                const sprd_file_t& file = unpac.files[o];
                 unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.id, 256);
                 if (file.type == 0 || file.type == 0x101 || file.type == 2) continue;
                 if (!strncmp(chr_buf, "FDL", 3)) continue;
