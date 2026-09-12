@@ -621,8 +621,6 @@ bool pac_flash(spdio_t* io, const char* folder)
         }
     }
     g_app_state.flash.pac_xmlPath = xmlPath;
-    g_app_state.flash.pacptable.clear();
-    g_app_state.flash.pacptable = getSelectedPartitions(helper);
     if (isHelperInit)
     {
         g_app_state.flash.isPacMergingNV = showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")),
@@ -637,7 +635,7 @@ bool pac_flash(spdio_t* io, const char* folder)
         g_app_state.flash.isPacMergingNV = (n == "Y" || n == "y");
     }
 
-    auto into_func = [io, xmlPath, folder]() mutable
+    auto into_func = [io, xmlPath]() mutable
     {
         std::string fdl1_path;
         uint32_t fdl1_base_addr = 0;
