@@ -1,3 +1,9 @@
+sfd-tool (3.1.0-1-ltv) unstable; urgency=medium
+
+  * 修复PAC刷写逻辑
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sat, 12 Sep 2026 19:48:36 +0800
+
 sfd-tool (3.0.0-1-ltv) unstable; urgency=medium
 
   * 重构PAC刷写逻辑
