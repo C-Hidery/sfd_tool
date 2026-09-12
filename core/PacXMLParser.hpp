@@ -6,6 +6,8 @@
 #include <vector>
 #include <map>
 #include <memory>
+#include <functional>   // std::function
+#include <algorithm>    // std::remove, std::remove_if
 #include <cstdlib>
 #include <iostream>
 #include "XmlParser.hpp"
