@@ -1171,7 +1171,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                 }
             }
         }
-        gui_idle_call([](){ bottom_bar_set_status("Rebooting...") });
+        gui_idle_call([](){ bottom_bar_set_status("Rebooting..."); });
         encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
         if (!send_and_check(io))
         {
