@@ -20,6 +20,7 @@
 #include <cerrno>
 
 #include "XmlParser.hpp"
+#include "../ui/layout/bottom_bar.h"
 #ifdef _WIN32
 #include <io.h>
 #include <fcntl.h>
@@ -532,70 +533,6 @@ static bool hasPartition(const std::vector<std::string>& partitions, const std::
                         }) != partitions.end();
 }
 
-static std::string case_part(const std::vector<std::string>& partitions,
-                             const std::string& partitionName,
-                             spdio_t* io)
-{
-    // 1. 先找精确匹配（区分大小写）
-    auto exact_it = std::find(partitions.begin(), partitions.end(), partitionName);
-    if (exact_it != partitions.end())
-    {
-        return partitionName;
-    }
-
-    // 2. 精确匹配找不到，找不区分大小写的匹配
-    auto case_insensitive_it = std::find_if(partitions.begin(), partitions.end(),
-                                            [&partitionName](const std::string& s)
-                                            {
-                                                return iequals(s, partitionName);
-                                            });
-
-    if (case_insensitive_it != partitions.end())
-    {
-        DEG_LOG(W, "Warning: File name '%s' does not match case of existing partition '%s'. Using '%s'.",
-                partitionName.c_str(), case_insensitive_it->c_str(), case_insensitive_it->c_str());
-        return *case_insensitive_it;
-    }
-
-    // 3. 从 io->ptable 中查找
-    for (int i = 0; i < io->part_count; ++i)
-    {
-        if (partitionName == io->ptable[i].name)
-        {
-            return partitionName;
-        }
-    }
-    for (int i = 0; i < io->part_count; ++i)
-    {
-        if (iequals(partitionName, io->ptable[i].name))
-        {
-            DEG_LOG(W, "Warning: File name '%s' does not match case of existing partition '%s'. Using '%s'.",
-                    partitionName.c_str(), io->ptable[i].name, io->ptable[i].name);
-            return io->ptable[i].name;
-        }
-    }
-
-    // 4. 从 io->Cptable 中查找
-    for (int i = 0; i < io->part_count_c; ++i)
-    {
-        if (partitionName == io->Cptable[i].name)
-        {
-            return partitionName;
-        }
-    }
-    for (int i = 0; i < io->part_count_c; ++i)
-    {
-        if (iequals(partitionName, io->Cptable[i].name))
-        {
-            DEG_LOG(W, "Warning: File name '%s' does not match case of existing partition '%s'. Using '%s'.",
-                    partitionName.c_str(), io->Cptable[i].name, io->Cptable[i].name);
-            return io->Cptable[i].name;
-        }
-    }
-
-    return "";
-}
-
 bool pac_flash(spdio_t* io, const char* folder)
 {
     std::string xmlPath = FindFirstXMLFile(folder);
@@ -634,7 +571,7 @@ bool pac_flash(spdio_t* io, const char* folder)
         g_app_state.flash.isPacMergingNV = (n == "Y" || n == "y");
     }
 
-    auto into_func = [io, xmlPath]() mutable
+    auto into_func = [&io]() mutable // Catch io for spdio_free
     {
         std::string fdl1_path;
         uint32_t fdl1_base_addr = 0;
@@ -910,6 +847,7 @@ bool pac_flash(spdio_t* io, const char* folder)
             g_app_state.device.device_stage = FDL2;
         }
         DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
+        gui_idle_call([](){ bottom_bar_set_mode("FDL2 - PAC"); });
         if (g_app_state.flash.isPacMergingNV)
         {
             auto& pacptable = g_app_state.flash.pacptable;
@@ -950,7 +888,7 @@ bool pac_flash(spdio_t* io, const char* folder)
         }
         if (i_is)
         {
-            EnhancedFile file = oxfopen_enhanced(xmlPath.c_str(), "r");
+            EnhancedFile file = oxfopen_enhanced(g_app_state.flash.pac_xmlPath.c_str(), "r");
             if (!file) ERR_EXIT("Failed to open file for reading");
             std::string content;
             content = file.read_all_chunked();
@@ -964,13 +902,17 @@ bool pac_flash(spdio_t* io, const char* folder)
         g_app_state.flash.isPacFlashing = true;
         int dlnv_id = 0;
         if (g_app_state.flash.selected_ab < 0) select_ab(io);
-        if (g_app_state.pacFile.fileCount > 0)
+        if (unpac.fileCount > 0)
         {
-            auto operations = g_app_state.pacXml.getAllIds();
-            for (std::size_t o = 0; o < operations.size(); o++)
+            for (int o = 0; o < unpac.fileCount; o++)
             {
-                if (!strncmp(operations[o].c_str(), "FDL", 3)) continue;
-                std::string partition = g_app_state.pacXml.getPartitionByOperation(operations[o]);
+                const sprd_file_t& file = unpac.files[o];
+                unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.id, 256);
+                if (file.type == 0 || file.type == 0x101 || file.type == 2) continue;
+                if (!strncmp(chr_buf, "FDL", 3)) continue;
+                std::string partition = g_app_state.pacXml.getPartitionByOperation(chr_buf);
+                gui_idle_call([chr_buf, partition](){ bottom_bar_set_status("PAC Flashing: " + std::string(chr_buf) + " -> " + partition); });
+                if (partition.empty()) continue;
                 if (!strcmp(partition.c_str(), "miscdata") && hasPartition(
                     g_app_state.flash.pacptable, "miscdata"))
                 {
@@ -995,6 +937,8 @@ bool pac_flash(spdio_t* io, const char* folder)
                             if (hasPartition(g_app_state.flash.pacptable,
                                              partition))
                             {
+                                unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
+                                if (!chr_buf[0]) continue;
                                 if (!g_app_state.pac.nr_fixnv1_mem)
                                 {
                                     DEG_LOG(W, "Failed to load old NV data for nr_fixnv1, skipping writing.");
@@ -1004,13 +948,6 @@ bool pac_flash(spdio_t* io, const char* folder)
                                 {
                                     size_t a_size = 0, b_size = 0, c_size = 0;
                                     uint8_t* a = g_app_state.pac.nr_fixnv1_mem;
-                                    int p = 0;
-                                    for (; p < g_app_state.pacFile.fileCount; p++)
-                                    {
-                                        unpac.u16_to_u8(chr_buf, sizeof(chr_buf), g_app_state.pacFile.files[p].id, 256);
-                                        if (!strcmp(chr_buf, operations[p].c_str())) break;
-                                    }
-                                    unpac.u16_to_u8(chr_buf, sizeof(chr_buf), g_app_state.pacFile.files[p].name, 256);
 #ifndef _WIN32
                                     std::string file_path = g_app_state.flash.pac_folder + "/" + std::string(
                                         chr_buf);
@@ -1042,17 +979,12 @@ bool pac_flash(spdio_t* io, const char* folder)
                             if (hasPartition(g_app_state.flash.pacptable,
                                              partition))
                             {
+                                unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
+                                if (!chr_buf[0]) continue;
                                 if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str()))
                                 {
                                     size_t a_size = 0, b_size = 0, c_size = 0;
                                     uint8_t* a = g_app_state.pac.l_fixnv1_mem;
-                                    int p = 0;
-                                    for (; p < g_app_state.pacFile.fileCount; p++)
-                                    {
-                                        unpac.u16_to_u8(chr_buf, sizeof(chr_buf), g_app_state.pacFile.files[p].id, 256);
-                                        if (!strcmp(chr_buf, operations[p].c_str())) break;
-                                    }
-                                    unpac.u16_to_u8(chr_buf, sizeof(chr_buf), g_app_state.pacFile.files[p].name, 256);
 #ifndef _WIN32
                                     std::string file_path = g_app_state.flash.pac_folder + "/" + std::string(
                                         chr_buf);
@@ -1086,13 +1018,8 @@ bool pac_flash(spdio_t* io, const char* folder)
                     if (hasPartition(g_app_state.flash.pacptable, partition))
                     {
                         DEG_LOG(I, "Flashing partition: %s", partition.c_str());
-                        int p = 0;
-                        for (; p < g_app_state.pacFile.fileCount; p++)
-                        {
-                            unpac.u16_to_u8(chr_buf, sizeof(chr_buf), g_app_state.pacFile.files[p].id, 256);
-                            if (!strcmp(chr_buf, operations[p].c_str())) break;
-                        }
-                        unpac.u16_to_u8(chr_buf, sizeof(chr_buf), g_app_state.pacFile.files[p].name, 256);
+                        unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
+                        if (!chr_buf[0]) continue;
 #ifndef _WIN32
                         std::string file_path = g_app_state.flash.pac_folder + "/" + std::string(chr_buf);
 #else
@@ -1117,19 +1044,19 @@ bool pac_flash(spdio_t* io, const char* folder)
 
             if (dlnv_id)
             {
-                std::string partition = g_app_state.pacXml.getPartitionByOperation(operations[dlnv_id]);
+                const sprd_file_t& file = g_app_state.pacFile.files[dlnv_id];
+                unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.id, 256);
+                if (file.type == 0 || file.type == 0x101 || file.type == 2) return;
+                if (!strncmp(chr_buf, "FDL", 3)) return;
+                std::string partition = g_app_state.pacXml.getPartitionByOperation(chr_buf);
+                gui_idle_call([chr_buf, partition](){ bottom_bar_set_status("PAC Flashing: " + std::string(chr_buf) + " -> " + partition); });
                 if (!partition.empty())
                 {
                     if (hasPartition(g_app_state.flash.pacptable, partition))
                     {
                         DEG_LOG(I, "Flashing partition: %s", partition.c_str());
-                        int p = 0;
-                        for (; p < g_app_state.pacFile.fileCount; p++)
-                        {
-                            unpac.u16_to_u8(chr_buf, sizeof(chr_buf), g_app_state.pacFile.files[p].id, 256);
-                            if (!strcmp(chr_buf, operations[p].c_str())) break;
-                        }
-                        unpac.u16_to_u8(chr_buf, sizeof(chr_buf), g_app_state.pacFile.files[p].name, 256);
+                        unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
+                        if (!chr_buf[0]) return;
                         if (g_app_state.flash.isPacMergingNV)
                         {
                             if (!g_app_state.pac.downloadnv_mem)
@@ -1180,7 +1107,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                 }
             }
         }
-
+        gui_idle_call([](){ bottom_bar_set_status("Rebooting..."); });
         encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
         if (!send_and_check(io))
         {
@@ -1193,11 +1120,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                 }, GTK_WINDOW(helper.getWidget("main_window")));
             DEG_LOG(I, "PAC flashed successfully, the program will be exited in 5 seconds...");
         }
-#ifndef _WIN32
-        sleep(5);
-#else
-        Sleep(5000);
-#endif
+        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
         spdio_free(io);
         exit(0);
     };
