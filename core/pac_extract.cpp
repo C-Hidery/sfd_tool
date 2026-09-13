@@ -1171,7 +1171,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                 }
             }
         }
-
+        gui_idle_call([](){ bottom_bar_set_status("Rebooting...") });
         encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
         if (!send_and_check(io))
         {
@@ -1184,11 +1184,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                 }, GTK_WINDOW(helper.getWidget("main_window")));
             DEG_LOG(I, "PAC flashed successfully, the program will be exited in 5 seconds...");
         }
-#ifndef _WIN32
-        sleep(5);
-#else
-        Sleep(5000);
-#endif
+        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
         spdio_free(io);
         exit(0);
     };
