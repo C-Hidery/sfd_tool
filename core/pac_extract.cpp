@@ -533,70 +533,6 @@ static bool hasPartition(const std::vector<std::string>& partitions, const std::
                         }) != partitions.end();
 }
 
-static std::string case_part(const std::vector<std::string>& partitions,
-                             const std::string& partitionName,
-                             spdio_t* io)
-{
-    // 1. 先找精确匹配（区分大小写）
-    auto exact_it = std::find(partitions.begin(), partitions.end(), partitionName);
-    if (exact_it != partitions.end())
-    {
-        return partitionName;
-    }
-
-    // 2. 精确匹配找不到，找不区分大小写的匹配
-    auto case_insensitive_it = std::find_if(partitions.begin(), partitions.end(),
-                                            [&partitionName](const std::string& s)
-                                            {
-                                                return iequals(s, partitionName);
-                                            });
-
-    if (case_insensitive_it != partitions.end())
-    {
-        DEG_LOG(W, "Warning: File name '%s' does not match case of existing partition '%s'. Using '%s'.",
-                partitionName.c_str(), case_insensitive_it->c_str(), case_insensitive_it->c_str());
-        return *case_insensitive_it;
-    }
-
-    // 3. 从 io->ptable 中查找
-    for (int i = 0; i < io->part_count; ++i)
-    {
-        if (partitionName == io->ptable[i].name)
-        {
-            return partitionName;
-        }
-    }
-    for (int i = 0; i < io->part_count; ++i)
-    {
-        if (iequals(partitionName, io->ptable[i].name))
-        {
-            DEG_LOG(W, "Warning: File name '%s' does not match case of existing partition '%s'. Using '%s'.",
-                    partitionName.c_str(), io->ptable[i].name, io->ptable[i].name);
-            return io->ptable[i].name;
-        }
-    }
-
-    // 4. 从 io->Cptable 中查找
-    for (int i = 0; i < io->part_count_c; ++i)
-    {
-        if (partitionName == io->Cptable[i].name)
-        {
-            return partitionName;
-        }
-    }
-    for (int i = 0; i < io->part_count_c; ++i)
-    {
-        if (iequals(partitionName, io->Cptable[i].name))
-        {
-            DEG_LOG(W, "Warning: File name '%s' does not match case of existing partition '%s'. Using '%s'.",
-                    partitionName.c_str(), io->Cptable[i].name, io->Cptable[i].name);
-            return io->Cptable[i].name;
-        }
-    }
-
-    return "";
-}
-
 bool pac_flash(spdio_t* io, const char* folder)
 {
     std::string xmlPath = FindFirstXMLFile(folder);
@@ -635,7 +571,7 @@ bool pac_flash(spdio_t* io, const char* folder)
         g_app_state.flash.isPacMergingNV = (n == "Y" || n == "y");
     }
 
-    auto into_func = [io, xmlPath]() mutable
+    auto into_func = [&io]() mutable // Catch io for spdio_free
     {
         std::string fdl1_path;
         uint32_t fdl1_base_addr = 0;
@@ -952,7 +888,7 @@ bool pac_flash(spdio_t* io, const char* folder)
         }
         if (i_is)
         {
-            EnhancedFile file = oxfopen_enhanced(xmlPath.c_str(), "r");
+            EnhancedFile file = oxfopen_enhanced(g_app_state.flash.pac_xmlPath.c_str(), "r");
             if (!file) ERR_EXIT("Failed to open file for reading");
             std::string content;
             content = file.read_all_chunked();
