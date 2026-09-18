@@ -10,8 +10,6 @@
 #include <thread>
 #include <iostream>
 #include <set>
-
-#include "XmlParser.hpp"
 #ifndef _WIN32
 #include <dirent.h>
 #include <sys/stat.h>
@@ -22,7 +20,6 @@
 #include <filesystem>
 #include <string>
 #include <vector>
-#include "../core/XmlParser.hpp"
 #include <set>
 
 
@@ -978,7 +975,8 @@ void on_button_clicked_list_force_write(GtkWidgetHelper helper)
     }
     if (g_app_state.flash.g_w_force == 0)
     {
-        showErrorDialog(parent, _("Error"), _("Force write is disabled for stability, please enable in Advanced Settings."));
+        showErrorDialog(parent, _("Error"),
+                        _("Force write is disabled for stability, please enable in Advanced Settings."));
         return;
     }
     EnhancedFile fi = oxfopen_enhanced(filename.c_str(), "r");
@@ -1215,33 +1213,56 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper)
             long long k = (*(io->ptable + i_part)).size << 20;
             (*(io->ptable + i_part)).size = (long long)newSizeMB << 20;
             (*(io->ptable + i_se_part)).size = (*(io->ptable + i_se_part)).size + k - ((long long)newSizeMB << 20);
-            // 创建根节点
-            auto root = std::make_shared<XmlNode>("Partitions");
+            // 创建文档与根节点
+            xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
+            if (!doc)
+            {
+                // 错误处理，与原代码保持一致
+                return /* 你的错误返回 */;
+            }
+            xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
+            xmlDocSetRootElement(doc, root);
 
             // 遍历分区并添加子节点
             for (int i = 0; i < io->part_count; i++)
             {
-                auto partitionNode = std::make_shared<XmlNode>("Partition");
+                xmlNodePtr partitionNode = xmlNewChild(
+                    root, nullptr, BAD_CAST"Partition", nullptr);
 
                 // 设置 id 属性
-                partitionNode->setAttribute("id", (*(io->ptable + i)).name);
+                xmlNewProp(partitionNode, BAD_CAST"id",
+                           BAD_CAST io->ptable[i].name);
 
                 // 设置 size 属性
+                char sizeStr[32];
                 if (i + 1 == io->part_count)
                 {
-                    partitionNode->setAttribute("size", "0xffffffff"); // ~0 通常等于 0xffffffff
+                    std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
                 }
                 else
                 {
-                    char sizeStr[32];
-                    snprintf(sizeStr, sizeof(sizeStr), "%lld", ((*(io->ptable + i)).size >> 20));
-                    partitionNode->setAttribute("size", sizeStr);
+                    std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
+                                  static_cast<long long>(io->ptable[i].size >> 20));
                 }
-
-                root->addChild(partitionNode);
+                xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
             }
+
+            // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
+            xmlChar* xmlMem = nullptr;
+            int xmlSize = 0;
+            xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
+
+            std::string xmlStr;
+            if (xmlMem)
+            {
+                xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
+                xmlFree(xmlMem);
+            }
+            xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
+
+            // 交给原扫描器
             uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions_from_string(io, root->toXml(), buf, 0xffff);
+            int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
             if (n <= 0)
             {
                 DEG_LOG(E, "Failed to parse modified partition table\n");
@@ -1294,29 +1315,56 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper)
             long long k = (*(io->Cptable + i_part)).size << 20;
             (*(io->Cptable + i_part)).size = (long long)newSizeMB << 20;
             (*(io->Cptable + i_se_part)).size = (*(io->Cptable + i_se_part)).size + k - ((long long)newSizeMB << 20);
-            auto root = std::make_shared<XmlNode>("Partitions");
-
-            for (int i = 0; i < io->part_count_c; i++)
+            // 创建文档与根节点
+            xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
+            if (!doc)
             {
-                auto partitionNode = std::make_shared<XmlNode>("Partition");
-                partitionNode->setAttribute("id", (*(io->Cptable + i)).name);
+                // 错误处理，与原代码保持一致
+                return /* 你的错误返回 */;
+            }
+            xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
+            xmlDocSetRootElement(doc, root);
 
-                if (i + 1 == io->part_count_c)
+            // 遍历分区并添加子节点
+            for (int i = 0; i < io->part_count; i++)
+            {
+                xmlNodePtr partitionNode = xmlNewChild(
+                    root, nullptr, BAD_CAST"Partition", nullptr);
+
+                // 设置 id 属性
+                xmlNewProp(partitionNode, BAD_CAST"id",
+                           BAD_CAST io->ptable[i].name);
+
+                // 设置 size 属性
+                char sizeStr[32];
+                if (i + 1 == io->part_count)
                 {
-                    partitionNode->setAttribute("size", "0xffffffff");
+                    std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
                 }
                 else
                 {
-                    char sizeStr[32];
-                    snprintf(sizeStr, sizeof(sizeStr), "%lld",
-                             ((*(io->Cptable + i)).size >> 20));
-                    partitionNode->setAttribute("size", sizeStr);
+                    std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
+                                  static_cast<long long>(io->ptable[i].size >> 20));
                 }
-
-                root->addChild(partitionNode);
+                xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
             }
+
+            // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
+            xmlChar* xmlMem = nullptr;
+            int xmlSize = 0;
+            xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
+
+            std::string xmlStr;
+            if (xmlMem)
+            {
+                xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
+                xmlFree(xmlMem);
+            }
+            xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
+
+            // 交给原扫描器
             uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions_from_string(io, root->toXml(), buf, 0xffff);
+            int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
             if (n <= 0)
             {
                 DEG_LOG(E, "Failed to parse modified partition table\n");
@@ -1502,28 +1550,56 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper)
             {
                 delete[] old_ptable;
             }
-            auto root = std::make_shared<XmlNode>("Partitions");
+            // 创建文档与根节点
+            xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
+            if (!doc)
+            {
+                // 错误处理，与原代码保持一致
+                return /* 你的错误返回 */;
+            }
+            xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
+            xmlDocSetRootElement(doc, root);
 
+            // 遍历分区并添加子节点
             for (int i = 0; i < io->part_count; i++)
             {
-                auto partitionNode = std::make_shared<XmlNode>("Partition");
-                partitionNode->setAttribute("id", (*(io->ptable + i)).name);
+                xmlNodePtr partitionNode = xmlNewChild(
+                    root, nullptr, BAD_CAST"Partition", nullptr);
 
+                // 设置 id 属性
+                xmlNewProp(partitionNode, BAD_CAST"id",
+                           BAD_CAST io->ptable[i].name);
+
+                // 设置 size 属性
+                char sizeStr[32];
                 if (i + 1 == io->part_count)
                 {
-                    partitionNode->setAttribute("size", "0xffffffff");
+                    std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
                 }
                 else
                 {
-                    char sizeStr[32];
-                    snprintf(sizeStr, sizeof(sizeStr), "%lld", ((*(io->ptable + i)).size >> 20));
-                    partitionNode->setAttribute("size", sizeStr);
+                    std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
+                                  static_cast<long long>(io->ptable[i].size >> 20));
                 }
-
-                root->addChild(partitionNode);
+                xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
             }
+
+            // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
+            xmlChar* xmlMem = nullptr;
+            int xmlSize = 0;
+            xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
+
+            std::string xmlStr;
+            if (xmlMem)
+            {
+                xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
+                xmlFree(xmlMem);
+            }
+            xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
+
+            // 交给原扫描器
             uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions_from_string(io, root->toXml(), buf, 0xffff);
+            int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
             if (n <= 0)
             {
                 DEG_LOG(E, "Failed to parse modified partition table\n");
@@ -1606,28 +1682,56 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper)
             {
                 delete[] old_cptable;
             }
-            auto root = std::make_shared<XmlNode>("Partitions");
+            // 创建文档与根节点
+            xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
+            if (!doc)
+            {
+                // 错误处理，与原代码保持一致
+                return /* 你的错误返回 */;
+            }
+            xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
+            xmlDocSetRootElement(doc, root);
 
+            // 遍历分区并添加子节点
             for (int i = 0; i < io->part_count; i++)
             {
-                auto partitionNode = std::make_shared<XmlNode>("Partition");
-                partitionNode->setAttribute("id", (*(io->ptable + i)).name);
+                xmlNodePtr partitionNode = xmlNewChild(
+                    root, nullptr, BAD_CAST"Partition", nullptr);
 
+                // 设置 id 属性
+                xmlNewProp(partitionNode, BAD_CAST"id",
+                           BAD_CAST io->ptable[i].name);
+
+                // 设置 size 属性
+                char sizeStr[32];
                 if (i + 1 == io->part_count)
                 {
-                    partitionNode->setAttribute("size", "0xffffffff");
+                    std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
                 }
                 else
                 {
-                    char sizeStr[32];
-                    snprintf(sizeStr, sizeof(sizeStr), "%lld", ((*(io->ptable + i)).size >> 20));
-                    partitionNode->setAttribute("size", sizeStr);
+                    std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
+                                  static_cast<long long>(io->ptable[i].size >> 20));
                 }
-
-                root->addChild(partitionNode);
+                xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
             }
+
+            // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
+            xmlChar* xmlMem = nullptr;
+            int xmlSize = 0;
+            xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
+
+            std::string xmlStr;
+            if (xmlMem)
+            {
+                xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
+                xmlFree(xmlMem);
+            }
+            xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
+
+            // 交给原扫描器
             uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions_from_string(io, root->toXml(), buf, 0xffff);
+            int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
             if (n <= 0)
             {
                 DEG_LOG(E, "Failed to parse modified partition table\n");
@@ -1737,28 +1841,56 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper)
             // 注意：需要释放原来的 ptable 内存
             delete[] (io->ptable);
             io->ptable = ptable;
-            auto root = std::make_shared<XmlNode>("Partitions");
+            // 创建文档与根节点
+            xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
+            if (!doc)
+            {
+                // 错误处理，与原代码保持一致
+                return /* 你的错误返回 */;
+            }
+            xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
+            xmlDocSetRootElement(doc, root);
 
+            // 遍历分区并添加子节点
             for (int i = 0; i < io->part_count; i++)
             {
-                auto partitionNode = std::make_shared<XmlNode>("Partition");
-                partitionNode->setAttribute("id", (*(io->ptable + i)).name);
+                xmlNodePtr partitionNode = xmlNewChild(
+                    root, nullptr, BAD_CAST"Partition", nullptr);
 
+                // 设置 id 属性
+                xmlNewProp(partitionNode, BAD_CAST"id",
+                           BAD_CAST io->ptable[i].name);
+
+                // 设置 size 属性
+                char sizeStr[32];
                 if (i + 1 == io->part_count)
                 {
-                    partitionNode->setAttribute("size", "0xffffffff");
+                    std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
                 }
                 else
                 {
-                    char sizeStr[32];
-                    snprintf(sizeStr, sizeof(sizeStr), "%lld", ((*(io->ptable + i)).size >> 20));
-                    partitionNode->setAttribute("size", sizeStr);
+                    std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
+                                  static_cast<long long>(io->ptable[i].size >> 20));
                 }
-
-                root->addChild(partitionNode);
+                xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
             }
+
+            // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
+            xmlChar* xmlMem = nullptr;
+            int xmlSize = 0;
+            xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
+
+            std::string xmlStr;
+            if (xmlMem)
+            {
+                xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
+                xmlFree(xmlMem);
+            }
+            xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
+
+            // 交给原扫描器
             uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions_from_string(io, root->toXml(), buf, 0xffff);
+            int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
             if (n <= 0)
             {
                 DEG_LOG(E, "Failed to parse modified partition table\n");
@@ -1819,28 +1951,56 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper)
             // 注意：需要释放原来的 ptable 内存
             delete[] (io->Cptable);
             io->Cptable = ptable;
-            auto root = std::make_shared<XmlNode>("Partitions");
+            // 创建文档与根节点
+            xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
+            if (!doc)
+            {
+                // 错误处理，与原代码保持一致
+                return /* 你的错误返回 */;
+            }
+            xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
+            xmlDocSetRootElement(doc, root);
 
+            // 遍历分区并添加子节点
             for (int i = 0; i < io->part_count; i++)
             {
-                auto partitionNode = std::make_shared<XmlNode>("Partition");
-                partitionNode->setAttribute("id", (*(io->ptable + i)).name);
+                xmlNodePtr partitionNode = xmlNewChild(
+                    root, nullptr, BAD_CAST"Partition", nullptr);
 
+                // 设置 id 属性
+                xmlNewProp(partitionNode, BAD_CAST"id",
+                           BAD_CAST io->ptable[i].name);
+
+                // 设置 size 属性
+                char sizeStr[32];
                 if (i + 1 == io->part_count)
                 {
-                    partitionNode->setAttribute("size", "0xffffffff");
+                    std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
                 }
                 else
                 {
-                    char sizeStr[32];
-                    snprintf(sizeStr, sizeof(sizeStr), "%lld", ((*(io->ptable + i)).size >> 20));
-                    partitionNode->setAttribute("size", sizeStr);
+                    std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
+                                  static_cast<long long>(io->ptable[i].size >> 20));
                 }
-
-                root->addChild(partitionNode);
+                xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
             }
+
+            // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
+            xmlChar* xmlMem = nullptr;
+            int xmlSize = 0;
+            xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
+
+            std::string xmlStr;
+            if (xmlMem)
+            {
+                xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
+                xmlFree(xmlMem);
+            }
+            xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
+
+            // 交给原扫描器
             uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions_from_string(io, root->toXml(), buf, 0xffff);
+            int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
             if (n <= 0)
             {
                 DEG_LOG(E, "Failed to parse modified partition table\n");
@@ -1931,28 +2091,56 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper)
 
             snprintf(io->ptable[i].name, sizeof(io->ptable[i].name), "%s", new_part_name.c_str());
 
-            auto root = std::make_shared<XmlNode>("Partitions");
+            // 创建文档与根节点
+            xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
+            if (!doc)
+            {
+                // 错误处理，与原代码保持一致
+                return /* 你的错误返回 */;
+            }
+            xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
+            xmlDocSetRootElement(doc, root);
 
+            // 遍历分区并添加子节点
             for (int i = 0; i < io->part_count; i++)
             {
-                auto partitionNode = std::make_shared<XmlNode>("Partition");
-                partitionNode->setAttribute("id", (*(io->ptable + i)).name);
+                xmlNodePtr partitionNode = xmlNewChild(
+                    root, nullptr, BAD_CAST"Partition", nullptr);
 
+                // 设置 id 属性
+                xmlNewProp(partitionNode, BAD_CAST"id",
+                           BAD_CAST io->ptable[i].name);
+
+                // 设置 size 属性
+                char sizeStr[32];
                 if (i + 1 == io->part_count)
                 {
-                    partitionNode->setAttribute("size", "0xffffffff");
+                    std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
                 }
                 else
                 {
-                    char sizeStr[32];
-                    snprintf(sizeStr, sizeof(sizeStr), "%lld", ((*(io->ptable + i)).size >> 20));
-                    partitionNode->setAttribute("size", sizeStr);
+                    std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
+                                  static_cast<long long>(io->ptable[i].size >> 20));
                 }
-
-                root->addChild(partitionNode);
+                xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
             }
+
+            // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
+            xmlChar* xmlMem = nullptr;
+            int xmlSize = 0;
+            xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
+
+            std::string xmlStr;
+            if (xmlMem)
+            {
+                xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
+                xmlFree(xmlMem);
+            }
+            xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
+
+            // 交给原扫描器
             uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions_from_string(io, root->toXml(), buf, 0xffff);
+            int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
             if (n <= 0)
             {
                 DEG_LOG(E, "Failed to parse modified partition table\n");
@@ -1988,28 +2176,56 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper)
 
             snprintf(io->Cptable[i].name, sizeof(io->Cptable[i].name), "%s", new_part_name.c_str());
 
-            auto root = std::make_shared<XmlNode>("Partitions");
+            // 创建文档与根节点
+            xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
+            if (!doc)
+            {
+                // 错误处理，与原代码保持一致
+                return /* 你的错误返回 */;
+            }
+            xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
+            xmlDocSetRootElement(doc, root);
 
+            // 遍历分区并添加子节点
             for (int i = 0; i < io->part_count; i++)
             {
-                auto partitionNode = std::make_shared<XmlNode>("Partition");
-                partitionNode->setAttribute("id", (*(io->ptable + i)).name);
+                xmlNodePtr partitionNode = xmlNewChild(
+                    root, nullptr, BAD_CAST"Partition", nullptr);
 
+                // 设置 id 属性
+                xmlNewProp(partitionNode, BAD_CAST"id",
+                           BAD_CAST io->ptable[i].name);
+
+                // 设置 size 属性
+                char sizeStr[32];
                 if (i + 1 == io->part_count)
                 {
-                    partitionNode->setAttribute("size", "0xffffffff");
+                    std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
                 }
                 else
                 {
-                    char sizeStr[32];
-                    snprintf(sizeStr, sizeof(sizeStr), "%lld", ((*(io->ptable + i)).size >> 20));
-                    partitionNode->setAttribute("size", sizeStr);
+                    std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
+                                  static_cast<long long>(io->ptable[i].size >> 20));
                 }
-
-                root->addChild(partitionNode);
+                xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
             }
+
+            // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
+            xmlChar* xmlMem = nullptr;
+            int xmlSize = 0;
+            xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
+
+            std::string xmlStr;
+            if (xmlMem)
+            {
+                xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
+                xmlFree(xmlMem);
+            }
+            xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
+
+            // 交给原扫描器
             uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions_from_string(io, root->toXml(), buf, 0xffff);
+            int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
             if (n <= 0)
             {
                 DEG_LOG(E, "Failed to parse modified partition table\n");

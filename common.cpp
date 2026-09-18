@@ -21,7 +21,6 @@
 #include <cctype>
 #include "core/logging.h"
 #include "core/app_state.h"
-#include "core/XmlParser.hpp"
 #include <cstring>
 #include <cctype>
 
@@ -935,229 +934,148 @@ uint64_t read_pactime(spdio_t* io)
     send_and_check(io);
     return time;
 }
-
-
-int scan_xml_partitions(spdio_t* io, const char* fn, uint8_t* buf, size_t buf_size)
+#include "core/xmlutil.h"
+namespace {
+// 从已解析的 document 里提取分区表。返回找到的分区数，失败返回负值。
+// 调用方负责 doc 的生命周期。
+int scan_partitions_from_doc(xmlDocPtr doc, spdio_t* io,
+                             uint8_t* buf, size_t buf_size)
 {
-    // 1. 读取文件内容
-    size_t fsize = 0;
-    char* src = (char*)loadfile(fn, &fsize, 1);
-    if (!src) ERR_EXIT("loadfile failed\n");
-    src[fsize] = 0;
+    if (!doc) return -1;
 
-    // 2. 解析 XML
-    XmlParser parser;
-    auto root = parser.parseString(src);
+    xmlNodePtr root = xmlDocGetRootElement(doc);
     if (!root)
     {
-        delete[] src;
         ERR_EXIT("Failed to parse XML\n");
+        return -1;
     }
 
-    // 3. 查找 <Partitions> 节点（唯一）
-    auto partitionsNodes = root->getDescendants("Partitions");
+    // 查找 <Partitions>（唯一）
+    std::vector<xmlNodePtr> partitionsNodes;
+    xmlutil::collectDescendants(root, "Partitions", partitionsNodes);
+
     if (partitionsNodes.empty())
     {
-        delete[] src;
         ERR_EXIT("No <Partitions> element\n");
+        return -1;
     }
     if (partitionsNodes.size() > 1)
     {
-        delete[] src;
         ERR_EXIT("xml: more than one partition lists\n");
+        return -1;
     }
-    auto partitions = partitionsNodes[0];
+    xmlNodePtr partitions = partitionsNodes[0];
 
-    // 4. 获取所有 <Partition> 子节点
-    auto partitionNodes = partitions->getChildren("Partition");
+    // 取所有 <Partition> 直接子节点
+    auto partitionNodes = xmlutil::children(partitions, "Partition");
 
-    // 5. 分配 ptable 如果需要
+    // 按需分配 ptable
     if (io->ptable == nullptr)
         io->ptable = NEWN partition_t[128];
 
-    // 6. 遍历分区，填充 buf 和 ptable
     uint8_t* buf_ptr = buf;
     size_t remaining = buf_size;
     int found = 0;
 
-    for (auto& partNode : partitionNodes)
+    for (xmlNodePtr partNode : partitionNodes)
     {
-        // 提取 id 属性
-        std::string id;
-        auto it_id = partNode->attributes.find("id");
-        if (it_id != partNode->attributes.end())
-            id = it_id->second;
+        std::string id = xmlutil::prop(partNode, "id");
         if (id.empty())
         {
-            delete[] src;
             ERR_EXIT("Partition missing id attribute\n");
+            return -1;
         }
 
-        // 提取 size 属性（支持十进制和十六进制）
-        std::string sizeStr;
-        auto it_size = partNode->attributes.find("size");
-        if (it_size != partNode->attributes.end())
-            sizeStr = it_size->second;
+        std::string sizeStr = xmlutil::prop(partNode, "size");
         if (sizeStr.empty())
         {
-            delete[] src;
             ERR_EXIT("Partition missing size attribute\n");
+            return -1;
         }
-        char* endptr;
-        long long size = strtoll(sizeStr.c_str(), &endptr, 0); // 自动识别 0x 前缀
+        char* endptr = nullptr;
+        long long size = strtoll(sizeStr.c_str(), &endptr, 0);
         if (*endptr != '\0')
         {
-            delete[] src;
             ERR_EXIT("Invalid size value\n");
+            return -1;
         }
 
-        // 检查缓冲区剩余空间
         if (remaining < 0x4c)
         {
-            delete[] src;
             ERR_EXIT("xml: too many partitions\n");
+            return -1;
         }
         remaining -= 0x4c;
 
-        // 清空名称区域（36个16位字符，即72字节）
+        // 名称区域：36 个 16 位字符（共 72 字节）
         memset(buf_ptr, 0, 36 * 2);
-
-        // 交错写入名称 ASCII（每个字符占用低字节）
         for (size_t i = 0; i < id.size() && i < 36; ++i)
             buf_ptr[i * 2] = static_cast<uint8_t>(id[i]);
 
-        if (id.empty())
-        {
-            delete[] src;
-            ERR_EXIT("empty partition name\n");
-        }
-
-        // 写入原始 size（小端，偏移 0x48）
+        // 原始 size（LE，偏移 0x48）
         WRITE32_LE(buf_ptr + 0x48, static_cast<uint32_t>(size));
 
-        // 记录到 ptable
-        strncpy(io->ptable[found].name, id.c_str(), sizeof(io->ptable[found].name) - 1);
+        // ptable
+        strncpy(io->ptable[found].name, id.c_str(),
+                sizeof(io->ptable[found].name) - 1);
         io->ptable[found].name[sizeof(io->ptable[found].name) - 1] = '\0';
-        io->ptable[found].size = size << 20; // 左移 20 位（与原函数一致）
+        io->ptable[found].size = size << 20;
 
-        DBG_LOG("[%d] %s, %d\n", found + 1, io->ptable[found].name, (int)size);
+        DBG_LOG("[%d] %s, %d\n", found + 1,
+                io->ptable[found].name, (int)size);
 
         buf_ptr += 0x4c;
         ++found;
     }
 
     io->part_count = found;
-    delete[] src;
     return found;
+}
+
+} // namespace
+
+int scan_xml_partitions(spdio_t* io, const char* fn,
+                        uint8_t* buf, size_t buf_size)
+{
+    if (!fn) { ERR_EXIT("null filename\n"); return -1; }
+
+    xmlDocPtr doc = xmlReadFile(fn, nullptr,
+        XML_PARSE_NONET | XML_PARSE_NOERROR | XML_PARSE_NOWARNING);
+    if (!doc)
+    {
+        ERR_EXIT("loadfile failed\n");
+        return -1;
+    }
+
+    int n = scan_partitions_from_doc(doc, io, buf, buf_size);
+    xmlFreeDoc(doc);
+    return n;
 }
 
 int scan_xml_partitions_from_string(spdio_t* io, const std::string& xml_text,
                                     uint8_t* buf, size_t buf_size)
 {
-    // 1. 检查输入
     if (xml_text.empty())
     {
         ERR_EXIT("XML text is empty\n");
         return -1;
     }
 
-    // 2. 解析 XML
-    XmlParser parser;
-    auto root = parser.parseString(xml_text);
-    if (!root)
+    xmlDocPtr doc = xmlReadMemory(
+        xml_text.c_str(),
+        static_cast<int>(xml_text.size()),
+        "inline.xml",
+        nullptr,
+        XML_PARSE_NONET | XML_PARSE_NOERROR | XML_PARSE_NOWARNING);
+    if (!doc)
     {
         ERR_EXIT("Failed to parse XML\n");
         return -1;
     }
 
-    // 3. 查找 <Partitions> 节点（唯一）
-    auto partitionsNodes = root->getDescendants("Partitions");
-    if (partitionsNodes.empty())
-    {
-        ERR_EXIT("No <Partitions> element\n");
-        return -1;
-    }
-    if (partitionsNodes.size() > 1)
-    {
-        ERR_EXIT("xml: more than one partition lists\n");
-        return -1;
-    }
-    auto partitions = partitionsNodes[0];
-
-    // 4. 获取所有 <Partition> 子节点
-    auto partitionNodes = partitions->getChildren("Partition");
-
-    // 5. 分配 ptable 如果需要
-    if (io->ptable == nullptr)
-        io->ptable = NEWN partition_t[128];
-
-    // 6. 遍历分区，填充 buf 和 ptable
-    uint8_t* buf_ptr = buf;
-    size_t remaining = buf_size;
-    int found = 0;
-
-    for (auto& partNode : partitionNodes)
-    {
-        // 提取 id 属性
-        std::string id;
-        auto it_id = partNode->attributes.find("id");
-        if (it_id != partNode->attributes.end())
-            id = it_id->second;
-        if (id.empty())
-        {
-            ERR_EXIT("Partition missing id attribute\n");
-            return -1;
-        }
-
-        // 提取 size 属性（支持十进制和十六进制）
-        std::string sizeStr;
-        auto it_size = partNode->attributes.find("size");
-        if (it_size != partNode->attributes.end())
-            sizeStr = it_size->second;
-        if (sizeStr.empty())
-        {
-            ERR_EXIT("Partition missing size attribute\n");
-            return -1;
-        }
-        char* endptr;
-        long long size = strtoll(sizeStr.c_str(), &endptr, 0); // 自动识别 0x 前缀
-        if (*endptr != '\0')
-        {
-            ERR_EXIT("Invalid size value\n");
-            return -1;
-        }
-
-        // 检查缓冲区剩余空间
-        if (remaining < 0x4c)
-        {
-            ERR_EXIT("xml: too many partitions\n");
-            return -1;
-        }
-        remaining -= 0x4c;
-
-        // 清空名称区域（36个16位字符，即72字节）
-        memset(buf_ptr, 0, 36 * 2);
-
-        // 交错写入名称 ASCII（每个字符占用低字节）
-        for (size_t i = 0; i < id.size() && i < 36; ++i)
-            buf_ptr[i * 2] = static_cast<uint8_t>(id[i]);
-
-        // 写入原始 size（小端，偏移 0x48）
-        WRITE32_LE(buf_ptr + 0x48, static_cast<uint32_t>(size));
-
-        // 记录到 ptable
-        strncpy(io->ptable[found].name, id.c_str(), sizeof(io->ptable[found].name) - 1);
-        io->ptable[found].name[sizeof(io->ptable[found].name) - 1] = '\0';
-        io->ptable[found].size = size << 20; // 左移 20 位（与原函数一致）
-
-        DBG_LOG("[%d] %s, %d\n", found + 1, io->ptable[found].name, (int)size);
-
-        buf_ptr += 0x4c;
-        ++found;
-    }
-
-    io->part_count = found;
-    return found;
+    int n = scan_partitions_from_doc(doc, io, buf, buf_size);
+    xmlFreeDoc(doc);
+    return n;
 }
 
 #define SECTOR_SIZE 512
@@ -2848,62 +2766,91 @@ void start_signal()
 void dump_partitions(spdio_t* io, const char* fn, int* nand_info, unsigned step)
 {
     // 1. 解析 XML 文件
-    XmlParser parser;
-    auto root = parser.parseFile(fn);
-    if (!root)
+    xmlDocPtr doc = xmlReadFile(fn, nullptr,
+        XML_PARSE_NONET | XML_PARSE_NOERROR | XML_PARSE_NOWARNING);
+    if (!doc)
     {
         ERR_EXIT("Failed to parse XML file\n");
     }
 
-    auto partitionsNodes = root->getDescendants("Partitions");
+    xmlNodePtr root = xmlDocGetRootElement(doc);
+    if (!root)
+    {
+        xmlFreeDoc(doc);
+        ERR_EXIT("Failed to parse XML file\n");
+    }
+
+    // 2. 查找 <Partitions>（唯一）
+    std::vector<xmlNodePtr> partitionsNodes;
+    xmlutil::collectDescendants(root, "Partitions", partitionsNodes);
+
     if (partitionsNodes.empty())
     {
+        xmlFreeDoc(doc);
         ERR_EXIT("No <Partitions> element found\n");
     }
     if (partitionsNodes.size() > 1)
     {
+        xmlFreeDoc(doc);
         ERR_EXIT("xml: more than one partition lists\n");
     }
 
-    auto partitions = partitionsNodes[0];
-    auto partitionNodes = partitions->getChildren("Partition");
+    xmlNodePtr partitions = partitionsNodes[0];
+    auto partitionNodes = xmlutil::children(partitions, "Partition");
 
-    // 2. 动态分配分区数组（与原函数一致）
+    // 3. 动态分配分区数组（与原函数一致）
     partition_t* partitionsArr = NEWN partition_t[128];
     int found = 0;
 
-    for (auto& partNode : partitionNodes)
+    for (xmlNodePtr partNode : partitionNodes)
     {
         if (found >= 128) break;
-        std::string id = partNode->getAttribute("id");
+
+        std::string id = xmlutil::prop(partNode, "id");
         if (id.empty())
         {
+            xmlFreeDoc(doc);
+            delete[] partitionsArr;
             ERR_EXIT("Partition missing id attribute\n");
         }
-        std::string sizeStr = partNode->getAttribute("size");
+
+        std::string sizeStr = xmlutil::prop(partNode, "size");
         if (sizeStr.empty())
         {
+            xmlFreeDoc(doc);
+            delete[] partitionsArr;
             ERR_EXIT("Partition missing size attribute\n");
         }
-        char* endptr;
+
+        char* endptr = nullptr;
         long long size = strtoll(sizeStr.c_str(), &endptr, 0);
-        if (*endptr != '\0' && !isspace(*endptr))
+        if (*endptr != '\0' && !isspace(static_cast<unsigned char>(*endptr)))
         {
+            xmlFreeDoc(doc);
+            delete[] partitionsArr;
             ERR_EXIT("Invalid size value\n");
         }
-        strncpy(partitionsArr[found].name, id.c_str(), sizeof(partitionsArr[found].name) - 1);
+
+        strncpy(partitionsArr[found].name, id.c_str(),
+                sizeof(partitionsArr[found].name) - 1);
         partitionsArr[found].name[sizeof(partitionsArr[found].name) - 1] = '\0';
-        partitionsArr[found].size = size; // 原代码直接赋值 size，后面再根据情况左移
+        partitionsArr[found].size = size;
         found++;
     }
 
+    xmlFreeDoc(doc);   // 解析完就可以释放，后面不再需要 XML 树
+    doc = nullptr;
+
+    // ---------- 以下逻辑与原函数完全一致 ----------
     int ubi = 0;
     if (!strncmp(fn, "ubi", 3)) ubi = 1;
 
     for (int i = 0; i < found; i++)
     {
-        if (isCancel) { return; }
-        DBG_LOG("Partition %d: name=%s, size=%llim\n", i + 1, partitionsArr[i].name, partitionsArr[i].size);
+        if (isCancel) { delete[] partitionsArr; return; }
+
+        DBG_LOG("Partition %d: name=%s, size=%llim\n",
+                i + 1, partitionsArr[i].name, partitionsArr[i].size);
         if (!strncmp(partitionsArr[i].name, "userdata", 8)) continue;
 
         get_partition_info(io, partitionsArr[i].name, 0);
@@ -2920,8 +2867,9 @@ void dump_partitions(spdio_t* io, const char* fn, int* nand_info, unsigned step)
         }
         else if (ubi)
         {
-            int block = (int)(partitionsArr[i].size * (1024 / nand_info[2]) + partitionsArr[i].size * (1024 / nand_info[
-                2]) / (512 / nand_info[1]) + 1);
+            int block = (int)(partitionsArr[i].size * (1024 / nand_info[2])
+                              + partitionsArr[i].size * (1024 / nand_info[2])
+                              / (512 / nand_info[1]) + 1);
             finalSize = 1024 * (nand_info[2] - 2 * nand_info[0]) * block;
         }
         else
@@ -2941,6 +2889,7 @@ void dump_partitions(spdio_t* io, const char* fn, int* nand_info, unsigned step)
         dump_partition(io, "misc", 0, 1048576, "misc.bin", step);
     }
 
+    // 保存原始 dump list（磁盘上的字节原样回写）
     if (savepath[0])
     {
         DEG_LOG(OP, "Saving dump list");
@@ -2964,6 +2913,7 @@ void dump_partitions(spdio_t* io, const char* fn, int* nand_info, unsigned step)
             DEG_LOG(W, "Failed to reload original XML for saving.");
         }
     }
+
     delete[] partitionsArr;
 }
 
@@ -3047,8 +2997,14 @@ std::string case_part(const std::vector<std::string>& partitions,
 int get_nvlist_xml(spdio_t* io, const char* fn)
 {
     // 1. 解析 XML 文件
-    XmlParser parser;
-    auto root = parser.parseFile(fn);
+    xmlutil::DocPtr doc = xmlutil::loadFile(fn);
+    if (!doc)
+    {
+        if (io->verbose) DEG_LOG(E, "Error: parse XML file %s failed", fn);
+        return 0;
+    }
+
+    xmlNodePtr root = xmlutil::root(doc.get());
     if (!root)
     {
         if (io->verbose) DEG_LOG(E, "Error: parse XML file %s failed", fn);
@@ -3067,43 +3023,40 @@ int get_nvlist_xml(spdio_t* io, const char* fn)
     }
     memset(io->nvid_list, 0, 0x10000 * sizeof(int));
 
-    // 3. 查找所有 NVItem 节点（通用 XML 支持任意嵌套）
-    auto nvItems = root->getDescendants("NVItem");
+    // 3. 查找所有 <NVItem>（任意嵌套）
+    auto nvItems = xmlutil::descendants(root, "NVItem");
     if (nvItems.empty())
     {
         if (io->verbose) DEG_LOG(W, "can't find NVItem from input");
     }
 
     // 遍历每个 NVItem，提取其子节点 <ID> 的值
-    for (auto& nvItem : nvItems)
+    for (xmlNodePtr nvItem : nvItems)
     {
-        auto idNode = nvItem->getFirstChild("ID");
-        if (idNode)
+        xmlNodePtr idNode = xmlutil::firstChild(nvItem, "ID");
+        if (!idNode) continue;
+
+        // childText 内部已做 trim（取子元素文本并去首尾空白）
+        std::string trimmed = xmlutil::childText(nvItem, "ID");
+        if (trimmed.empty()) continue;
+
+        long id = strtol(trimmed.c_str(), nullptr, 0);
+        if (id >= 0 && id < 0x10000)
         {
-            std::string idText = idNode->getTextContent();
-            // 去除首尾空白
-            size_t start = idText.find_first_not_of(" \t\r\n");
-            if (start == std::string::npos) continue;
-            size_t end = idText.find_last_not_of(" \t\r\n");
-            std::string trimmed = idText.substr(start, end - start + 1);
-            long id = strtol(trimmed.c_str(), nullptr, 0);
-            if (id >= 0 && id < 0x10000)
-            {
-                io->nvid_list[id] = 1;
-                if (io->verbose) printf("saved id 0x%lX to list\n", id);
-            }
+            io->nvid_list[id] = 1;
+            if (io->verbose) printf("saved id 0x%lX to list\n", id);
         }
     }
 
     // 4. 强制添加固定 ID（与原函数完全一致）
-    io->nvid_list[5] = 1;
-    io->nvid_list[0x179] = 1;
-    io->nvid_list[0x186] = 1;
-    io->nvid_list[0x1e4] = 1;
-    io->nvid_list[2] = 1;
-    io->nvid_list[0x516] = 1;
-    io->nvid_list[0x12d] = 1;
-    io->nvid_list[0x9c4] = 1;
+    io->nvid_list[5]      = 1;
+    io->nvid_list[0x179]  = 1;
+    io->nvid_list[0x186]  = 1;
+    io->nvid_list[0x1e4]  = 1;
+    io->nvid_list[2]      = 1;
+    io->nvid_list[0x516]  = 1;
+    io->nvid_list[0x12d]  = 1;
+    io->nvid_list[0x9c4]  = 1;
 
     return 1;
 }

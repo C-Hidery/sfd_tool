@@ -102,7 +102,6 @@ void usleep(unsigned int us);
 #endif
 
 #include "spd_cmd.h"
-
 #define FLAGS_CRC16 1
 #define FLAGS_TRANSCODE 2
 

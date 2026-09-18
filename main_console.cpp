@@ -15,7 +15,6 @@
 #ifdef __linux__
 #include <unistd.h>
 #endif
-#include "core/XmlParser.hpp"
 
 extern AppState g_app_state;
 char** str2;
@@ -2742,35 +2741,58 @@ int main_console(int argc, char** argv)
                 {
                     DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
 
-                    // 创建根节点
-                    auto root = std::make_shared<XmlNode>("Partitions");
+                    // 创建文档与根节点
+                    xmlDocPtr doc = xmlNewDoc(BAD_CAST "1.0");
+                    if (!doc)
+                    {
+                        ERR_EXIT("Failed to create XML doc\n");
+                    }
+
+                    xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "Partitions");
+                    if (!root)
+                    {
+                        xmlFreeDoc(doc);
+                        ERR_EXIT("Failed to create root node\n");
+                    }
+                    xmlDocSetRootElement(doc, root);
 
                     // 添加所有分区节点
                     for (i = 0; i < io->part_count; i++)
                     {
-                        DBG_LOG("%3d %36s %7lldMB\n", i + 1, (*(io->ptable + i)).name,
-                                ((*(io->ptable + i)).size >> 20));
+                        DBG_LOG("%3d %36s %7lldMB\n", i + 1, io->ptable[i].name,
+                                static_cast<long long>(io->ptable[i].size >> 20));
 
-                        auto partitionNode = std::make_shared<XmlNode>("Partition");
-                        partitionNode->setAttribute("id", (*(io->ptable + i)).name);
+                        xmlNodePtr partitionNode =
+                            xmlNewChild(root, nullptr, BAD_CAST "Partition", nullptr);
+                        if (!partitionNode)
+                        {
+                            xmlFreeDoc(doc);
+                            ERR_EXIT("Failed to create Partition node\n");
+                        }
 
+                        // id 属性
+                        xmlNewProp(partitionNode, BAD_CAST "id",
+                                   BAD_CAST io->ptable[i].name);
+
+                        // size 属性
+                        char sizeStr[32];
                         if (i + 1 == io->part_count)
                         {
-                            partitionNode->setAttribute("size", "0xffffffff");
+                            std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
                         }
                         else
                         {
-                            char sizeStr[32];
-                            snprintf(sizeStr, sizeof(sizeStr), "%lld",
-                                     ((*(io->ptable + i)).size >> 20));
-                            partitionNode->setAttribute("size", sizeStr);
+                            std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
+                                          static_cast<long long>(io->ptable[i].size >> 20));
                         }
-
-                        root->addChild(partitionNode);
+                        xmlNewProp(partitionNode, BAD_CAST "size", BAD_CAST sizeStr);
                     }
 
-                    // 保存到文件
-                    if (!root->saveXmlFile(str2[2]))
+                    // 保存到文件（UTF-8，带缩进）
+                    int written = xmlSaveFormatFileEnc(str2[2], doc, "UTF-8", 1);
+                    xmlFreeDoc(doc);
+
+                    if (written < 0)
                     {
                         ERR_EXIT("Failed to save XML file\n");
                     }
@@ -2797,47 +2819,67 @@ int main_console(int argc, char** argv)
                 else
                 {
                     DBG_LOG("  0 %36s     %lldKB\n", "splloader", (long long)g_spl_size / 1024);
-
-                    // 创建根节点
-                    auto root = std::make_shared<XmlNode>("Partitions");
-
                     // 保存原始 verbose 设置
                     int o = io->verbose;
                     io->verbose = -1;
+                    // 创建文档与根节点
+                    xmlDocPtr doc = xmlNewDoc(BAD_CAST "1.0");
+                    if (!doc)
+                    {
+                        ERR_EXIT("Failed to create XML doc\n");
+                    }
+
+                    xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST "Partitions");
+                    if (!root)
+                    {
+                        xmlFreeDoc(doc);
+                        ERR_EXIT("Failed to create root node\n");
+                    }
+                    xmlDocSetRootElement(doc, root);
 
                     // 添加所有分区节点
-                    for (i = 0; i < c; i++)
+                    for (i = 0; i < io->part_count; i++)
                     {
-                        char* name = (*(io->Cptable + i)).name;
-                        DBG_LOG("%3d %36s %7lldMB\n", i + 1, name, ((*(io->Cptable + i)).size >> 20));
+                        DBG_LOG("%3d %36s %7lldMB\n", i + 1, io->ptable[i].name,
+                                static_cast<long long>(io->ptable[i].size >> 20));
 
-                        auto partitionNode = std::make_shared<XmlNode>("Partition");
-                        partitionNode->setAttribute("id", name);
-
-                        // 判断是否为最后一个分区且 userdata 存在
-                        if (check_partition(io, "userdata", 0) != 0 && i + 1 == io->part_count_c)
+                        xmlNodePtr partitionNode =
+                            xmlNewChild(root, nullptr, BAD_CAST "Partition", nullptr);
+                        if (!partitionNode)
                         {
-                            partitionNode->setAttribute("size", "0xffffffff");
+                            xmlFreeDoc(doc);
+                            ERR_EXIT("Failed to create Partition node\n");
+                        }
+
+                        // id 属性
+                        xmlNewProp(partitionNode, BAD_CAST "id",
+                                   BAD_CAST io->ptable[i].name);
+
+                        // size 属性
+                        char sizeStr[32];
+                        if (i + 1 == io->part_count)
+                        {
+                            std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
                         }
                         else
                         {
-                            char sizeStr[32];
-                            snprintf(sizeStr, sizeof(sizeStr), "%lld",
-                                     ((*(io->Cptable + i)).size >> 20));
-                            partitionNode->setAttribute("size", sizeStr);
+                            std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
+                                          static_cast<long long>(io->ptable[i].size >> 20));
                         }
+                        xmlNewProp(partitionNode, BAD_CAST "size", BAD_CAST sizeStr);
+                    }
 
-                        root->addChild(partitionNode);
+                    // 保存到文件（UTF-8，带缩进）
+                    int written = xmlSaveFormatFileEnc(str2[2], doc, "UTF-8", 1);
+                    xmlFreeDoc(doc);
+
+                    if (written < 0)
+                    {
+                        ERR_EXIT("Failed to save XML file\n");
                     }
 
                     // 恢复 verbose 设置
                     io->verbose = o;
-
-                    // 保存到文件
-                    if (!root->saveXmlFile(str2[2]))
-                    {
-                        ERR_EXIT("Failed to save XML file\n");
-                    }
 
                     DEG_LOG(I, "Partition table saved to %s", str2[2]);
                 }
