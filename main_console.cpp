@@ -2675,8 +2675,6 @@ int main_console(int argc, char** argv)
                                             continue;
                                         }
                                         if (NVmem) delete[] NVmem;
-                                        delete[](io->nvid_list);
-                                        io->nvid_list = NULL;
                                     }
                                 }
                                 unpac.u16_to_u8(str_buf, sizeof(str_buf), f.name, 256);
@@ -3478,8 +3476,6 @@ int main_console(int argc, char** argv)
                 delete[](b);
                 free(c);
             }
-            delete[](io->nvid_list);
-            io->nvid_list = NULL;
             argc -= 3;
             argv += 3;
         }
@@ -3507,8 +3503,6 @@ int main_console(int argc, char** argv)
                 delete[](b);
                 free(c);
             }
-            delete[](io->nvid_list);
-            io->nvid_list = NULL;
             argc -= 5;
             argv += 5;
         }
@@ -3563,8 +3557,6 @@ int main_console(int argc, char** argv)
                 delete[](b);
                 free(c);
             }
-            delete[](io->nvid_list);
-            io->nvid_list = NULL;
             argc -= 3;
             argv += 3;
         }
@@ -3592,8 +3584,6 @@ int main_console(int argc, char** argv)
                 delete[](b);
                 free(c);
             }
-            delete[](io->nvid_list);
-            io->nvid_list = NULL;
             argc -= 5;
             argv += 5;
         }
@@ -3707,7 +3697,7 @@ int main_console(int argc, char** argv)
             }
             DEG_LOG(
                 W,
-                "This operation may brick your device, and not all devices support this, if your device is broken, flash backup trustos-orig.bin or flash back all partitions");
+                "This operation may brick your device, and not all devices support this, if your device is broken, flash backup trustos image, if still not work, flash back all partitions");
             DEG_LOG(W, "Please make a FULL backup for your device before execute this command.");
             uint8_t* t_mem = nullptr;
             uint8_t* s_mem = nullptr;
