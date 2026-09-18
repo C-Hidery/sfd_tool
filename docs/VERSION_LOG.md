@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 3.1.1 LTV Edition
+Version 3.1.2 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -449,6 +449,9 @@ Remove unstable blk_size detection
 修复PAC刷写逻辑
 
 ---v 3.1.1---
+修复了一些已知问题
+
+---v 3.1.2---
 修复了一些已知问题
 
 Under GPL v3 License
