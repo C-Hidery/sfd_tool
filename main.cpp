@@ -681,7 +681,7 @@ int main(int argc, char** argv) {
 		return main_console(argc - 1, argv + 1); // Skip the first argument
 	} else if (argc > 1 && (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help") || !strcmp(argv[1], "--usage") || !strcmp(argv[1], "-?")))
 	{
-		DEG_LOG(I, "Use '%s --no-gui --help' for more information(CLI mode help).", argv[0]);
+		DEG_LOG(I, "Use '%s --no-gui --help' for more information (CLI mode help).", argv[0]);
 	}
 	else {
 		return gtk_kmain(argc, argv);

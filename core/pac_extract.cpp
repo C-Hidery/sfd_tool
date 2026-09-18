@@ -965,8 +965,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                                     free(c);
                                     continue;
                                 }
-                                delete[](io->nvid_list);
-                                io->nvid_list = NULL;
+                                
                             }
                         }
                         else if (strstr(partition.c_str(), "l_fixnv1"))
@@ -1002,8 +1001,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                                     free(c);
                                     continue;
                                 }
-                                delete[](io->nvid_list);
-                                io->nvid_list = NULL;
+                                
                             }
                         }
                     }
@@ -1085,8 +1083,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                                     delete[] b;
                                     free(c);
                                 }
-                                delete[](io->nvid_list);
-                                io->nvid_list = NULL;
+                                
                             }
                         }
                         else

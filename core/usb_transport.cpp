@@ -315,6 +315,7 @@ void spdio_free(spdio_t *io) {
 #endif
 	if (io->ptable) { delete[](io->ptable); io->ptable = nullptr; }
 	if (io->Cptable) { delete[](io->Cptable); io->Cptable = nullptr; }
+	if (io->nvid_list) { delete[](io->nvid_list); io->nvid_list = nullptr; }
 	if (io->_alloc_ptr) {
         free(io->_alloc_ptr);
     }

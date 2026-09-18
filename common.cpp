@@ -2679,7 +2679,7 @@ uint64_t check_partition(spdio_t* io, const char* name, int need_size)
     {
         Da_Info.dwStorageType = 0x101;
         DEG_LOG(I, "Storage is nand.");
-        gui_idle_call([]()
+        if (isHelperInit) gui_idle_call([]()
         {
             helper.setLabelText(helper.getWidget("storage_mode"), "Nand");
         });
@@ -3056,12 +3056,16 @@ int get_nvlist_xml(spdio_t* io, const char* fn)
     }
 
     // 2. 分配并清零 nvid_list
-    io->nvid_list = NEWN int[0x10000];
+    if (!io->nvid_list)
+    {
+        io->nvid_list = NEWN int[0x10000];
+    }
     if (!io->nvid_list)
     {
         DEG_LOG(E, "malloc failed");
         return 0;
     }
+    memset(io->nvid_list, 0, 0x10000 * sizeof(int));
 
     // 3. 查找所有 NVItem 节点（通用 XML 支持任意嵌套）
     auto nvItems = root->getDescendants("NVItem");
@@ -3111,7 +3115,10 @@ int get_nvlist_cfg(spdio_t* io, char* fn)
     EnhancedFile cfg_fd = my_oxfopen_enhanced(fn, "rb");
 
     if (!cfg_fd) return 0;
-    io->nvid_list = NEWN int[0x10000];
+    if (!io->nvid_list)
+    {
+        io->nvid_list = NEWN int[0x10000];
+    }
     if (!io->nvid_list) ERR_EXIT("malloc failed\n");
     memset(io->nvid_list, 0, 0x10000 * sizeof(int));
     while (cfg_fd.gets(line, sizeof(line)))
