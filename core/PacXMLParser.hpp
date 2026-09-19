@@ -10,10 +10,7 @@
 #include <cstdlib>
 #include <iostream>
 
-#include <libxml/parser.h>
-#include <libxml/tree.h>
-#include <libxml/xmlstring.h>
-#include <libxml/globals.h>
+#include "xmlutil.h"
 
 
 // ==================== 数据结构（原样保留）====================
