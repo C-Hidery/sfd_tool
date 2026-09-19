@@ -88,20 +88,12 @@ target_include_directories(sfd_ui
         ${CMAKE_BINARY_DIR}/generated
 )
 
-target_include_directories(core_lib PUBLIC ${LIBXML2_INCLUDE_DIRS})
-target_link_libraries(core_lib PUBLIC ${LIBXML2_LIBRARIES})
-target_include_directories(sfd_ui PUBLIC ${LIBXML2_INCLUDE_DIRS})
-target_link_libraries(sfd_ui PUBLIC ${LIBXML2_LIBRARIES})
-target_include_directories(pages_lib PUBLIC ${LIBXML2_INCLUDE_DIRS})
-target_link_libraries(pages_lib PUBLIC ${LIBXML2_LIBRARIES})
-
 # ================= 主可执行程序 =================
 add_executable(sfd_tool
     main.cpp
     main_console.cpp
 )
-target_include_directories(sfd_tool PUBLIC ${LIBXML2_INCLUDE_DIRS})
-target_link_libraries(sfd_tool PUBLIC ${LIBXML2_LIBRARIES})
+
 
 # ================= Windows 资源文件 (.rc) 支持 =================
 if (WIN32)
@@ -233,11 +225,23 @@ find_package(PkgConfig QUIET)
 # ================= 依赖：libxml2 =================
 if (PKG_CONFIG_FOUND)
     pkg_check_modules(LIBXML2 REQUIRED libxml-2.0)
-    message(STATUS "libxml2 include: ${LIBXML2_INCLUDE_DIRS}")
-    message(STATUS "libxml2 libs   : ${LIBXML2_LIBRARIES}")
 else()
-    message(FATAL_ERROR "PkgConfig is required for libxml2")
+    find_package(LibXml2 REQUIRED)
+    set(LIBXML2_INCLUDE_DIRS ${LIBXML2_INCLUDE_DIR})
+    set(LIBXML2_LIBRARIES    ${LIBXML2_LIBRARIES})
+    set(LIBXML2_LIBRARY_DIRS "")
 endif()
+
+message(STATUS "libxml2 include: ${LIBXML2_INCLUDE_DIRS}")
+message(STATUS "libxml2 libs   : ${LIBXML2_LIBRARIES}")
+
+# 关键：挂到所有公共目标上，跟 GTK4 / libusb 一样的处理方式
+foreach(tgt IN LISTS SFD_COMMON_TARGETS)
+    if (TARGET ${tgt})
+        target_include_directories(${tgt} PRIVATE ${LIBXML2_INCLUDE_DIRS})
+        target_link_libraries(${tgt} PRIVATE ${LIBXML2_LIBRARIES})
+    endif()
+endforeach()
 
 if (APPLE)
     find_package(nlohmann_json CONFIG REQUIRED)
