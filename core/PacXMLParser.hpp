@@ -10,7 +10,7 @@
 #include <cstdlib>
 #include <iostream>
 
-#include "xmlutil.h"
+#include "xmlutil.hpp"
 
 
 // ==================== 数据结构（原样保留）====================
@@ -41,7 +41,7 @@ struct ProductInfo {
     std::string schemeName;
 };
 
-#include "xmlutil.h"
+#include "xmlutil.hpp"
 
 // ==================== PAC XML 解析器 ====================
 

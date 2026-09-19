@@ -11,7 +11,8 @@ add_library(core_lib STATIC
     flash_service.cpp
         config_service.cpp
         Unpac.cpp
-        xmlutil.h
+        xmlutil.hpp
+        PacXMLParser.hpp
 )
 
 target_include_directories(core_lib

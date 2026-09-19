@@ -934,7 +934,7 @@ uint64_t read_pactime(spdio_t* io)
     send_and_check(io);
     return time;
 }
-#include "core/xmlutil.h"
+#include "core/xmlutil.hpp"
 namespace {
 // 从已解析的 document 里提取分区表。返回找到的分区数，失败返回负值。
 // 调用方负责 doc 的生命周期。

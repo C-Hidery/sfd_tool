@@ -34,7 +34,7 @@
 #include "../pages/page_pac_flash.h"
 #include "Unpac.h"
 #include "PacXMLParser.hpp"
-#include "xmlutil.h"
+#include "xmlutil.hpp"
 
 static sfd::Result<void> parse_partitions_xml_result(const std::string& pxml,
                                                      partition_t* pacptable,
