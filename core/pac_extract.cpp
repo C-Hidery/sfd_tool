@@ -19,7 +19,6 @@
 #include <sys/stat.h>
 #include <cerrno>
 
-#include "XmlParser.hpp"
 #include "../ui/layout/bottom_bar.h"
 #ifdef _WIN32
 #include <io.h>
@@ -35,27 +34,49 @@
 #include "../pages/page_pac_flash.h"
 #include "Unpac.h"
 #include "PacXMLParser.hpp"
+#include "xmlutil.hpp"
 
 static sfd::Result<void> parse_partitions_xml_result(const std::string& pxml,
                                                      partition_t* pacptable,
                                                      int* pac_part_count)
 {
-    // 1. 解析 XML 文件
-    XmlParser parser;
-    auto root = parser.parseString(pxml);
-    if (!root)
+    // 1. 解析 XML（RAII 管理 doc 生命周期）
+    xmlutil::DocPtr doc(xmlReadMemory(
+        pxml.c_str(),
+        static_cast<int>(pxml.size()),
+        "pac.xml",
+        nullptr,
+        XML_PARSE_NONET | XML_PARSE_NOERROR | XML_PARSE_NOWARNING));
+
+    if (!doc)
     {
         DEG_LOG(E, "Failed to parse XML file\n");
         if (isHelperInit)
             gui_idle_call_wait_drag([]()
             {
-                showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), "Error", _("Failed to parse XML file."));
+                showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")),
+                                "Error", _("Failed to parse XML file."));
             }, GTK_WINDOW(helper.getWidget("main_window")));
         return sfd::Result<void>::error(sfd::ErrorCode::IoError, "loadfile failed");
     }
 
-    // 2. 查找 <Partitions> 节点（必须唯一，对应原 stage 检测）
-    auto partitionsNodes = root->getDescendants("Partitions");
+    xmlNodePtr root = xmlDocGetRootElement(doc.get());
+    if (!root)
+    {
+        DEG_LOG(E, "Empty XML document\n");
+        if (isHelperInit)
+            gui_idle_call_wait_drag([]()
+            {
+                showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")),
+                                "Error", _("Failed to parse XML file."));
+            }, GTK_WINDOW(helper.getWidget("main_window")));
+        return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "empty xml");
+    }
+
+    // 2. 查找 <Partitions> 节点（必须唯一）
+    std::vector<xmlNodePtr> partitionsNodes;
+    xmlutil::collectDescendants(root, "Partitions", partitionsNodes);
+
     if (partitionsNodes.empty())
     {
         DEG_LOG(E, "No Partitions element found\n");
@@ -63,7 +84,8 @@ static sfd::Result<void> parse_partitions_xml_result(const std::string& pxml,
             gui_idle_call_wait_drag([]()
             {
                 showErrorDialog(
-                    GTK_WINDOW(helper.getWidget("main_window")), "Error", _("No <Partitions> element in XML."));
+                    GTK_WINDOW(helper.getWidget("main_window")),
+                    "Error", _("No <Partitions> element in XML."));
             }, GTK_WINDOW(helper.getWidget("main_window")));
         return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "xml: no Partitions");
     }
@@ -74,15 +96,18 @@ static sfd::Result<void> parse_partitions_xml_result(const std::string& pxml,
             gui_idle_call_wait_drag([]()
             {
                 showErrorDialog(
-                    GTK_WINDOW(helper.getWidget("main_window")), "Error",
+                    GTK_WINDOW(helper.getWidget("main_window")),
+                    "Error",
                     _("More than one partition list found in XML file."));
             }, GTK_WINDOW(helper.getWidget("main_window")));
-        return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "xml: more than one partition lists");
+        return sfd::Result<void>::error(sfd::ErrorCode::ParseError,
+                                        "xml: more than one partition lists");
     }
 
-    auto partitions = partitionsNodes[0];
-    // 获取所有直接子节点 <Partition>（原函数只处理一级子节点）
-    auto partitionNodes = partitions->getChildren("Partition");
+    xmlNodePtr partitions = partitionsNodes[0];
+
+    // 仅处理一级子节点 <Partition>
+    auto partitionNodes = xmlutil::children(partitions, "Partition");
     if (partitionNodes.empty())
     {
         DEG_LOG(E, "No Partition elements inside Partitions\n");
@@ -90,26 +115,25 @@ static sfd::Result<void> parse_partitions_xml_result(const std::string& pxml,
             gui_idle_call_wait_drag([]()
             {
                 showErrorDialog(
-                    GTK_WINDOW(helper.getWidget("main_window")), "Error",
+                    GTK_WINDOW(helper.getWidget("main_window")),
+                    "Error",
                     _("No <Partition> elements inside <Partitions>."));
             }, GTK_WINDOW(helper.getWidget("main_window")));
-        return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "xml: no Partition elements");
+        return sfd::Result<void>::error(sfd::ErrorCode::ParseError,
+                                        "xml: no Partition elements");
     }
 
-    // 3. 准备 buf（与原函数一致）
+    // 3. 准备 buf
     uint32_t buf_size = 0xffff;
     uint8_t* buf_orig = NEWN uint8_t[0x4c * 128];
     uint8_t* buf = buf_orig;
     int found = 0;
 
-    // 4. 遍历每个 Partition，提取 id 和 size 属性
-    for (auto& partNode : partitionNodes)
+    // 4. 遍历每个 <Partition>
+    for (xmlNodePtr partNode : partitionNodes)
     {
-        // 提取 id 属性（原函数通过 sscanf 读取 name）
-        std::string id;
-        auto it_id = partNode->attributes.find("id");
-        if (it_id != partNode->attributes.end())
-            id = it_id->second;
+        // 提取 id
+        std::string id = xmlutil::prop(partNode, "id");
         if (id.empty())
         {
             DEG_LOG(E, "Partition missing id attribute\n");
@@ -117,18 +141,17 @@ static sfd::Result<void> parse_partitions_xml_result(const std::string& pxml,
                 gui_idle_call_wait_drag([]()
                 {
                     showErrorDialog(
-                        GTK_WINDOW(helper.getWidget("main_window")), "Error",
+                        GTK_WINDOW(helper.getWidget("main_window")),
+                        "Error",
                         _("Partition element missing 'id' attribute."));
                 }, GTK_WINDOW(helper.getWidget("main_window")));
             delete[] buf_orig;
-            return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "xml: missing id");
+            return sfd::Result<void>::error(sfd::ErrorCode::ParseError,
+                                            "xml: missing id");
         }
 
-        // 提取 size 属性，支持十进制和十六进制（如 0xffffffff）
-        std::string sizeStr;
-        auto it_size = partNode->attributes.find("size");
-        if (it_size != partNode->attributes.end())
-            sizeStr = it_size->second;
+        // 提取 size
+        std::string sizeStr = xmlutil::prop(partNode, "size");
         if (sizeStr.empty())
         {
             DEG_LOG(E, "Partition missing size attribute\n");
@@ -136,29 +159,35 @@ static sfd::Result<void> parse_partitions_xml_result(const std::string& pxml,
                 gui_idle_call_wait_drag([]()
                 {
                     showErrorDialog(
-                        GTK_WINDOW(helper.getWidget("main_window")), "Error",
+                        GTK_WINDOW(helper.getWidget("main_window")),
+                        "Error",
                         _("Partition element missing 'size' attribute."));
                 }, GTK_WINDOW(helper.getWidget("main_window")));
             delete[] buf_orig;
-            return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "xml: missing size");
+            return sfd::Result<void>::error(sfd::ErrorCode::ParseError,
+                                            "xml: missing size");
         }
 
-        char* endptr;
-        long long size = strtoll(sizeStr.c_str(), &endptr, 0); // base=0 自动识别 0x 前缀
-        if (*endptr != '\0' && !isspace(static_cast<unsigned char>(*endptr)))
+        char* endptr = nullptr;
+        long long size = strtoll(sizeStr.c_str(), &endptr, 0);
+        if (*endptr != '\0' &&
+            !isspace(static_cast<unsigned char>(*endptr)))
         {
             DEG_LOG(E, "Invalid size value\n");
             if (isHelperInit)
                 gui_idle_call_wait_drag([]()
                 {
                     showErrorDialog(
-                        GTK_WINDOW(helper.getWidget("main_window")), "Error", _("Invalid size value in Partition."));
+                        GTK_WINDOW(helper.getWidget("main_window")),
+                        "Error",
+                        _("Invalid size value in Partition."));
                 }, GTK_WINDOW(helper.getWidget("main_window")));
             delete[] buf_orig;
-            return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "xml: bad size");
+            return sfd::Result<void>::error(sfd::ErrorCode::ParseError,
+                                            "xml: bad size");
         }
 
-        // 检查剩余缓冲区容量（每个分区固定 0x4c 字节）
+        // 剩余缓冲区容量
         if (buf_size < 0x4c)
         {
             DEG_LOG(E, "Too many partitions\n");
@@ -166,42 +195,34 @@ static sfd::Result<void> parse_partitions_xml_result(const std::string& pxml,
                 gui_idle_call_wait_drag([]()
                 {
                     showErrorDialog(
-                        GTK_WINDOW(helper.getWidget("main_window")), "Error", _("Too many partitions in XML file."));
+                        GTK_WINDOW(helper.getWidget("main_window")),
+                        "Error",
+                        _("Too many partitions in XML file."));
                 }, GTK_WINDOW(helper.getWidget("main_window")));
             delete[] buf_orig;
-            return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "xml: too many partitions");
+            return sfd::Result<void>::error(sfd::ErrorCode::ParseError,
+                                            "xml: too many partitions");
         }
         buf_size -= 0x4c;
 
-        // 填充名称区域（36 个宽字符，共 72 字节），每个字符的低字节存 ASCII，高字节清零
+        // 名称区域：36 个宽字符，共 72 字节
         memset(buf, 0, 36 * 2);
         for (size_t i = 0; i < id.size() && i < 36; ++i)
         {
             buf[i * 2] = static_cast<uint8_t>(id[i]);
         }
-        if (id.empty())
-        {
-            DEG_LOG(E, "Empty partition name\n");
-            if (isHelperInit)
-                gui_idle_call_wait_drag([]()
-                {
-                    showErrorDialog(
-                        GTK_WINDOW(helper.getWidget("main_window")), "Error",
-                        _("Empty partition name found in XML file."));
-                }, GTK_WINDOW(helper.getWidget("main_window")));
-            delete[] buf_orig;
-            return sfd::Result<void>::error(sfd::ErrorCode::ParseError, "xml: empty partition name");
-        }
 
-        // 写入原始 size（小端，偏移 0x48），与原函数 WRITE32_LE(buf + 0x48, size) 一致
+        // 写入 size（LE，偏移 0x48）
         WRITE32_LE(buf + 0x48, static_cast<uint32_t>(size));
 
-        // 填充 pacptable 结构：名称拷贝，size 左移 20 位（对应原函数 (*(pacptable + found)).size = size << 20）
-        strncpy(pacptable[found].name, id.c_str(), sizeof(pacptable[found].name) - 1);
+        // 填充 pacptable
+        strncpy(pacptable[found].name, id.c_str(),
+                sizeof(pacptable[found].name) - 1);
         pacptable[found].name[sizeof(pacptable[found].name) - 1] = '\0';
         pacptable[found].size = size << 20;
 
-        DBG_LOG("[%d] %s, %d\n", found + 1, pacptable[found].name, (int)size);
+        DBG_LOG("[%d] %s, %d\n",
+                found + 1, pacptable[found].name, (int)size);
 
         buf += 0x4c;
         ++found;
@@ -214,12 +235,48 @@ static sfd::Result<void> parse_partitions_xml_result(const std::string& pxml,
 
 std::string ExtractPartitionsWithTags(const std::string& xmlContent)
 {
-    XmlParser parser;
-    auto root = parser.parseString(xmlContent);
-    if (!root) return "";
-    auto partitions = root->getFirstDescendant("Partitions");
-    if (!partitions) return "";
-    return partitions->toXml(); // 直接调用 toXml()
+    if (xmlContent.empty()) return "";
+
+    // 用内存解析，禁止网络实体
+    xmlDocPtr doc = xmlReadMemory(
+        xmlContent.c_str(),
+        static_cast<int>(xmlContent.size()),
+        "inline.xml",
+        nullptr,
+        XML_PARSE_NONET | XML_PARSE_NOERROR | XML_PARSE_NOWARNING);
+
+    if (!doc) return "";
+
+    xmlNodePtr root = xmlDocGetRootElement(doc);
+    if (!root) {
+        xmlFreeDoc(doc);
+        return "";
+    }
+
+    // 递归查找第一个 <Partitions>
+    xmlNodePtr partitions = xmlutil::findFirstDescendant(root, "Partitions");
+    if (!partitions) {
+        xmlFreeDoc(doc);
+        return "";
+    }
+
+    // 序列化该子树（含自身标签）
+    xmlBufferPtr buf = xmlBufferCreate();
+    if (!buf) {
+        xmlFreeDoc(doc);
+        return "";
+    }
+
+    // 参数：buffer, doc, node, indent_level=0, format=1
+    xmlNodeDump(buf, doc, partitions, 0, 1);
+
+    std::string result(
+        reinterpret_cast<const char*>(xmlBufferContent(buf)),
+        xmlBufferLength(buf));
+
+    xmlBufferFree(buf);
+    xmlFreeDoc(doc);
+    return result;
 }
 
 std::string FindFirstXMLFile(const std::string& folderPath)
@@ -340,6 +397,7 @@ bool pac_extract(const char* fn, const char* folder)
         DEG_LOG(E, "Failed to open xml for reading");
         return false;
     }
+    file.close();
     g_app_state.flash.pac_xmlPath = xmlPath;
     if (!g_app_state.pacXml.loadFromFile(xmlPath))
     {
@@ -353,7 +411,13 @@ bool pac_extract(const char* fn, const char* folder)
             std::endl;
     }
     std::string content;
-    content = file.read_all_chunked();
+    EnhancedFile file2 = oxfopen_enhanced(xmlPath.c_str(), "r");
+    if (!file2)
+    {
+        DEG_LOG(E, "Failed to open xml for reading");
+        return false;
+    }
+    content = file2.read_all_chunked();
     std::string partxml = ExtractPartitionsWithTags(content);
     if (partxml.empty())
     {
