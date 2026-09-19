@@ -45,6 +45,7 @@ jobs:
         if: matrix.arch == 'x64'
         shell: pwsh
         run: |
+          # GTK4将会安装libxml2，不需要显式安装。
           $msysPath = "C:\msys64"
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -Sy --noconfirm"
           & "$msysPath\usr\bin\bash.exe" -lc "pacman -S --noconfirm --needed mingw-w64-x86_64-cmake mingw-w64-x86_64-nlohmann-json mingw-w64-x86_64-gtk4 mingw-w64-x86_64-toolchain mingw-w64-x86_64-pkg-config"
