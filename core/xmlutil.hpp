@@ -195,7 +195,7 @@ namespace xmlutil
     // 从文件加载文档（失败返回空指针）
     inline DocPtr loadFile(const std::string& filename)
     {
-        EnhancedFile fi = oxfopen_enhanced(filename.c_str(), "r");
+        EnhancedFile fi = oxfopen_enhanced(filename.c_str(), "rb");
         if (!fi) return nullptr;
         std::string content = fi.read_all_chunked();
         return loadString(content);
