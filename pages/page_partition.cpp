@@ -661,6 +661,7 @@ inspect_backup_folder(const std::string& folder,
             if (item.note.empty())
             {
                 if (item.empty_file) item.note = _("Image file is empty.");
+                else if (item.expected_size == 0) item.note = _("Partition size is unknown or partition does not exist.");
                 else if (!item.size_match) item.note = _("Image size does not match the current partition size.");
                 if (item.all_zero)
                 {
