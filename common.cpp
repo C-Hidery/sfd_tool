@@ -1039,16 +1039,14 @@ int scan_xml_partitions(spdio_t* io, const char* fn,
 {
     if (!fn) { ERR_EXIT("null filename\n"); return -1; }
 
-    xmlDocPtr doc = xmlReadFile(fn, nullptr,
-        XML_PARSE_NONET | XML_PARSE_NOERROR | XML_PARSE_NOWARNING);
+    auto doc = xmlutil::loadFile(fn);
     if (!doc)
     {
         ERR_EXIT("loadfile failed\n");
         return -1;
     }
 
-    int n = scan_partitions_from_doc(doc, io, buf, buf_size);
-    xmlFreeDoc(doc);
+    int n = scan_partitions_from_doc(doc.get(), io, buf, buf_size);
     return n;
 }
 
@@ -1061,20 +1059,14 @@ int scan_xml_partitions_from_string(spdio_t* io, const std::string& xml_text,
         return -1;
     }
 
-    xmlDocPtr doc = xmlReadMemory(
-        xml_text.c_str(),
-        static_cast<int>(xml_text.size()),
-        "inline.xml",
-        nullptr,
-        XML_PARSE_NONET | XML_PARSE_NOERROR | XML_PARSE_NOWARNING);
+    auto doc = xmlutil::loadString(xml_text);
     if (!doc)
     {
         ERR_EXIT("Failed to parse XML\n");
         return -1;
     }
 
-    int n = scan_partitions_from_doc(doc, io, buf, buf_size);
-    xmlFreeDoc(doc);
+    int n = scan_partitions_from_doc(doc.get(), io, buf, buf_size);
     return n;
 }
 
@@ -2766,17 +2758,15 @@ void start_signal()
 void dump_partitions(spdio_t* io, const char* fn, int* nand_info, unsigned step)
 {
     // 1. 解析 XML 文件
-    xmlDocPtr doc = xmlReadFile(fn, nullptr,
-        XML_PARSE_NONET | XML_PARSE_NOERROR | XML_PARSE_NOWARNING);
+    auto doc = xmlutil::loadFile(fn);
     if (!doc)
     {
         ERR_EXIT("Failed to parse XML file\n");
     }
 
-    xmlNodePtr root = xmlDocGetRootElement(doc);
+    xmlNodePtr root = xmlDocGetRootElement(doc.get());
     if (!root)
     {
-        xmlFreeDoc(doc);
         ERR_EXIT("Failed to parse XML file\n");
     }
 
@@ -2786,12 +2776,10 @@ void dump_partitions(spdio_t* io, const char* fn, int* nand_info, unsigned step)
 
     if (partitionsNodes.empty())
     {
-        xmlFreeDoc(doc);
         ERR_EXIT("No <Partitions> element found\n");
     }
     if (partitionsNodes.size() > 1)
     {
-        xmlFreeDoc(doc);
         ERR_EXIT("xml: more than one partition lists\n");
     }
 
@@ -2809,7 +2797,6 @@ void dump_partitions(spdio_t* io, const char* fn, int* nand_info, unsigned step)
         std::string id = xmlutil::prop(partNode, "id");
         if (id.empty())
         {
-            xmlFreeDoc(doc);
             delete[] partitionsArr;
             ERR_EXIT("Partition missing id attribute\n");
         }
@@ -2817,7 +2804,6 @@ void dump_partitions(spdio_t* io, const char* fn, int* nand_info, unsigned step)
         std::string sizeStr = xmlutil::prop(partNode, "size");
         if (sizeStr.empty())
         {
-            xmlFreeDoc(doc);
             delete[] partitionsArr;
             ERR_EXIT("Partition missing size attribute\n");
         }
@@ -2826,7 +2812,6 @@ void dump_partitions(spdio_t* io, const char* fn, int* nand_info, unsigned step)
         long long size = strtoll(sizeStr.c_str(), &endptr, 0);
         if (*endptr != '\0' && !isspace(static_cast<unsigned char>(*endptr)))
         {
-            xmlFreeDoc(doc);
             delete[] partitionsArr;
             ERR_EXIT("Invalid size value\n");
         }
@@ -2837,9 +2822,6 @@ void dump_partitions(spdio_t* io, const char* fn, int* nand_info, unsigned step)
         partitionsArr[found].size = size;
         found++;
     }
-
-    xmlFreeDoc(doc);   // 解析完就可以释放，后面不再需要 XML 树
-    doc = nullptr;
 
     // ---------- 以下逻辑与原函数完全一致 ----------
     int ubi = 0;

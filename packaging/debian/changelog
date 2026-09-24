@@ -1,3 +1,9 @@
+sfd-tool (3.1.4-1-ltv) unstable; urgency=medium
+
+  * 修复了一些已知问题
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Thu, 24 Sep 2026 18:57:05 +0800
+
 sfd-tool (3.1.3-1-ltv) unstable; urgency=medium
 
   * 使用libxml2解析xml
