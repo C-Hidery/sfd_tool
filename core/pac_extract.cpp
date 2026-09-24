@@ -41,12 +41,7 @@ static sfd::Result<void> parse_partitions_xml_result(const std::string& pxml,
                                                      int* pac_part_count)
 {
     // 1. 解析 XML（RAII 管理 doc 生命周期）
-    xmlutil::DocPtr doc(xmlReadMemory(
-        pxml.c_str(),
-        static_cast<int>(pxml.size()),
-        "pac.xml",
-        nullptr,
-        XML_PARSE_NONET | XML_PARSE_NOERROR | XML_PARSE_NOWARNING));
+    auto doc = xmlutil::loadString(pxml, "pac_partitions.xml");
 
     if (!doc)
     {

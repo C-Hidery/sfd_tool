@@ -41,37 +41,27 @@ struct ProductInfo {
     std::string schemeName;
 };
 
-#include "xmlutil.hpp"
-
 // ==================== PAC XML 解析器 ====================
 
 class PacXMLParser {
 public:
     bool loadFromFile(const std::string& filename) {
-        // XML_PARSE_NONET   : 禁止网络实体（安全）
-        // XML_PARSE_NOERROR : 不向 stderr 打印错误（自己处理）
-        xmlDocPtr doc = xmlReadFile(filename.c_str(), nullptr,
-            XML_PARSE_NONET | XML_PARSE_NOERROR | XML_PARSE_NOWARNING);
+        auto doc = xmlutil::loadFile(filename);
         if (!doc) {
             std::cerr << "Failed to parse XML: " << filename << std::endl;
             return false;
         }
-        bool ok = parseDoc(doc);
-        xmlFreeDoc(doc);
+        bool ok = parseDoc(doc.get());
         return ok;
     }
 
     bool loadFromString(const std::string& xmlContent) {
-        xmlDocPtr doc = xmlReadMemory(xmlContent.c_str(),
-            static_cast<int>(xmlContent.size()),
-            "pac.xml", nullptr,
-            XML_PARSE_NONET | XML_PARSE_NOERROR | XML_PARSE_NOWARNING);
+        auto doc = xmlutil::loadString(xmlContent);
         if (!doc) {
             std::cerr << "Failed to parse XML from string" << std::endl;
             return false;
         }
-        bool ok = parseDoc(doc);
-        xmlFreeDoc(doc);
+        bool ok = parseDoc(doc.get());
         return ok;
     }
 
