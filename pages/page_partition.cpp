@@ -310,17 +310,10 @@ bool is_critical_partition_name(const std::string& name)
     return false;
 }
 
-static std::uint64_t expected_backup_image_size(const std::string& partition_name,
-                                                std::uint64_t partition_size)
+static std::uint64_t expected_backup_image_size(const std::string& partition_name)
 {
-    std::string lower = partition_name;
-    std::transform(lower.begin(), lower.end(), lower.begin(),
-                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    if (lower.find("nv1") != std::string::npos && partition_size > 512ULL)
-    {
-        return partition_size - 512ULL;
-    }
-    return partition_size;
+    if (!io) return 0;
+    return check_partition(io, partition_name.c_str(), 1);
 }
 
 static int partition_image_priority_from_extension(std::string ext)
@@ -571,7 +564,7 @@ inspect_backup_folder(const std::string& folder,
             // 构造 BackupInspectionItem
             BackupInspectionItem item;
             item.part = part;
-            item.expected_size = expected_backup_image_size(part.name, part.size);
+            item.expected_size = expected_backup_image_size(part.name);
             item.is_critical = is_critical_partition_name(part.name);
             item.matched = true;
             item.image_path = it->second.path;
@@ -645,7 +638,7 @@ inspect_backup_folder(const std::string& folder,
             const std::string& fname = matching_files[0];
             BackupInspectionItem item;
             item.part = part;
-            item.expected_size = expected_backup_image_size(part.name, part.size);
+            item.expected_size = expected_backup_image_size(part.name);
             item.is_critical = is_critical_partition_name(part.name);
             item.matched = true;
             item.image_path = image_files[fname].path;
