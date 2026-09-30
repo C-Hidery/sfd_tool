@@ -2656,10 +2656,11 @@ int main_console(int argc, char** argv)
                                         uint64_t size = 0;
                                         uint8_t* NVmem = dump_flash_to_mem(io, f.addr[0], 0,
                                             f.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, 0, &size);
+                                        if (!size) { if (NVmem) delete[] NVmem; continue;}
                                         unpac.u16_to_u8(str_buf, sizeof(str_buf), f.name, 256);
                                         if (!str_buf[0]) { if (NVmem) delete[] NVmem; continue;}
                                         if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
-                                            size_t a_size = 0, b_size = 0, c_size = 0;
+                                            size_t a_size = size, b_size = 0, c_size = 0;
                                             uint8_t *a = NVmem;
 #ifndef _WIN32
                                             uint8_t *b = loadfile((g_app_state.flash.pac_folder + "/" + std::string(str_buf)).c_str(), &b_size, 0);
@@ -3349,7 +3350,7 @@ int main_console(int argc, char** argv)
             }
             else if (io->part_count_c)
             {
-                DEG_LOG(W, "compatibility-method mode detected,for security,recommanded not to force write!");
+                DEG_LOG(W, "compatibility-method mode detected,for security, recommended not to force write!");
                 if (check_confirm("Force write partition") == 0)
                 {
                     argc -= 3;
@@ -3508,7 +3509,7 @@ int main_console(int argc, char** argv)
             }
             if (get_nvlist_xml(io, str2[2]))
             {
-                size_t a_size = 0, b_size = 0, c_size = 0;
+                size_t a_size = size, b_size = 0, c_size = 0;
                 uint8_t* a = mem;
                 uint8_t* b = loadfile(str2[3], &b_size, 0);
                 uint8_t* c = (uint8_t*)malloc(a_size + b_size);
@@ -3589,7 +3590,7 @@ int main_console(int argc, char** argv)
             }
             if (get_nvlist_cfg(io, str2[2]))
             {
-                size_t a_size = 0, b_size = 0, c_size = 0;
+                size_t a_size = size, b_size = 0, c_size = 0;
                 uint8_t* a = mem;
                 uint8_t* b = loadfile(str2[3], &b_size, 0);
                 uint8_t* c = (uint8_t*)malloc(a_size + b_size);

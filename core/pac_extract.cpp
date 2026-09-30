@@ -970,8 +970,8 @@ bool pac_flash(spdio_t* io, const char* folder)
                 if (file.type == 0 || file.type == 0x101 || file.type == 2) continue;
                 if (!strncmp(chr_buf, "FDL", 3)) continue;
                 std::string partition = g_app_state.pacXml.getPartitionByOperation(chr_buf);
-                gui_idle_call([chr_buf, partition](){ bottom_bar_set_status("PAC Flashing: " + std::string(chr_buf) + " -> " + partition); });
                 if (partition.empty()) continue;
+                gui_idle_call([chr_buf, partition](){ bottom_bar_set_status("PAC Flashing: " + std::string(chr_buf) + " -> " + partition); });
                 if (!strcmp(partition.c_str(), "miscdata") && hasPartition(
                     g_app_state.flash.pacptable, "miscdata"))
                 {
@@ -1005,7 +1005,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                                 }
                                 if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str()))
                                 {
-                                    size_t a_size = 0, b_size = 0, c_size = 0;
+                                    size_t a_size = g_app_state.pac.nr_fixnv1_mem_size, b_size = 0, c_size = 0;
                                     uint8_t* a = g_app_state.pac.nr_fixnv1_mem;
 #ifndef _WIN32
                                     std::string file_path = g_app_state.flash.pac_folder + "/" + std::string(
@@ -1041,7 +1041,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                                 if (!chr_buf[0]) continue;
                                 if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str()))
                                 {
-                                    size_t a_size = 0, b_size = 0, c_size = 0;
+                                    size_t a_size = g_app_state.pac.l_fixnv1_mem_size, b_size = 0, c_size = 0;
                                     uint8_t* a = g_app_state.pac.l_fixnv1_mem;
 #ifndef _WIN32
                                     std::string file_path = g_app_state.flash.pac_folder + "/" + std::string(
@@ -1124,7 +1124,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                             {
                                 if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str()))
                                 {
-                                    size_t a_size = 0, b_size = 0, c_size = 0;
+                                    size_t a_size = g_app_state.pac.downloadnv_mem_size, b_size = 0, c_size = 0;
                                     uint8_t* a = g_app_state.pac.downloadnv_mem;
 #ifndef _WIN32
                                     std::string file_path = g_app_state.flash.pac_folder + "/" + std::string(
