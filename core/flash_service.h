@@ -33,23 +33,6 @@ struct FlashStatus {
     std::string message;  // 用于日志和 UI 展示
 };
 
-// PAC 文件的基础元信息
-struct PacMetadata {
-    std::string path;
-    std::string product_name;
-    std::string version;
-    std::uint64_t file_size = 0;
-};
-
-// PAC 内单个分区条目（供 UI 选择用）
-struct PacPartitionEntry {
-    std::string name;          // 分区名
-    std::string file_name;     // PAC 中对应镜像名
-    std::uint64_t image_size = 0;
-    bool enabled_by_default = true;
-    bool critical = false;     // 如 spl/bootloader 等关键分区
-};
-
 // 当前设备上的分区视图（来自 GPT/Cptable 等）
 struct DevicePartitionInfo {
     std::string name;
@@ -65,35 +48,6 @@ enum class SlotSelection {
     SlotA = 1,
     SlotB = 2,
 };
-
-// 一次 PAC 刷机的高层选项
-struct FlashPacOptions {
-    std::string pac_path;
-
-    // 为空表示按 PAC 默认刷写全部分区
-    std::vector<std::string> selected_partitions;
-
-    SlotSelection slot_selection = SlotSelection::Auto;
-
-    bool verify_after_flash = true;
-    bool backup_before_flash = false;
-
-    // 兼容模式 / CMethod 等开关
-    bool compatibility_mode = false;
-};
-
-// PAC 刷机阶段枚举，用于表达清晰的高层阶段语义
-enum class FlashPacStage {
-    ValidateContext,
-    ValidatePac,
-    ExtractPac,
-    ConfigureState,
-    ExecuteFlash,
-    Done,
-};
-
-// PAC 刷机阶段回调，用于 UI 展示进度/阶段信息
-using FlashPacStageCallback = std::function<void(FlashPacStage)>;
 
 // 单分区读写/备份选项
 struct PartitionIoOptions {
