@@ -1,3 +1,9 @@
+sfd-tool (3.1.7-1-ltv) unstable; urgency=medium
+
+  * 修复了一些已知问题
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Fri, 02 Oct 2026 22:59:31 +0800
+
 sfd-tool (3.1.6-1-ltv) unstable; urgency=medium
 
   * 修复NV合并问题 (aa8c1b0b2)

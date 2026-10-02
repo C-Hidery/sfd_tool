@@ -75,7 +75,6 @@ public:
 private:
     EnhancedFile fp;
 #ifndef _WIN32
-    std::string m_outputDir;      // 由 setDirectory 设置
     std::string m_originalCwd;    // 保存原始工作目录，用于恢复
 #else
     std::wstring m_outputDir;      // 由 setDirectory 设置
@@ -88,7 +87,7 @@ private:
     static int check_path(const char* path);
 
     bool parseDirectory();
-    bool extractFile(const sprd_file_t& file) const;
+    bool extractFile(const sprd_file_t& file);
 #ifndef _WIN32
     bool changeToDirectory(const char* dir);       // 内部切换（平台无关）
 #else

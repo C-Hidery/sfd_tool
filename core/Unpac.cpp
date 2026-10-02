@@ -80,7 +80,6 @@ PacFile::PacFile(PacFile&& other) noexcept
     , fileCount(other.fileCount)
     , head(other.head)
     , fp(std::move(other.fp))
-    , m_outputDir(std::move(other.m_outputDir))
     , m_originalCwd(std::move(other.m_originalCwd))
 
 {
@@ -99,7 +98,6 @@ PacFile& PacFile::operator=(PacFile&& other) noexcept {
         fileCount = other.fileCount;
         head = other.head;
         fp = std::move(other.fp);
-        m_outputDir = std::move(other.m_outputDir);
         m_originalCwd = std::move(other.m_originalCwd);
 
         // 重置源对象
@@ -165,6 +163,8 @@ bool PacFile::restoreDirectory() {
 }
 // ---------- 加载 PAC 文件 ----------
 bool PacFile::load(const char* filename) {
+    if (files) { free(files); files = nullptr; }
+    fileCount = 0;
     if (fp) { fp.close(); }
     fp = oxfopen_enhanced(filename, "rb");
     if (!fp) {
@@ -266,10 +266,10 @@ void PacFile::list(const char* pattern) const {
         {
             printf("type = %u",  f.type);
         }
-        long long size = (long long)f.size_high << 32 | f.size;
-        if (size) printf(", size = 0x%llx", size);
-        long long offset = (long long)f.pac_offset_high << 32 | f.pac_offset;
-        if (offset) printf(", offset = 0x%llx", offset);
+        uint64_t size = (uint64_t)f.size_high << 32 | f.size;
+        if (size) printf(", size = 0x%lu", size);
+        uint64_t offset = (uint64_t)f.pac_offset_high << 32 | f.pac_offset;
+        if (offset) printf(", offset = 0x%lu", offset);
 
         if (f.addr_num <= 5) {
             for (unsigned j = 0; j < f.addr_num; ++j) {
@@ -297,10 +297,15 @@ bool PacFile::extract(const char* outputDir, const char* pattern) {
         fprintf(stderr, "No PAC file loaded\n");
         return false;
     }
-#ifndef _WIN32
-    const char* useDir = outputDir;
+#ifdef _WIN32
+    std::wstring wdir;
+    const wchar_t* useDir = nullptr;
+    if (outputDir) {
+        wdir = utf8_to_utf16(outputDir);
+        useDir = wdir.c_str();
+    }
 #else
-    const wchar_t* useDir = utf8_to_utf16(std::string(outputDir)).c_str();
+    const char* useDir = outputDir;
 #endif
     // 切换工作目录（如果指定了输出目录）
     bool dirSwitched = false;
@@ -353,13 +358,20 @@ bool PacFile::extract(const char* outputDir, const char* pattern) {
     return true;
 }
 
-bool PacFile::extractFile(const sprd_file_t& file) const {
+bool PacFile::extractFile(const sprd_file_t& file) {
     char str_buf[257];
     u16_to_u8(str_buf, sizeof(str_buf), file.name, 256);
 
     // 定位到数据偏移
-    long long pac_offset = (long long)file.pac_offset_high << 32 | file.pac_offset;
-    if (fseeko(fp, pac_offset, SEEK_SET) != 0) {
+    uint64_t pac_offset = ((uint64_t)file.pac_offset_high << 32) | file.pac_offset;
+
+    if (pac_offset > (uint64_t)INT64_MAX) {
+        fprintf(stderr, "pac_offset too large: 0x%llx\n",
+                (unsigned long long)pac_offset);
+        return false;
+    }
+
+    if (fp.seeko(static_cast<int64_t>(pac_offset), SEEK_SET) != 0) {
         fprintf(stderr, "fseek to data offset failed\n");
         return false;
     }
@@ -370,7 +382,7 @@ bool PacFile::extractFile(const sprd_file_t& file) const {
         return false;
     }
 
-    uint64_t remaining = (long long)file.size_high << 32 | file.size;
+    uint64_t remaining = (uint64_t)file.size_high << 32 | file.size;
     const uint64_t chunk = 0x1000;
     uint8_t* buf = (uint8_t*)malloc(chunk);
     if (!buf) {
