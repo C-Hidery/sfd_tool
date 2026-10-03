@@ -128,8 +128,8 @@ msgid "Partition erase completed!"
 msgstr "分区擦除完成！"
 
 #: main.cpp:465 main.cpp:651 main.cpp:831 main.cpp:978
-msgid "No partition table loaded, cannot modify partition size!"
-msgstr "当前未加载分区表，无法修改分区大小！"
+msgid "No partition table loaded or now in compatibility-method-PartList mode, cannot modify partition size!"
+msgstr "当前未加载分区表或当前处于兼容性分区表模式，无法修改分区大小！"
 
 #: main.cpp:481 main.cpp:667 main.cpp:993
 msgid "Please fill in complete modification info!"
@@ -142,12 +142,6 @@ msgstr "请输入合法的新大小！"
 #: main.cpp:489 main.cpp:675 main.cpp:843 main.cpp:996
 msgid "Modify partition table"
 msgstr "修改分区表"
-
-#: main.cpp:491 main.cpp:677 main.cpp:845 main.cpp:998
-msgid ""
-"Currently in compatibility-method-PartList mode, modifying partition may "
-"brick the device!"
-msgstr "当前处于兼容分区表模式，修改分区可能会导致设备变砖！"
 
 #: main.cpp:504 main.cpp:557
 msgid "Partition does not exist!"
@@ -1302,3 +1296,9 @@ msgstr "检测到RDA分区表型的PAC固件，请在 CLI 模式下操作（通�
 
 msgid "Partition size is unknown or partition does not exist."
 msgstr "分区大小未知或分区不存在。"
+
+msgid "Repartition completed, and Compatibility-method mode disabled!"
+msgstr "重新分区完成，兼容模式已关闭!"
+
+msgid "Read completed, and Compatibility-method mode disabled!"
+msgstr "读取完成，兼容模式已关闭!"

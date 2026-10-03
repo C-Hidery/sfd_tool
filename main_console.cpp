@@ -3019,6 +3019,14 @@ int main_console(int argc, char** argv)
             fi.close();
             if (skip_confirm) repartition(io, str2[2]);
             else if (check_confirm("repartition")) repartition(io, str2[2]);
+            if (isCMethod && io->Cptable && io->part_count)
+            {
+                delete[] io->Cptable;
+                io->Cptable = nullptr;
+                io->part_count_c = 0;
+                isCMethod = 0;
+                DEG_LOG(I, "Compatibility-method mode disabled.");
+            }
             argc -= 2;
             argv += 2;
         }
@@ -4000,6 +4008,7 @@ int main_console(int argc, char** argv)
                 io->Cptable = nullptr;
                 io->part_count_c = 0;
                 isCMethod = 0;
+                DEG_LOG(I, "Compatibility-method mode disabled.");
             }
             argc -= 2;
             argv += 2;
