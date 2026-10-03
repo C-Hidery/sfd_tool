@@ -45,6 +45,8 @@ typedef struct {
 } sprd_file_t;
 #pragma pack(pop)
 
+#define MAX_U16_SN 256
+
 class PacFile {
 public:
     // 公有成员
@@ -70,7 +72,7 @@ public:
     // 校验数据 CRC
     [[nodiscard]] bool check() const;
 
-    static size_t u16_to_u8(char* d, size_t dn, const uint16_t* s, size_t sn);
+    static std::string u16_to_u8(const uint16_t* s, size_t sn);
 
 private:
     EnhancedFile fp;
@@ -87,7 +89,7 @@ private:
     static int check_path(const char* path);
 
     bool parseDirectory();
-    bool extractFile(const sprd_file_t& file);
+    bool extractFile(const sprd_file_t& file, const std::string& name);
 #ifndef _WIN32
     bool changeToDirectory(const char* dir);       // 内部切换（平台无关）
 #else

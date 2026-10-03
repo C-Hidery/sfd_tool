@@ -2425,20 +2425,19 @@ int main_console(int argc, char** argv)
                             std::string fdl2_path;
                             uint32_t fdl2_base_addr = 0;
                             PacFile& unpac = g_app_state.pacFile;
-                            char chr_buf[257] = {0};
                             for (int i = 0; i < unpac.fileCount; i++)
                             {
                                 const sprd_file_t& file = unpac.files[i];
                                 if (file.id[0])
                                 {
-                                    unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.id, 256);
-                                    if (!my_strnicmp(chr_buf, "FDL", 3))
+                                    if (!my_strnicmp(unpac.u16_to_u8(file.id, MAX_U16_SN).c_str(), "FDL", 3))
                                     {
-                                        unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
+                                        std::string name = unpac.u16_to_u8(file.name, MAX_U16_SN);
+                                        if (name.empty()) fdl1_path = "";
 #ifndef _WIN32
-                                        fdl1_path = g_app_state.flash.pac_folder + "/" + std::string(chr_buf);
+                                        else fdl1_path = g_app_state.flash.pac_folder + "/" + name;
 #else
-                                        fdl1_path = g_app_state.flash.pac_folder + "\\" + std::string(chr_buf);
+                                        else fdl1_path = g_app_state.flash.pac_folder + "\\" + name;
 #endif
                                         auto fdl1info = g_app_state.pacXml.getFileInfoByOperation("FDL");
                                         if (!fdl1info.blocks.empty())
@@ -2459,14 +2458,14 @@ int main_console(int argc, char** argv)
                                 const sprd_file_t& file = unpac.files[i];
                                 if (file.id[0])
                                 {
-                                    unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.id, 256);
-                                    if (!my_strnicmp(chr_buf, "FDL2", 4))
+                                    if (!my_strnicmp(unpac.u16_to_u8(file.id, MAX_U16_SN).c_str(), "FDL2", 4))
                                     {
-                                        unpac.u16_to_u8(chr_buf, sizeof(chr_buf), file.name, 256);
+                                        std::string name = unpac.u16_to_u8(file.name, MAX_U16_SN);
+                                        if (name.empty()) fdl2_path = "";
 #ifndef _WIN32
-                                        fdl2_path = g_app_state.flash.pac_folder + "/" + std::string(chr_buf);
+                                        else fdl2_path = g_app_state.flash.pac_folder + "/" + name;
 #else
-                                        fdl2_path = g_app_state.flash.pac_folder + "\\" + std::string(chr_buf);
+                                        else fdl2_path = g_app_state.flash.pac_folder + "\\" + name;
 #endif
                                         auto fdl2info = g_app_state.pacXml.getFileInfoByOperation("FDL2");
                                         if (!fdl2info.blocks.empty())
@@ -2636,14 +2635,13 @@ int main_console(int argc, char** argv)
                                 g_app_state.device.device_stage = FDL2;
                             }
                             DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
-                            char str_buf[257];
                             for (int o = 0; o < unpac.fileCount; ++o)
                             {
                                 const sprd_file_t& f = unpac.files[o];
                                 if (f.type == 0 || f.type == 0x101 || f.type == 2) continue; // No file or FDL or XML
-                                unpac.u16_to_u8(str_buf, sizeof(str_buf), f.id, 256);
-                                if (my_strnicmp(str_buf, "FDL", 3) == 0) continue;
-                                if (!my_stricmp(str_buf, "NV"))
+                                std::string id = unpac.u16_to_u8(f.id, MAX_U16_SN);
+                                if (my_strnicmp(id.c_str(), "FDL", 3) == 0) continue;
+                                if (!my_stricmp(id.c_str(), "NV"))
                                 {
                                     // Merge NV process
                                     bool mergenv = false;
@@ -2657,15 +2655,15 @@ int main_console(int argc, char** argv)
                                         uint8_t* NVmem = dump_flash_to_mem(io, f.addr[0], 0,
                                             f.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, 0, &size);
                                         if (!size) { if (NVmem) delete[] NVmem; continue;}
-                                        unpac.u16_to_u8(str_buf, sizeof(str_buf), f.name, 256);
-                                        if (!str_buf[0]) { if (NVmem) delete[] NVmem; continue;}
+                                        std::string name = unpac.u16_to_u8(f.name, MAX_U16_SN);
+                                        if (name.empty()) { if (NVmem) delete[] NVmem; continue;}
                                         if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
                                             size_t a_size = size, b_size = 0, c_size = 0;
                                             uint8_t *a = NVmem;
 #ifndef _WIN32
-                                            uint8_t *b = loadfile((g_app_state.flash.pac_folder + "/" + std::string(str_buf)).c_str(), &b_size, 0);
+                                            uint8_t *b = loadfile((g_app_state.flash.pac_folder + "/" + name).c_str(), &b_size, 0);
 #else
-                                            uint8_t *b = loadfile((g_app_state.flash.pac_folder + "\\" + std::string(str_buf)).c_str(), &b_size, 0);
+                                            uint8_t *b = loadfile((g_app_state.flash.pac_folder + "\\" + name).c_str(), &b_size, 0);
 #endif
                                             uint8_t *c = (uint8_t*)malloc(a_size + b_size);
                                             merge_nv(io, a, a_size, b, b_size, c, &c_size);
@@ -2677,13 +2675,12 @@ int main_console(int argc, char** argv)
                                         if (NVmem) delete[] NVmem;
                                     }
                                 }
-                                unpac.u16_to_u8(str_buf, sizeof(str_buf), f.name, 256);
-                                if (!str_buf[0]) continue;
+                                std::string name = unpac.u16_to_u8(f.name, MAX_U16_SN);
                                 size_t b_size = 0;
 #ifndef _WIN32
-                                uint8_t *b = loadfile((g_app_state.flash.pac_folder + "/" + std::string(str_buf)).c_str(), &b_size, 0);
+                                uint8_t *b = loadfile((g_app_state.flash.pac_folder + "/" + name).c_str(), &b_size, 0);
 #else
-                                uint8_t *b = loadfile((g_app_state.flash.pac_folder + "\\" + std::string(str_buf)).c_str(), &b_size, 0);
+                                uint8_t *b = loadfile((g_app_state.flash.pac_folder + "\\" + name).c_str(), &b_size, 0);
 #endif
                                 send_buf(io, f.addr[0], end_data, blk_size ? blk_size : DEFAULT_BLK_SIZE, b, b_size);
                                 DEG_LOG(OP, "Sent 0x%x to 0x%x.", b_size, f.addr[0]);
