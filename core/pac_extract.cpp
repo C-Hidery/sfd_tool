@@ -1008,7 +1008,6 @@ bool pac_flash(spdio_t* io, const char* folder)
                                     std::string file_path = g_app_state.flash.pac_folder + "/" + name;
 #else
                                     std::string file_path = g_app_state.flash.pac_folder + "\\" + name;
-                                        chr_buf);
 #endif
                                     uint8_t* b = loadfile(file_path.c_str(), &b_size, 0);
                                     uint8_t* c = (uint8_t*)malloc(a_size + b_size);
