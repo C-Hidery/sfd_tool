@@ -50,7 +50,7 @@ FILE *my_fopen(const char *fn, const char *mode) {
     if (savepath[0]) {
         size_t fn_len = strlen(fn);
         size_t path_len = strlen(savepath);
-        char* fix_fn = new char[path_len + fn_len + 3];
+        char* fix_fn = new (std::nothrow) char[path_len + fn_len + 3];
         if (!fix_fn) return nullptr;
         char* ch;
         if ((ch = const_cast<char*>(strrchr(fn, '/')))) 
