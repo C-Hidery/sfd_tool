@@ -283,8 +283,8 @@ msgid ""
 "No partition table found on current device, read partition list through "
 "compatibility method?\n"
 "Warn: This mode may not find all partitions on your device, use caution with "
-"force write or editing partition table!"
-msgstr "当前设备未找到分区表，是否通过兼容方式读取分区列表？\n警告：此模式可能无法找到设备上的所有分区，强制写入或修改分区表时请谨慎使用！"
+"force write!"
+msgstr "当前设备未找到分区表，是否通过兼容方式读取分区列表？\n警告：此模式可能无法找到设备上的所有分区，强制写入时请谨慎使用！"
 
 #: main.cpp:1796
 msgid ""

@@ -1937,7 +1937,7 @@ void confirm_partition_c(GtkWidgetHelper helper)
         GTK_WINDOW(helper.getWidget("main_window")),
         _("Confirm"),
         _(
-            "No partition table found on current device, read partition list through compatibility method?\nWarn: This mode may not find all partitions on your device, use caution with force write or editing partition table!")
+            "No partition table found on current device, read partition list through compatibility method?\nWarn: This mode may not find all partitions on your device, use caution with force write!")
     );
 
     // 根据结果继续执行
