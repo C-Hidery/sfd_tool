@@ -1204,7 +1204,7 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper)
                 },GTK_WINDOW(helper.getWidget("main_window")));
                 return;
             }
-            long long k = (*(io->ptable + i_part)).size << 20;
+            long long k = (*(io->ptable + i_part)).size;
             (*(io->ptable + i_part)).size = (long long)newSizeMB << 20;
             (*(io->ptable + i_se_part)).size = (*(io->ptable + i_se_part)).size + k - ((long long)newSizeMB << 20);
             // 创建文档与根节点
