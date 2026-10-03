@@ -307,13 +307,13 @@ bool PacFile::parseDirectory() {
     }
 
     // 定位到目录起始（应在头部之后）
-    if (fseek(fp, head.dir_offset, SEEK_SET) != 0) {
+    if (fp.seek(head.dir_offset, SEEK_SET) != 0) {
         fprintf(stderr, "fseek to directory failed\n");
         return false;
     }
 
     for (int i = 0; i < fileCount; ++i) {
-        if (fread(&files[i], sizeof(sprd_file_t), 1, fp) != 1) {
+        if (fp.read(&files[i], sizeof(sprd_file_t), 1) != 1) {
             fprintf(stderr, "fread(file entry) failed at index %d\n", i);
             return false;
         }
@@ -458,12 +458,12 @@ bool PacFile::extractFile(const sprd_file_t& file, const std::string& name) {
     while (remaining > 0) {
         size_t n = (remaining > chunk) ? (size_t)chunk : (size_t)remaining;
 
-        if (fread(buf, 1, n, fp) != n) {
+        if (fp.read(buf, 1, n) != n) {
             fprintf(stderr, "fread chunk failed\n");
             free(buf); fo.close();
             return false;
         }
-        if (fwrite(buf, 1, n, fo) != n) {
+        if (fo.write(buf, 1, n) != n) {
             fprintf(stderr, "fwrite failed\n");
             free(buf); fo.close();
             return false;
@@ -508,7 +508,7 @@ bool PacFile::check() {
     while (remaining > 0) {
         size_t n = (remaining > chunk) ? chunk : (size_t)remaining;
 
-        if (fread(buf, 1, n, fp) != n) {             // 参数顺序修正
+        if (fp.read(buf, 1, n) != n) {             // 参数顺序修正
             free(buf);
             return false;
         }
