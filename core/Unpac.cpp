@@ -477,7 +477,7 @@ bool PacFile::extractFile(const sprd_file_t& file, const std::string& name) {
 }
 
 // ---------- 校验数据 CRC ----------
-bool PacFile::check() const {
+bool PacFile::check() {
     if (!fp) return false;
 
     // 头部 CRC
@@ -494,7 +494,7 @@ bool PacFile::check() const {
         return false;
     }
 
-    if (fseeko(fp, sizeof(head), SEEK_SET) != 0) {   // 直接定位到数据区，去掉多余的 seek(0)
+    if (fp.seeko(sizeof(head), SEEK_SET) != 0) {   // 直接定位到数据区，去掉多余的 seek(0)
         fprintf(stderr, "fseek failed\n");
         return false;
     }

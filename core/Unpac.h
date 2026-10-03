@@ -70,7 +70,7 @@ public:
     bool extract(const char* outputDir = nullptr, const char* pattern = nullptr);
 
     // 校验数据 CRC
-    [[nodiscard]] bool check() const;
+    [[nodiscard]] bool check();
 
     static std::string u16_to_u8(const uint16_t* s, size_t sn);
 
