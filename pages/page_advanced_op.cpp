@@ -86,6 +86,14 @@ static void on_button_clicked_start_repart(GtkWidgetHelper helper) {
 	repartition(io, filePath.c_str());
 	showInfoDialog(GTK_WINDOW(parent), _(_(_(("Completed")))), _("Repartition completed!"));
 	refresh_partition_list(helper);
+	if (isCMethod && io->Cptable)
+	{
+		delete[] io->Cptable;
+		io->Cptable = nullptr;
+		io->part_count_c = 0;
+		isCMethod = 0;
+		showInfoDialogSyncInThread(GTK_WINDOW(parent), _("Info"), _("Repartition completed, and Compatibility-method mode disabled!"));
+	}
 }
 
 static void on_button_clicked_read_xml(GtkWidgetHelper helper) {

@@ -661,7 +661,9 @@ inspect_backup_folder(const std::string& folder,
             if (item.note.empty())
             {
                 if (item.empty_file) item.note = _("Image file is empty.");
-                else if (item.expected_size == 0) item.note = _("Partition size is unknown or partition does not exist.");
+                else if (item.expected_size == 0)
+                    item.note = _(
+                        "Partition size is unknown or partition does not exist.");
                 else if (!item.size_match) item.note = _("Image size does not match the current partition size.");
                 if (item.all_zero)
                 {
@@ -1128,10 +1130,10 @@ void confirm_erase_all_partitions(GtkWidgetHelper helper)
 
 void on_button_clicked_modify_part(GtkWidgetHelper helper)
 {
-    if (io->part_count == 0 && io->part_count_c == 0)
+    if (io->part_count == 0)
     {
         showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))),
-                        _("No partition table loaded, cannot modify partition size!"));
+                        _("No partition table loaded or now in compatibility-method-PartList mode, cannot modify partition size!"));
         return;
     }
     GtkWindow* window = GTK_WINDOW(helper.getWidget("main_window"));
@@ -1150,239 +1152,127 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper)
         showErrorDialog(window, _(_(_("Error"))), _("Please enter a valid new size!"));
         return;
     }
-    const bool use_cmethod = (isCMethod != 0);
-    bool i_is = true;
-    if (use_cmethod)
-    {
-        i_is = showConfirmDialog(window, _(_(_("Warning"))),
-                                 _(
-                                     "Currently in compatibility-method-PartList mode, modifying partition may brick the device!"));
-    }
-    if (!i_is)
-    {
-        set_partition_modify_busy(helper, false);
-        return;
-    }
     set_partition_modify_busy(helper, true);
-    std::thread([secondPartName, newSizeMB, window, helper, part_name, use_cmethod]()
+    std::thread([secondPartName, newSizeMB, window, helper, part_name]()
     {
         int i_part = 0;
         int i_se_part = 0;
-        if (!use_cmethod)
+
+        for (i_part = 0; i_part < io->part_count; i_part++)
         {
-            for (i_part = 0; i_part < io->part_count; i_part++)
+            if (!strcmp(part_name.c_str(), (*(io->ptable + i_part)).name))
             {
-                if (!strcmp(part_name.c_str(), (*(io->ptable + i_part)).name))
-                {
-                    break;
-                }
+                break;
             }
-            if (i_part == io->part_count)
-            {
-                DEG_LOG(E, "Partition not exist\n");
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Partition does not exist!"));
-                    set_partition_modify_busy(helper, false);
-                },GTK_WINDOW(helper.getWidget("main_window")));
-                return;
-            }
-            for (i_se_part = 0; i_se_part < io->part_count; i_se_part++)
-            {
-                if (!strcmp(secondPartName.c_str(), (*(io->ptable + i_se_part)).name))
-                {
-                    break;
-                }
-            }
-            if (i_se_part == io->part_count)
-            {
-                DEG_LOG(E, "Second partition not exist\n");
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Second partition does not exist!"));
-                    set_partition_modify_busy(helper, false);
-                },GTK_WINDOW(helper.getWidget("main_window")));
-                return;
-            }
-            long long k = (*(io->ptable + i_part)).size;
-            (*(io->ptable + i_part)).size = (long long)newSizeMB << 20;
-            (*(io->ptable + i_se_part)).size = (*(io->ptable + i_se_part)).size + k - ((long long)newSizeMB << 20);
-            // 创建文档与根节点
-            xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
-            if (!doc)
-            {
-                // 错误处理，与原代码保持一致
-                return /* 你的错误返回 */;
-            }
-            xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
-            xmlDocSetRootElement(doc, root);
-
-            // 遍历分区并添加子节点
-            for (int i = 0; i < io->part_count; i++)
-            {
-                xmlNodePtr partitionNode = xmlNewChild(
-                    root, nullptr, BAD_CAST"Partition", nullptr);
-
-                // 设置 id 属性
-                xmlNewProp(partitionNode, BAD_CAST"id",
-                           BAD_CAST io->ptable[i].name);
-
-                // 设置 size 属性
-                char sizeStr[32];
-                if (i + 1 == io->part_count)
-                {
-                    std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
-                }
-                else
-                {
-                    std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
-                                  static_cast<long long>(io->ptable[i].size >> 20));
-                }
-                xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
-            }
-
-            // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
-            xmlChar* xmlMem = nullptr;
-            int xmlSize = 0;
-            xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
-
-            std::string xmlStr;
-            if (xmlMem)
-            {
-                xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
-                xmlFree(xmlMem);
-            }
-            xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
-
-            // 交给原扫描器
-            uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
-            if (n <= 0)
-            {
-                DEG_LOG(E, "Failed to parse modified partition table\n");
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
-                    set_partition_modify_busy(helper, false);
-                },GTK_WINDOW(helper.getWidget("main_window")));
-                return;
-            }
-            encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-            if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
         }
-        else
+        if (i_part == io->part_count)
         {
-            for (i_part = 0; i_part < io->part_count_c; i_part++)
+            DEG_LOG(E, "Partition not exist\n");
+            gui_idle_call_wait_drag([window, helper]()
             {
-                if (!strcmp(part_name.c_str(), (*(io->Cptable + i_part)).name))
-                {
-                    break;
-                }
-            }
-            if (i_part == io->part_count_c)
+                showErrorDialog(window, _(_(_("Error"))), _("Partition does not exist!"));
+                set_partition_modify_busy(helper, false);
+            },GTK_WINDOW(helper.getWidget("main_window")));
+            return;
+        }
+        for (i_se_part = 0; i_se_part < io->part_count; i_se_part++)
+        {
+            if (!strcmp(secondPartName.c_str(), (*(io->ptable + i_se_part)).name))
             {
-                DEG_LOG(E, "Partition not exist\n");
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Partition does not exist!"));
-                    set_partition_modify_busy(helper, false);
-                },GTK_WINDOW(helper.getWidget("main_window")));
-                return;
+                break;
             }
-            for (i_se_part = 0; i_se_part < io->part_count_c; i_se_part++)
+        }
+        if (i_se_part == io->part_count)
+        {
+            DEG_LOG(E, "Second partition not exist\n");
+            gui_idle_call_wait_drag([window, helper]()
             {
-                if (!strcmp(secondPartName.c_str(), (*(io->Cptable + i_se_part)).name))
-                {
-                    break;
-                }
-            }
-            if (i_se_part == io->part_count_c)
-            {
-                DEG_LOG(E, "Second partition not exist\n");
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Second partition does not exist!"));
-                    set_partition_modify_busy(helper, false);
-                },GTK_WINDOW(helper.getWidget("main_window")));
-                return;
-            }
-            long long k = (*(io->Cptable + i_part)).size << 20;
-            (*(io->Cptable + i_part)).size = (long long)newSizeMB << 20;
-            (*(io->Cptable + i_se_part)).size = (*(io->Cptable + i_se_part)).size + k - ((long long)newSizeMB << 20);
-            // 创建文档与根节点
-            xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
-            if (!doc)
-            {
-                // 错误处理，与原代码保持一致
-                return /* 你的错误返回 */;
-            }
-            xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
-            xmlDocSetRootElement(doc, root);
+                showErrorDialog(window, _(_(_("Error"))), _("Second partition does not exist!"));
+                set_partition_modify_busy(helper, false);
+            },GTK_WINDOW(helper.getWidget("main_window")));
+            return;
+        }
+        long long k = (*(io->ptable + i_part)).size;
+        (*(io->ptable + i_part)).size = (long long)newSizeMB << 20;
+        (*(io->ptable + i_se_part)).size = (*(io->ptable + i_se_part)).size + k - ((long long)newSizeMB << 20);
+        // 创建文档与根节点
+        xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
+        if (!doc)
+        {
+            // 错误处理，与原代码保持一致
+            return /* 你的错误返回 */;
+        }
+        xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
+        xmlDocSetRootElement(doc, root);
 
-            // 遍历分区并添加子节点
+        // 遍历分区并添加子节点
+        for (int i = 0; i < io->part_count; i++)
+        {
+            xmlNodePtr partitionNode = xmlNewChild(
+                root, nullptr, BAD_CAST"Partition", nullptr);
+
+            // 设置 id 属性
+            xmlNewProp(partitionNode, BAD_CAST"id",
+                       BAD_CAST io->ptable[i].name);
+
+            // 设置 size 属性
+            char sizeStr[32];
+            if (i + 1 == io->part_count)
+            {
+                std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
+            }
+            else
+            {
+                std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
+                              static_cast<long long>(io->ptable[i].size >> 20));
+            }
+            xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
+        }
+
+        // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
+        xmlChar* xmlMem = nullptr;
+        int xmlSize = 0;
+        xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
+
+        std::string xmlStr;
+        if (xmlMem)
+        {
+            xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
+            xmlFree(xmlMem);
+        }
+        xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
+
+        // 交给原扫描器
+        uint8_t* buf = io->temp_buf;
+        int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
+        if (n <= 0)
+        {
+            DEG_LOG(E, "Failed to parse modified partition table\n");
+            gui_idle_call_wait_drag([window, helper]()
+            {
+                showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
+                set_partition_modify_busy(helper, false);
+            },GTK_WINDOW(helper.getWidget("main_window")));
+            return;
+        }
+        encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
+        if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
+        if (check_partition(io, "userdata", 0))
+        {
             for (int i = 0; i < io->part_count; i++)
             {
-                xmlNodePtr partitionNode = xmlNewChild(
-                    root, nullptr, BAD_CAST"Partition", nullptr);
-
-                // 设置 id 属性
-                xmlNewProp(partitionNode, BAD_CAST"id",
-                           BAD_CAST io->ptable[i].name);
-
-                // 设置 size 属性
-                char sizeStr[32];
-                if (i + 1 == io->part_count)
+                if (strcmp(io->ptable[i].name, "userdata") == 0)
                 {
-                    std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
+                    io->ptable[i].size = check_partition(io, "userdata", 1);
+                    break;
                 }
-                else
-                {
-                    std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
-                                  static_cast<long long>(io->ptable[i].size >> 20));
-                }
-                xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
             }
-
-            // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
-            xmlChar* xmlMem = nullptr;
-            int xmlSize = 0;
-            xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
-
-            std::string xmlStr;
-            if (xmlMem)
-            {
-                xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
-                xmlFree(xmlMem);
-            }
-            xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
-
-            // 交给原扫描器
-            uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
-            if (n <= 0)
-            {
-                DEG_LOG(E, "Failed to parse modified partition table\n");
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
-                    set_partition_modify_busy(helper, false);
-                },GTK_WINDOW(helper.getWidget("main_window")));
-                return;
-            }
-            encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-            if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
         }
 
         // 耗时尺寸探测放在后台线程，避免阻塞 GTK 主线程。
         update_partition_size_primary(io);
         auto partitions = build_primary_partition_view();
-        if (use_cmethod)
-        {
-            delete[] io->Cptable;
-            io->Cptable = nullptr;
-            io->part_count_c = 0;
-            isCMethod = 0;
-        }
+
 
         gui_idle_call_wait_drag([window, helper, partitions = std::move(partitions)]() mutable
         {
@@ -1430,15 +1320,16 @@ void on_button_clicked_xml_get(GtkWidgetHelper helper)
         io->Cptable = nullptr;
         io->part_count_c = 0;
         isCMethod = 0;
+        showInfoDialogSyncInThread(GTK_WINDOW(parent), _("Info"), _("Read completed, and Compatibility-method mode disabled!"));
     }
 }
 
 void on_button_clicked_modify_new_part(GtkWidgetHelper helper)
 {
-    if (io->part_count == 0 && io->part_count_c == 0)
+    if (io->part_count == 0)
     {
         showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))),
-                        _("No partition table loaded, cannot modify partition size!"));
+                        _("No partition table loaded or now in compatibility-method-PartList mode, cannot modify partition size!"));
         return;
     }
     GtkWindow* window = GTK_WINDOW(helper.getWidget("main_window"));
@@ -1457,298 +1348,155 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper)
         showErrorDialog(window, _(_(_("Error"))), _("Please enter a valid new size!"));
         return;
     }
-    const bool use_cmethod = (isCMethod != 0);
-    bool i_is = true;
-    if (use_cmethod)
-    {
-        i_is = showConfirmDialog(window, _(_(_("Warning"))),
-                                 _(
-                                     "Currently in compatibility-method-PartList mode, modifying partition may brick the device!"));
-    }
-    if (!i_is)
-    {
-        set_partition_modify_busy(helper, false);
-        return;
-    }
     set_partition_modify_busy(helper, true);
 
-    std::thread([window, newPartName, helper, newPartSize, beforePart, use_cmethod]() mutable
+    std::thread([window, newPartName, helper, newPartSize, beforePart]() mutable
     {
-        if (!use_cmethod)
+        partition_t* ptable = NEWN partition_t[128];
+        if (ptable == nullptr)
         {
-            partition_t* ptable = NEWN partition_t[128];
-            if (ptable == nullptr)
+            gui_idle_call_wait_drag([window, helper]()
             {
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Memory allocation failed!"));
-                    set_partition_modify_busy(helper, false);
-                }, GTK_WINDOW(helper.getWidget("main_window")));
-                return;
-            }
-
-            for (int i = 0; i < io->part_count; i++)
-            {
-                if (strcmp(io->ptable[i].name, newPartName.c_str()) == 0)
-                {
-                    DEG_LOG(W, "Partition %s already exists", newPartName.c_str());
-                    gui_idle_call_wait_drag([window, helper]()
-                    {
-                        showErrorDialog(window, _(_(_("Error"))), _("Partition already exists!"));
-                        set_partition_modify_busy(helper, false);
-                    }, GTK_WINDOW(helper.getWidget("main_window")));
-                    return;
-                }
-            }
-            int i_o = 0;
-            for (i_o = 0; i_o < io->part_count; i_o++)
-            {
-                if (strcmp(beforePart.c_str(), (*(io->ptable + i_o)).name) == 0)
-                {
-                    break;
-                }
-            }
-            if (i_o == io->part_count)
-            {
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Partition after does not exist!"));
-                    set_partition_modify_busy(helper, false);
-                }, GTK_WINDOW(helper.getWidget("main_window")));
-                return;
-            }
-            int i_op = 0;
-            for (i_op = 0; i_op < io->part_count; i_op++)
-            {
-                if (strcmp(beforePart.c_str(), (*(io->ptable + i_op)).name) != 0)
-                {
-                    snprintf(ptable[i_op].name, sizeof(ptable[i_op].name), "%s", io->ptable[i_op].name);
-                    ptable[i_op].size = io->ptable[i_op].size;
-                }
-                else
-                {
-                    break;
-                }
-            }
-            snprintf(ptable[i_op].name, sizeof(ptable[i_op].name), "%s", newPartName.c_str());
-            ptable[i_op].size = newPartSize << 20;
-            for (; i_op < io->part_count; i_op++)
-            {
-                snprintf(ptable[i_op + 1].name, sizeof(ptable[i_op + 1].name), "%s", io->ptable[i_op].name);
-                ptable[i_op + 1].size = io->ptable[i_op].size;
-            }
-            partition_t* old_ptable = io->ptable;
-            io->ptable = ptable;
-            io->part_count++;
-            if (old_ptable && old_ptable != ptable)
-            {
-                delete[] old_ptable;
-            }
-            // 创建文档与根节点
-            xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
-            if (!doc)
-            {
-                // 错误处理，与原代码保持一致
-                return /* 你的错误返回 */;
-            }
-            xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
-            xmlDocSetRootElement(doc, root);
-
-            // 遍历分区并添加子节点
-            for (int i = 0; i < io->part_count; i++)
-            {
-                xmlNodePtr partitionNode = xmlNewChild(
-                    root, nullptr, BAD_CAST"Partition", nullptr);
-
-                // 设置 id 属性
-                xmlNewProp(partitionNode, BAD_CAST"id",
-                           BAD_CAST io->ptable[i].name);
-
-                // 设置 size 属性
-                char sizeStr[32];
-                if (i + 1 == io->part_count)
-                {
-                    std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
-                }
-                else
-                {
-                    std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
-                                  static_cast<long long>(io->ptable[i].size >> 20));
-                }
-                xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
-            }
-
-            // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
-            xmlChar* xmlMem = nullptr;
-            int xmlSize = 0;
-            xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
-
-            std::string xmlStr;
-            if (xmlMem)
-            {
-                xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
-                xmlFree(xmlMem);
-            }
-            xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
-
-            // 交给原扫描器
-            uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
-            if (n <= 0)
-            {
-                DEG_LOG(E, "Failed to parse modified partition table\n");
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
-                    set_partition_modify_busy(helper, false);
-                },GTK_WINDOW(helper.getWidget("main_window")));
-                return;
-            }
-            encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-            if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
+                showErrorDialog(window, _(_(_("Error"))), _("Memory allocation failed!"));
+                set_partition_modify_busy(helper, false);
+            }, GTK_WINDOW(helper.getWidget("main_window")));
+            return;
         }
-        else
+
+        for (int i = 0; i < io->part_count; i++)
         {
-            partition_t* ptable = NEWN partition_t[128];
-            if (ptable == nullptr)
+            if (strcmp(io->ptable[i].name, newPartName.c_str()) == 0)
             {
+                DEG_LOG(W, "Partition %s already exists", newPartName.c_str());
                 gui_idle_call_wait_drag([window, helper]()
                 {
-                    showErrorDialog(window, _(_(_("Error"))), _("Memory allocation failed!"));
+                    showErrorDialog(window, _(_(_("Error"))), _("Partition already exists!"));
                     set_partition_modify_busy(helper, false);
                 }, GTK_WINDOW(helper.getWidget("main_window")));
                 return;
             }
-            for (int i = 0; i < io->part_count_c; i++)
+        }
+        int i_o = 0;
+        for (i_o = 0; i_o < io->part_count; i_o++)
+        {
+            if (strcmp(beforePart.c_str(), (*(io->ptable + i_o)).name) == 0)
             {
-                if (strcmp(io->Cptable[i].name, newPartName.c_str()) == 0)
-                {
-                    DEG_LOG(W, "Partition %s already exists", newPartName.c_str());
-                    gui_idle_call_wait_drag([window, helper]()
-                    {
-                        showErrorDialog(window, _(_(_("Error"))), _("Partition already exists!"));
-                        set_partition_modify_busy(helper, false);
-                    }, GTK_WINDOW(helper.getWidget("main_window")));
-                    return;
-                }
+                break;
             }
-            int i_o = 0;
-            for (i_o = 0; i_o < io->part_count_c; i_o++)
+        }
+        if (i_o == io->part_count)
+        {
+            gui_idle_call_wait_drag([window, helper]()
             {
-                if (strcmp(beforePart.c_str(), (*(io->Cptable + i_o)).name) == 0)
-                {
-                    break;
-                }
-            }
-            if (i_o == io->part_count_c)
+                showErrorDialog(window, _(_(_("Error"))), _("Partition after does not exist!"));
+                set_partition_modify_busy(helper, false);
+            }, GTK_WINDOW(helper.getWidget("main_window")));
+            return;
+        }
+        int i_op = 0;
+        for (i_op = 0; i_op < io->part_count; i_op++)
+        {
+            if (strcmp(beforePart.c_str(), (*(io->ptable + i_op)).name) != 0)
             {
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Partition after does not exist!"));
-                    set_partition_modify_busy(helper, false);
-                }, GTK_WINDOW(helper.getWidget("main_window")));
-                return;
+                snprintf(ptable[i_op].name, sizeof(ptable[i_op].name), "%s", io->ptable[i_op].name);
+                ptable[i_op].size = io->ptable[i_op].size;
             }
-            int i_op = 0;
-            for (i_op = 0; i_op < io->part_count_c; i_op++)
+            else
             {
-                if (strcmp(beforePart.c_str(), (*(io->Cptable + i_op)).name) != 0)
-                {
-                    snprintf(ptable[i_op].name, sizeof(ptable[i_op].name), "%s", io->Cptable[i_op].name);
-                    ptable[i_op].size = io->Cptable[i_op].size;
-                }
-                else
-                {
-                    break;
-                }
+                break;
             }
-            snprintf(ptable[i_op].name, sizeof(ptable[i_op].name), "%s", newPartName.c_str());
-            ptable[i_op].size = newPartSize << 20;
-            for (; i_op < io->part_count_c; i_op++)
-            {
-                snprintf(ptable[i_op + 1].name, sizeof(ptable[i_op + 1].name), "%s", io->Cptable[i_op].name);
-                ptable[i_op + 1].size = io->Cptable[i_op].size;
-            }
-            partition_t* old_cptable = io->Cptable;
-            io->Cptable = ptable;
-            io->part_count_c++;
-            if (old_cptable && old_cptable != ptable)
-            {
-                delete[] old_cptable;
-            }
-            // 创建文档与根节点
-            xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
-            if (!doc)
-            {
-                // 错误处理，与原代码保持一致
-                return /* 你的错误返回 */;
-            }
-            xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
-            xmlDocSetRootElement(doc, root);
+        }
+        snprintf(ptable[i_op].name, sizeof(ptable[i_op].name), "%s", newPartName.c_str());
+        ptable[i_op].size = newPartSize << 20;
+        for (; i_op < io->part_count; i_op++)
+        {
+            snprintf(ptable[i_op + 1].name, sizeof(ptable[i_op + 1].name), "%s", io->ptable[i_op].name);
+            ptable[i_op + 1].size = io->ptable[i_op].size;
+        }
+        partition_t* old_ptable = io->ptable;
+        io->ptable = ptable;
+        io->part_count++;
+        if (old_ptable && old_ptable != ptable)
+        {
+            delete[] old_ptable;
+        }
+        // 创建文档与根节点
+        xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
+        if (!doc)
+        {
+            // 错误处理，与原代码保持一致
+            return /* 你的错误返回 */;
+        }
+        xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
+        xmlDocSetRootElement(doc, root);
 
-            // 遍历分区并添加子节点
+        // 遍历分区并添加子节点
+        for (int i = 0; i < io->part_count; i++)
+        {
+            xmlNodePtr partitionNode = xmlNewChild(
+                root, nullptr, BAD_CAST"Partition", nullptr);
+
+            // 设置 id 属性
+            xmlNewProp(partitionNode, BAD_CAST"id",
+                       BAD_CAST io->ptable[i].name);
+
+            // 设置 size 属性
+            char sizeStr[32];
+            if (i + 1 == io->part_count)
+            {
+                std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
+            }
+            else
+            {
+                std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
+                              static_cast<long long>(io->ptable[i].size >> 20));
+            }
+            xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
+        }
+
+        // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
+        xmlChar* xmlMem = nullptr;
+        int xmlSize = 0;
+        xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
+
+        std::string xmlStr;
+        if (xmlMem)
+        {
+            xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
+            xmlFree(xmlMem);
+        }
+        xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
+
+        // 交给原扫描器
+        uint8_t* buf = io->temp_buf;
+        int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
+        if (n <= 0)
+        {
+            DEG_LOG(E, "Failed to parse modified partition table\n");
+            gui_idle_call_wait_drag([window, helper]()
+            {
+                showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
+                set_partition_modify_busy(helper, false);
+            },GTK_WINDOW(helper.getWidget("main_window")));
+            return;
+        }
+        encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
+        if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
+        if (check_partition(io, "userdata", 0))
+        {
             for (int i = 0; i < io->part_count; i++)
             {
-                xmlNodePtr partitionNode = xmlNewChild(
-                    root, nullptr, BAD_CAST"Partition", nullptr);
-
-                // 设置 id 属性
-                xmlNewProp(partitionNode, BAD_CAST"id",
-                           BAD_CAST io->ptable[i].name);
-
-                // 设置 size 属性
-                char sizeStr[32];
-                if (i + 1 == io->part_count)
+                if (strcmp(io->ptable[i].name, "userdata") == 0)
                 {
-                    std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
+                    io->ptable[i].size = check_partition(io, "userdata", 1);
+                    break;
                 }
-                else
-                {
-                    std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
-                                  static_cast<long long>(io->ptable[i].size >> 20));
-                }
-                xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
             }
-
-            // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
-            xmlChar* xmlMem = nullptr;
-            int xmlSize = 0;
-            xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
-
-            std::string xmlStr;
-            if (xmlMem)
-            {
-                xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
-                xmlFree(xmlMem);
-            }
-            xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
-
-            // 交给原扫描器
-            uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
-            if (n <= 0)
-            {
-                DEG_LOG(E, "Failed to parse modified partition table\n");
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
-                    set_partition_modify_busy(helper, false);
-                },GTK_WINDOW(helper.getWidget("main_window")));
-                return;
-            }
-            encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-            if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
         }
+
 
         update_partition_size_primary(io);
         auto partitions = build_primary_partition_view();
-        if (use_cmethod)
-        {
-            delete[] io->Cptable;
-            io->Cptable = nullptr;
-            io->part_count_c = 0;
-            isCMethod = 0;
-        }
 
         gui_idle_call_wait_drag([window, helper, partitions = std::move(partitions)]() mutable
         {
@@ -1761,263 +1509,142 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper)
 
 void on_button_clicked_modify_rm_part(GtkWidgetHelper helper)
 {
-    if (io->part_count == 0 && io->part_count_c == 0)
+    if (io->part_count == 0)
     {
         showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))),
-                        _("No partition table loaded, cannot modify partition size!"));
+                        _("No partition table loaded or now in compatibility-method-PartList mode, cannot modify partition size!"));
         return;
     }
     GtkWindow* window = GTK_WINDOW(helper.getWidget("main_window"));
     std::string part_name = getSelectedPartitionName(helper);
     ensure_device_attached_or_exit(helper);
-    const bool use_cmethod = (isCMethod != 0);
-    bool i_is = true;
-    if (use_cmethod)
-    {
-        i_is = showConfirmDialog(window, _(_(_("Warning"))),
-                                 _(
-                                     "Currently in compatibility-method-PartList mode, modifying partition may brick the device!"));
-    }
-    if (!i_is)
-    {
-        set_partition_modify_busy(helper, false);
-        return;
-    }
     set_partition_modify_busy(helper, true);
 
-    std::thread([part_name, helper, window, use_cmethod]() mutable
+    std::thread([part_name, helper, window]() mutable
     {
         int i = 0;
-        if (!use_cmethod)
+
+        for (i = 0; i < io->part_count; i++)
         {
-            for (i = 0; i < io->part_count; i++)
+            if (strcmp((*(io->ptable + i)).name, part_name.c_str()) == 0)
             {
-                if (strcmp((*(io->ptable + i)).name, part_name.c_str()) == 0)
-                {
-                    break;
-                }
+                break;
             }
-            if (i == io->part_count)
-            {
-                DEG_LOG(E, "Partition not exist\n");
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Second partition does not exist!"));
-                    set_partition_modify_busy(helper, false);
-                }, GTK_WINDOW(helper.getWidget("main_window")));
-                return;
-            }
-            partition_t* ptable = NEWN partition_t[128];
-            if (ptable == nullptr)
-            {
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Memory allocation failed!"));
-                    set_partition_modify_busy(helper, false);
-                }, GTK_WINDOW(helper.getWidget("main_window")));
-                return;
-            }
-            int new_index = 0;
-            for (int j = 0; j < io->part_count; j++)
-            {
-                // 使用 strcmp 比较字符串内容
-                if (strcmp(io->ptable[j].name, part_name.c_str()) != 0)
-                {
-                    // 复制不需要删除的分区到新表
-                    snprintf(ptable[new_index].name, sizeof(ptable[new_index].name), "%s", io->ptable[j].name);
-                    ptable[new_index].size = io->ptable[j].size;
-                    new_index++;
-                }
-            }
-
-            // 更新 io 结构
-            io->part_count--;
-            // 注意：需要释放原来的 ptable 内存
-            delete[] (io->ptable);
-            io->ptable = ptable;
-            // 创建文档与根节点
-            xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
-            if (!doc)
-            {
-                // 错误处理，与原代码保持一致
-                return /* 你的错误返回 */;
-            }
-            xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
-            xmlDocSetRootElement(doc, root);
-
-            // 遍历分区并添加子节点
-            for (int i = 0; i < io->part_count; i++)
-            {
-                xmlNodePtr partitionNode = xmlNewChild(
-                    root, nullptr, BAD_CAST"Partition", nullptr);
-
-                // 设置 id 属性
-                xmlNewProp(partitionNode, BAD_CAST"id",
-                           BAD_CAST io->ptable[i].name);
-
-                // 设置 size 属性
-                char sizeStr[32];
-                if (i + 1 == io->part_count)
-                {
-                    std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
-                }
-                else
-                {
-                    std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
-                                  static_cast<long long>(io->ptable[i].size >> 20));
-                }
-                xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
-            }
-
-            // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
-            xmlChar* xmlMem = nullptr;
-            int xmlSize = 0;
-            xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
-
-            std::string xmlStr;
-            if (xmlMem)
-            {
-                xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
-                xmlFree(xmlMem);
-            }
-            xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
-
-            // 交给原扫描器
-            uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
-            if (n <= 0)
-            {
-                DEG_LOG(E, "Failed to parse modified partition table\n");
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
-                    set_partition_modify_busy(helper, false);
-                }, GTK_WINDOW(helper.getWidget("main_window")));
-                return;
-            }
-            encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-            if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
         }
-        else
+        if (i == io->part_count)
         {
-            for (i = 0; i < io->part_count_c; i++)
+            DEG_LOG(E, "Partition not exist\n");
+            gui_idle_call_wait_drag([window, helper]()
             {
-                if (strcmp((*(io->Cptable + i)).name, part_name.c_str()) == 0)
+                showErrorDialog(window, _(_(_("Error"))), _("Second partition does not exist!"));
+                set_partition_modify_busy(helper, false);
+            }, GTK_WINDOW(helper.getWidget("main_window")));
+            return;
+        }
+        partition_t* ptable = NEWN partition_t[128];
+        if (ptable == nullptr)
+        {
+            gui_idle_call_wait_drag([window, helper]()
+            {
+                showErrorDialog(window, _(_(_("Error"))), _("Memory allocation failed!"));
+                set_partition_modify_busy(helper, false);
+            }, GTK_WINDOW(helper.getWidget("main_window")));
+            return;
+        }
+        int new_index = 0;
+        for (int j = 0; j < io->part_count; j++)
+        {
+            // 使用 strcmp 比较字符串内容
+            if (strcmp(io->ptable[j].name, part_name.c_str()) != 0)
+            {
+                // 复制不需要删除的分区到新表
+                snprintf(ptable[new_index].name, sizeof(ptable[new_index].name), "%s", io->ptable[j].name);
+                ptable[new_index].size = io->ptable[j].size;
+                new_index++;
+            }
+        }
+
+        // 更新 io 结构
+        io->part_count--;
+        // 注意：需要释放原来的 ptable 内存
+        delete[] (io->ptable);
+        io->ptable = ptable;
+        // 创建文档与根节点
+        xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
+        if (!doc)
+        {
+            // 错误处理，与原代码保持一致
+            return /* 你的错误返回 */;
+        }
+        xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
+        xmlDocSetRootElement(doc, root);
+
+        // 遍历分区并添加子节点
+        for (int i = 0; i < io->part_count; i++)
+        {
+            xmlNodePtr partitionNode = xmlNewChild(
+                root, nullptr, BAD_CAST"Partition", nullptr);
+
+            // 设置 id 属性
+            xmlNewProp(partitionNode, BAD_CAST"id",
+                       BAD_CAST io->ptable[i].name);
+
+            // 设置 size 属性
+            char sizeStr[32];
+            if (i + 1 == io->part_count)
+            {
+                std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
+            }
+            else
+            {
+                std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
+                              static_cast<long long>(io->ptable[i].size >> 20));
+            }
+            xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
+        }
+
+        // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
+        xmlChar* xmlMem = nullptr;
+        int xmlSize = 0;
+        xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
+
+        std::string xmlStr;
+        if (xmlMem)
+        {
+            xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
+            xmlFree(xmlMem);
+        }
+        xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
+
+        // 交给原扫描器
+        uint8_t* buf = io->temp_buf;
+        int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
+        if (n <= 0)
+        {
+            DEG_LOG(E, "Failed to parse modified partition table\n");
+            gui_idle_call_wait_drag([window, helper]()
+            {
+                showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
+                set_partition_modify_busy(helper, false);
+            }, GTK_WINDOW(helper.getWidget("main_window")));
+            return;
+        }
+        encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
+        if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
+        if (check_partition(io, "userdata", 0))
+        {
+            for (int i = 0; i < io->part_count; i++)
+            {
+                if (strcmp(io->ptable[i].name, "userdata") == 0)
                 {
+                    io->ptable[i].size = check_partition(io, "userdata", 1);
                     break;
                 }
             }
-            if (i == io->part_count_c)
-            {
-                DEG_LOG(E, "Partition not exist\n");
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Second partition does not exist!"));
-                    set_partition_modify_busy(helper, false);
-                }, GTK_WINDOW(helper.getWidget("main_window")));
-                return;
-            }
-            partition_t* ptable = NEWN partition_t[128];
-            if (ptable == nullptr)
-            {
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Memory allocation failed!"));
-                    set_partition_modify_busy(helper, false);
-                }, GTK_WINDOW(helper.getWidget("main_window")));
-                return;
-            }
-            int new_index = 0;
-            for (int j = 0; j < io->part_count_c; j++)
-            {
-                // 使用 strcmp 比较字符串内容
-                if (strcmp(io->Cptable[j].name, part_name.c_str()) != 0)
-                {
-                    // 复制不需要删除的分区到新表
-                    snprintf(ptable[new_index].name, sizeof(ptable[new_index].name), "%s", io->Cptable[j].name);
-                    ptable[new_index].size = io->Cptable[j].size;
-                    new_index++;
-                }
-            }
-
-            // 更新 io 结构
-            io->part_count_c--;
-            // 注意：需要释放原来的 ptable 内存
-            delete[] (io->Cptable);
-            io->Cptable = ptable;
-            // 创建文档与根节点
-            xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
-            if (!doc)
-            {
-                // 错误处理，与原代码保持一致
-                return /* 你的错误返回 */;
-            }
-            xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
-            xmlDocSetRootElement(doc, root);
-
-            // 遍历分区并添加子节点
-            for (int i = 0; i < io->part_count; i++)
-            {
-                xmlNodePtr partitionNode = xmlNewChild(
-                    root, nullptr, BAD_CAST"Partition", nullptr);
-
-                // 设置 id 属性
-                xmlNewProp(partitionNode, BAD_CAST"id",
-                           BAD_CAST io->ptable[i].name);
-
-                // 设置 size 属性
-                char sizeStr[32];
-                if (i + 1 == io->part_count)
-                {
-                    std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
-                }
-                else
-                {
-                    std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
-                                  static_cast<long long>(io->ptable[i].size >> 20));
-                }
-                xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
-            }
-
-            // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
-            xmlChar* xmlMem = nullptr;
-            int xmlSize = 0;
-            xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
-
-            std::string xmlStr;
-            if (xmlMem)
-            {
-                xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
-                xmlFree(xmlMem);
-            }
-            xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
-
-            // 交给原扫描器
-            uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
-            if (n <= 0)
-            {
-                DEG_LOG(E, "Failed to parse modified partition table\n");
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
-                    set_partition_modify_busy(helper, false);
-                }, GTK_WINDOW(helper.getWidget("main_window")));
-                return;
-            }
-            encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-            if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
         }
 
         update_partition_size_primary(io);
         auto partitions = build_primary_partition_view();
-        if (use_cmethod)
-        {
-            delete[] io->Cptable;
-            io->Cptable = nullptr;
-            io->part_count_c = 0;
-            isCMethod = 0;
-        }
 
         gui_idle_call_wait_drag([window, helper, partitions = std::move(partitions)]() mutable
         {
@@ -2030,10 +1657,10 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper)
 
 void on_button_clicked_modify_ren_part(GtkWidgetHelper helper)
 {
-    if (io->part_count == 0 && io->part_count_c == 0)
+    if (io->part_count == 0)
     {
         showErrorDialog(GTK_WINDOW(helper.getWidget("main_window")), _(_(_("Error"))),
-                        _("No partition table loaded, cannot modify partition size!"));
+                        _("No partition table loaded or now in compatibility-method-PartList mode, cannot modify partition size!"));
         return;
     }
     GtkWindow* window = GTK_WINDOW(helper.getWidget("main_window"));
@@ -2045,202 +1672,107 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper)
         showErrorDialog(window, _(_(_("Error"))), _("Please fill in complete modification info!"));
         return;
     }
-    const bool use_cmethod = (isCMethod != 0);
-    bool i_is = true;
-    if (use_cmethod)
-    {
-        i_is = showConfirmDialog(window, _(_(_("Warning"))),
-                                 _(
-                                     "Currently in compatibility-method-PartList mode, modifying partition may brick the device!"));
-    }
-    if (!i_is)
-    {
-        set_partition_modify_busy(helper, false);
-        return;
-    }
     set_partition_modify_busy(helper, true);
 
-    std::thread([part_name, new_part_name, helper, window, use_cmethod]() mutable
+    std::thread([part_name, new_part_name, helper, window]() mutable
     {
         int i = 0;
-        if (!use_cmethod)
+
+        for (i = 0; i < io->part_count; i++)
         {
-            for (i = 0; i < io->part_count; i++)
+            if (strcmp((*(io->ptable + i)).name, part_name.c_str()) == 0)
             {
-                if (strcmp((*(io->ptable + i)).name, part_name.c_str()) == 0)
+                break;
+            }
+        }
+        if (i == io->part_count)
+        {
+            DEG_LOG(E, "Partition not exist\n");
+            gui_idle_call_wait_drag([window, helper]()
+            {
+                showErrorDialog(window, _(_(_("Error"))), _("Second partition does not exist!"));
+                set_partition_modify_busy(helper, false);
+            },GTK_WINDOW(helper.getWidget("main_window")));
+            return;
+        }
+
+        snprintf(io->ptable[i].name, sizeof(io->ptable[i].name), "%s", new_part_name.c_str());
+
+        // 创建文档与根节点
+        xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
+        if (!doc)
+        {
+            // 错误处理，与原代码保持一致
+            return /* 你的错误返回 */;
+        }
+        xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
+        xmlDocSetRootElement(doc, root);
+
+        // 遍历分区并添加子节点
+        for (int i = 0; i < io->part_count; i++)
+        {
+            xmlNodePtr partitionNode = xmlNewChild(
+                root, nullptr, BAD_CAST"Partition", nullptr);
+
+            // 设置 id 属性
+            xmlNewProp(partitionNode, BAD_CAST"id",
+                       BAD_CAST io->ptable[i].name);
+
+            // 设置 size 属性
+            char sizeStr[32];
+            if (i + 1 == io->part_count)
+            {
+                std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
+            }
+            else
+            {
+                std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
+                              static_cast<long long>(io->ptable[i].size >> 20));
+            }
+            xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
+        }
+
+        // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
+        xmlChar* xmlMem = nullptr;
+        int xmlSize = 0;
+        xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
+
+        std::string xmlStr;
+        if (xmlMem)
+        {
+            xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
+            xmlFree(xmlMem);
+        }
+        xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
+
+        // 交给原扫描器
+        uint8_t* buf = io->temp_buf;
+        int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
+        if (n <= 0)
+        {
+            DEG_LOG(E, "Failed to parse modified partition table\n");
+            gui_idle_call_wait_drag([window, helper]()
+            {
+                showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
+                set_partition_modify_busy(helper, false);
+            },GTK_WINDOW(helper.getWidget("main_window")));
+            return;
+        }
+        encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
+        if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
+        if (check_partition(io, "userdata", 0))
+        {
+            for (int i = 0; i < io->part_count; i++)
+            {
+                if (strcmp(io->ptable[i].name, "userdata") == 0)
                 {
+                    io->ptable[i].size = check_partition(io, "userdata", 1);
                     break;
                 }
             }
-            if (i == io->part_count)
-            {
-                DEG_LOG(E, "Partition not exist\n");
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Second partition does not exist!"));
-                    set_partition_modify_busy(helper, false);
-                },GTK_WINDOW(helper.getWidget("main_window")));
-                return;
-            }
-
-            snprintf(io->ptable[i].name, sizeof(io->ptable[i].name), "%s", new_part_name.c_str());
-
-            // 创建文档与根节点
-            xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
-            if (!doc)
-            {
-                // 错误处理，与原代码保持一致
-                return /* 你的错误返回 */;
-            }
-            xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
-            xmlDocSetRootElement(doc, root);
-
-            // 遍历分区并添加子节点
-            for (int i = 0; i < io->part_count; i++)
-            {
-                xmlNodePtr partitionNode = xmlNewChild(
-                    root, nullptr, BAD_CAST"Partition", nullptr);
-
-                // 设置 id 属性
-                xmlNewProp(partitionNode, BAD_CAST"id",
-                           BAD_CAST io->ptable[i].name);
-
-                // 设置 size 属性
-                char sizeStr[32];
-                if (i + 1 == io->part_count)
-                {
-                    std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
-                }
-                else
-                {
-                    std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
-                                  static_cast<long long>(io->ptable[i].size >> 20));
-                }
-                xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
-            }
-
-            // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
-            xmlChar* xmlMem = nullptr;
-            int xmlSize = 0;
-            xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
-
-            std::string xmlStr;
-            if (xmlMem)
-            {
-                xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
-                xmlFree(xmlMem);
-            }
-            xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
-
-            // 交给原扫描器
-            uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
-            if (n <= 0)
-            {
-                DEG_LOG(E, "Failed to parse modified partition table\n");
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
-                    set_partition_modify_busy(helper, false);
-                },GTK_WINDOW(helper.getWidget("main_window")));
-                return;
-            }
-            encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-            if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
         }
-        else
-        {
-            for (i = 0; i < io->part_count_c; i++)
-            {
-                if (strcmp((*(io->Cptable + i)).name, part_name.c_str()) == 0)
-                {
-                    break;
-                }
-            }
-            if (i == io->part_count_c)
-            {
-                DEG_LOG(E, "Partition not exist\n");
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Second partition does not exist!"));
-                    set_partition_modify_busy(helper, false);
-                },GTK_WINDOW(helper.getWidget("main_window")));
-                return;
-            }
 
-            snprintf(io->Cptable[i].name, sizeof(io->Cptable[i].name), "%s", new_part_name.c_str());
-
-            // 创建文档与根节点
-            xmlDocPtr doc = xmlNewDoc(BAD_CAST"1.0");
-            if (!doc)
-            {
-                // 错误处理，与原代码保持一致
-                return /* 你的错误返回 */;
-            }
-            xmlNodePtr root = xmlNewNode(nullptr, BAD_CAST"Partitions");
-            xmlDocSetRootElement(doc, root);
-
-            // 遍历分区并添加子节点
-            for (int i = 0; i < io->part_count; i++)
-            {
-                xmlNodePtr partitionNode = xmlNewChild(
-                    root, nullptr, BAD_CAST"Partition", nullptr);
-
-                // 设置 id 属性
-                xmlNewProp(partitionNode, BAD_CAST"id",
-                           BAD_CAST io->ptable[i].name);
-
-                // 设置 size 属性
-                char sizeStr[32];
-                if (i + 1 == io->part_count)
-                {
-                    std::snprintf(sizeStr, sizeof(sizeStr), "%s", "0xffffffff");
-                }
-                else
-                {
-                    std::snprintf(sizeStr, sizeof(sizeStr), "%lld",
-                                  static_cast<long long>(io->ptable[i].size >> 20));
-                }
-                xmlNewProp(partitionNode, BAD_CAST"size", BAD_CAST sizeStr);
-            }
-
-            // 序列化为字符串（紧凑格式，不带缩进、不带 XML 声明）
-            xmlChar* xmlMem = nullptr;
-            int xmlSize = 0;
-            xmlDocDumpMemory(doc, &xmlMem, &xmlSize); // 会带上 <?xml ...?> 声明
-
-            std::string xmlStr;
-            if (xmlMem)
-            {
-                xmlStr.assign(reinterpret_cast<const char*>(xmlMem), xmlSize);
-                xmlFree(xmlMem);
-            }
-            xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
-
-            // 交给原扫描器
-            uint8_t* buf = io->temp_buf;
-            int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
-            if (n <= 0)
-            {
-                DEG_LOG(E, "Failed to parse modified partition table\n");
-                gui_idle_call_wait_drag([window, helper]()
-                {
-                    showErrorDialog(window, _(_(_("Error"))), _("Failed to parse modified partition table!"));
-                    set_partition_modify_busy(helper, false);
-                },GTK_WINDOW(helper.getWidget("main_window")));
-                return;
-            }
-            encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-            if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
-        }
         auto partitions = build_primary_partition_view();
-        if (use_cmethod)
-        {
-            delete[] io->Cptable;
-            io->Cptable = nullptr;
-            io->part_count_c = 0;
-            isCMethod = 0;
-        }
 
         gui_idle_call_wait_drag([window, helper, partitions = std::move(partitions)]() mutable
         {
@@ -2405,7 +1937,7 @@ void confirm_partition_c(GtkWidgetHelper helper)
         GTK_WINDOW(helper.getWidget("main_window")),
         _("Confirm"),
         _(
-            "No partition table found on current device, read partition list through compatibility method?\nWarn: This mode may not find all partitions on your device, use caution with force write or editing partition table!")
+            "No partition table found on current device, read partition list through compatibility method?\nWarn: This mode may not find all partitions on your device, use caution with force write!")
     );
 
     // 根据结果继续执行

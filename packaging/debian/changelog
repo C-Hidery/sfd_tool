@@ -1,3 +1,9 @@
+sfd-tool (3.1.9-1-ltv) unstable; urgency=medium
+
+  * 修复了一些已知问题
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sat, 03 Oct 2026 14:07:24 +0800
+
 sfd-tool (3.1.8-1-ltv) unstable; urgency=medium
 
   * 修复了分区表修改功能

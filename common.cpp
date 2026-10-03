@@ -1757,6 +1757,10 @@ void add_partition(spdio_t* io, const char* name, long long size)
     strncpy(ptable[k].name, name, sizeof(ptable[k].name) - 1);
     ptable[k].name[sizeof(ptable[k].name) - 1] = '\0'; // ȷ���ַ�����ֹ
     ptable[k].size = size;
+    if (io->Cptable)
+    {
+        delete[] io->Cptable;
+    }
     io->Cptable = ptable;
     io->part_count_c++;
     DEG_LOG(I, "Partition %s added.", name);
@@ -1772,6 +1776,17 @@ void repartition(spdio_t* io, const char* fn)
     // print_mem(stderr, io->temp_buf, n * 0x4c);
     encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
     if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
+    if (check_partition(io, "userdata", 0))
+    {
+        for (int i = 0; i < io->part_count; i++)
+        {
+            if (strcmp(io->ptable[i].name, "userdata") == 0)
+            {
+                io->ptable[i].size = check_partition(io, "userdata", 1);
+                break;
+            }
+        }
+    }
 }
 
 void erase_partition(spdio_t* io, const char* name, int CMethod)
