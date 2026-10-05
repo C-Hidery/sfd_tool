@@ -1235,6 +1235,198 @@ int gpt_info(partition_t* ptable, uint8_t* mem, int* part_count_ptr)
     return 0;
 }
 
+// ============================================================================
+// GPT 身份读取（只读）
+//
+// 从 user_partition（GPT 镜像，通常 32KB）里解析：
+//   - 磁盘 GUID（header @0x38）
+//   - 每个分区的类型 GUID / 唯一 GUID / 名称 / LBA
+// 供 `part_guid` 命令和 GUI 分区列表显示使用；不写回任何数据。
+// ============================================================================
+
+// 在一个 GPT 镜像里定位 primary GPT header。gpt_info() 用同样的方式
+// 兼容 512B / 4K 逻辑扇区：header 位于第 1 个逻辑扇区。
+static int gpt_locate_header(const uint8_t* mem, size_t mem_size,
+                             size_t* header_off, int* sector_size)
+{
+    if (!mem || mem_size < 2 * SECTOR_SIZE) return -1;
+    for (int i = 1; i <= MAX_SECTORS; i++)
+    {
+        size_t off = (size_t)i * SECTOR_SIZE;
+        if (off + sizeof(efi_header) > mem_size) break;
+        if (memcmp(mem + off, "EFI PART", 8) == 0)
+        {
+            if (header_off) *header_off = off;
+            if (sector_size) *sector_size = i * SECTOR_SIZE;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+void gpt_format_guid(const uint8_t g[16], char* out, size_t out_size)
+{
+    snprintf(out, out_size,
+             "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
+             g[3], g[2], g[1], g[0], g[5], g[4], g[7], g[6],
+             g[8], g[9], g[10], g[11], g[12], g[13], g[14], g[15]);
+}
+
+static uint64_t gpt_read64_le(const uint8_t* p)
+{
+    uint64_t v = 0;
+    memcpy(&v, p, sizeof(v));
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+    v = __builtin_bswap64(v);
+#endif
+    return v;
+}
+
+int gpt_get_disk_guid(const uint8_t* mem, size_t mem_size, uint8_t out_guid[16])
+{
+    size_t off = 0;
+    if (!out_guid || gpt_locate_header(mem, mem_size, &off, nullptr) != 0) return -1;
+    memcpy(out_guid, mem + off + offsetof(efi_header, disk_guid), 16);
+    return 0;
+}
+
+// GPT 分区表项数组的定位信息
+struct GptEntryLayout
+{
+    size_t header_off = 0;
+    int sector_size = 0;
+    size_t entry_off = 0;
+    size_t entry_array_size = 0;
+    uint32_t entry_count = 0;
+    uint32_t entry_size = 0;
+};
+
+static int gpt_open_layout(const uint8_t* mem, size_t mem_size, GptEntryLayout& L)
+{
+    size_t off = 0;
+    int sector = 0;
+    if (gpt_locate_header(mem, mem_size, &off, &sector) != 0) return -1;
+
+    const efi_header* h = reinterpret_cast<const efi_header*>(mem + off);
+    if (h->header_size < sizeof(efi_header) || h->header_size > mem_size - off) return -1;
+    if (h->size_of_partition_entry < sizeof(efi_entry)) return -1;
+
+    size_t entry_off = (size_t)h->partition_entry_lba * (size_t)sector;
+    size_t array_size = (size_t)h->number_of_partition_entries * (size_t)h->size_of_partition_entry;
+    if (entry_off > mem_size || array_size > mem_size - entry_off) return -1;
+
+    L.header_off = off;
+    L.sector_size = sector;
+    L.entry_off = entry_off;
+    L.entry_array_size = array_size;
+    L.entry_count = h->number_of_partition_entries;
+    L.entry_size = h->size_of_partition_entry;
+    return 0;
+}
+
+// 从 GPT 镜像读出每个分区的身份。返回分区个数，-1 表示镜像结构不可用。
+int gpt_get_partition_identities(const uint8_t* mem, size_t mem_size,
+                                 std::vector<GptPartitionIdentity>& out)
+{
+    out.clear();
+    GptEntryLayout L;
+    if (gpt_open_layout(mem, mem_size, L) != 0) return -1;
+
+    for (uint32_t i = 0; i < L.entry_count; i++)
+    {
+        const uint8_t* e = mem + L.entry_off + (size_t)i * L.entry_size;
+        uint64_t start = gpt_read64_le(e + 0x20);
+        uint64_t end = gpt_read64_le(e + 0x28);
+        if (start == 0 && end == 0) break; // 空表项
+
+        GptPartitionIdentity id{};
+        copy_from_wstr(id.name, sizeof(id.name) - 1,
+                       reinterpret_cast<const uint16_t*>(e + 0x38));
+        memcpy(id.type_guid, e + 0x00, 16);
+        memcpy(id.unique_guid, e + 0x10, 16);
+        id.start_lba = start;
+        id.end_lba = end;
+        out.push_back(id);
+    }
+    return (int)out.size();
+}
+
+// 读取 user_partition（GPT 镜像，通常 32KB）。失败时返回 nullptr。
+static uint8_t* gpt_read_user_partition(spdio_t* io, uint64_t* out_size)
+{
+    if (out_size) *out_size = 0;
+    if (!io || !g_app_state.flash.is_pgpt) return nullptr;
+    uint64_t size = 0;
+    uint8_t* mem = dump_partition_to_mem(io, "user_partition", 0, 32 * 1024,
+                                         blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
+    if (!mem || size < 2 * SECTOR_SIZE)
+    {
+        if (mem) delete[] mem;
+        return nullptr;
+    }
+    if (out_size) *out_size = size;
+    return mem;
+}
+
+bool gpt_capture_identity(spdio_t* io, GptIdentity& out, bool verbose)
+{
+    out = GptIdentity{};
+    uint64_t size = 0;
+    uint8_t* mem = gpt_read_user_partition(io, &size);
+    if (!mem)
+    {
+        if (verbose) DEG_LOG(W, "GPT: user_partition not available");
+        return false;
+    }
+
+    bool ok = (gpt_get_disk_guid(mem, (size_t)size, out.disk_guid) == 0);
+    if (ok)
+    {
+        int n = gpt_get_partition_identities(mem, (size_t)size, out.partitions);
+        if (n < 0)
+        {
+            if (verbose) DEG_LOG(W, "GPT: partition entry array not usable");
+            out.partitions.clear();
+        }
+        out.valid = true;
+        if (verbose)
+        {
+            char s[40];
+            gpt_format_guid(out.disk_guid, s, sizeof(s));
+            DEG_LOG(I, "GPT: captured disk GUID %s and %zu partition identities",
+                    s, out.partitions.size());
+        }
+    }
+    else if (verbose)
+    {
+        DEG_LOG(W, "GPT: EFI header not found in user_partition");
+    }
+    delete[] mem;
+    return ok;
+}
+
+// ---- GUI 列表显示用的缓存：从一次读到的 GPT 镜像解析身份 ----
+static GptIdentity g_cached_identity;
+
+void gpt_cache_identity_from_image(const uint8_t* mem, size_t mem_size)
+{
+    g_cached_identity = GptIdentity{};
+    if (!mem || mem_size < 2 * SECTOR_SIZE) return;
+    if (gpt_get_disk_guid(mem, mem_size, g_cached_identity.disk_guid) != 0) return;
+    g_cached_identity.valid = true;
+    gpt_get_partition_identities(mem, mem_size, g_cached_identity.partitions);
+}
+
+const GptIdentity* gpt_cached_identity()
+{
+    return g_cached_identity.valid ? &g_cached_identity : nullptr;
+}
+
+void gpt_clear_cached_identity()
+{
+    g_cached_identity = GptIdentity{};
+}
+
 partition_t* partition_list(spdio_t* io, int* part_count_ptr)
 {
     uint64_t size;
@@ -1246,13 +1438,20 @@ partition_t* partition_list(spdio_t* io, int* part_count_ptr)
     w_force_ids.clear();
 
     DEG_LOG(OP, "Reading partition table...\n");
+    // 从设备读表：清掉“来自 XML”的标记，并刷新 GUID 缓存
+    g_app_state.flash.ptable_from_xml = false;
+    gpt_clear_cached_identity();
     if (selected_ab < 0) select_ab(io);
     int verbose = io->verbose;
     io->verbose = 0;
     uint8_t* read_mem = dump_partition_to_mem(io, "user_partition", 0, 32 * 1024, 4096, &size);
     io->verbose = verbose;
     if (32 * 1024 == size)
+    {
         g_app_state.flash.gpt_failed = gpt_info(ptable, read_mem, part_count_ptr);
+        if (g_app_state.flash.gpt_failed == 0)
+            gpt_cache_identity_from_image(read_mem, (size_t)size);
+    }
     if (read_mem) delete[] read_mem;
     if (g_app_state.flash.gpt_failed)
     {
@@ -1775,7 +1974,12 @@ void repartition(spdio_t* io, const char* fn)
     int n = scan_xml_partitions(io, fn, buf, 0xffff);
     // print_mem(stderr, io->temp_buf, n * 0x4c);
     encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-    if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
+    if (!send_and_check(io))
+    {
+        g_app_state.flash.gpt_failed = 0;
+        // 设备已按这份表重建 GPT，内存表与设备重新一致
+        g_app_state.flash.ptable_from_xml = false;
+    }
     if (check_partition(io, "userdata", 0))
     {
         for (int i = 0; i < io->part_count; i++)

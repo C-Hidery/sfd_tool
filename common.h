@@ -11,6 +11,7 @@
 //#include "define.h"
 #include <memory>
 #include <new>
+#include <vector>
 #include <stdlib.h>
 #include <stdio.h>
 #include <thread>
@@ -341,7 +342,34 @@ uint8_t* dump_partition_to_mem(spdio_t *io,
 void dump_partitions(spdio_t *io, const char *fn, int *nand_info, unsigned step);
 uint64_t read_pactime(spdio_t *io);
 partition_t *partition_list(spdio_t *io, int *part_count_ptr);
+// GPT 分区身份（类型 GUID + 唯一 GUID + 名称），只读用途。
+struct GptPartitionIdentity {
+    char name[37] = {};
+    uint8_t type_guid[16] = {};
+    uint8_t unique_guid[16] = {};
+    uint64_t start_lba = 0;
+    uint64_t end_lba = 0;
+};
+
+// 一次读取得到的整盘 GPT 身份：磁盘 GUID + 各个分区的 GUID。
+struct GptIdentity {
+    bool valid = false;
+    uint8_t disk_guid[16] = {};
+    std::vector<GptPartitionIdentity> partitions;
+};
+
 void repartition(spdio_t *io, const char *fn);
+// GPT GUID 只读辅助函数（见 common.cpp）。
+uint32_t crc32(uint32_t crc_in, const uint8_t *buf, int size);
+void gpt_format_guid(const uint8_t guid[16], char *out, size_t out_size);
+int  gpt_get_disk_guid(const uint8_t *mem, size_t mem_size, uint8_t out_guid[16]);
+int  gpt_get_partition_identities(const uint8_t *mem, size_t mem_size,
+                                  std::vector<GptPartitionIdentity> &out);
+bool gpt_capture_identity(spdio_t *io, GptIdentity &out, bool verbose = true);
+// 从一次 GPT 镜像中解析并缓存身份（供 GUI 列表显示用）。
+void gpt_cache_identity_from_image(const uint8_t *mem, size_t mem_size);
+const GptIdentity *gpt_cached_identity();
+void gpt_clear_cached_identity();
 void erase_partition(spdio_t *io, const char *name, int CMethod);
 void load_partition(spdio_t *io, const char *name, const char *fn, unsigned step, int CMethod);
 void load_nv_partition(spdio_t *io, const char *name, const char *fn, unsigned step);

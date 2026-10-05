@@ -294,7 +294,9 @@ translation_dict = {
     "No partition images matching the current partition table were found in the selected folder.": "在所选的文件夹中未找到可与当前分区表匹配的分区镜像。",
     "No partitions were selected to flash from the folder.": "未选择任何要刷入的分区。",
     "Start flashing the selected partitions from the folder?": "确认从所选文件夹开始刷入勾选的分区吗？",
-    "Partition read completed! Saved to: ": "分区读取完成！已保存到："
+    "Partition read completed! Saved to: ": "分区读取完成！已保存到：",
+    "Disk GUID": "磁盘 GUID",
+    "UUID": "UUID"
 }
 
 pot_path = "locale/sfd_tool.pot"

@@ -96,6 +96,36 @@ void populatePartitionList(GtkWidgetHelper& helper, const std::vector<sfd::Devic
     GtkListStore* store = GTK_LIST_STORE(model);
     gtk_list_store_clear(store);
 
+    // 先读出设备 GPT 里所有分区的 UUID（缓存），再逐一按名字匹配。
+    // 分区表来自 XML 时，分区 GUID 已不对应设备实际表项，统一显示 Unknown。
+    const GptIdentity* ident = gpt_cached_identity();
+    const bool from_xml = g_app_state.flash.ptable_from_xml;
+
+    std::string disk_guid = "Unknown";
+    if (ident && ident->valid)
+    {
+        char s[40];
+        gpt_format_guid(ident->disk_guid, s, sizeof(s));
+        disk_guid = s;
+    }
+    if (GtkWidget* lbl = helper.getWidget("disk_guid_value"))
+        helper.setLabelText(lbl, disk_guid.c_str());
+
+    auto uuid_of = [ident, from_xml](const char* name) -> std::string
+    {
+        if (from_xml || !ident || !ident->valid) return "Unknown";
+        for (const auto& p : ident->partitions)
+        {
+            if (strcmp(p.name, name) == 0)
+            {
+                char u[40];
+                gpt_format_guid(p.unique_guid, u, sizeof(u));
+                return u;
+            }
+        }
+        return "Unknown";
+    };
+
     int index = 1;
     GtkTreeIter iter_spl;
     gtk_list_store_append(store, &iter_spl);
@@ -114,6 +144,7 @@ void populatePartitionList(GtkWidgetHelper& helper, const std::vector<sfd::Devic
                        0, display_name.c_str(),
                        1, size_str.c_str(),
                        2, "splloader",
+                       3, "Unknown",
                        -1);
 
     index++;
@@ -142,10 +173,13 @@ void populatePartitionList(GtkWidgetHelper& helper, const std::vector<sfd::Devic
             size_str = std::to_string(partition.size / (1024 * 1024 * 1024.0)) + " GB";
         }
 
+        std::string uuid = uuid_of(partition.name.c_str());
+
         gtk_list_store_set(store, &iter,
                            0, display_name.c_str(),
                            1, size_str.c_str(),
                            2, partition.name.c_str(),
+                           3, uuid.c_str(),
                            -1);
 
         index++;
@@ -1242,7 +1276,6 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper)
         }
         xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
 
-        // 交给原扫描器
         uint8_t* buf = io->temp_buf;
         int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
         if (n <= 0)
@@ -1293,6 +1326,8 @@ void on_button_clicked_xml_get(GtkWidgetHelper helper)
     uint8_t* buf = io->temp_buf;
     int n = scan_xml_partitions(io, filename.c_str(), buf, 0xffff);
     if (n <= 0) return;
+    // 表来自 XML：分区 UUID 栏统一显示 Unknown，磁盘 GUID 保留
+    g_app_state.flash.ptable_from_xml = true;
     for (int i = 0; i < io->part_count; i++)
     {
         if (strcmp(io->ptable[i].name, "userdata") == 0)
@@ -1467,7 +1502,6 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper)
         }
         xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
 
-        // 交给原扫描器
         uint8_t* buf = io->temp_buf;
         int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
         if (n <= 0)
@@ -1616,7 +1650,6 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper)
         }
         xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
 
-        // 交给原扫描器
         uint8_t* buf = io->temp_buf;
         int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
         if (n <= 0)
@@ -1745,7 +1778,6 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper)
         }
         xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
 
-        // 交给原扫描器
         uint8_t* buf = io->temp_buf;
         int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
         if (n <= 0)
@@ -2025,6 +2057,21 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook)
     gtk_widget_set_margin_bottom(selectTitle, 6);
     gtk_box_append(GTK_BOX(mainBox), selectTitle);
 
+    // 磁盘 GUID（位于“请选择一个分区”下方）
+    GtkWidget* diskGuidRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_widget_set_halign(diskGuidRow, GTK_ALIGN_CENTER);
+    gtk_widget_set_margin_bottom(diskGuidRow, 6);
+    GtkWidget* diskGuidTitle = gtk_label_new(_("Disk GUID"));
+    gtk_widget_set_name(diskGuidTitle, "disk_guid_label");
+    helper.addWidget("disk_guid_label", diskGuidTitle);
+    GtkWidget* diskGuidValue = gtk_label_new("Unknown");
+    gtk_widget_set_name(diskGuidValue, "disk_guid_value");
+    gtk_label_set_selectable(GTK_LABEL(diskGuidValue), TRUE);
+    helper.addWidget("disk_guid_value", diskGuidValue);
+    gtk_box_append(GTK_BOX(diskGuidRow), diskGuidTitle);
+    gtk_box_append(GTK_BOX(diskGuidRow), diskGuidValue);
+    gtk_box_append(GTK_BOX(mainBox), diskGuidRow);
+
     GtkWidget* listScroll = gtk_scrolled_window_new();
     gtk_widget_set_size_request(listScroll, -1, 180);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(listScroll),
@@ -2032,7 +2079,7 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook)
     // 阴影效果移除
     gtk_widget_set_hexpand(listScroll, TRUE);
 
-    GtkListStore* store = gtk_list_store_new(3, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
+    GtkListStore* store = gtk_list_store_new(4, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
     GtkWidget* treeView = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
     gtk_widget_set_name(treeView, "part_list");
     helper.addWidget("part_list", treeView);
@@ -2050,6 +2097,10 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook)
     GtkTreeViewColumn* col_type = gtk_tree_view_column_new_with_attributes(_("Type"), renderer, "text", 2, NULL);
     gtk_tree_view_append_column(GTK_TREE_VIEW(treeView), col_type);
     gtk_tree_view_column_set_sort_column_id(col_type, 2);
+
+    GtkTreeViewColumn* col_uuid = gtk_tree_view_column_new_with_attributes(_("UUID"), renderer, "text", 3, NULL);
+    gtk_tree_view_append_column(GTK_TREE_VIEW(treeView), col_uuid);
+    gtk_tree_view_column_set_sort_column_id(col_uuid, 3);
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(listScroll), treeView);
     gtk_box_append(GTK_BOX(mainBox), listScroll);
 

@@ -21,6 +21,9 @@ struct DeviceState {
 struct FlashState {
     int gpt_failed = 1;     // GPT 读取是否失败：1 初始/未读，0 成功，其它为错误
     bool is_pgpt = true;
+    // 当前内存中的分区表是否来自 XML（scan_partition / GUI 选择 XML）。
+    // 为 true 时分区 GUID 不再对应设备实际表项，GUI/CLI 只显示磁盘 GUID。
+    bool ptable_from_xml = false;
     int isCMethod = 0;      // 兼容模式标志（PartList 等）
     int selected_ab = -1;   // 当前使用的 slot（0=无，1=a，2=b）
     int g_w_force = 0;     // 是否自动启用强制写入（针对部分特殊分区）
