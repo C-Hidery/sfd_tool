@@ -1,3 +1,9 @@
+sfd-tool (3.2.0-1-ltv) unstable; urgency=medium
+
+  * 新增磁盘GUID和分区UUID读取
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Mon, 05 Oct 2026 23:48:14 +0800
+
 sfd-tool (3.1.9-1-ltv) unstable; urgency=medium
 
   * 修复了一些已知问题
