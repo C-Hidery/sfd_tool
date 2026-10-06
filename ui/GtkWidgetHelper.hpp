@@ -268,8 +268,10 @@ public:
     void setTextAreaText(GtkWidget* textview, const std::string& text);
     void appendTextAreaText(GtkWidget* textview, const std::string& text);
 
-    bool getCheckboxState(GtkWidget* checkbox) const;
-    void setCheckboxState(GtkWidget* checkbox, bool state);
+    bool getToggleButtonState(GtkWidget* toggle) const;
+    void setToggleButtonState(GtkWidget* toggle, bool state);
+    bool getCheckButtonState(GtkWidget* check);
+    void setCheckButtonState(GtkWidget* check, bool state);
 
     int getSelectedRadioIndex(const std::string& groupName) const;
     void setSelectedRadioIndex(const std::string& groupName, int index);

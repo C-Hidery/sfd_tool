@@ -806,15 +806,27 @@ void GtkWidgetHelper::appendTextAreaText(GtkWidget* textview, const std::string&
     }
 }
 
-bool GtkWidgetHelper::getCheckboxState(GtkWidget* checkbox) const {
-    if (GTK_IS_TOGGLE_BUTTON(checkbox))
-        return gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(checkbox));
+bool GtkWidgetHelper::getToggleButtonState(GtkWidget* toggle) const {
+    if (GTK_IS_TOGGLE_BUTTON(toggle))
+        return gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(toggle));
     return false;
 }
 
-void GtkWidgetHelper::setCheckboxState(GtkWidget* checkbox, bool state) {
-    if (GTK_IS_TOGGLE_BUTTON(checkbox))
-        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(checkbox), state);
+void GtkWidgetHelper::setToggleButtonState(GtkWidget* toggle, bool state) {
+    if (GTK_IS_TOGGLE_BUTTON(toggle))
+        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(toggle), state);
+}
+
+bool GtkWidgetHelper::getCheckButtonState(GtkWidget* check) {
+    if (GTK_IS_CHECK_BUTTON(check)) {
+        return gtk_check_button_get_active(GTK_CHECK_BUTTON(check));
+    }
+    return false;
+}
+
+void GtkWidgetHelper::setCheckButtonState(GtkWidget* check, bool state) {
+    if (GTK_IS_CHECK_BUTTON(check))
+        gtk_check_button_set_active(GTK_CHECK_BUTTON(check), state);
 }
 
 int GtkWidgetHelper::getSelectedRadioIndex(const std::string& groupName) const {

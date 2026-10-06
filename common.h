@@ -421,3 +421,4 @@ std::string utf16_to_utf8(const std::wstring& wstr);
 #ifndef _WIN32
 extern void check_root_permission(GtkWidgetHelper helper);
 #endif
+int checkPartitionSuffix(std::string_view name);

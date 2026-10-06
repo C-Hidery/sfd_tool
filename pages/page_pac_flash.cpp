@@ -45,23 +45,6 @@ std::vector<std::string> getSelectedPartitions(GtkWidgetHelper& helper)
     return selected;
 }
 // ===== 按钮回调函数 =====
-
-
-void on_button_clicked_abpart_auto(GtkWidgetHelper helper) {
-	(void)helper;
-	g_app_state.flash.selected_ab = 0;
-}
-
-void on_button_clicked_abpart_a(GtkWidgetHelper helper) {
-	(void)helper;
-	g_app_state.flash.selected_ab = 1;
-}
-
-void on_button_clicked_abpart_b(GtkWidgetHelper helper) {
-	(void)helper;
-	g_app_state.flash.selected_ab = 2;
-}
-
 void on_button_clicked_pac_select(GtkWidgetHelper helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
 	std::string filename = showFileChooser(parent, true);
@@ -248,36 +231,15 @@ GtkWidget* PacFlashPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     GtkWidget* flashCardBox = makeCardBox(12, 10);
     gtk_frame_set_child(GTK_FRAME(flashFrame), flashCardBox);
 
-    GtkWidget* abDescLabel = gtk_label_new(_("Select slot mode:"));
-    helper.addWidget("pac_ab_desc_label", abDescLabel);
-    gtk_widget_set_halign(abDescLabel, GTK_ALIGN_START);
-    gtk_widget_set_margin_bottom(abDescLabel, 6);
-    gtk_box_append(GTK_BOX(flashCardBox), abDescLabel);
+    GtkWidget* mergeNvCheck = gtk_check_button_new_with_label(_("Merge NV if supported"));
+    gtk_widget_set_name(mergeNvCheck, "pac_merge_nv");
+    helper.addWidget("pac_merge_nv", mergeNvCheck);
+    gtk_box_append(GTK_BOX(flashCardBox), mergeNvCheck);
 
-    GtkWidget* abpart_auto = gtk_button_new_with_label(_("Not VAB (Non-AB)"));
-    gtk_widget_set_name(abpart_auto, "abpart_auto");
-    gtk_widget_set_size_request(abpart_auto, -1, 32);
-    helper.addWidget("abpart_auto", abpart_auto);
-
-    GtkWidget* abpart_a = gtk_button_new_with_label(_("Slot A"));
-    gtk_widget_set_name(abpart_a, "abpart_a");
-    gtk_widget_set_size_request(abpart_a, -1, 32);
-    helper.addWidget("abpart_a", abpart_a);
-
-    GtkWidget* abpart_b = gtk_button_new_with_label(_("Slot B"));
-    gtk_widget_set_name(abpart_b, "abpart_b");
-    gtk_widget_set_size_request(abpart_b, -1, 32);
-    helper.addWidget("abpart_b", abpart_b);
-
-    GtkWidget* abRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-    gtk_widget_set_margin_bottom(abRow, 10);
-    gtk_widget_set_hexpand(abpart_auto, TRUE);
-    gtk_widget_set_hexpand(abpart_a, TRUE);
-    gtk_widget_set_hexpand(abpart_b, TRUE);
-    gtk_box_append(GTK_BOX(abRow), abpart_auto);
-    gtk_box_append(GTK_BOX(abRow), abpart_a);
-    gtk_box_append(GTK_BOX(abRow), abpart_b);
-    gtk_box_append(GTK_BOX(flashCardBox), abRow);
+    GtkWidget* repartitionCheck = gtk_check_button_new_with_label(_("Repartition if needed"));
+    gtk_widget_set_name(repartitionCheck, "pac_repartition");
+    helper.addWidget("pac_repartition", repartitionCheck);
+    gtk_box_append(GTK_BOX(flashCardBox), repartitionCheck);
 
     GtkWidget* pacFlashBtn = gtk_button_new_with_label(_("START PAC Flash"));
     gtk_widget_set_name(pacFlashBtn, "pac_flash_start");
@@ -309,24 +271,6 @@ void PacFlashPage::bindSignals(GtkWidgetHelper& helper) {
 	if (pacFlashBtn) {
 		helper.bindClick(pacFlashBtn, [helper]() {
 			on_button_clicked_pac_flash_start(helper);
-		});
-	}
-	GtkWidget* abpart_auto = helper.getWidget("abpart_auto");
-	if (abpart_auto) {
-		helper.bindClick(abpart_auto, [helper]() {
-			on_button_clicked_abpart_auto(helper);
-		});
-	}
-	GtkWidget* abpart_a = helper.getWidget("abpart_a");
-	if (abpart_a) {
-		helper.bindClick(abpart_a, [helper]() {
-			on_button_clicked_abpart_a(helper);
-		});
-	}
-	GtkWidget* abpart_b = helper.getWidget("abpart_b");
-	if (abpart_b) {
-		helper.bindClick(abpart_b, [helper]() {
-			on_button_clicked_abpart_b(helper);
 		});
 	}
 }
