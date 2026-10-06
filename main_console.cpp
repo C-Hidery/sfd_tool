@@ -221,6 +221,8 @@ void print_help()
             "\t\tRead memory content to a file\n"
             "\t64.erase_flash [ADDR] [SIZE]\n"
             "\t\tErase flash content\n"
+            "\t65.part_guid\n"
+            "\t\tDump the GPT disk GUID (and per-partition GUIDs when the table is read from the device), FDL2 stage only.\n"
             "Notice:\n"
             "\t1.The compatibility method to get part table sometimes can not get all partitions on your device\n"
             "\t2.Command `bl` : It is only supported on special FDL2 and requires trustos and sml partition files.\n"
@@ -228,11 +230,11 @@ void print_help()
     );
     fprintf(stderr,
             "\nExit Commands\n"
-            "\t65.reboot-recovery\n\t\tFDL2 only\n"
-            "\t66.reboot-fastboot\n\t\tFDL2 only\n"
-            "\t67.reset\n\t\tFDL2 and new FDL1\n"
-            "\t68.poweroff\n\t\tFDL2 and new FDL1\n"
-            "\t69.exit\n\t\tExit the program (Tool mode only.)\n"
+            "\t66.reboot-recovery\n\t\tFDL2 only\n"
+            "\t67.reboot-fastboot\n\t\tFDL2 only\n"
+            "\t68.reset\n\t\tFDL2 and new FDL1\n"
+            "\t69.poweroff\n\t\tFDL2 and new FDL1\n"
+            "\t70.exit\n\t\tExit the program (Tool mode only.)\n"
     );
 }
 
@@ -3137,6 +3139,43 @@ int main_console(int argc, char** argv)
             argc -= 2;
             argv += 2;
         }
+        else if (!strcmp(str2[1], "part_guid"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            GptIdentity id;
+            if (gpt_capture_identity(io, id))
+            {
+                char s[40];
+                gpt_format_guid(id.disk_guid, s, sizeof(s));
+                DEG_LOG(I, "Disk GUID: %s", s);
+                // 分区表来自 XML 时，设备里的分区 GUID 已与当前表不对应，只输出磁盘 GUID
+                if (g_app_state.flash.ptable_from_xml)
+                {
+                    DEG_LOG(I, "(partition table loaded from XML; partition UUIDs omitted)");
+                }
+                else
+                {
+                    for (size_t i = 0; i < id.partitions.size(); ++i)
+                    {
+                        const GptPartitionIdentity& p = id.partitions[i];
+                        char t[40], u[40];
+                        gpt_format_guid(p.type_guid, t, sizeof(t));
+                        gpt_format_guid(p.unique_guid, u, sizeof(u));
+                        DEG_LOG(I, "[%zu] %s type=%s unique=%s lba=0x%llx-0x%llx",
+                                i, p.name, t, u,
+                                (unsigned long long)p.start_lba,
+                                (unsigned long long)p.end_lba);
+                    }
+                }
+            }
+            argc -= 1;
+            argv += 1;
+        }
         else if (!strcmp(str2[1], "cptable"))
         {
             if (isToolMode)
@@ -3994,6 +4033,8 @@ int main_console(int argc, char** argv)
             }
             uint8_t* buf = io->temp_buf;
             scan_xml_partitions(io, str2[2], buf, 0xffff);
+            // 表来自 XML：分区 GUID 已不对应设备实际表项
+            g_app_state.flash.ptable_from_xml = true;
             for (int i = 0; i < io->part_count; i++)
             {
                 if (strcmp(io->ptable[i].name, "userdata") == 0)

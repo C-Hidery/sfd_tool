@@ -7,6 +7,7 @@
 #include "../i18n.h"
 #include "../core/flash_service.h"
 #include "ui/ui_common.h"
+#include "ui/gtk_row_view.hpp"
 #include <thread>
 #include <iostream>
 #include <set>
@@ -17,6 +18,8 @@
 #include <cstdint>
 #include <algorithm>
 #include <map>
+#include <functional>
+#include <numeric>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -80,48 +83,62 @@ static void set_partition_modify_busy(GtkWidgetHelper helper, bool busy)
 void populatePartitionList(GtkWidgetHelper& helper, const std::vector<sfd::DevicePartitionInfo>& partitions)
 {
     GtkWidget* part_list = helper.getWidget("part_list");
-    if (!part_list || !GTK_IS_TREE_VIEW(part_list))
+    if (!part_list || !GTK_IS_COLUMN_VIEW(part_list))
     {
-        std::cerr << "part_list not found or not a TreeView" << std::endl;
+        std::cerr << "part_list not found or not a GtkColumnView" << std::endl;
         return;
     }
 
-    GtkTreeModel* model = gtk_tree_view_get_model(GTK_TREE_VIEW(part_list));
-    if (!model)
-    {
-        std::cerr << "TreeView model not found" << std::endl;
-        return;
-    }
+    sfd_row_view_clear(part_list);
 
-    GtkListStore* store = GTK_LIST_STORE(model);
-    gtk_list_store_clear(store);
+    // 先读出设备 GPT 里所有分区的 UUID（缓存），再逐一按名字匹配。
+    // 分区表来自 XML 时，分区 GUID 已不对应设备实际表项，统一显示 Unknown。
+    const GptIdentity* ident = gpt_cached_identity();
+    const bool from_xml = g_app_state.flash.ptable_from_xml;
+
+    std::string disk_guid = "Unknown";
+    if (ident && ident->valid)
+    {
+        char s[40];
+        gpt_format_guid(ident->disk_guid, s, sizeof(s));
+        disk_guid = s;
+    }
+    if (GtkWidget* lbl = helper.getWidget("disk_guid_value"))
+        helper.setLabelText(lbl, disk_guid.c_str());
+
+    auto uuid_of = [ident, from_xml](const char* name) -> std::string
+    {
+        if (from_xml || !ident || !ident->valid) return "Unknown";
+        for (const auto& p : ident->partitions)
+        {
+            if (strcmp(p.name, name) == 0)
+            {
+                char u[40];
+                gpt_format_guid(p.unique_guid, u, sizeof(u));
+                return u;
+            }
+        }
+        return "Unknown";
+    };
 
     int index = 1;
-    GtkTreeIter iter_spl;
-    gtk_list_store_append(store, &iter_spl);
     long long spl_size = g_spl_size > 0 ? g_spl_size : 0;
-    std::string display_name = std::to_string(index) + ". splloader";
-    std::string size_str;
-    if (spl_size < 1024)
+    std::string spl_display = std::to_string(index) + ". splloader";
+    std::string spl_size_str = (spl_size < 1024)
+        ? std::to_string(spl_size) + " B"
+        : std::to_string(spl_size / 1024) + " KB";
     {
-        size_str = std::to_string(spl_size) + " B";
+        SfdRow* row = sfd_row_new();
+        sfd_row_set_cell(row, 0, spl_display.c_str());
+        sfd_row_set_cell(row, 1, spl_size_str.c_str());
+        sfd_row_set_cell(row, 2, "splloader");
+        sfd_row_set_cell(row, 3, "Unknown");
+        sfd_row_view_add(part_list, row);
     }
-    else
-    {
-        size_str = std::to_string(spl_size / 1024) + " KB";
-    }
-    gtk_list_store_set(store, &iter_spl,
-                       0, display_name.c_str(),
-                       1, size_str.c_str(),
-                       2, "splloader",
-                       -1);
 
     index++;
     for (const auto& partition : partitions)
     {
-        GtkTreeIter iter;
-        gtk_list_store_append(store, &iter);
-
         std::string display_name = std::to_string(index) + ". " + partition.name;
 
         std::string size_str;
@@ -142,43 +159,33 @@ void populatePartitionList(GtkWidgetHelper& helper, const std::vector<sfd::Devic
             size_str = std::to_string(partition.size / (1024 * 1024 * 1024.0)) + " GB";
         }
 
-        gtk_list_store_set(store, &iter,
-                           0, display_name.c_str(),
-                           1, size_str.c_str(),
-                           2, partition.name.c_str(),
-                           -1);
+        std::string uuid = uuid_of(partition.name.c_str());
+
+        SfdRow* row = sfd_row_new();
+        sfd_row_set_cell(row, 0, display_name.c_str());
+        sfd_row_set_cell(row, 1, size_str.c_str());
+        sfd_row_set_cell(row, 2, partition.name.c_str());
+        sfd_row_set_cell(row, 3, uuid.c_str());
+        sfd_row_view_add(part_list, row);
 
         index++;
     }
-
-    gtk_widget_queue_draw(part_list);
 }
 
 std::string getSelectedPartitionName(GtkWidgetHelper& helper)
 {
     GtkWidget* part_list = helper.getWidget("part_list");
-    if (!part_list || !GTK_IS_TREE_VIEW(part_list))
+    if (!part_list || !GTK_IS_COLUMN_VIEW(part_list))
     {
         return "";
     }
 
-    GtkTreeSelection* selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(part_list));
-    GtkTreeModel* model;
-    GtkTreeIter iter;
-
-    if (gtk_tree_selection_get_selected(selection, &model, &iter))
+    SfdRow* row = sfd_row_view_get_selected(part_list);
+    if (row)
     {
-        gchar* original_name = nullptr;
-        gtk_tree_model_get(model, &iter, 2, &original_name, -1);
-
-        if (original_name)
-        {
-            std::string name = original_name;
-            g_free(original_name);
-            return name;
-        }
+        const char* name = sfd_row_get_cell(row, 2);
+        if (name) return name;
     }
-
     return "";
 }
 
@@ -1242,7 +1249,6 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper)
         }
         xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
 
-        // 交给原扫描器
         uint8_t* buf = io->temp_buf;
         int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
         if (n <= 0)
@@ -1256,7 +1262,13 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper)
             return;
         }
         encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-        if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
+        if (!send_and_check(io))
+        {
+            g_app_state.flash.gpt_failed = 0;
+            // 设备已重建 GPT：内存表与设备一致，并刷新 GUID 缓存
+            g_app_state.flash.ptable_from_xml = false;
+            gpt_refresh_cached_identity(io);
+        }
         if (check_partition(io, "userdata", 0))
         {
             for (int i = 0; i < io->part_count; i++)
@@ -1293,6 +1305,8 @@ void on_button_clicked_xml_get(GtkWidgetHelper helper)
     uint8_t* buf = io->temp_buf;
     int n = scan_xml_partitions(io, filename.c_str(), buf, 0xffff);
     if (n <= 0) return;
+    // 表来自 XML：分区 UUID 栏统一显示 Unknown，磁盘 GUID 保留
+    g_app_state.flash.ptable_from_xml = true;
     for (int i = 0; i < io->part_count; i++)
     {
         if (strcmp(io->ptable[i].name, "userdata") == 0)
@@ -1467,7 +1481,6 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper)
         }
         xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
 
-        // 交给原扫描器
         uint8_t* buf = io->temp_buf;
         int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
         if (n <= 0)
@@ -1481,7 +1494,13 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper)
             return;
         }
         encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-        if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
+        if (!send_and_check(io))
+        {
+            g_app_state.flash.gpt_failed = 0;
+            // 设备已重建 GPT：内存表与设备一致，并刷新 GUID 缓存
+            g_app_state.flash.ptable_from_xml = false;
+            gpt_refresh_cached_identity(io);
+        }
         if (check_partition(io, "userdata", 0))
         {
             for (int i = 0; i < io->part_count; i++)
@@ -1616,7 +1635,6 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper)
         }
         xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
 
-        // 交给原扫描器
         uint8_t* buf = io->temp_buf;
         int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
         if (n <= 0)
@@ -1630,7 +1648,13 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper)
             return;
         }
         encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-        if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
+        if (!send_and_check(io))
+        {
+            g_app_state.flash.gpt_failed = 0;
+            // 设备已重建 GPT：内存表与设备一致，并刷新 GUID 缓存
+            g_app_state.flash.ptable_from_xml = false;
+            gpt_refresh_cached_identity(io);
+        }
         if (check_partition(io, "userdata", 0))
         {
             for (int i = 0; i < io->part_count; i++)
@@ -1745,7 +1769,6 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper)
         }
         xmlFreeDoc(doc); // 文档构造完成，可以立刻释放
 
-        // 交给原扫描器
         uint8_t* buf = io->temp_buf;
         int n = scan_xml_partitions_from_string(io, xmlStr, buf, 0xffff);
         if (n <= 0)
@@ -1759,7 +1782,13 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper)
             return;
         }
         encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-        if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
+        if (!send_and_check(io))
+        {
+            g_app_state.flash.gpt_failed = 0;
+            // 设备已重建 GPT：内存表与设备一致，并刷新 GUID 缓存
+            g_app_state.flash.ptable_from_xml = false;
+            gpt_refresh_cached_identity(io);
+        }
         if (check_partition(io, "userdata", 0))
         {
             for (int i = 0; i < io->part_count; i++)
@@ -1964,7 +1993,11 @@ void confirm_partition_c(GtkWidgetHelper helper)
             info.writable = true;
             partitions.push_back(info);
         }
-        populatePartitionList(helper, partitions);
+        // 本函数可能在连接线程里被调用，填充列表必须回到 GUI 线程
+        gui_idle_call_wait_drag([helper, partitions]() mutable
+        {
+            populatePartitionList(helper, partitions);
+        }, GTK_WINDOW(helper.getWidget("main_window")));
     }
     else
     {
@@ -2025,6 +2058,21 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook)
     gtk_widget_set_margin_bottom(selectTitle, 6);
     gtk_box_append(GTK_BOX(mainBox), selectTitle);
 
+    // 磁盘 GUID（位于“请选择一个分区”下方）
+    GtkWidget* diskGuidRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_widget_set_halign(diskGuidRow, GTK_ALIGN_CENTER);
+    gtk_widget_set_margin_bottom(diskGuidRow, 6);
+    GtkWidget* diskGuidTitle = gtk_label_new(_("Disk GUID"));
+    gtk_widget_set_name(diskGuidTitle, "disk_guid_label");
+    helper.addWidget("disk_guid_label", diskGuidTitle);
+    GtkWidget* diskGuidValue = gtk_label_new("Unknown");
+    gtk_widget_set_name(diskGuidValue, "disk_guid_value");
+    gtk_label_set_selectable(GTK_LABEL(diskGuidValue), TRUE);
+    helper.addWidget("disk_guid_value", diskGuidValue);
+    gtk_box_append(GTK_BOX(diskGuidRow), diskGuidTitle);
+    gtk_box_append(GTK_BOX(diskGuidRow), diskGuidValue);
+    gtk_box_append(GTK_BOX(mainBox), diskGuidRow);
+
     GtkWidget* listScroll = gtk_scrolled_window_new();
     gtk_widget_set_size_request(listScroll, -1, 180);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(listScroll),
@@ -2032,24 +2080,13 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook)
     // 阴影效果移除
     gtk_widget_set_hexpand(listScroll, TRUE);
 
-    GtkListStore* store = gtk_list_store_new(3, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
-    GtkWidget* treeView = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+    GtkWidget* treeView = sfd_row_view_new(TRUE);
     gtk_widget_set_name(treeView, "part_list");
     helper.addWidget("part_list", treeView);
-    GtkCellRenderer* renderer = gtk_cell_renderer_text_new();
-
-    GtkTreeViewColumn* col_name = gtk_tree_view_column_new_with_attributes(
-        _("Partition Name"), renderer, "text", 0, NULL);
-    gtk_tree_view_append_column(GTK_TREE_VIEW(treeView), col_name);
-    gtk_tree_view_column_set_sort_column_id(col_name, 0);
-
-    GtkTreeViewColumn* col_size = gtk_tree_view_column_new_with_attributes(_("Size"), renderer, "text", 1, NULL);
-    gtk_tree_view_append_column(GTK_TREE_VIEW(treeView), col_size);
-    gtk_tree_view_column_set_sort_column_id(col_size, 1);
-
-    GtkTreeViewColumn* col_type = gtk_tree_view_column_new_with_attributes(_("Type"), renderer, "text", 2, NULL);
-    gtk_tree_view_append_column(GTK_TREE_VIEW(treeView), col_type);
-    gtk_tree_view_column_set_sort_column_id(col_type, 2);
+    sfd_row_view_add_text_column(treeView, _("Partition Name"), 0, TRUE);
+    sfd_row_view_add_text_column(treeView, _("Size"), 1, TRUE);
+    sfd_row_view_add_text_column(treeView, _("Type"), 2, TRUE);
+    sfd_row_view_add_text_column(treeView, _("UUID"), 3, TRUE);
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(listScroll), treeView);
     gtk_box_append(GTK_BOX(mainBox), listScroll);
 
@@ -2458,6 +2495,41 @@ GtkWidget* create_partition_page(GtkWidgetHelper& helper, GtkWidget* notebook)
     return outerScroll;
 }
 
+// 用当前 items 重新填充“从文件夹恢复”对话框的列表。
+// forced_checked: -1 = 保持每项自身的 selected；0/1 = 全部取消/全选。
+static void fill_batch_rows(GtkWidget* view,
+                            const std::vector<BatchPartitionWriteItem>& items,
+                            int forced_checked)
+{
+    sfd_row_view_clear(view);
+
+    std::vector<std::size_t> order(items.size());
+    std::iota(order.begin(), order.end(), std::size_t{0});
+    std::stable_sort(order.begin(), order.end(), [&items](std::size_t a, std::size_t b) {
+        return items[a].part.name < items[b].part.name;
+    });
+
+    for (std::size_t k = 0; k < order.size(); ++k)
+    {
+        const std::size_t i = order[k];
+        const auto& item = items[i];
+
+        const std::string part_size_text = format_size_bytes(item.part.size);
+        const std::string file_size_text = item.image_size ? format_size_bytes(item.image_size) : "0 B";
+        const char* critical_mark = item.is_critical ? _("Critical") : "";
+
+        SfdRow* row = sfd_row_new();
+        sfd_row_set_cell(row, 0, item.part.name.c_str());
+        sfd_row_set_cell(row, 1, item.image_path.c_str());
+        sfd_row_set_cell(row, 2, part_size_text.c_str());
+        sfd_row_set_cell(row, 3, file_size_text.c_str());
+        sfd_row_set_cell(row, 4, critical_mark);
+        sfd_row_set_tag(row, static_cast<int>(i));
+        sfd_row_set_checked(row, forced_checked < 0 ? item.selected : (forced_checked != 0));
+        sfd_row_view_add(view, row);
+    }
+}
+
 static std::vector<BatchPartitionWriteItem>
 show_restore_from_folder_dialog(GtkWidgetHelper& helper,
                                 const std::vector<BatchPartitionWriteItem>& items)
@@ -2493,139 +2565,31 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtkBoxPackStart((content), scrolled, TRUE, TRUE, 0);
 
-    GtkListStore* store = gtk_list_store_new(7,
-                                             G_TYPE_BOOLEAN, // 0: selected
-                                             G_TYPE_STRING, // 1: part name
-                                             G_TYPE_STRING, // 2: image path
-                                             G_TYPE_STRING, // 3: part size
-                                             G_TYPE_STRING, // 4: file size
-                                             G_TYPE_STRING, // 5: critical mark
-                                             G_TYPE_INT); // 6: original index
-    gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(store), 1, GTK_SORT_ASCENDING);
-
-    int idx = 0;
-    for (const auto& item : items)
-    {
-        GtkTreeIter iter;
-        gtk_list_store_append(store, &iter);
-
-        std::string part_size_text;
-        if (item.part.size < 1024ULL)
-        {
-            part_size_text = std::to_string(item.part.size) + " B";
-        }
-        else if (item.part.size < 1024ULL * 1024)
-        {
-            part_size_text = std::to_string(item.part.size / 1024ULL) + " KB";
-        }
-        else if (item.part.size < 1024ULL * 1024 * 1024)
-        {
-            part_size_text = std::to_string(item.part.size / (1024ULL * 1024)) + " MB";
-        }
-        else
-        {
-            part_size_text = std::to_string(item.part.size / (1024ULL * 1024 * 1024)) + " GB";
-        }
-
-        std::string file_size_text;
-        if (item.image_size < 1024ULL)
-        {
-            file_size_text = std::to_string(item.image_size) + " B";
-        }
-        else if (item.image_size < 1024ULL * 1024)
-        {
-            file_size_text = std::to_string(item.image_size / 1024ULL) + " KB";
-        }
-        else if (item.image_size < 1024ULL * 1024 * 1024)
-        {
-            file_size_text = std::to_string(item.image_size / (1024ULL * 1024)) + " MB";
-        }
-        else
-        {
-            file_size_text = std::to_string(item.image_size / (1024ULL * 1024 * 1024)) + " GB";
-        }
-
-        const char* critical_mark = item.is_critical ? _("Critical") : "";
-
-        gtk_list_store_set(store, &iter,
-                           0, item.selected,
-                           1, item.part.name.c_str(),
-                           2, item.image_path.c_str(),
-                           3, part_size_text.c_str(),
-                           4, file_size_text.c_str(),
-                           5, critical_mark,
-                           6, idx,
-                           -1);
-        ++idx;
-    }
-
-    GtkWidget* tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+    GtkWidget* tree = sfd_row_view_new(FALSE);
+    sfd_row_view_add_toggle_column(tree, "");
+    sfd_row_view_add_text_column(tree, _("Partition Name"), 0, FALSE);
+    sfd_row_view_add_text_column(tree, _("Image file path:"), 1, FALSE);
+    sfd_row_view_add_text_column(tree, _("Partition Size"), 2, FALSE);
+    sfd_row_view_add_text_column(tree, _("File Size"), 3, FALSE);
+    sfd_row_view_add_text_column(tree, _("Critical"), 4, FALSE);
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), tree);
-    g_object_unref(store);
+    fill_batch_rows(tree, items, -1);
 
-    // 列 0: checkbox
-    GtkCellRenderer* toggle_renderer = gtk_cell_renderer_toggle_new();
-    GtkTreeViewColumn* col_toggle = gtk_tree_view_column_new_with_attributes(
-        "", toggle_renderer, "active", 0, nullptr);
-    gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_toggle);
+    g_signal_connect_data(select_all_btn, "clicked",
+        G_CALLBACK(+[] (GtkButton*, gpointer data) {
+            (*static_cast<std::function<void(int)>*>(data))(1);
+        }),
+        new std::function<void(int)>([tree, &items](int forced) { fill_batch_rows(tree, items, forced); }),
+        [](gpointer d, GClosure*) { delete static_cast<std::function<void(int)>*>(d); },
+        G_CONNECT_DEFAULT);
 
-    g_signal_connect(toggle_renderer, "toggled",
-                     G_CALLBACK(+[] (GtkCellRendererToggle* /*cell*/, gchar* path_str, gpointer data) {
-                         GtkTreeView* view = GTK_TREE_VIEW(data);
-                         GtkTreeModel* model = gtk_tree_view_get_model(view);
-                         GtkTreePath* path = gtk_tree_path_new_from_string(path_str);
-                         GtkTreeIter iter;
-                         if (gtk_tree_model_get_iter(model, &iter, path)) {
-                         gboolean active = FALSE;
-                         gtk_tree_model_get(model, &iter, 0, &active, -1);
-                         gtk_list_store_set(GTK_LIST_STORE(model), &iter, 0, !active, -1);
-                         }
-                         gtk_tree_path_free(path);
-                         }), tree);
-
-    g_signal_connect(select_all_btn, "clicked", G_CALLBACK(+[] (GtkButton* /*button*/, gpointer data) {
-                         GtkTreeView* view = GTK_TREE_VIEW(data);
-                         GtkTreeModel* model = gtk_tree_view_get_model(view);
-                         GtkTreeIter iter;
-                         gboolean valid = gtk_tree_model_get_iter_first(model, &iter);
-                         while (valid) {
-                         gtk_list_store_set(GTK_LIST_STORE(model), &iter, 0, TRUE, -1);
-                         valid = gtk_tree_model_iter_next(model, &iter);
-                         }
-                         }), tree);
-
-    g_signal_connect(unselect_all_btn, "clicked", G_CALLBACK(+[] (GtkButton* /*button*/, gpointer data) {
-                         GtkTreeView* view = GTK_TREE_VIEW(data);
-                         GtkTreeModel* model = gtk_tree_view_get_model(view);
-                         GtkTreeIter iter;
-                         gboolean valid = gtk_tree_model_get_iter_first(model, &iter);
-                         while (valid) {
-                         gtk_list_store_set(GTK_LIST_STORE(model), &iter, 0, FALSE, -1);
-                         valid = gtk_tree_model_iter_next(model, &iter);
-                         }
-                         }), tree);
-
-    // 其余列：分区名、镜像路径、分区大小、文件大小、关键标记
-    GtkCellRenderer* text_renderer = gtk_cell_renderer_text_new();
-    GtkTreeViewColumn* col_part = gtk_tree_view_column_new_with_attributes(
-        _("Partition Name"), text_renderer, "text", 1, nullptr);
-    gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_part);
-
-    GtkTreeViewColumn* col_path = gtk_tree_view_column_new_with_attributes(
-        _("Image file path:"), text_renderer, "text", 2, nullptr);
-    gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_path);
-
-    GtkTreeViewColumn* col_part_size = gtk_tree_view_column_new_with_attributes(
-        _("Partition Size"), text_renderer, "text", 3, nullptr);
-    gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_part_size);
-
-    GtkTreeViewColumn* col_file_size = gtk_tree_view_column_new_with_attributes(
-        _("File Size"), text_renderer, "text", 4, nullptr);
-    gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_file_size);
-
-    GtkTreeViewColumn* col_critical = gtk_tree_view_column_new_with_attributes(
-        _("Critical"), text_renderer, "text", 5, nullptr);
-    gtk_tree_view_append_column(GTK_TREE_VIEW(tree), col_critical);
+    g_signal_connect_data(unselect_all_btn, "clicked",
+        G_CALLBACK(+[] (GtkButton*, gpointer data) {
+            (*static_cast<std::function<void(int)>*>(data))(0);
+        }),
+        new std::function<void(int)>([tree, &items](int forced) { fill_batch_rows(tree, items, forced); }),
+        [](gpointer d, GClosure*) { delete static_cast<std::function<void(int)>*>(d); },
+        G_CONNECT_DEFAULT);
 
 #if GTK_CHECK_VERSION(4, 0, 0)
     gtk_widget_set_visible(dialog, TRUE);
@@ -2636,17 +2600,14 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
     std::vector<BatchPartitionWriteItem> result;
     if (runDialog(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK)
     {
-        GtkTreeModel* model = gtk_tree_view_get_model(GTK_TREE_VIEW(tree));
-        GtkTreeIter iter;
-        gboolean valid = gtk_tree_model_get_iter_first(model, &iter);
-        while (valid)
+        const guint n = sfd_row_view_count(tree);
+        for (guint i = 0; i < n; ++i)
         {
-            gboolean active = FALSE;
-            gint orig_index = -1;
-            gtk_tree_model_get(model, &iter,
-                               0, &active,
-                               6, &orig_index,
-                               -1);
+            SfdRow* row = sfd_row_view_get(tree, i);
+            if (!row) continue;
+            const int orig_index = sfd_row_get_tag(row);
+            const bool active = sfd_row_get_checked(row) != FALSE;
+            g_object_unref(row);
 
             if (orig_index >= 0 && (std::size_t)orig_index < items.size())
             {
@@ -2654,8 +2615,6 @@ show_restore_from_folder_dialog(GtkWidgetHelper& helper,
                 item.selected = active;
                 result.push_back(std::move(item));
             }
-
-            valid = gtk_tree_model_iter_next(model, &iter);
         }
 
         // 若全未选中则提示
@@ -2726,57 +2685,32 @@ static void show_backup_inspection_dialog(GtkWidgetHelper& helper,
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtkBoxPackStart((content), scrolled, TRUE, TRUE, 0);
 
-    GtkListStore* store = gtk_list_store_new(6,
-                                             G_TYPE_STRING,
-                                             G_TYPE_STRING,
-                                             G_TYPE_STRING,
-                                             G_TYPE_STRING,
-                                             G_TYPE_STRING,
-                                             G_TYPE_STRING);
+    GtkWidget* tree = sfd_row_view_new(FALSE);
+    sfd_row_view_add_text_column(tree, _("Status"), 0, FALSE);
+    sfd_row_view_add_text_column(tree, _("Partition Name"), 1, FALSE);
+    sfd_row_view_add_text_column(tree, _("Image file path:"), 2, FALSE);
+    sfd_row_view_add_text_column(tree, _("Partition Size"), 3, FALSE);
+    sfd_row_view_add_text_column(tree, _("File Size"), 4, FALSE);
+    sfd_row_view_add_text_column(tree, _("Note"), 5, FALSE);
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), tree);
 
     for (const auto& item : items)
     {
-        GtkTreeIter iter;
-        gtk_list_store_append(store, &iter);
-
         const std::string status_text = backup_inspection_status_text(item);
         const std::string expected_size_text =
             item.expected_size ? format_size_bytes(item.expected_size) : "-";
         const std::string file_size_text =
             item.image_size ? format_size_bytes(item.image_size) : "0 B";
 
-        gtk_list_store_set(store, &iter,
-                           0, status_text.c_str(),
-                           1, item.part.name.c_str(),
-                           2, item.image_path.c_str(),
-                           3, expected_size_text.c_str(),
-                           4, file_size_text.c_str(),
-                           5, item.note.c_str(),
-                           -1);
+        SfdRow* row = sfd_row_new();
+        sfd_row_set_cell(row, 0, status_text.c_str());
+        sfd_row_set_cell(row, 1, item.part.name.c_str());
+        sfd_row_set_cell(row, 2, item.image_path.c_str());
+        sfd_row_set_cell(row, 3, expected_size_text.c_str());
+        sfd_row_set_cell(row, 4, file_size_text.c_str());
+        sfd_row_set_cell(row, 5, item.note.c_str());
+        sfd_row_view_add(tree, row);
     }
-
-    GtkWidget* tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
-    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), tree);
-    g_object_unref(store);
-
-    GtkCellRenderer* text_renderer = gtk_cell_renderer_text_new();
-    gtk_tree_view_append_column(GTK_TREE_VIEW(tree),
-                                gtk_tree_view_column_new_with_attributes(
-                                    _("Status"), text_renderer, "text", 0, nullptr));
-    gtk_tree_view_append_column(GTK_TREE_VIEW(tree),
-                                gtk_tree_view_column_new_with_attributes(
-                                    _("Partition Name"), text_renderer, "text", 1, nullptr));
-    gtk_tree_view_append_column(GTK_TREE_VIEW(tree),
-                                gtk_tree_view_column_new_with_attributes(
-                                    _("Image file path:"), text_renderer, "text", 2, nullptr));
-    gtk_tree_view_append_column(GTK_TREE_VIEW(tree),
-                                gtk_tree_view_column_new_with_attributes(
-                                    _("Partition Size"), text_renderer, "text", 3, nullptr));
-    gtk_tree_view_append_column(GTK_TREE_VIEW(tree),
-                                gtk_tree_view_column_new_with_attributes(
-                                    _("File Size"), text_renderer, "text", 4, nullptr));
-    gtk_tree_view_append_column(GTK_TREE_VIEW(tree),
-                                gtk_tree_view_column_new_with_attributes(_("Note"), text_renderer, "text", 5, nullptr));
 
 #if GTK_CHECK_VERSION(4, 0, 0)
     gtk_widget_set_visible(dialog, TRUE);

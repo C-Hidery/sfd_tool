@@ -836,35 +836,6 @@ void GtkWidgetHelper::setSelectedRadioIndex(const std::string& groupName, int in
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(it->second->widget), TRUE);
 }
 
-int GtkWidgetHelper::getComboSelectedIndex(GtkWidget* combo) const {
-    if (GTK_IS_COMBO_BOX(combo)) return gtk_combo_box_get_active(GTK_COMBO_BOX(combo));
-    return -1;
-}
-
-void GtkWidgetHelper::setComboSelectedIndex(GtkWidget* combo, int index) {
-    if (GTK_IS_COMBO_BOX(combo)) gtk_combo_box_set_active(GTK_COMBO_BOX(combo), index);
-}
-
-std::string GtkWidgetHelper::getComboSelectedText(GtkWidget* combo) const {
-    if (GTK_IS_COMBO_BOX_TEXT(combo)) {
-        gchar* text = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(combo));
-        std::string result(text ? text : "");
-        g_free(text);
-        return result;
-    }
-    return "";
-}
-
-void GtkWidgetHelper::addComboItem(GtkWidget* combo, const std::string& item) {
-    if (GTK_IS_COMBO_BOX_TEXT(combo))
-        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo), item.c_str());
-}
-
-void GtkWidgetHelper::removeComboItem(GtkWidget* combo, int index) {
-    if (GTK_IS_COMBO_BOX_TEXT(combo))
-        gtk_combo_box_text_remove(GTK_COMBO_BOX_TEXT(combo), index);
-}
-
 double GtkWidgetHelper::getProgressValue(GtkWidget* progressBar) const {
     if (GTK_IS_PROGRESS_BAR(progressBar))
         return gtk_progress_bar_get_fraction(GTK_PROGRESS_BAR(progressBar));
@@ -982,34 +953,6 @@ void GtkWidgetHelper::bindTextChanged(GtkWidget* entry, std::function<void()> ca
                 auto cb = static_cast<CallbackData*>(d);
                 if (cb && cb->func) cb->func();
             }), data.get(), nullptr, G_CONNECT_DEFAULT);
-    }
-}
-
-void GtkWidgetHelper::bindSelectionChanged(GtkWidget* widget, std::function<void()> callback) {
-    if (!widget || !callback) return;
-    auto data = std::make_shared<CallbackData>();
-    data->func = callback;
-    std::string key = "selectionchanged_" + std::to_string(reinterpret_cast<uintptr_t>(widget));
-    m_callbacks[key] = data;
-    if (GTK_IS_COMBO_BOX(widget)) {
-        g_signal_connect_data(widget, "changed",
-            G_CALLBACK(+[](GtkWidget*, gpointer d) {
-                auto cb = static_cast<CallbackData*>(d);
-                if (cb && cb->func) cb->func();
-            }), data.get(), nullptr, G_CONNECT_DEFAULT);
-    }
-}
-
-void GtkWidgetHelper::bindRowActivated(GtkWidget* treeview, std::function<void(int)> callback) {
-    if (GTK_IS_TREE_VIEW(treeview) && callback) {
-        auto* func = new std::function<void(int)>(callback);
-        g_signal_connect_data(treeview, "row-activated",
-            G_CALLBACK(+[](GtkTreeView* view, GtkTreePath* path, GtkTreeViewColumn* col, gpointer d) {
-                (void)view; (void)col;
-                auto f = static_cast<std::function<void(int)>*>(d);
-                gint* indices = gtk_tree_path_get_indices(path);
-                if (indices) (*f)(indices[0]);
-            }), func, [](gpointer d, GClosure*) { delete static_cast<std::function<void(int)>*>(d); }, G_CONNECT_DEFAULT);
     }
 }
 

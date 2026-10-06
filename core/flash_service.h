@@ -40,6 +40,7 @@ struct DevicePartitionInfo {
     std::uint64_t size = 0;    // 字节数
     bool readable = true;
     bool writable = true;
+    std::string uuid;          // GPT 分区唯一 GUID（无法读取时为空）
 };
 
 // A/B slot 选择策略，对应 g_app_state.flash.selected_ab

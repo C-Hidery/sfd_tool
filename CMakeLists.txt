@@ -72,6 +72,7 @@ endif()
 add_library(sfd_ui STATIC
     common.cpp
     ui/GtkWidgetHelper.cpp
+    ui/gtk_row_view.cpp
     ui/ui_common.cpp
     ui/layout/bottom_bar.cpp
 )

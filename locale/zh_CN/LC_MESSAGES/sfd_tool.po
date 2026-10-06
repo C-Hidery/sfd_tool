@@ -1302,3 +1302,10 @@ msgstr "重新分区完成，兼容模式已关闭!"
 
 msgid "Read completed, and Compatibility-method mode disabled!"
 msgstr "读取完成，兼容模式已关闭!"
+
+msgid "Disk GUID"
+msgstr "磁盘 GUID"
+
+msgid "UUID"
+msgstr "UUID"
+
