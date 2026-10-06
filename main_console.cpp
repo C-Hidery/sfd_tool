@@ -221,8 +221,8 @@ void print_help()
             "\t\tRead memory content to a file\n"
             "\t64.erase_flash [ADDR] [SIZE]\n"
             "\t\tErase flash content\n"
-            "\t70.part_guid\n"
-            "\t\tDump the GPT disk GUID (and per-partition GUIDs when the table is read from the device).\n"
+            "\t65.part_guid\n"
+            "\t\tDump the GPT disk GUID (and per-partition GUIDs when the table is read from the device), FDL2 stage only.\n"
             "Notice:\n"
             "\t1.The compatibility method to get part table sometimes can not get all partitions on your device\n"
             "\t2.Command `bl` : It is only supported on special FDL2 and requires trustos and sml partition files.\n"
@@ -230,11 +230,11 @@ void print_help()
     );
     fprintf(stderr,
             "\nExit Commands\n"
-            "\t65.reboot-recovery\n\t\tFDL2 only\n"
-            "\t66.reboot-fastboot\n\t\tFDL2 only\n"
-            "\t67.reset\n\t\tFDL2 and new FDL1\n"
-            "\t68.poweroff\n\t\tFDL2 and new FDL1\n"
-            "\t69.exit\n\t\tExit the program (Tool mode only.)\n"
+            "\t66.reboot-recovery\n\t\tFDL2 only\n"
+            "\t67.reboot-fastboot\n\t\tFDL2 only\n"
+            "\t68.reset\n\t\tFDL2 and new FDL1\n"
+            "\t69.poweroff\n\t\tFDL2 and new FDL1\n"
+            "\t70.exit\n\t\tExit the program (Tool mode only.)\n"
     );
 }
 
