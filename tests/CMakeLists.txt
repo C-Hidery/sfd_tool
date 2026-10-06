@@ -36,25 +36,19 @@ add_executable(test_gpt_guid
 )
 
 # ====== 平台相关链接设置 ======
-# 为避免 macOS 上重复链接 core_lib/pages_lib 的告警，
-# 同时兼顾 Linux 上静态库之间的循环依赖，这里做平台区分：
-# - macOS / Windows: 每个库仅链接一次，避免 duplicate libraries 警告；
-# - 其他 UNIX（Linux 等）: 将 core_lib/pages_lib/sfd_ui 重复一遍，
-#   解决静态库 A 依赖 B、B 再依赖 C 的循环依赖问题。
+# 为避免 macOS / MSVC 上重复链接 core_lib/pages_lib 的告警，
+# 同时兼顾 GNU ld（Linux / MinGW）静态库之间的循环依赖：
+# - macOS / MSVC：每个库仅链接一次；
+# - GNU ld：末尾再补一遍 sfd_ui。因为 core_lib 的 logging.cpp 会引用
+#   ui_common.cpp 里的 append_log_to_ui / DisableWidgets；如果 sfd_ui
+#   只出现在 core_lib 之前，链接 core_lib 时这两个符号就没人解析了
+#   （正是 Windows/MinGW CI 上 test_gpt_guid 的报错）。
 
 if(APPLE OR MSVC)
     set(SFD_TEST_LIBS
         core_lib
         pages_lib
         sfd_ui
-    )
-elseif (MINGW AND WIN32)
-    set(SFD_TEST_LIBS
-        core_lib
-        pages_lib
-        sfd_ui
-        pages_lib
-        core_lib
     )
 else()
     set(SFD_TEST_LIBS
