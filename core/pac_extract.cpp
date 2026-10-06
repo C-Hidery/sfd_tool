@@ -570,6 +570,9 @@ static bool hasPartition(const std::vector<std::string>& partitions, const std::
 
 bool pac_flash(spdio_t* io, const char* folder)
 {
+    bool isMergingNV_GUI = helper.getCheckButtonState(helper.getWidget("pac_merge_nv"));
+    bool isRepartitionGUI = helper.getCheckButtonState(helper.getWidget("pac_repartition"));
+    DEG_LOG(I, "PAC Flash: Merging NV=%s, Repartition=%s", isMergingNV_GUI ? "true" : "false", isRepartitionGUI ? "true" : "false");
     std::string xmlPath = FindFirstXMLFile(folder);
     if (xmlPath.empty())
     {
@@ -594,9 +597,7 @@ bool pac_flash(spdio_t* io, const char* folder)
     g_app_state.flash.pac_xmlPath = xmlPath;
     if (isHelperInit)
     {
-        g_app_state.flash.isPacMergingNV = showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")),
-                                                                         _("Confirm"),
-                                                                         _("Do you want to merge NV partition?"));
+        g_app_state.flash.isPacMergingNV = isMergingNV_GUI;
     }
     else
     {
@@ -606,7 +607,7 @@ bool pac_flash(spdio_t* io, const char* folder)
         g_app_state.flash.isPacMergingNV = (n == "Y" || n == "y");
     }
 
-    auto into_func = [&io]() mutable // Catch io for spdio_free
+    auto into_func = [&io, isRepartitionGUI]() mutable // Catch io for spdio_free
     {
         std::string fdl1_path;
         uint32_t fdl1_base_addr = 0;
@@ -911,8 +912,7 @@ bool pac_flash(spdio_t* io, const char* folder)
         bool i_is = false;
         if (isHelperInit)
         {
-            i_is = showConfirmDialogSyncInThread(
-                GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"), _("Do you want to repartition?"));
+            i_is = isRepartitionGUI;
         }
         else
         {

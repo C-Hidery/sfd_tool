@@ -2048,6 +2048,20 @@ void erase_partition(spdio_t* io, const char* name, int CMethod)
     }
     io->timeout = timeout0;
 }
+/**
+ * 判断分区名后缀：
+ *  - 以 "_a" 结尾 -> 返回 0
+ *  - 以 "_b" 结尾 -> 返回 -1
+ *  - 其他情况     -> 返回 1
+ */
+int checkPartitionSuffix(std::string_view name) {
+    if (name.size() >= 2) {
+        const std::string_view tail = name.substr(name.size() - 2);
+        if (tail == "_a") return 0;
+        if (tail == "_b") return -1;
+    }
+    return 1;
+}
 
 void load_partition(spdio_t* io, const char* name,
                     const char* fn, unsigned step, int CMethod)

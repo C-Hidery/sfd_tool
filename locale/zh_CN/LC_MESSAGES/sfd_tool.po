@@ -1249,14 +1249,8 @@ msgstr "无法导入配置"
 msgid "Config saved successfully."
 msgstr "保存配置成功"
 
-msgid "Do you want to merge NV partition?"
-msgstr "是否合并 NV 分区？"
-
 msgid "Do you really want to start flashing PAC firmware?"
 msgstr "是否开始烧录PAC固件？"
-
-msgid "Do you want to repartition?"
-msgstr "是否重新分区？"
 
 msgid "Please unpack the PAC file first."
 msgstr "请先解包一个PAC固件。"
@@ -1308,4 +1302,11 @@ msgstr "磁盘 GUID"
 
 msgid "UUID"
 msgstr "UUID"
+
+msgid "Merge NV if supported"
+msgstr "合并 NV（如果支持）"
+
+msgid "Repartition if needed"
+msgstr "重新分区（如果需要）"
+
 

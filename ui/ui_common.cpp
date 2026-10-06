@@ -94,10 +94,7 @@ void Enable_Startup(GtkWidgetHelper helper) {
 	helper.enableWidget("charge_dis");
 	helper.enableWidget("raw_data_en");
 	helper.enableWidget("raw_data_dis");
-	helper.enableWidget("abpart_a");
-	helper.enableWidget("abpart_b");
 	helper.enableWidget("pac_flash_start");
-	helper.enableWidget("abpart_auto");
 	helper.enableWidget("nand_id_set");
 	helper.enableWidget("nand_id_rec");
 }

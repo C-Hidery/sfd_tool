@@ -9,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        3.2.0
+Version:        3.2.1
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -63,6 +63,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Tue Oct 06 2026 RyanCrepa <Ryan110413@outlook.com> - 3.2.1-1-ltv
+- 修复了PAC刷写逻辑，去除PAC烧录时的A/B槽无效选择
+
 * Mon Oct 05 2026 RyanCrepa <Ryan110413@outlook.com> - 3.2.0-1-ltv
 - 新增磁盘GUID和分区UUID读取
 

@@ -1,3 +1,9 @@
+sfd-tool (3.2.1-1-ltv) unstable; urgency=medium
+
+  * 修复了PAC刷写逻辑，去除PAC烧录时的A/B槽无效选择
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Tue, 06 Oct 2026 18:32:37 +0800
+
 sfd-tool (3.2.0-1-ltv) unstable; urgency=medium
 
   * 新增磁盘GUID和分区UUID读取
