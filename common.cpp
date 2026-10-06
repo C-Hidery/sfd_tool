@@ -1427,6 +1427,21 @@ void gpt_clear_cached_identity()
     g_cached_identity = GptIdentity{};
 }
 
+// 重分区/改表后重新读取设备 GPT，刷新 GUI 显示用的缓存。
+bool gpt_refresh_cached_identity(spdio_t* io)
+{
+    uint64_t size = 0;
+    uint8_t* mem = gpt_read_user_partition(io, &size);
+    if (!mem)
+    {
+        gpt_clear_cached_identity();
+        return false;
+    }
+    gpt_cache_identity_from_image(mem, (size_t)size);
+    delete[] mem;
+    return true;
+}
+
 partition_t* partition_list(spdio_t* io, int* part_count_ptr)
 {
     uint64_t size;
@@ -1979,6 +1994,8 @@ void repartition(spdio_t* io, const char* fn)
         g_app_state.flash.gpt_failed = 0;
         // 设备已按这份表重建 GPT，内存表与设备重新一致
         g_app_state.flash.ptable_from_xml = false;
+        // 重新读取设备 GPT，刷新 GUI 的 UUID 列 / 磁盘 GUID 显示
+        gpt_refresh_cached_identity(io);
     }
     if (check_partition(io, "userdata", 0))
     {

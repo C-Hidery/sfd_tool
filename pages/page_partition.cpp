@@ -1289,7 +1289,13 @@ void on_button_clicked_modify_part(GtkWidgetHelper helper)
             return;
         }
         encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-        if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
+        if (!send_and_check(io))
+        {
+            g_app_state.flash.gpt_failed = 0;
+            // 设备已重建 GPT：内存表与设备一致，并刷新 GUID 缓存
+            g_app_state.flash.ptable_from_xml = false;
+            gpt_refresh_cached_identity(io);
+        }
         if (check_partition(io, "userdata", 0))
         {
             for (int i = 0; i < io->part_count; i++)
@@ -1515,7 +1521,13 @@ void on_button_clicked_modify_new_part(GtkWidgetHelper helper)
             return;
         }
         encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-        if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
+        if (!send_and_check(io))
+        {
+            g_app_state.flash.gpt_failed = 0;
+            // 设备已重建 GPT：内存表与设备一致，并刷新 GUID 缓存
+            g_app_state.flash.ptable_from_xml = false;
+            gpt_refresh_cached_identity(io);
+        }
         if (check_partition(io, "userdata", 0))
         {
             for (int i = 0; i < io->part_count; i++)
@@ -1663,7 +1675,13 @@ void on_button_clicked_modify_rm_part(GtkWidgetHelper helper)
             return;
         }
         encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-        if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
+        if (!send_and_check(io))
+        {
+            g_app_state.flash.gpt_failed = 0;
+            // 设备已重建 GPT：内存表与设备一致，并刷新 GUID 缓存
+            g_app_state.flash.ptable_from_xml = false;
+            gpt_refresh_cached_identity(io);
+        }
         if (check_partition(io, "userdata", 0))
         {
             for (int i = 0; i < io->part_count; i++)
@@ -1791,7 +1809,13 @@ void on_button_clicked_modify_ren_part(GtkWidgetHelper helper)
             return;
         }
         encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-        if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
+        if (!send_and_check(io))
+        {
+            g_app_state.flash.gpt_failed = 0;
+            // 设备已重建 GPT：内存表与设备一致，并刷新 GUID 缓存
+            g_app_state.flash.ptable_from_xml = false;
+            gpt_refresh_cached_identity(io);
+        }
         if (check_partition(io, "userdata", 0))
         {
             for (int i = 0; i < io->part_count; i++)

@@ -953,7 +953,12 @@ bool pac_flash(spdio_t* io, const char* folder)
             uint8_t* buf = io->temp_buf;
             int n = scan_xml_partitions_from_string(io, partxml, buf, 0xffff);
             encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
-            if (!send_and_check(io)) g_app_state.flash.gpt_failed = 0;
+            if (!send_and_check(io))
+            {
+                g_app_state.flash.gpt_failed = 0;
+                g_app_state.flash.ptable_from_xml = false;
+                gpt_refresh_cached_identity(io);
+            }
         }
         g_app_state.flash.isPacFlashing = true;
         int dlnv_id = 0;

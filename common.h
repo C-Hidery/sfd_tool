@@ -370,6 +370,8 @@ bool gpt_capture_identity(spdio_t *io, GptIdentity &out, bool verbose = true);
 void gpt_cache_identity_from_image(const uint8_t *mem, size_t mem_size);
 const GptIdentity *gpt_cached_identity();
 void gpt_clear_cached_identity();
+// 重新读取设备 user_partition 并刷新 GUID 缓存（重分区/改表后调用）。
+bool gpt_refresh_cached_identity(spdio_t *io);
 void erase_partition(spdio_t *io, const char *name, int CMethod);
 void load_partition(spdio_t *io, const char *name, const char *fn, unsigned step, int CMethod);
 void load_nv_partition(spdio_t *io, const char *name, const char *fn, unsigned step);
