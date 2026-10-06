@@ -771,6 +771,7 @@ bool pac_flash(spdio_t* io, const char* folder)
             if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
 
             fdl1_loaded = 1;
+            gui_idle_call([](){ bottom_bar_set_mode("FDL1 - PAC"); });
             g_app_state.device.device_stage = FDL1;
         }
         if (g_app_state.device.device_stage == FDL1)
