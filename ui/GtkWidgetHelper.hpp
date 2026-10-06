@@ -274,12 +274,6 @@ public:
     int getSelectedRadioIndex(const std::string& groupName) const;
     void setSelectedRadioIndex(const std::string& groupName, int index);
 
-    int getComboSelectedIndex(GtkWidget* combo) const;
-    void setComboSelectedIndex(GtkWidget* combo, int index);
-    std::string getComboSelectedText(GtkWidget* combo) const;
-    void addComboItem(GtkWidget* combo, const std::string& item);
-    void removeComboItem(GtkWidget* combo, int index);
-
     double getProgressValue(GtkWidget* progressBar) const;
     void setProgressValue(GtkWidget* progressBar, double fraction);
     void pulseProgressBar(GtkWidget* progressBar);
@@ -301,8 +295,6 @@ public:
     void bindToggled(GtkWidget* toggleButton, std::function<void()> callback);
     void bindValueChanged(GtkWidget* widget, std::function<void()> callback);
     void bindTextChanged(GtkWidget* entry, std::function<void()> callback);
-    void bindSelectionChanged(GtkWidget* widget, std::function<void()> callback);
-    void bindRowActivated(GtkWidget* treeview, std::function<void(int)> callback);
 
     // 组件管理
     GtkWidget* getWidget(const std::string& name) const;

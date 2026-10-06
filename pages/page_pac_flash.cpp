@@ -9,6 +9,7 @@
 #include "../core/pac_extract.h"  // FindFDLInExtFloder & Stages
 #include "../i18n.h"
 #include "ui/ui_common.h"
+#include "ui/gtk_row_view.hpp"
 #include <string>
 #include <thread>
 #include <cstdio>
@@ -21,49 +22,24 @@ extern spdio_t*& io;
 
 
 
-// 当用户点击复选框时，切换存储中的布尔值
-static void on_cell_toggled(GtkCellRendererToggle *renderer,
-                            gchar *path_str,
-                            gpointer user_data)
-{
-    (void)renderer;
-    GtkTreeModel *model = GTK_TREE_MODEL(user_data);
-    GtkTreePath *path = gtk_tree_path_new_from_string(path_str);
-    GtkTreeIter iter;
-
-    if (gtk_tree_model_get_iter(model, &iter, path)) {
-        gboolean old_value = FALSE;
-        gtk_tree_model_get(model, &iter, 0, &old_value, -1);
-        gtk_list_store_set(GTK_LIST_STORE(model), &iter, 0, !old_value, -1);
-    }
-
-    gtk_tree_path_free(path);
-}
-
 std::vector<std::string> getSelectedPartitions(GtkWidgetHelper& helper)
 {
     std::vector<std::string> selected;
 
-    GtkWidget* treeView = helper.getWidget("pac_list");
-    if (!treeView) return selected;
+    GtkWidget* view = helper.getWidget("pac_list");
+    if (!view || !GTK_IS_COLUMN_VIEW(view)) return selected;
 
-    GtkTreeModel* model = gtk_tree_view_get_model(GTK_TREE_VIEW(treeView));
-    if (!model) return selected;
-
-    GtkTreeIter iter;
-    gboolean valid = gtk_tree_model_get_iter_first(model, &iter);
-    while (valid) {
-        gboolean is_selected = FALSE;
-        gtk_tree_model_get(model, &iter, 0, &is_selected, -1);
-        if (is_selected) {
-            gchar* partition_name = NULL;
-            gtk_tree_model_get(model, &iter, 3, &partition_name, -1); // 第4项：原始分区名
-            if (partition_name) {
-                selected.push_back(std::string(partition_name));
-                g_free(partition_name);
-            }
+    const guint n = sfd_row_view_count(view);
+    for (guint i = 0; i < n; ++i)
+    {
+        SfdRow* row = sfd_row_view_get(view, i);
+        if (!row) continue;
+        if (sfd_row_get_checked(row))
+        {
+            const char* partition_name = sfd_row_get_cell(row, 3); // 原始分区名
+            if (partition_name) selected.emplace_back(partition_name);
         }
-        valid = gtk_tree_model_iter_next(model, &iter);
+        g_object_unref(row);
     }
 
     return selected;
@@ -245,43 +221,16 @@ GtkWidget* PacFlashPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     // 移除阴影
     gtk_widget_set_hexpand(listScroll, TRUE);
 
-    // 创建包含4列的 ListStore: 是否选中(布尔), 分区名(字符串), 大小(字符串), 类型(字符串)
-    GtkListStore* p_store = gtk_list_store_new(4,
-                                            G_TYPE_BOOLEAN,
-                                            G_TYPE_STRING,
-                                            G_TYPE_STRING,
-                                            G_TYPE_STRING);
-
-    GtkWidget* p_treeView = gtk_tree_view_new_with_model(GTK_TREE_MODEL(p_store));
+    // GtkColumnView：第 0 列是勾选框，后 3 列是分区名 / 大小 / 类型（原始名）
+    GtkWidget* p_treeView = sfd_row_view_new(FALSE);
     gtk_widget_set_name(p_treeView, "pac_list");
     helper.addWidget("pac_list", p_treeView);
 
-    // 创建复选框渲染器作为第一列
-    GtkCellRenderer* p_toggle_renderer = gtk_cell_renderer_toggle_new();
-    g_signal_connect(p_toggle_renderer, "toggled",
-                    G_CALLBACK(on_cell_toggled), p_store);
+    sfd_row_view_add_toggle_column(p_treeView, _("Select"));
+    sfd_row_view_add_text_column(p_treeView, _("Partition Name"), 1, FALSE);
+    sfd_row_view_add_text_column(p_treeView, _("Size"), 2, FALSE);
+    sfd_row_view_add_text_column(p_treeView, _("Type"), 3, FALSE);
 
-    // 插入复选框列
-    GtkTreeViewColumn* p_toggle_column = gtk_tree_view_column_new_with_attributes(
-        _("Select"), p_toggle_renderer, "active", 0, NULL);
-    gtk_tree_view_append_column(GTK_TREE_VIEW(p_treeView), p_toggle_column);
-
-    // 创建文本渲染器用于后续列
-    GtkCellRenderer* p_renderer = gtk_cell_renderer_text_new();
-
-    // 插入分区名列
-    gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(p_treeView), -1,
-        _("Partition Name"), p_renderer, "text", 1, NULL);
-
-    // 插入大小列
-    gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(p_treeView), -1,
-        _("Size"), p_renderer, "text", 2, NULL);
-
-    // 插入类型列
-    gtk_tree_view_insert_column_with_attributes(GTK_TREE_VIEW(p_treeView), -1,
-        _("Type"), p_renderer, "text", 3, NULL);
-
-    // 将树视图添加到滚动窗口
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(listScroll), p_treeView);
     gtk_box_append(GTK_BOX(mainBox), listScroll);
 
