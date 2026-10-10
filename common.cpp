@@ -2884,7 +2884,7 @@ void get_partition_info(spdio_t* io, const char* name, int need_size)
     if (!strncmp(name, "splloader", 9))
     {
         strcpy(gPartInfo.name, name);
-        gPartInfo.size = g_spl_size ? (long long)g_spl_size : check_partition(io, name, need_size);
+        gPartInfo.size = g_spl_size ? (long long)g_spl_size : check_partition(io, name, 1);
         if (!g_spl_size) g_spl_size = gPartInfo.size;
         io->verbose = verbose;
         return;
