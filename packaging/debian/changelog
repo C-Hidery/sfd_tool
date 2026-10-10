@@ -1,3 +1,9 @@
+sfd-tool (3.2.3-1-ltv) unstable; urgency=medium
+
+  * 修复了一些已知问题
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sat, 10 Oct 2026 21:54:53 +0800
+
 sfd-tool (3.2.2-1-ltv) unstable; urgency=medium
 
   * 修复了一些已知问题
