@@ -20,7 +20,7 @@ extern AppState g_app_state;
 char** str2;
 int in_quote;
 char str1[(ARGC_MAX - 1) * ARGV_LEN];
-const char* Version = "[1.3.0.0@_250726+it]";
+const char* Version = "[1.4.2.0@_250726+it]";
 
 // 兼容旧代码的便捷访问器：直接操作 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;

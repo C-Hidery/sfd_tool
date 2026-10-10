@@ -2067,7 +2067,7 @@ void load_partition(spdio_t* io, const char* name,
                     const char* fn, unsigned step, int CMethod)
 {
     get_partition_info(io, name, 1);
-    if (!gPartInfo.size && strcmp(name, "w_force") != 0) return;
+    if (!gPartInfo.size) return;
     uint64_t offset, len, n64;
     unsigned mode64, n, step0 = step;
     int ret;
@@ -2884,7 +2884,8 @@ void get_partition_info(spdio_t* io, const char* name, int need_size)
     if (!strncmp(name, "splloader", 9))
     {
         strcpy(gPartInfo.name, name);
-        gPartInfo.size = (long long)g_spl_size;
+        gPartInfo.size = g_spl_size ? (long long)g_spl_size : check_partition(io, name, need_size);
+        if (!g_spl_size) g_spl_size = gPartInfo.size;
         io->verbose = verbose;
         return;
     }

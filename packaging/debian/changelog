@@ -1,3 +1,9 @@
+sfd-tool (3.2.2-1-ltv) unstable; urgency=medium
+
+  * 修复了一些已知问题
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sat, 10 Oct 2026 18:46:10 +0800
+
 sfd-tool (3.2.1-1-ltv) unstable; urgency=medium
 
   * 修复了PAC刷写逻辑，去除PAC烧录时的A/B槽无效选择

@@ -37,6 +37,8 @@
 #include "PacXMLParser.hpp"
 #include "xmlutil.hpp"
 
+static int& selected_ab = g_app_state.flash.selected_ab;
+
 static sfd::Result<void> parse_partitions_xml_result(const std::string& pxml,
                                                      partition_t* pacptable,
                                                      int* pac_part_count)
@@ -852,13 +854,14 @@ bool pac_flash(spdio_t* io, const char* folder)
                 // io->ptable = partition_list(io, &io->part_count);
             }
             else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
+            if (selected_ab < 0) select_ab(io);
+            if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b");
+            else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a");
+            else DEG_LOG(I, "Device is not using VAB");
             if (g_app_state.flash.gpt_failed != 1)
             {
-                if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b\n");
-                else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a\n");
-                else
+                if (selected_ab != 1 && selected_ab != 2)
                 {
-                    DEG_LOG(I, "Device is not using VAB\n");
                     if (Da_Info.bSupportRawData)
                     {
                         DEG_LOG(
