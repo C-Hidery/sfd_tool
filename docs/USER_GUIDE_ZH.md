@@ -333,7 +333,7 @@ man sfd-tool
 | 命令 | 说明 |
 | --- | --- |
 | `e_readmem addr length FILE` | 从内存 `addr` 读取 `length` 字节并保存到 `FILE` |
-| `e_bl` | 解锁 bootloader（把 `VerifiedBoot-UNLOCK` 用 HUK 加密后写入 `miscdata@0x2000`，有风险） |
+| `e_bl` | 设置 bootloader 状态（把特定内容用 HUK 加密后写入 `miscdata@0x2000`，有风险） |
 | `e_rpmb_pagecount` | 查询 RPMB 页数 |
 | `e_rpmb_counter` | 查询 RPMB 写计数器 |
 | `e_rpmb_read page_start page_count FILE` | 读取 RPMB 指定页并保存到 `FILE` |
