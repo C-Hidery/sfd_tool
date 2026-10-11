@@ -40,6 +40,11 @@ add_executable(test_aes128
     ${SFD_TEST_COMMON_SOURCES}
 )
 
+add_executable(test_temp_file
+    test_temp_file.cpp
+    ${SFD_TEST_COMMON_SOURCES}
+)
+
 # ====== 平台相关链接设置 ======
 # 为避免 macOS / MSVC 上重复链接 core_lib/pages_lib 的告警，
 # 同时兼顾 GNU ld（Linux / MinGW）静态库之间的循环依赖：
@@ -73,6 +78,7 @@ target_link_libraries(test_partition_backup_paths PRIVATE ${SFD_TEST_LIBS})
 target_link_libraries(test_blocksize_and_backup_service PRIVATE ${SFD_TEST_LIBS})
 target_link_libraries(test_gpt_guid PRIVATE ${SFD_TEST_LIBS})
 target_link_libraries(test_aes128 PRIVATE ${SFD_TEST_LIBS})
+target_link_libraries(test_temp_file PRIVATE ${SFD_TEST_LIBS})
 
 # ====== CTest 集成 ======
 
@@ -81,6 +87,7 @@ add_test(NAME partition_backup_paths_tests COMMAND test_partition_backup_paths)
 add_test(NAME blocksize_and_backup_service_tests COMMAND test_blocksize_and_backup_service)
 add_test(NAME gpt_guid_tests COMMAND test_gpt_guid)
 add_test(NAME aes128_tests COMMAND test_aes128)
+add_test(NAME temp_file_tests COMMAND test_temp_file)
 
 # 在 Windows CI 环境下暂时禁用 blocksize_and_backup_service_tests，
 # 避免由于运行时依赖缺失导致整个 ctest 失败。
@@ -96,6 +103,7 @@ set(SFD_TEST_TARGETS
     test_blocksize_and_backup_service
     test_gpt_guid
     test_aes128
+    test_temp_file
 )
 
 # 将测试目标导出到父作用域，方便顶层 CMake 统一设置编译选项（如 USE_GTK/USE_LIBUSB）

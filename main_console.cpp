@@ -2675,19 +2675,20 @@ int main_console(int argc, char** argv)
                                     if (mergenv)
                                     {
                                         uint64_t size = 0;
-                                        uint8_t* NVmem = dump_flash_to_mem(io, f.addr[0], 0,
+                                        TempFile NVpath = dump_flash_to_temp(io, f.addr[0], 0,
                                             f.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, 0, &size);
-                                        if (!size) { if (NVmem) delete[] NVmem; continue;}
+                                        if (NVpath.empty() || !size) continue;
                                         std::string name = unpac.u16_to_u8(f.name, MAX_U16_SN);
-                                        if (name.empty()) { if (NVmem) delete[] NVmem; continue;}
+                                        if (name.empty()) continue;
                                         if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
-                                            size_t a_size = size, b_size = 0, c_size = 0;
-                                            uint8_t *a = NVmem;
+                                            size_t a_size = 0, b_size = 0, c_size = 0;
+                                            uint8_t *a = loadfile(NVpath.c_str(), &a_size, 0);
 #ifndef _WIN32
                                             uint8_t *b = loadfile((g_app_state.flash.pac_folder + "/" + name).c_str(), &b_size, 0);
 #else
                                             uint8_t *b = loadfile((g_app_state.flash.pac_folder + "\\" + name).c_str(), &b_size, 0);
 #endif
+                                            if (!a || !b) { delete[](a); delete[](b); continue; }
                                             uint8_t *c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
                                             merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
                                             send_buf(io, f.addr[0], end_data, blk_size ? blk_size : DEFAULT_BLK_SIZE, c, c_size);
@@ -2695,7 +2696,6 @@ int main_console(int argc, char** argv)
                                             delete[](a); delete[](b); free(c);
                                             continue;
                                         }
-                                        if (NVmem) delete[] NVmem;
                                     }
                                 }
                                 std::string name = unpac.u16_to_u8(f.name, MAX_U16_SN);
@@ -3733,25 +3733,28 @@ int main_console(int argc, char** argv)
                 continue;
             }
             uint64_t size = 0;
-            uint8_t* mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size,
-                                                 blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
-            if (!size)
+            TempFile temp_path = dump_partition_to_temp(io, gPartInfo.name, 0, gPartInfo.size,
+                                                        blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
+            if (temp_path.empty() || !size)
             {
-                DEG_LOG(E, "dump_partition_to_mem failed");
+                DEG_LOG(E, "dump_partition_to_temp failed");
                 argc = 1;
                 continue;
             }
             if (get_nvlist_xml(io, str2[2]))
             {
-                size_t a_size = size, b_size = 0, c_size = 0;
-                uint8_t* a = mem;
+                size_t a_size = 0, b_size = 0, c_size = 0;
+                uint8_t* a = loadfile(temp_path.c_str(), &a_size, 0);
                 uint8_t* b = loadfile(str2[3], &b_size, 0);
-                uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
-                merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
-                load_nv_partition_from_mem(io, gPartInfo.name, c, c_size, 4096);
+                if (a && b)
+                {
+                    uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                    merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
+                    load_merged_nv(io, gPartInfo.name, c, c_size, 4096);
+                    free(c);
+                }
                 delete[](a);
                 delete[](b);
-                free(c);
             }
             argc -= 3;
             argv += 3;
@@ -3814,25 +3817,28 @@ int main_console(int argc, char** argv)
                 continue;
             }
             uint64_t size = 0;
-            uint8_t* mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size,
-                                                 blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
-            if (!size)
+            TempFile temp_path = dump_partition_to_temp(io, gPartInfo.name, 0, gPartInfo.size,
+                                                        blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
+            if (temp_path.empty() || !size)
             {
-                DEG_LOG(E, "dump_partition_to_mem failed");
+                DEG_LOG(E, "dump_partition_to_temp failed");
                 argc = 1;
                 continue;
             }
             if (get_nvlist_cfg(io, str2[2]))
             {
-                size_t a_size = size, b_size = 0, c_size = 0;
-                uint8_t* a = mem;
+                size_t a_size = 0, b_size = 0, c_size = 0;
+                uint8_t* a = loadfile(temp_path.c_str(), &a_size, 0);
                 uint8_t* b = loadfile(str2[3], &b_size, 0);
-                uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
-                merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
-                load_nv_partition_from_mem(io, gPartInfo.name, c, c_size, 4096);
+                if (a && b)
+                {
+                    uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                    merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
+                    load_merged_nv(io, gPartInfo.name, c, c_size, 4096);
+                    free(c);
+                }
                 delete[](a);
                 delete[](b);
-                free(c);
             }
             argc -= 3;
             argv += 3;
@@ -3976,91 +3982,57 @@ int main_console(int argc, char** argv)
                 W,
                 "This operation may brick your device, and not all devices support this, if your device is broken, flash backup trustos image, if still not work, flash back all partitions");
             DEG_LOG(W, "Please make a FULL backup for your device before execute this command.");
-            uint8_t* t_mem = nullptr;
-            uint8_t* s_mem = nullptr;
-            uint64_t t_size = 0;
-            uint64_t s_size = 0;
             if (check_confirm("Disable AVB by patching trustos"))
             {
                 TosPatcher patcher;
                 get_partition_info(io, "trustos", 1);
-                if (gPartInfo.size)
-                {
-                    dump_partition(io, gPartInfo.name, 0, gPartInfo.size, str2[2],
-                                   blk_size ? blk_size : DEFAULT_BLK_SIZE);
-                    if (isCancel)
-                    {
-                        argc = 1;
-                        continue;
-                    }
-                    t_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size,
-                                                  blk_size ? blk_size : DEFAULT_BLK_SIZE, &t_size);
-                    if (!t_size || isCancel)
-                    {
-                        DEG_LOG(E, "dump_partition_to_mem failed.");
-                        if (t_mem) delete [] t_mem;
-                        argc = 1;
-                        continue;
-                    }
-                }
-                else
+                if (!gPartInfo.size)
                 {
                     DEG_LOG(E, "Trustos not found!");
                     argc = 1;
                     continue;
                 }
-                if (t_mem == nullptr)
+                // 备份到用户指定的文件
+                dump_partition(io, gPartInfo.name, 0, gPartInfo.size, str2[2],
+                               blk_size ? blk_size : DEFAULT_BLK_SIZE);
+                if (isCancel) { argc = 1; continue; }
+
+                uint64_t t_size = 0, s_size = 0;
+                TempFile t_path = dump_partition_to_temp(io, gPartInfo.name, 0, gPartInfo.size,
+                                                         blk_size ? blk_size : DEFAULT_BLK_SIZE, &t_size);
+                if (t_path.empty() || !t_size)
                 {
-                    DEG_LOG(E, "No trustos found!");
+                    DEG_LOG(E, "dump trustos to temp failed.");
                     argc = 1;
                     continue;
                 }
                 get_partition_info(io, "sml", 1);
-                if (gPartInfo.size)
-                {
-                    s_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size,
-                                                  blk_size ? blk_size : DEFAULT_BLK_SIZE, &s_size);
-                    if (!s_size || isCancel)
-                    {
-                        DEG_LOG(E, "dump_partition_to_mem failed.");
-                        if (s_mem) delete [] s_mem;
-                        if (t_mem) delete [] t_mem;
-                        argc = 1;
-                        continue;
-                    }
-                }
-                else
+                if (!gPartInfo.size)
                 {
                     DEG_LOG(E, "No sml partition found!");
-                    if (t_mem) delete[] t_mem;
                     argc = 1;
                     continue;
                 }
-                if (s_mem == nullptr)
+                TempFile s_path = dump_partition_to_temp(io, gPartInfo.name, 0, gPartInfo.size,
+                                                         blk_size ? blk_size : DEFAULT_BLK_SIZE, &s_size);
+                if (s_path.empty() || !s_size)
                 {
-                    DEG_LOG(E, "No sml found!");
-                    if (t_mem) delete [] t_mem;
+                    DEG_LOG(E, "dump sml to temp failed.");
                     argc = 1;
                     continue;
                 }
-                get_partition_info(io, "trustos", 1);
-                uint64_t save_size = gPartInfo.size;
-                uint8_t* save_mem = NEWN uint8_t[save_size];
-                int o = patcher.AvbFxxker_from_mem(s_mem, s_size,
-                                                   t_mem, t_size,
-                                                   save_mem, &save_size, true, true);
+                TempFile save_path(make_temp_file_path("tos_noavb"));
+                if (save_path.empty())
+                {
+                    DEG_LOG(E, "create temp output failed.");
+                    argc = 1;
+                    continue;
+                }
+                int o = patcher.AvbFxxker(s_path.c_str(), t_path.c_str(), save_path.c_str(), true, true);
                 if (!o)
                 {
-                    if (!save_size)
-                    {
-                        DEG_LOG(E, "patch failed!");
-                        if (save_mem) delete [] save_mem;
-                        if (s_mem) delete [] s_mem;
-                        if (t_mem) delete [] t_mem;
-                        argc = 1;
-                        continue;
-                    }
-                    w_mem_to_part_offset(io, gPartInfo.name, 0, save_mem, save_size,
+                    get_partition_info(io, "trustos", 1);
+                    load_partition_unify(io, gPartInfo.name, save_path.c_str(),
                                          blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
                     DEG_LOG(I, "Done, backup trustos image %s", str2[2]);
                 }
@@ -4068,9 +4040,6 @@ int main_console(int argc, char** argv)
                 {
                     DEG_LOG(E, "Failed.");
                 }
-                if (save_mem) delete [] save_mem;
-                if (s_mem) delete [] s_mem;
-                if (t_mem) delete [] t_mem;
             }
             argc -= 2;
             argv += 2;

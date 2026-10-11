@@ -5,6 +5,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include "file_io.h"
 #include "Unpac.h"
 #include "PacXMLParser.hpp"
 
@@ -51,18 +52,11 @@ struct ErrorState {
 
 struct PacNVMem
 {
-    uint8_t *nr_fixnv1_mem = nullptr;
-    uint64_t nr_fixnv1_mem_size = 0;
-    uint8_t *l_fixnv1_mem = nullptr;
-    uint64_t l_fixnv1_mem_size = 0;
-    uint8_t *downloadnv_mem = nullptr;
-    uint64_t downloadnv_mem_size = 0;
-    ~PacNVMem()
-    {
-        if (nr_fixnv1_mem) delete[] nr_fixnv1_mem;
-        if (l_fixnv1_mem) delete[] l_fixnv1_mem;
-        if (downloadnv_mem) delete[] downloadnv_mem;
-    }
+    // 读出的旧 NV 数据存放在系统临时文件中，这里只持有 RAII 句柄（内部保存
+    // 路径）。TempFile 析构时自动删除，整个 PAC 刷机过程不长期占用内存。
+    TempFile nr_fixnv1_file_path;
+    TempFile l_fixnv1_file_path;
+    TempFile downloadnv_file_path;
 };
 
 // 集中管理应用运行时状态，替代分散的 extern 全局变量

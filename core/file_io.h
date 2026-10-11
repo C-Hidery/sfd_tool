@@ -21,6 +21,46 @@
 #define ARGV_LEN 384
 extern char savepath[ARGV_LEN];
 
+// 生成系统临时目录下的唯一文件路径（不创建文件；失败返回空串）。
+std::string make_temp_file_path(const char* tag);
+// 删除文件（Windows 使用 _wremove，其它平台 remove）。不存在时静默忽略。
+void remove_file(const char* path);
+void remove_file(const std::string& path);
+
+// RAII 临时文件：持有路径，析构时自动删除（Windows 使用 _wremove）。
+class TempFile {
+public:
+    TempFile() = default;
+    explicit TempFile(std::string path) noexcept : path_(std::move(path)) {}
+    ~TempFile() { remove(); }
+
+    TempFile(TempFile&& other) noexcept : path_(std::move(other.path_)) {}
+    TempFile& operator=(TempFile&& other) noexcept {
+        if (this != &other) {
+            remove();
+            path_ = std::move(other.path_);
+        }
+        return *this;
+    }
+    TempFile(const TempFile&) = delete;
+    TempFile& operator=(const TempFile&) = delete;
+
+    bool empty() const noexcept { return path_.empty(); }
+    const std::string& path() const noexcept { return path_; }
+    const char* c_str() const noexcept { return path_.c_str(); }
+
+    // 立即删除并清空
+    void remove();
+    // 放弃所有权（返回路径，析构时不再删除）
+    std::string release() noexcept { std::string p; p.swap(path_); return p; }
+
+private:
+    std::string path_;
+};
+
+// 把内存缓冲写入系统临时文件，返回 RAII 句柄（空对象表示失败）。
+TempFile write_buffer_to_temp(const void* data, size_t size, const char* tag);
+
 struct FileDeleter {
     void operator()(FILE* f) const noexcept {
         if (f) fclose(f);

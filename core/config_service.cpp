@@ -122,13 +122,8 @@ namespace sfd
 
         std::string default_config_path()
         {
-            // 默认优先使用 per-user 配置路径；若不可用则退回旧的当前目录文件
-            std::string per_user = per_user_config_path();
-            if (!per_user.empty())
-            {
-                return per_user;
-            }
-            return legacy_config_path();
+            // 仅使用 per-user 路径；取不到时返回空，不再回退当前目录文件。
+            return per_user_config_path();
         }
 
         void to_json(json& j, const AppConfig& c)
@@ -291,17 +286,15 @@ namespace sfd
 
         ConfigStatus saveAppConfig(const AppConfig& config) override
         {
-            std::string path;
+            // 只写 per-user 配置目录；拿不到就报错，不再回退写当前工作目录
+            // （安装版可能因此把配置写进程序目录）。
             std::string per_user = per_user_config_path();
-            if (!per_user.empty())
+            if (per_user.empty())
             {
-                path = per_user;
+                return make_error(ConfigErrorCode::IoError,
+                                  "no writable per-user config directory");
             }
-            else
-            {
-                path = legacy_config_path();
-            }
-            return saveAppConfigToFile(config, path);
+            return saveAppConfigToFile(config, per_user);
         }
 
         ConfigStatus saveAppConfigToFile(const AppConfig& config,

@@ -327,13 +327,13 @@ unsigned dump_flash(spdio_t *io, uint32_t addr, uint32_t start, uint32_t len, co
 unsigned read_flash(spdio_t *io,
 		uint32_t addr, uint32_t start, uint32_t len,
 		uint8_t *mem, FILE *fo, unsigned step) ;
-uint8_t* dump_flash_to_mem(spdio_t *io,
+TempFile dump_flash_to_temp(spdio_t *io,
 						   uint32_t addr, uint32_t start, uint32_t len,
 						   unsigned step, int mode,
 						   uint64_t *out_size);
 unsigned dump_mem(spdio_t *io, uint32_t start, uint32_t len, const char *fn, unsigned step);
 uint64_t dump_partition(spdio_t *io, const char *name, uint64_t start, uint64_t len, const char *fn, unsigned step);
-uint8_t* dump_partition_to_mem(spdio_t *io,
+TempFile dump_partition_to_temp(spdio_t *io,
 							   const char *name,
 							   uint64_t start,
 							   uint64_t len,
@@ -375,8 +375,9 @@ bool gpt_refresh_cached_identity(spdio_t *io);
 void erase_partition(spdio_t *io, const char *name, int CMethod);
 void load_partition(spdio_t *io, const char *name, const char *fn, unsigned step, int CMethod);
 void load_nv_partition(spdio_t *io, const char *name, const char *fn, unsigned step);
-void load_nv_partition_from_mem(spdio_t *io, const char *name,
-								 uint8_t *mem, size_t olen, unsigned step);
+// 把 merge_nv() 的结果写入系统临时文件，再用文件版 load_nv_partition 写回设备。
+// 临时文件由 RAII 在函数返回时删除，调用方无需处理。
+void load_merged_nv(spdio_t *io, const char *name, const uint8_t *data, size_t size, unsigned step);
 void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab, int CMethod);
 void load_partition_force(spdio_t *io, const int id, const char *fn, unsigned step, int CMethod);
 int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned step, int CMethod);
@@ -393,18 +394,18 @@ void set_active(spdio_t *io, const char *arg, int CMethod);
 
 // ---- EXTENDED (e_*) commands -------------------------------------------
 // CLI only; all of them need special loaders that implement the 0x70..0x7A
-// command set. The file variants stay the primary interface, the _to_mem
-// variants hand the payload back through a malloc'd buffer so the memory
-// processing mode (PAC / internal merging) keeps working.
+// command set. Reads are streamed straight to the target file; the _to_temp
+// variants write into a system temporary file and return its path, so callers
+// that need the bytes later can load it back without holding them in RAM.
 void do_e_readmem(spdio_t *io, uint32_t addr, uint32_t length, const char *fn, unsigned step);
-uint8_t *do_e_readmem_to_mem(spdio_t *io, uint32_t addr, uint32_t length,
+TempFile do_e_readmem_to_temp(spdio_t *io, uint32_t addr, uint32_t length,
 	unsigned step, uint64_t *out_size);
 int do_e_bl(spdio_t *io, unsigned step, int CMethod);
 int do_e_rpmb_pagecount(spdio_t *io);
 int do_e_rpmb_counter(spdio_t *io);
 void do_e_rpmb_read(spdio_t *io, uint32_t page_start, uint32_t page_count,
 	const char *fn, unsigned step);
-uint8_t *do_e_rpmb_read_to_mem(spdio_t *io, uint32_t page_start, uint32_t page_count,
+TempFile do_e_rpmb_read_to_temp(spdio_t *io, uint32_t page_start, uint32_t page_count,
 	unsigned step, uint64_t *out_size);
 int do_e_rpmb_read_auto(spdio_t *io, unsigned step);
 void do_e_rpmb_write(spdio_t *io, uint32_t page_start, const char *fn, unsigned step);

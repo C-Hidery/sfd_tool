@@ -335,104 +335,23 @@ unsigned dump_flash(spdio_t* io,
     return nread;
 }
 
-uint8_t* dump_flash_to_mem(spdio_t* io,
-                           uint32_t addr, uint32_t start, uint32_t len,
-                           unsigned step, int mode,
-                           uint64_t* out_size)
+TempFile dump_flash_to_temp(spdio_t* io,
+                            uint32_t addr, uint32_t start, uint32_t len,
+                            unsigned step, int mode,
+                            uint64_t* out_size)
 {
     if (out_size) *out_size = 0;
-
-    uint32_t total_read = 0;
-    uint8_t* mem = nullptr;
-
-    if (mode == 1)
+    // 内容写入系统临时文件；返回 RAII 句柄，离开作用域即删除。
+    std::string path = make_temp_file_path(mode == 1 ? "dhtb" : "flash");
+    if (path.empty())
     {
-        uint8_t header[0x34];
-        uint32_t n = read_flash(io, addr, start, sizeof(header), header, nullptr, step);
-        if (n != sizeof(header))
-            ERR_EXIT("can't read DHTB header\n");
-
-        if (READ32_LE(header) != 0x42544844 || READ32_LE(header + 4) != 1)
-            ERR_EXIT("unexpected DHTB header\n");
-
-        uint32_t data_len = READ32_LE(header + 0x30);
-        if (data_len >> 31)
-            ERR_EXIT("unexpected DHTB size (0x%x)\n", data_len);
-
-        uint32_t base_size = data_len + 0x200;
-        mem = new(std::nothrow) uint8_t[base_size];
-        if (!mem)
-            ERR_EXIT("memory allocation failed\n");
-
-        memcpy(mem, header, sizeof(header));
-        total_read = sizeof(header);
-
-        uint32_t remaining = base_size - total_read;
-        if (remaining > 0)
-        {
-            uint32_t r = read_flash(io, addr, start + total_read, remaining,
-                                    mem + total_read, nullptr, step);
-            total_read += r;
-        }
-
-        // ---- 读取签名 ----
-        // 与文件版 mode1 保持一致：只有基础段完整读完才解析签名，并校验签名头字段。
-        if (total_read == base_size)
-        {
-            uint8_t sig_hdr[0x60];
-            uint32_t nread2 = read_flash(io, addr, start + total_read, sizeof(sig_hdr),
-                                         sig_hdr, nullptr, step);
-            if (nread2 == sizeof(sig_hdr))
-            {
-                uint32_t sig_val = READ32_LE(sig_hdr + 0x10);
-                // 检查既不是全0也不是全1
-                if (!(sig_val == 0 || sig_val == 0xFFFFFFFFU))
-                {
-                    uint32_t sig_data_size = READ32_LE(sig_hdr + 0x20);
-                    if (sig_val != data_len ||                        // data size
-                        READ32_LE(sig_hdr + 0x18) != 0x200 ||         // data offset
-                        (sig_data_size >> 12) ||                      // sign data size
-                        (uint32_t)READ32_LE(sig_hdr + 0x28) != base_size + 0x60) // sign data offset
-                    {
-                        DEG_LOG(E, "unexpected DHTB signature\n");
-                    }
-                    else
-                    {
-                        uint32_t new_size = base_size + sizeof(sig_hdr) + sig_data_size;
-                        uint8_t* new_mem = NEWN uint8_t[new_size];
-                        if (!new_mem)
-                        {
-                            delete[] mem;
-                            ERR_EXIT("memory reallocation failed\n");
-                        }
-                        memcpy(new_mem, mem, total_read);
-                        delete[] mem;
-                        mem = new_mem;
-
-                        memcpy(mem + total_read, sig_hdr, sizeof(sig_hdr));
-                        total_read += sizeof(sig_hdr);
-
-                        uint32_t sig_read = read_flash(io, addr, start + total_read,
-                                                       sig_data_size, mem + total_read,
-                                                       nullptr, step);
-                        total_read += sig_read;
-                    }
-                }
-            }
-        }
-
-        if (out_size) *out_size = total_read;
-        return mem;
+        DEG_LOG(E, "dump_flash_to_temp: cannot create temp path");
+        return TempFile{};
     }
-
-    // ---- mode != 1 ----
-    mem = new(std::nothrow) uint8_t[len];
-    if (!mem)
-        ERR_EXIT("memory allocation failed\n");
-
-    uint32_t nread = read_flash(io, addr, start, len, mem, nullptr, step);
-    if (out_size) *out_size = nread;
-    return mem;
+    unsigned got = dump_flash(io, addr, start, len, path.c_str(), step, mode);
+    if (out_size) *out_size = got;
+    if (!got) return TempFile{};
+    return TempFile(std::move(path));
 }
 
 unsigned dump_mem(spdio_t* io,
@@ -758,166 +677,25 @@ uint64_t dump_partition(spdio_t* io,
     return offset - start;
 }
 
-uint8_t* dump_partition_to_mem(spdio_t* io,
-                               const char* name,
-                               uint64_t start,
-                               uint64_t len,
-                               unsigned step,
-                               uint64_t* out_size)
+TempFile dump_partition_to_temp(spdio_t* io,
+                                const char* name,
+                                uint64_t start,
+                                uint64_t len,
+                                unsigned step,
+                                uint64_t* out_size)
 {
-    uint32_t n, nread, t32;
-    uint64_t offset, n64, saved_size = 0;
-    int ret, mode64 = (start + len) >> 32;
-    char name_tmp[36];
-
-    DEG_LOG(OP, "dump_partition_to_mem: name=%s start=0x%llx len=0x%llx step=%u fblk_size=%llu",
-            name,
-            (unsigned long long)start,
-            (unsigned long long)len,
-            step,
-            (unsigned long long)fblk_size);
-    double rtime = get_time();
-    DEG_LOG(OP, "Start to read partition %s", name);
-    DEG_LOG(I, "Type CTRL + C to cancel...");
-    start_signal();
-
-    set_progress_desc(name);
-
-    // Note: the file variant additionally dumps the companion "metadata"
-    // partition to metadata.bin, then falls through and reads "super" itself.
-    // The memory API returns a single buffer, so it reads "super" (the main
-    // output) like the file variant does.
-    if (!strncmp(name, "userdata", 8))
+    if (out_size) *out_size = 0;
+    // 内容写入系统临时文件；返回 RAII 句柄，离开作用域即删除。
+    std::string path = make_temp_file_path(name && *name ? name : "part");
+    if (path.empty())
     {
-        if (!check_confirm("read userdata"))
-        {
-            *out_size = 0;
-            return nullptr;
-        }
+        DEG_LOG(E, "dump_partition_to_temp: cannot create temp path");
+        return TempFile{};
     }
-    else if (strstr(name, "nv1"))
-    {
-        strcpy(name_tmp, name);
-        char* dot = strrchr(name_tmp, '1');
-        if (dot != nullptr) *dot = '2';
-        name = name_tmp;
-        start = 512;
-        if (len > 512)
-            len -= 512;
-    }
-    else if (strstr(name, "downloadnv") || strstr(name, "factorynv"))
-    {
-        start = 0;
-        if (len > 512)
-            len -= 512;
-    }
-
-    if (isCancel)
-    {
-        *out_size = 0;
-        return nullptr;
-    }
-
-    // ---- 分配内存 ----
-    uint8_t* mem = NEWN uint8_t[len];
-    if (!mem)
-    {
-        ERR_EXIT("memory allocation failed\n");
-        return nullptr;
-    }
-
-    // ---- 发送读取开始命令 ----
-    select_partition(io, name, start + len, mode64, BSL_CMD_READ_START);
-    if (send_and_check(io))
-    {
-        encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
-        send_and_check(io);
-        delete[] mem;
-        *out_size = 0;
-        return nullptr;
-    }
-    if (isCancel)
-    {
-        delete[] mem;
-        *out_size = 0;
-        return nullptr;
-    }
-
-    // ---- 读取循环 ----
-    unsigned long long time_start = GetTickCount64();
-    for (offset = start; (n64 = start + len - offset);)
-    {
-        uint32_t* data = (uint32_t*)io->temp_buf;
-        n = (uint32_t)(n64 > step ? step : n64);
-
-        if (isCancel)
-        {
-            // 取消时返回已读数据
-            *out_size = offset - start;
-            set_progress_desc(nullptr);
-            encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
-            send_and_check(io);
-            return mem; // 调用者需释放 mem，但读入的数据长度由 out_size 指示
-        }
-
-        WRITE32_LE(data, n);
-        WRITE32_LE(data + 1, offset);
-        t32 = offset >> 32;
-        WRITE32_LE(data + 2, t32);
-
-        encode_msg_nocpy(io, BSL_CMD_READ_MIDST, mode64 ? 12 : 8);
-        send_msg(io);
-
-        ret = recv_msg(io);
-        if (!ret) ERR_EXIT("timeout reached\n");
-
-        if ((ret = recv_type(io)) != BSL_REP_READ_FLASH)
-        {
-            const char* name_enum = get_bsl_enum_name(ret);
-            DEG_LOG(E, "unexpected response (%s : 0x%04x)", name_enum, ret);
-            break;
-        }
-
-        nread = READ16_BE(io->raw_buf + 2);
-        if (n < nread)
-            ERR_EXIT("unexpected length\n");
-
-        // 写入内存（而非文件）
-        memcpy(mem + (offset - start), io->raw_buf + 4, nread);
-
-        print_progress_bar(io, offset + nread - start, len, time_start);
-        offset += nread;
-        if (n != nread) break;
-
-        if (fblk_size)
-        {
-            saved_size += nread;
-            if (saved_size >= fblk_size)
-            {
-                usleep(1000000);
-                saved_size = 0;
-            }
-        }
-    }
-
-    // ---- 结束 ----
-    double etime = get_time();
-    double time_spent = etime - rtime;
-    double mb = len / (1024.0 * 1024.0);
-    double speed = time_spent > 0 ? (mb / time_spent) : 0.0;
-    DEG_LOG(I, "dump_partition_to_mem done: name=%s len=%.1fMB time=%.3fs speed=%.2fMB/s",
-            name, mb, time_spent, speed);
-    DEG_LOG(I, "Read partition %s(+0x%llx) successfully, target: 0x%llx, read: 0x%llx",
-            name, (long long)start, (long long)len, (long long)(offset - start));
-    DEG_LOG(I, "Cost time %.6f seconds", time_spent);
-
-    set_progress_desc(nullptr);
-
-    encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
-    send_and_check(io);
-
-    *out_size = offset - start;
-    return mem;
+    uint64_t got = dump_partition(io, name, start, len, path.c_str(), step);
+    if (out_size) *out_size = got;
+    if (!got) return TempFile{};
+    return TempFile(std::move(path));
 }
 
 uint64_t read_pactime(spdio_t* io)
@@ -1415,14 +1193,17 @@ static uint8_t* gpt_read_user_partition(spdio_t* io, uint64_t* out_size)
     if (out_size) *out_size = 0;
     if (!io || !g_app_state.flash.is_pgpt) return nullptr;
     uint64_t size = 0;
-    uint8_t* mem = dump_partition_to_mem(io, "user_partition", 0, 32 * 1024,
-                                         blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
-    if (!mem || size < 2 * SECTOR_SIZE)
+    TempFile path = dump_partition_to_temp(io, "user_partition", 0, 32 * 1024,
+                                           blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
+    if (path.empty()) return nullptr;
+    size_t fsize = 0;
+    uint8_t* mem = loadfile(path.c_str(), &fsize, 0);
+    if (!mem || fsize < 2 * SECTOR_SIZE)
     {
         if (mem) delete[] mem;
         return nullptr;
     }
-    if (out_size) *out_size = size;
+    if (out_size) *out_size = fsize;
     return mem;
 }
 
@@ -1525,7 +1306,16 @@ partition_t* partition_list(spdio_t* io, int* part_count_ptr)
     if (selected_ab < 0) select_ab(io);
     int verbose = io->verbose;
     io->verbose = 0;
-    uint8_t* read_mem = dump_partition_to_mem(io, "user_partition", 0, 32 * 1024, 4096, &size);
+    uint8_t* read_mem = nullptr;
+    {
+        TempFile temp_path = dump_partition_to_temp(io, "user_partition", 0, 32 * 1024, 4096, &size);
+        if (!temp_path.empty())
+        {
+            size_t fsize = 0;
+            read_mem = loadfile(temp_path.c_str(), &fsize, 0);
+            if (read_mem) size = fsize;
+        }
+    }
     io->verbose = verbose;
     if (32 * 1024 == size)
     {
@@ -2644,121 +2434,17 @@ void load_nv_partition(spdio_t* io, const char* name,
     }
 }
 
-void load_nv_partition_from_mem(spdio_t* io, const char* name,
-                                uint8_t* mem, size_t olen, unsigned step)
+void load_merged_nv(spdio_t* io, const char* name, const uint8_t* data, size_t size, unsigned step)
 {
-    if (!mem)
+    if (!data || !size) return;
+    // 合并结果写入系统临时文件，再用文件版加载器写回；临时文件随 TempFile 删除。
+    TempFile merged = write_buffer_to_temp(data, size, "nv_merge");
+    if (merged.empty())
     {
-        DEG_LOG(E, "Invalid memory buffer for NV partition\n");
+        DEG_LOG(E, "load_merged_nv: write temp file failed");
         return;
     }
-
-    double rtime = get_time();
-    size_t offset, rsz;
-    unsigned n;
-    int ret;
-    size_t len = 0;
-    uint16_t crc = 0;
-    uint32_t cs = 0;
-
-    // 保存原始指针（调用者负责释放，这里不做 delete）
-    uint8_t* mem0 = mem;
-
-    // 处理可能的 NAND 头（0x4E56 标识）
-    if (olen >= sizeof(uint32_t) && *(uint32_t*)mem == 0x4E56)
-    {
-        if (olen < 0x200)
-        {
-            DEG_LOG(E, "NV buffer too short for NAND header, skipped!");
-            return;
-        }
-        mem += 0x200;
-        olen -= 0x200;
-    }
-
-    len = sizeof(uint32_t);
-
-    while (len + 4 < olen)
-    {
-        uint16_t tmp[2];
-        memcpy(tmp, mem + len, sizeof(tmp));
-        if (tmp[1] == 0 || len + tmp[1] > olen)
-        {
-            DEG_LOG(E, "Broken NV data at id %x!", tmp[0]);
-            break;
-        }
-        len += sizeof(tmp) + tmp[1];
-        len = (len + 3) & 0xFFFFFFFC;
-
-        if (len + 2 > olen) break;
-        if (*(uint16_t*)(mem + len) == 0xffff)
-        {
-            len += 8;
-            break;
-        }
-    }
-
-    // 计算 CRC 和校验和
-    crc = crc16(crc, mem + 2, len - 2);
-    WRITE16_BE(mem, crc);
-    for (offset = 0; offset < len; offset++) cs += mem[offset];
-
-    DEG_LOG(I, "NV data size : 0x%zx", len);
-
-    // 准备协议包
-    struct pkt
-    {
-        uint16_t name[36];
-        uint32_t size, cs;
-    } * pkt_ptr;
-    pkt_ptr = (struct pkt*)io->temp_buf;
-    ret = copy_to_wstr(pkt_ptr->name, 36, name);
-    if (ret) ERR_EXIT("name too long\n");
-    WRITE32_LE(&pkt_ptr->size, len);
-    WRITE32_LE(&pkt_ptr->cs, cs);
-
-    // 发送开始命令
-    encode_msg_nocpy(io, BSL_CMD_START_DATA, sizeof(struct pkt));
-    if (send_and_check(io))
-    {
-        return; // 调用者负责释放 mem
-    }
-
-    // 分块发送数据
-    for (offset = 0; (rsz = len - offset); offset += n)
-    {
-        if (isCancel)
-        {
-            DEG_LOG(I, "Operation cancelled by user\n");
-            return;
-        }
-        n = rsz > step ? step : rsz;
-        memcpy(io->temp_buf, &mem[offset], n);
-        encode_msg_nocpy(io, BSL_CMD_MIDST_DATA, n);
-        send_msg(io);
-        ret = recv_msg_timeout(io, 15000);
-        if (!ret) ERR_EXIT("timeout reached\n");
-        if ((ret = recv_type(io)) != BSL_REP_ACK)
-        {
-            const char* name_enum = get_bsl_enum_name(ret);
-            DEG_LOG(E, "unexpected response (%s : 0x%04x)", name_enum, ret);
-            break;
-        }
-    }
-
-    // 发送结束命令
-    encode_msg_nocpy(io, BSL_CMD_END_DATA, 0);
-    if (!send_and_check(io))
-    {
-        double etime = get_time();
-        double t = etime - rtime;
-
-        DEG_LOG(I, "Write NV partition %s successfully, target: 0x%llx, written: 0x%llx\n",
-                name, (long long)len, (long long)offset);
-        DEG_LOG(I, "Cost time %.6f seconds", t);
-    }
-
-    // 注意：这里不释放 mem，由调用者负责
+    load_nv_partition(io, name, merged.c_str(), step);
 }
 
 void signal_handler(int sig)
@@ -3276,7 +2962,9 @@ void dump_partitions(spdio_t* io, const char* fn, int* nand_info, unsigned step)
         char* src = (char*)loadfile(fn, &size, 1);
         if (src)
         {
-            EnhancedFile fo = my_oxfopen_enhanced(savepath, "wb");
+            // 与 C 版一致：把清单按原文件名复制到输出目录
+            // （my_oxfopen_enhanced 会取 basename 并拼到 savepath 下）。
+            EnhancedFile fo = my_oxfopen_enhanced(fn, "wb");
             if (fo)
             {
                 fo.write(src, 1, size);
@@ -4272,29 +3960,26 @@ void w_mem_to_part_offset(spdio_t* io, const char* name, size_t offset, uint8_t*
         return;
     }
 
-    char dfile[40];
-    snprintf(dfile, sizeof(dfile), "%s.bin", name);
-
-    char fix_fn[1024];
-    if (savepath[0]) snprintf(fix_fn, sizeof(fix_fn), "%s/%s", savepath, dfile);
-    else strcpy(fix_fn, dfile);
+    // 用系统临时文件做暂存，离开作用域自动删除；不再把 <name>.bin 落到
+    // cwd/savepath（安装版可能因此写进程序目录）。
+    TempFile scratch(make_temp_file_path(name && *name ? name : "wmem"));
+    if (scratch.empty()) ERR_EXIT("create temp file failed\n");
 
     EnhancedFile fi;
-    if (offset == 0) fi = oxfopen_enhanced(fix_fn, "wb");
+    if (offset == 0) fi = oxfopen_enhanced(scratch.c_str(), "wb");
     else
     {
-        if (gPartInfo.size != (long long)dump_partition(io, gPartInfo.name, 0, gPartInfo.size, fix_fn, step))
+        if (gPartInfo.size != (long long)dump_partition(io, gPartInfo.name, 0, gPartInfo.size, scratch.c_str(), step))
         {
-            remove(fix_fn);
-            return;
+            return; // scratch 由 TempFile 析构删除
         }
-        fi = oxfopen_enhanced(fix_fn, "rb+");
+        fi = oxfopen_enhanced(scratch.c_str(), "rb+");
     }
-    if (!fi) ERR_EXIT("fopen %s failed\n", fix_fn);
+    if (!fi) ERR_EXIT("fopen %s failed\n", scratch.c_str());
     if (fi.seek(offset, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
     if (fi.write(mem, 1, length) != length) ERR_EXIT("fwrite failed\n");
     fi.close();
-    load_partition_unify(io, gPartInfo.name, fix_fn, step, CMethod);
+    load_partition_unify(io, gPartInfo.name, scratch.c_str(), step, CMethod);
 }
 
 // 1 main written and _bak not written, 2 both written
@@ -4471,21 +4156,18 @@ std::string utf16_to_utf8(const std::wstring& wstr)
 // EXTENDED (e_*) commands
 //
 // All of them need a special FDL that implements the 0x70..0x7A command set.
-// Reading commands are implemented memory-first: the payload is collected in
-// a RAM buffer (do_*_to_mem) and the file variant is only a thin writer on top
-// of it. This keeps the memory processing mode (PAC / in-RAM merging) intact
-// and avoids any temporary files.
+// Reads are streamed straight into the target file; the _to_temp variants
+// write into a system temporary file and return its path, so callers no longer
+// keep large buffers in RAM.
 // =========================================================================
 
-uint8_t* do_e_readmem_to_mem(spdio_t* io, uint32_t addr, uint32_t length,
-                             unsigned step, uint64_t* out_size)
+// 流式把设备内存写入已打开的文件（不在 RAM 里缓存）。
+static void e_readmem_stream(spdio_t* io, uint32_t addr, uint32_t length,
+                             unsigned step, FILE* fo, uint64_t* out_size)
 {
     if (out_size) *out_size = 0;
-    if (!length) return nullptr;
+    if (!length) return;
     if (!step) step = DEFAULT_BLK_SIZE;
-
-    uint8_t* out = NEWN uint8_t[length];
-    if (!out) ERR_EXIT("malloc failed\n");
 
     uint32_t total_read = 0;
     while (total_read < length)
@@ -4497,11 +4179,7 @@ uint8_t* do_e_readmem_to_mem(spdio_t* io, uint32_t addr, uint32_t length,
         encode_msg_nocpy(io, BSL_CMD_E_READ_MEM, 8);
         send_msg(io);
         int ret = recv_msg(io);
-        if (!ret)
-        {
-            delete[] out;
-            ERR_EXIT("timeout reached\n");
-        }
+        if (!ret) ERR_EXIT("timeout reached\n");
         if ((ret = (int)recv_type(io)) != BSL_REP_E_READ_MEM)
         {
             DEG_LOG(W, "unexpected response (%s : 0x%04x)",
@@ -4514,38 +4192,37 @@ uint8_t* do_e_readmem_to_mem(spdio_t* io, uint32_t addr, uint32_t length,
             DEG_LOG(W, "e_readmem: unexpected length");
             break;
         }
-        memcpy(out + total_read, io->raw_buf + 4, nread);
+        if (fo && nread && fwrite(io->raw_buf + 4, 1, nread, fo) != nread)
+            ERR_EXIT("fwrite(e_readmem) failed\n");
         total_read += nread;
         if (nread != chunk) break;
     }
 
     if (out_size) *out_size = total_read;
     DEG_LOG(I, "e_readmem Done: addr=0x%x, target=0x%x, read=0x%x", addr, length, total_read);
-    return out;
+}
+
+TempFile do_e_readmem_to_temp(spdio_t* io, uint32_t addr, uint32_t length,
+                              unsigned step, uint64_t* out_size)
+{
+    if (out_size) *out_size = 0;
+    std::string path = make_temp_file_path("e_readmem");
+    if (path.empty()) return TempFile{};
+    EnhancedFile fo = oxfopen_enhanced(path.c_str(), "wb");
+    if (!fo) return TempFile{};
+    e_readmem_stream(io, addr, length, step, fo.get(), out_size);
+    fo.close();
+    return TempFile(std::move(path));
 }
 
 void do_e_readmem(spdio_t* io, uint32_t addr, uint32_t length, const char* fn, unsigned step)
 {
-    uint64_t got = 0;
-    uint8_t* mem = do_e_readmem_to_mem(io, addr, length, step, &got);
-    if (!mem)
-    {
-        DEG_LOG(W, "e_readmem: nothing to read");
-        return;
-    }
-    EnhancedFile fo = oxfopen_enhanced(fn, "wb");
-    if (!fo)
-    {
-        delete[] mem;
-        ERR_EXIT("fopen(e_readmem) failed\n");
-    }
-    if (got && fo.write(mem, 1, (size_t)got) != got)
-    {
-        delete[] mem;
-        ERR_EXIT("fwrite(e_readmem) failed\n");
-    }
+    // 输出走 `path`(savepath) 机制，与 dump_mem/dump_flash/read_part 保持一致，
+    // 避免未设置路径时把文件落到当前目录（安装版可能是程序目录）。
+    EnhancedFile fo = my_oxfopen_enhanced(fn, "wb");
+    if (!fo) ERR_EXIT("fopen(e_readmem) failed, set a writable dir with `path` first\n");
+    e_readmem_stream(io, addr, length, step, fo.get(), nullptr);
     fo.close();
-    delete[] mem;
 }
 
 int do_e_bl(spdio_t* io, unsigned step, int CMethod)
@@ -4628,18 +4305,15 @@ int do_e_rpmb_counter(spdio_t* io)
     return (int)cnt;
 }
 
-uint8_t* do_e_rpmb_read_to_mem(spdio_t* io, uint32_t page_start, uint32_t page_count,
-                               unsigned step, uint64_t* out_size)
+// 流式把 RPMB 页写入已打开的文件（不在 RAM 里缓存）。
+static void e_rpmb_read_stream(spdio_t* io, uint32_t page_start, uint32_t page_count,
+                               unsigned step, FILE* fo, uint64_t* out_size)
 {
     if (out_size) *out_size = 0;
-    if (!page_count) return nullptr;
+    if (!page_count) return;
 
     uint32_t pages_per_chunk = step >> 8;
     if (pages_per_chunk < 1) pages_per_chunk = 1;
-
-    size_t total_bytes = (size_t)page_count << 8;
-    uint8_t* out = NEWN uint8_t[total_bytes];
-    if (!out) ERR_EXIT("malloc failed\n");
 
     uint32_t pages_read = 0;
     unsigned long long time_start = GetTickCount64();
@@ -4653,11 +4327,7 @@ uint8_t* do_e_rpmb_read_to_mem(spdio_t* io, uint32_t page_start, uint32_t page_c
         encode_msg_nocpy(io, BSL_CMD_E_RPMB_READ, 4);
         send_msg(io);
         int ret = recv_msg(io);
-        if (!ret)
-        {
-            delete[] out;
-            ERR_EXIT("timeout reached\n");
-        }
+        if (!ret) ERR_EXIT("timeout reached\n");
         if ((ret = (int)recv_type(io)) != BSL_REP_E_RPMB_READ)
         {
             DEG_LOG(W, "unexpected response (%s : 0x%04x)",
@@ -4671,9 +4341,8 @@ uint8_t* do_e_rpmb_read_to_mem(spdio_t* io, uint32_t page_start, uint32_t page_c
             DEG_LOG(W, "e_rpmb_read: unexpected length");
             break;
         }
-        size_t off = (size_t)pages_read << 8;
-        if (off + n > total_bytes) break;
-        memcpy(out + off, io->raw_buf + 4, n);
+        if (fo && n && fwrite(io->raw_buf + 4, 1, n, fo) != n)
+            ERR_EXIT("fwrite(e_rpmb_read) failed\n");
         pages_read += chunk;
         print_progress_bar(io, pages_read, page_count, time_start);
         if (n < want)
@@ -4686,32 +4355,29 @@ uint8_t* do_e_rpmb_read_to_mem(spdio_t* io, uint32_t page_start, uint32_t page_c
     if (out_size) *out_size = (uint64_t)pages_read << 8;
     DEG_LOG(I, "e_rpmb_read Done: start=0x%x, count=0x%x, read=%u pages",
             page_start, page_count, pages_read);
-    return out;
+}
+
+TempFile do_e_rpmb_read_to_temp(spdio_t* io, uint32_t page_start, uint32_t page_count,
+                                unsigned step, uint64_t* out_size)
+{
+    if (out_size) *out_size = 0;
+    std::string path = make_temp_file_path("e_rpmb_read");
+    if (path.empty()) return TempFile{};
+    EnhancedFile fo = oxfopen_enhanced(path.c_str(), "wb");
+    if (!fo) return TempFile{};
+    e_rpmb_read_stream(io, page_start, page_count, step, fo.get(), out_size);
+    fo.close();
+    return TempFile(std::move(path));
 }
 
 void do_e_rpmb_read(spdio_t* io, uint32_t page_start, uint32_t page_count,
                     const char* fn, unsigned step)
 {
-    uint64_t got = 0;
-    uint8_t* mem = do_e_rpmb_read_to_mem(io, page_start, page_count, step, &got);
-    if (!mem)
-    {
-        DEG_LOG(W, "e_rpmb_read: nothing to read");
-        return;
-    }
-    EnhancedFile fo = oxfopen_enhanced(fn, "wb");
-    if (!fo)
-    {
-        delete[] mem;
-        ERR_EXIT("fopen(e_rpmb_read) failed\n");
-    }
-    if (got && fo.write(mem, 1, (size_t)got) != got)
-    {
-        delete[] mem;
-        ERR_EXIT("fwrite(e_rpmb_read) failed\n");
-    }
+    // 同 do_e_readmem：输出走 `path`(savepath)，避免落到程序目录。
+    EnhancedFile fo = my_oxfopen_enhanced(fn, "wb");
+    if (!fo) ERR_EXIT("fopen(e_rpmb_read) failed, set a writable dir with `path` first\n");
+    e_rpmb_read_stream(io, page_start, page_count, step, fo.get(), nullptr);
     fo.close();
-    delete[] mem;
 }
 
 int do_e_rpmb_read_auto(spdio_t* io, unsigned step)

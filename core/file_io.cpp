@@ -9,12 +9,140 @@
 #include <cstdio>
 #include <cctype>
 #include <vector>
+#include <string>
+#include <atomic>
+#include <chrono>
+#include <filesystem>
 
 #ifdef _WIN32
 #include <windows.h>
 #endif
 
 char savepath[ARGV_LEN] = { 0 };
+
+// 判断 UTF-8 路径是否为绝对路径。绝对路径不再被 savepath 重定基，这样
+// 系统临时文件（绝对路径）不会被写到 `path` 目录下。
+static bool is_absolute_utf8(const char* fn) {
+    if (!fn || !*fn) return false;
+#ifdef _WIN32
+    // 支持 "\dir"、"/dir"、"X:\dir"、"X:/dir"、UNC "\\server\share"。
+    if (fn[0] == '\\' || fn[0] == '/') return true;
+    return std::isalpha((unsigned char)fn[0]) && fn[1] == ':' &&
+           (fn[2] == '\\' || fn[2] == '/');
+#else
+    return fn[0] == '/';
+#endif
+}
+
+// 简易 UTF-8 合法性检查（只做结构校验，不解析字符）。
+static bool is_valid_utf8(const std::string& s) {
+    size_t i = 0;
+    const size_t n = s.size();
+    while (i < n) {
+        unsigned char c = (unsigned char)s[i];
+        size_t extra = 0;
+        if (c < 0x80) { i += 1; continue; }
+        else if ((c & 0xE0) == 0xC0) extra = 1;
+        else if ((c & 0xF0) == 0xE0) extra = 2;
+        else if ((c & 0xF8) == 0xF0) extra = 3;
+        else return false;
+        if (i + extra >= n) return false;
+        for (size_t k = 1; k <= extra; ++k) {
+            if (((unsigned char)s[i + k] & 0xC0) != 0x80) return false;
+        }
+        i += extra + 1;
+    }
+    return true;
+}
+
+// 生成系统临时目录下的唯一文件路径，保证返回合法 UTF-8。
+std::string make_temp_file_path(const char* tag) {
+    // 1) 名称部分保证为 ASCII。
+    std::string name = "sfd_tool_";
+    if (tag && *tag) {
+        for (const char* p = tag; *p; ++p) {
+            unsigned char c = (unsigned char)*p;
+            name += (std::isalnum(c) || c == '_' || c == '-') ? (char)c : '_';
+        }
+    } else {
+        name += "tmp";
+    }
+    static std::atomic<unsigned long long> seq{0};
+    unsigned long long n = seq.fetch_add(1, std::memory_order_relaxed);
+    auto now = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    name += "_" + std::to_string((long long)now) + "_" + std::to_string(n);
+
+    std::error_code ec;
+    std::filesystem::path dir = std::filesystem::temp_directory_path(ec);
+
+#ifdef _WIN32
+    // 2) Windows：原生是宽字符，显式转 UTF-8（不依赖 path::u8string 的实现，
+    //    也避免 C++20 下 u8string() 返回 std::u8string 的兼容问题）。
+    if (ec || dir.empty()) return {};
+    const std::wstring& wdir = dir.native();
+    if (wdir.empty()) return {};
+    int wlen = (int)wdir.size();
+    int len = WideCharToMultiByte(CP_UTF8, 0, wdir.c_str(), wlen, nullptr, 0, nullptr, nullptr);
+    if (len <= 0) return {};
+    std::string out((size_t)len, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, wdir.c_str(), wlen, out.data(), len, nullptr, nullptr);
+    if (!out.empty() && out.back() != '\\' && out.back() != '/') out += '\\';
+    out += name; // name 为 ASCII
+    return out;
+#else
+    // 3) POSIX：temp_directory_path 返回原生字节。只有当它是合法 UTF-8 时
+    //    才直接使用，否则退回 /tmp，保证返回值始终是 UTF-8。
+    std::string base;
+    if (!ec && !dir.empty()) base = dir.native();
+    if (base.empty() || !is_valid_utf8(base)) base = "/tmp";
+    if (base.empty()) return {};
+    if (base.back() != '/') base += '/';
+    base += name;
+    return base;
+#endif
+}
+
+void remove_file(const char* path) {
+    if (!path || !*path) return;
+#ifdef _WIN32
+    // Windows 上路径按 UTF-8 存储，需转宽字符后用 _wremove。
+    int wlen = MultiByteToWideChar(CP_UTF8, 0, path, -1, nullptr, 0);
+    if (wlen <= 0) return;
+    std::wstring wpath((size_t)wlen, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath.data(), wlen);
+    _wremove(wpath.c_str());
+#else
+    ::remove(path);
+#endif
+}
+
+void remove_file(const std::string& path) {
+    remove_file(path.c_str());
+}
+
+void TempFile::remove() {
+    if (path_.empty()) return;
+    remove_file(path_);
+    path_.clear();
+}
+
+TempFile write_buffer_to_temp(const void* data, size_t size, const char* tag) {
+    if (!data || !size) return TempFile{};
+    std::string path = make_temp_file_path(tag);
+    if (path.empty()) return TempFile{};
+    FILE* f = oxfopen(path.c_str(), "wb");
+    if (!f) {
+        remove_file(path);
+        return TempFile{};
+    }
+    size_t written = fwrite(data, 1, size, f);
+    fclose(f);
+    if (written != size) {
+        remove_file(path);
+        return TempFile{};
+    }
+    return TempFile(std::move(path));
+}
 
 // 原有的 xfopen 函数实现
 FILE* xfopen(const char* fn, const char* mode) {
@@ -47,7 +175,7 @@ FILE* xfopen(const char* fn, const char* mode) {
 }
 
 FILE *my_fopen(const char *fn, const char *mode) {
-    if (savepath[0]) {
+    if (savepath[0] && !is_absolute_utf8(fn)) {
         size_t fn_len = strlen(fn);
         size_t path_len = strlen(savepath);
         char* fix_fn = new (std::nothrow) char[path_len + fn_len + 3];
@@ -71,7 +199,7 @@ FILE* my_xfopen(const char* fn, const char* mode) {
     FILE* file = nullptr;
     char* fix_fn = nullptr;
     
-    if (savepath[0]) {
+    if (savepath[0] && !is_absolute_utf8(fn)) {
         size_t fn_len = strlen(fn);
         size_t path_len = strlen(savepath);
         fix_fn = (char*)malloc(path_len + fn_len + 3);
