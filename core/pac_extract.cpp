@@ -282,11 +282,7 @@ std::string FindFirstXMLFile(const std::string& folderPath)
     namespace fs = std::filesystem;
     try
     {
-#ifdef _WIN32
-        fs::path dir = utf8_to_utf16(folderPath);
-#else
-        fs::path dir = folderPath;
-#endif
+        fs::path dir = utf8_to_path(folderPath);
         if (!fs::exists(dir) || !fs::is_directory(dir))
         {
             std::cerr << "Folder not found: " << folderPath << std::endl;
@@ -297,38 +293,11 @@ std::string FindFirstXMLFile(const std::string& folderPath)
         {
             if (entry.is_regular_file())
             {
-                // 使用宽字符获取文件名和扩展名，然后转成 UTF-8
-#ifdef _WIN32
-                std::wstring wfilename = entry.path().filename().wstring();
-                int len = WideCharToMultiByte(CP_UTF8, 0, wfilename.c_str(), -1, nullptr, 0, nullptr, nullptr);
-                if (len <= 0) continue;
-                std::string filename(len, '\0');
-                WideCharToMultiByte(CP_UTF8, 0, wfilename.c_str(), -1, filename.data(), len, nullptr, nullptr);
-                filename.pop_back();
-
-                std::wstring wext = entry.path().extension().wstring();
-                len = WideCharToMultiByte(CP_UTF8, 0, wext.c_str(), -1, nullptr, 0, nullptr, nullptr);
-                if (len <= 0) continue;
-                std::string ext(len, '\0');
-                WideCharToMultiByte(CP_UTF8, 0, wext.c_str(), -1, ext.data(), len, nullptr, nullptr);
-                ext.pop_back();
-#else
-                std::string filename = entry.path().filename().string();
-                std::string ext = entry.path().extension().string();
-#endif
+                // 扩展名统一转成 UTF-8 再比较
+                std::string ext = path_to_utf8(entry.path().extension());
                 if (ext == ".xml" || ext == ".XML")
                 {
-#ifdef _WIN32
-                    std::wstring wpath = entry.path().wstring();
-                    int len = WideCharToMultiByte(CP_UTF8, 0, wpath.c_str(), -1, nullptr, 0, nullptr, nullptr);
-                    if (len <= 0) return "";
-                    std::string utf8_path(len, '\0');
-                    WideCharToMultiByte(CP_UTF8, 0, wpath.c_str(), -1, utf8_path.data(), len, nullptr, nullptr);
-                    utf8_path.pop_back();
-                    return utf8_path;
-#else
-                    return entry.path().string();
-#endif
+                    return path_to_utf8(entry.path());
                 }
             }
         }

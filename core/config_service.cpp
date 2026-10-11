@@ -66,10 +66,10 @@ namespace sfd
             wchar_t* wappdata = _wgetenv(L"APPDATA");
             if (wappdata) {
                 // 将宽字符串转为 UTF-8
-                int len = WideCharToMultiByte(CP_UTF8, 0, wappdata, -1, nullptr, 0, nullptr, nullptr);
+                int len = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wappdata, -1, nullptr, 0, nullptr, nullptr);
                 if (len > 0) {
                     std::string utf8_dir(len, '\0');
-                    WideCharToMultiByte(CP_UTF8, 0, wappdata, -1, utf8_dir.data(), len, nullptr, nullptr);
+                    WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wappdata, -1, utf8_dir.data(), len, nullptr, nullptr);
                     utf8_dir.pop_back();
                     return utf8_dir + "\\sfd_tool";
                 }
@@ -98,14 +98,7 @@ namespace sfd
         bool ensure_parent_directory(const std::string& path)
         {
             std::error_code ec;
-#ifdef _WIN32
-            std::filesystem::path p;
-            std::wstring wpath = utf8_to_utf16(path);
-            if (wpath.empty()) p = std::filesystem::path(path);
-            else p = std::filesystem::path(wpath);
-#else
-            std::filesystem::path p(path);
-#endif
+            std::filesystem::path p = utf8_to_path(path);
             auto parent = p.parent_path();
             if (parent.empty())
             {
@@ -191,23 +184,15 @@ namespace sfd
             const std::string per_user = per_user_config_path();
             const std::string legacy = legacy_config_path();
 
-            // 1. 优先从 per-user 配置路径加载
-#ifndef _WIN32
-            if (!per_user.empty() && std::filesystem::exists(per_user))
-#else
-            if (!per_user.empty() && std::filesystem::exists(utf8_to_utf16(per_user)))
-#endif
+            // 1. 优先从 per-user 配置路径加载（路径统一按 UTF-8 解释）
+            if (!per_user.empty() && std::filesystem::exists(utf8_to_path(per_user)))
             {
                 ConfigStatus st = loadAppConfigFromFile(per_user, out_config);
                 return st;
             }
 
             // 2. per-user 不存在但旧路径存在：从旧路径加载并尝试迁移
-#ifndef _WIN32
-            if (std::filesystem::exists(legacy))
-#else
-            if (std::filesystem::exists(utf8_to_utf16(legacy)) || std::filesystem::exists(legacy))
-#endif
+            if (std::filesystem::exists(utf8_to_path(legacy)))
             {
                 ConfigStatus st = loadAppConfigFromFile(legacy, out_config);
                 if (!st.success)
@@ -243,11 +228,7 @@ namespace sfd
             {
                 return make_error(ConfigErrorCode::InvalidFormat, "empty config path");
             }
-#ifndef _WIN32
-            if (!std::filesystem::exists(path))
-#else
-            if (!std::filesystem::exists(utf8_to_utf16(path)) || !std::filesystem::exists(path))
-#endif
+            if (!std::filesystem::exists(utf8_to_path(path)))
             {
                 return make_error(ConfigErrorCode::NotFound, "config file not found");
             }

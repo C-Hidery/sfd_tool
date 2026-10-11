@@ -2963,7 +2963,7 @@ void dump_partitions(spdio_t* io, const char* fn, int* nand_info, unsigned step)
     }
 
     // 保存原始 dump list（磁盘上的字节原样回写）
-    if (savepath[0])
+    if (!save_path.empty())
     {
         DEG_LOG(OP, "Saving dump list");
         size_t size = 0;
@@ -3352,37 +3352,33 @@ void load_partitions(spdio_t* io, const char* path, unsigned step, int force_ab,
     int dlnv_id = -1;
     typedef struct
     {
-        char name[36];
-        char file_path[1024];
+        std::string name;      // 不再限长（原 char[36]，长文件名会溢出）
+        std::string file_path; // 不再限长（原 char[1024]，长路径会被静默截断）
         int written_flag;
     } partition_info_t;
     size_t namelen;
-    char miscname[1024] = {0};
+    std::string miscname;
     int VAB = 0; // slot_in_name
     int partition_count = 0;
     partition_info_t* partitions = NEWN partition_info_t[128];
     if (partitions == nullptr) return;
     char* fn;
 #if _WIN32
-    char fn_buffer[MAX_PATH];
     WIN32_FIND_DATAW findDataW;
     WIN32_FIND_DATAA findDataA;
     HANDLE hFind = INVALID_HANDLE_VALUE;
     BOOL useW = FALSE;
 
-    // 1. 尝试 UTF-16 版本（UTF-8 → UTF-16）
-    wchar_t wpath[ARGV_LEN * 2];
-    int len = MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, ARGV_LEN * 2);
-    if (len == 0)
+    // 1. 尝试 UTF-16 版本（UTF-8 → UTF-16）；只有非法 UTF-8 才退回 ANSI。
+    int wlen = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, nullptr, 0);
+    if (wlen > 0)
     {
-        DEG_LOG(W, "MultiByteToWideChar conversion failed, fallback to ANSI.\n");
-        goto fallback_to_ansi;
+        std::wstring wdir((size_t)wlen - 1, L'\0');
+        MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, path, -1, wdir.data(), wlen);
+        std::wstring wsearchPath = wdir + L"\\*";
+        hFind = FindFirstFileW(wsearchPath.c_str(), &findDataW);
     }
 
-    wchar_t wsearchPath[ARGV_LEN * 2];
-    swprintf(wsearchPath, ARGV_LEN * 2, L"%ls\\*", wpath);
-
-    hFind = FindFirstFileW(wsearchPath, &findDataW);
     if (hFind != INVALID_HANDLE_VALUE)
     {
         useW = TRUE;
@@ -3390,15 +3386,13 @@ void load_partitions(spdio_t* io, const char* path, unsigned step, int force_ab,
     else
     {
         DWORD err = GetLastError();
-        DEG_LOG(W, "FindFirstFileW failed (err=%d), fallback to ANSI.\n", err);
+        DEG_LOG(W, "FindFirstFileW failed (err=%lu), fallback to ANSI.\n", (unsigned long)err);
     }
 
-fallback_to_ansi:
     if (!useW)
     {
-        char searchPath[ARGV_LEN];
-        snprintf(searchPath, ARGV_LEN, "%s\\*", path);
-        hFind = FindFirstFileA(searchPath, &findDataA);
+        std::string searchPath = std::string(path) + "\\*";
+        hFind = FindFirstFileA(searchPath.c_str(), &findDataA);
         if (hFind == INVALID_HANDLE_VALUE)
         {
             DEG_LOG(E, "Both W and A versions failed to open directory.\n");
@@ -3412,8 +3406,11 @@ fallback_to_ansi:
         do
         {
             if (findDataW.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
-            WideCharToMultiByte(CP_UTF8, 0, findDataW.cFileName, -1, fn_buffer, MAX_PATH, NULL, NULL);
-            fn = fn_buffer;
+            // UTF-8 编码后可能远长于 MAX_PATH 个字节，这里按实际长度分配，
+            // 转换失败则跳过该条目，避免使用未初始化的脏名字。
+            std::string fn_utf8 = utf16_to_utf8(findDataW.cFileName);
+            if (fn_utf8.empty()) continue;
+            fn = fn_utf8.data();
             // 以下处理逻辑与原版完全相同（使用窄字符 fn）
             namelen = strlen(fn);
             if (namelen >= 4)
@@ -3431,19 +3428,23 @@ fallback_to_ansi:
                 !my_strnicmp(fn, "custom_exec", 11) ||
                 my_stristr(fn, "factorynv"))
                 continue;
-            snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s",
-                     path, fn);
+            if (partition_count >= 128)
+            {
+                DEG_LOG(E, "Too many candidate files; the rest are ignored.\n");
+                break;
+            }
+            partitions[partition_count].file_path = std::string(path) + "/" + fn;
             char* dot = strrchr(fn, '.');
             if (dot != nullptr) *dot = '\0';
             namelen = strlen(fn);
             if (namelen >= 4 && my_stricmp(fn + namelen - 4, "_bak") == 0) continue;
-            if (!my_stricmp(fn, "misc")) snprintf(miscname, 1024, "%s", partitions[partition_count].file_path);
+            if (!my_stricmp(fn, "misc")) miscname = partitions[partition_count].file_path;
             if (namelen > 2)
             {
                 if (!my_stricmp(fn + namelen - 2, "_a")) VAB |= 1;
                 else if (!my_stricmp(fn + namelen - 2, "_b")) VAB |= 2;
             }
-            strcpy(partitions[partition_count].name, fn);
+            partitions[partition_count].name = fn;
             partitions[partition_count].written_flag = 0;
             partition_count++;
         }
@@ -3471,19 +3472,23 @@ fallback_to_ansi:
                 !my_strnicmp(fn, "custom_exec", 11) ||
                 my_stristr(fn, "factorynv"))
                 continue;
-            snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s",
-                     path, fn);
+            if (partition_count >= 128)
+            {
+                DEG_LOG(E, "Too many candidate files; the rest are ignored.\n");
+                break;
+            }
+            partitions[partition_count].file_path = std::string(path) + "/" + fn;
             char* dot = strrchr(fn, '.');
             if (dot != nullptr) *dot = '\0';
             namelen = strlen(fn);
             if (namelen >= 4 && my_stricmp(fn + namelen - 4, "_bak") == 0) continue;
-            if (!my_stricmp(fn, "misc")) snprintf(miscname, 1024, "%s", partitions[partition_count].file_path);
+            if (!my_stricmp(fn, "misc")) miscname = partitions[partition_count].file_path;
             if (namelen > 2)
             {
                 if (!my_stricmp(fn + namelen - 2, "_a")) VAB |= 1;
                 else if (!my_stricmp(fn + namelen - 2, "_b")) VAB |= 2;
             }
-            strcpy(partitions[partition_count].name, fn);
+            partitions[partition_count].name = fn;
             partitions[partition_count].written_flag = 0;
             partition_count++;
         }
@@ -3522,20 +3527,24 @@ fallback_to_ansi:
             !my_strnicmp(fn, "custom_exec", 11) ||
             my_stristr(fn, "factorynv"))
             continue;
-        snprintf(partitions[partition_count].file_path, sizeof(partitions[partition_count].file_path), "%s/%s", path,
-                 fn);
+        if (partition_count >= 128)
+        {
+            DEG_LOG(E, "Too many candidate files; the rest are ignored.\n");
+            break;
+        }
+        partitions[partition_count].file_path = std::string(path) + "/" + fn;
         char* dot = strrchr(fn, '.');
         if (dot != nullptr) *dot = '\0';
         namelen = strlen(fn);
         if (namelen >= 4 && my_stricmp(fn + namelen - 4, "_bak") == 0) continue;
-        if (!my_stricmp(fn, "misc")) snprintf(miscname, 1024, "%s", partitions[partition_count].file_path);
+        if (!my_stricmp(fn, "misc")) miscname = partitions[partition_count].file_path;
         if (namelen > 2)
         {
             if (!my_stricmp(fn + namelen - 2, "_a")) VAB |= 1;
             else if (!my_stricmp(fn + namelen - 2, "_b")) VAB |= 2;
         }
 
-        strcpy(partitions[partition_count].name, fn);
+        partitions[partition_count].name = fn;
         partitions[partition_count].written_flag = 0;
         partition_count++;
     }
@@ -3549,9 +3558,9 @@ fallback_to_ansi:
     if (force_ab && (force_ab & VAB)) selected_ab = force_ab;
     else
     {
-        if (miscname[0])
+        if (!miscname.empty())
         {
-            uint8_t* mem = loadfile(miscname, &misclen, 0);
+            uint8_t* mem = loadfile(miscname.c_str(), &misclen, 0);
             if (misclen >= 0x820)
             {
                 abc = (bootloader_control*)(mem + 0x800);
@@ -3577,7 +3586,7 @@ fallback_to_ansi:
             delete[](partitions);
             return;
         }
-        fn = partitions[i].name;
+        fn = const_cast<char*>(partitions[i].name.c_str());
         std::string relfn = case_part({}, fn, io);
         if (relfn.empty() == false) fn = const_cast<char*>(relfn.c_str());
         bool isRejected = false;
@@ -3635,9 +3644,9 @@ fallback_to_ansi:
                     // splloader is written directly; uboot/vbmeta A/B images must
                     // go through unify so the _bak partition and force mode work.
                     if (isSpl)
-                        load_partition(io, fn, partitions[i].file_path, step, CMethod);
+                        load_partition(io, fn, partitions[i].file_path.c_str(), step, CMethod);
                     else
-                        load_partition_unify(io, fn, partitions[i].file_path, step, CMethod);
+                        load_partition_unify(io, fn, partitions[i].file_path.c_str(), step, CMethod);
                     flashed_parts.emplace_back(fn);
                 }
                 partitions[i].written_flag = 1;
@@ -3665,7 +3674,7 @@ fallback_to_ansi:
                 get_partition_info(io, fn, 0);
                 if (gPartInfo.size)
                 {
-                    load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
+                    load_partition_unify(io, gPartInfo.name, partitions[i].file_path.c_str(), step, CMethod);
                     flashed_parts.emplace_back(fn);
                 }
             }
@@ -3688,7 +3697,7 @@ fallback_to_ansi:
             }
             if (isAllowed)
             {
-                load_partition_unify(io, fn, partitions[i].file_path, step, CMethod);
+                load_partition_unify(io, fn, partitions[i].file_path.c_str(), step, CMethod);
                 flashed_parts.emplace_back(fn);
             }
             partitions[i].written_flag = 1;
@@ -3705,7 +3714,7 @@ fallback_to_ansi:
         }
         if (!partitions[i].written_flag)
         {
-            fn = partitions[i].name;
+            fn = const_cast<char*>(partitions[i].name.c_str());
             std::string relfn = case_part({}, fn, io);
             if (relfn.empty() == false) fn = const_cast<char*>(relfn.c_str());
             if (my_stristr(fn, "downloadnv"))
@@ -3740,7 +3749,7 @@ fallback_to_ansi:
             }
             if (isAllowed)
             {
-                load_partition_unify(io, fn, partitions[i].file_path, step, CMethod);
+                load_partition_unify(io, fn, partitions[i].file_path.c_str(), step, CMethod);
                 flashed_parts.emplace_back(fn);
             }
             partitions[i].written_flag = 1;
@@ -3761,7 +3770,7 @@ fallback_to_ansi:
             }
         }
         if (isAllowed)
-            load_partition(io, "super", partitions[super_id].file_path, step, CMethod);
+            load_partition(io, "super", partitions[super_id].file_path.c_str(), step, CMethod);
         isAllowed = true;
         for (auto& kv : flashed_parts)
         {
@@ -3776,7 +3785,7 @@ fallback_to_ansi:
         }
         if (isAllowed)
         {
-            if (metadata_in_dump) load_partition(io, "metadata", partitions[metadata_id].file_path, step, CMethod);
+            if (metadata_in_dump) load_partition(io, "metadata", partitions[metadata_id].file_path.c_str(), step, CMethod);
             else erase_partition(io, "metadata", CMethod);
         }
     }
@@ -3784,7 +3793,7 @@ fallback_to_ansi:
     // -1 so an entry at index 0 is not silently skipped.
     if (isHasDownloadNV)
     {
-        fn = partitions[dlnv_id].name;
+        fn = const_cast<char*>(partitions[dlnv_id].name.c_str());
         std::string relfn = case_part({}, fn, io);
         if (relfn.empty() == false) fn = const_cast<char*>(relfn.c_str());
         bool isAllowed = true;
@@ -3800,7 +3809,7 @@ fallback_to_ansi:
             }
         }
         if (isAllowed)
-            load_partition_unify(io, fn, partitions[dlnv_id].file_path, step, CMethod);
+            load_partition_unify(io, fn, partitions[dlnv_id].file_path.c_str(), step, CMethod);
     }
     if (selected_ab == 1) set_active(io, "a", CMethod);
     else if (selected_ab == 2) set_active(io, "b", CMethod);
@@ -4140,10 +4149,10 @@ void set_active(spdio_t* io, const char* arg, int CMethod)
 std::wstring utf8_to_utf16(const std::string& utf8)
 {
     if (utf8.empty()) return L"";
-    int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
+    int len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8.c_str(), -1, nullptr, 0);
     if (len <= 0) return L"";
     std::wstring wstr(len, L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, wstr.data(), len);
+    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8.c_str(), -1, wstr.data(), len);
     wstr.pop_back();
     return wstr;
 }
@@ -4151,10 +4160,10 @@ std::wstring utf8_to_utf16(const std::string& utf8)
 std::string utf16_to_utf8(const std::wstring& wstr)
 {
     if (wstr.empty()) return "";
-    int len = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    int len = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wstr.c_str(), -1, nullptr, 0, nullptr, nullptr);
     if (len <= 0) return "";
     std::string utf8(len, '\0');
-    WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, utf8.data(), len, nullptr, nullptr);
+    WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wstr.c_str(), -1, utf8.data(), len, nullptr, nullptr);
     utf8.pop_back();
     return utf8;
 }

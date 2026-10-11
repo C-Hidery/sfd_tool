@@ -19,7 +19,6 @@
 extern AppState g_app_state;
 char** str2;
 int in_quote;
-char str1[(ARGC_MAX - 1) * ARGV_LEN];
 const char* Version = "[1.5.0.0@_250726]";
 
 // 兼容旧代码的便捷访问器：直接操作 AppState::flash.isCMethod
@@ -34,7 +33,7 @@ extern char* temp;
 static void warn_if_savepath_unset(const char* cmd)
 {
     static bool warned = false;
-    if (savepath[0] || warned) return;
+    if (!save_path.empty() || warned) return;
     warned = true;
     DEG_LOG(W, "`%s` has no output path set; files will be written to the current directory.", cmd);
     DEG_LOG(W, "Set one first with: path <DIR>");
@@ -881,19 +880,24 @@ int main_console(int argc, char** argv)
     while (true)
     {
         signal(SIGINT, SIG_DFL);
+        // str2 的存储：交互模式用 std::vector<std::string>，argv 模式用指针视图。
+        // 都不再有定长/定数量上限，命令长度与参数个数不受限。
+        std::vector<std::string> tokens;
+        std::vector<char*> str2_ptrs;
         if (argc > 1)
         {
-            str2 = NEWN char*[argc];
+            // 多留两个槽位：下面可能写入合成的 str2[1]/str2[2]
+            str2_ptrs.assign((size_t)argc + 2, nullptr);
             if (fdl1_loaded == -1)
             {
                 save_argv = argv;
-                str2[1] = const_cast<char*>("loadfdl");
-                str2[2] = const_cast<char*>("0x0");
+                str2_ptrs[1] = const_cast<char*>("loadfdl");
+                str2_ptrs[2] = const_cast<char*>("0x0");
             }
             else if (fdl2_executed == -1)
             {
                 if (!save_argv) save_argv = argv;
-                str2[1] = const_cast<char*>("exec");
+                str2_ptrs[1] = const_cast<char*>("exec");
             }
             else
             {
@@ -902,16 +906,15 @@ int main_console(int argc, char** argv)
                     argv = save_argv;
                     save_argv = nullptr;
                 }
-                for (i = 1; i < argc; i++) str2[i] = argv[i];
+                for (i = 1; i < argc; i++) str2_ptrs[i] = argv[i];
             }
+            str2 = str2_ptrs.data();
             argcount = argc;
             in_quote = -1;
         }
         else
         {
             char ifs = '"';
-            str2 = NEWN char*[ARGC_MAX];
-            memset(str1, 0, sizeof(str1));
             argcount = 0;
             in_quote = 0;
             if (!isToolMode)
@@ -932,21 +935,16 @@ int main_console(int argc, char** argv)
             {
                 continue;
             }
-            // 复制到 str1 以兼容现有分词逻辑
-            strncpy(str1, inputLine.c_str(), sizeof(str1) - 1);
-            str1[sizeof(str1) - 1] = '\0';
 
-            temp = strtok(str1, " ");
+            // strtok 需要可写缓冲：按输入实际长度分配，不再有长度上限
+            std::vector<char> line_buf(inputLine.begin(), inputLine.end());
+            line_buf.push_back('\0');
+
+            temp = strtok(line_buf.data(), " ");
             while (temp)
             {
-                if (!in_quote)
-                {
-                    argcount++;
-                    if (argcount == ARGC_MAX) break;
-                    str2[argcount] = NEWN char[ARGV_LEN];
-                    if (!str2[argcount]) ERR_EXIT("malloc failed\n");
-                    memset(str2[argcount], 0, ARGV_LEN);
-                }
+                if (!in_quote) tokens.emplace_back();
+                const size_t idx = tokens.size(); // 1-based，对应旧的 argcount
                 if (temp[0] == '\'') ifs = '\'';
                 if (temp[0] == ifs)
                 {
@@ -955,26 +953,25 @@ int main_console(int argc, char** argv)
                 }
                 else if (in_quote)
                 {
-                    strcat(str2[argcount], " ");
+                    tokens[idx - 1] += " ";
                 }
 
-                if (temp[strlen(temp) - 1] == ifs)
+                const size_t tlen = strlen(temp);
+                if (tlen > 0 && temp[tlen - 1] == ifs)
                 {
                     in_quote = 0;
-                    temp[strlen(temp) - 1] = 0;
+                    temp[tlen - 1] = 0;
                 }
 
-                strcat(str2[argcount], temp);
+                tokens[idx - 1] += temp;
                 temp = strtok(nullptr, " ");
             }
-            argcount++;
-        }
-        if (argcount == 1)
-        {
-            str2[1] = NEWN char[1];
-            if (str2[1]) str2[1][0] = '\0';
-            else ERR_EXIT("malloc failed\n");
-            argcount++;
+            if (tokens.empty()) tokens.emplace_back(); // 空输入兜底（等价旧的 argcount==1）
+
+            str2_ptrs.assign(tokens.size() + 1, nullptr);
+            for (size_t k = 0; k < tokens.size(); ++k) str2_ptrs[k + 1] = tokens[k].data();
+            str2 = str2_ptrs.data();
+            argcount = (int)tokens.size() + 1; // 与旧的“末尾 argcount++”语义一致
         }
         //parse args and interacting command
         if (!strcmp(str2[1], "sendloop"))
@@ -1723,19 +1720,10 @@ int main_console(int argc, char** argv)
             }
             if (argcount > 2)
             {
-                if (strlen(str2[2]) < sizeof(savepath))
-                {
-                    snprintf(savepath, sizeof(savepath), "%s", str2[2]);
-                }
-                else
-                {
-                    DEG_LOG(E, "Path too long");
-                    argc -= 2;
-                    argv += 2;
-                    continue;
-                }
+                // save_path 是 std::string：路径长度不再受限，整段保存
+                save_path = str2[2];
             }
-            DEG_LOG(I, "Save dir is %s", savepath);
+            DEG_LOG(I, "Save dir is %s", save_path.c_str());
             argc -= 2;
             argv += 2;
         }
@@ -4721,12 +4709,7 @@ int main_console(int argc, char** argv)
             DEG_LOG(E, "Unknown command: %s, use `help` to see available commands.", str2[1]);
             argc = 1;
         }
-        if (in_quote != -1)
-        {
-            for (i = 1; i < argcount; i++)
-                delete[](str2[i]);
-            delete[](str2);
-        }
+        // str2 现在指向 tokens / str2_ptrs（本轮的局部 vector），随作用域自动释放
         if (!isToolMode && is_device_unattached_and_log(io))
         {
             break;
