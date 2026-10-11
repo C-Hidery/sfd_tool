@@ -282,11 +282,7 @@ std::string FindFirstXMLFile(const std::string& folderPath)
     namespace fs = std::filesystem;
     try
     {
-#ifdef _WIN32
-        fs::path dir = utf8_to_utf16(folderPath);
-#else
-        fs::path dir = folderPath;
-#endif
+        fs::path dir = utf8_to_path(folderPath);
         if (!fs::exists(dir) || !fs::is_directory(dir))
         {
             std::cerr << "Folder not found: " << folderPath << std::endl;
@@ -297,38 +293,11 @@ std::string FindFirstXMLFile(const std::string& folderPath)
         {
             if (entry.is_regular_file())
             {
-                // 使用宽字符获取文件名和扩展名，然后转成 UTF-8
-#ifdef _WIN32
-                std::wstring wfilename = entry.path().filename().wstring();
-                int len = WideCharToMultiByte(CP_UTF8, 0, wfilename.c_str(), -1, nullptr, 0, nullptr, nullptr);
-                if (len <= 0) continue;
-                std::string filename(len, '\0');
-                WideCharToMultiByte(CP_UTF8, 0, wfilename.c_str(), -1, filename.data(), len, nullptr, nullptr);
-                filename.pop_back();
-
-                std::wstring wext = entry.path().extension().wstring();
-                len = WideCharToMultiByte(CP_UTF8, 0, wext.c_str(), -1, nullptr, 0, nullptr, nullptr);
-                if (len <= 0) continue;
-                std::string ext(len, '\0');
-                WideCharToMultiByte(CP_UTF8, 0, wext.c_str(), -1, ext.data(), len, nullptr, nullptr);
-                ext.pop_back();
-#else
-                std::string filename = entry.path().filename().string();
-                std::string ext = entry.path().extension().string();
-#endif
+                // 扩展名统一转成 UTF-8 再比较
+                std::string ext = path_to_utf8(entry.path().extension());
                 if (ext == ".xml" || ext == ".XML")
                 {
-#ifdef _WIN32
-                    std::wstring wpath = entry.path().wstring();
-                    int len = WideCharToMultiByte(CP_UTF8, 0, wpath.c_str(), -1, nullptr, 0, nullptr, nullptr);
-                    if (len <= 0) return "";
-                    std::string utf8_path(len, '\0');
-                    WideCharToMultiByte(CP_UTF8, 0, wpath.c_str(), -1, utf8_path.data(), len, nullptr, nullptr);
-                    utf8_path.pop_back();
-                    return utf8_path;
-#else
-                    return entry.path().string();
-#endif
+                    return path_to_utf8(entry.path());
                 }
             }
         }
@@ -890,26 +859,28 @@ bool pac_flash(spdio_t* io, const char* folder)
         if (g_app_state.flash.isPacMergingNV)
         {
             auto& pacptable = g_app_state.flash.pacptable;
+            uint64_t nv_size = 0;
             get_partition_info(io, "nr_fixnv1", 1);
             if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
             {
-                g_app_state.pac.nr_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size,
-                                                                      blk_size ? blk_size : DEFAULT_BLK_SIZE,
-                                                                      &g_app_state.pac.nr_fixnv1_mem_size);
+                // TempFile 的 move 赋值会自动删除上一个临时文件
+                g_app_state.pac.nr_fixnv1_file_path = dump_partition_to_temp(
+                    io, gPartInfo.name, 0, gPartInfo.size,
+                    blk_size ? blk_size : DEFAULT_BLK_SIZE, &nv_size);
             }
             get_partition_info(io, "l_fixnv1", 1);
             if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
             {
-                g_app_state.pac.l_fixnv1_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size,
-                                                                     blk_size ? blk_size : DEFAULT_BLK_SIZE,
-                                                                     &g_app_state.pac.l_fixnv1_mem_size);
+                g_app_state.pac.l_fixnv1_file_path = dump_partition_to_temp(
+                    io, gPartInfo.name, 0, gPartInfo.size,
+                    blk_size ? blk_size : DEFAULT_BLK_SIZE, &nv_size);
             }
             get_partition_info(io, "downloadnv", 1);
             if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
             {
-                g_app_state.pac.downloadnv_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size,
-                                                                       blk_size ? blk_size : DEFAULT_BLK_SIZE,
-                                                                       &g_app_state.pac.downloadnv_mem_size);
+                g_app_state.pac.downloadnv_file_path = dump_partition_to_temp(
+                    io, gPartInfo.name, 0, gPartInfo.size,
+                    blk_size ? blk_size : DEFAULT_BLK_SIZE, &nv_size);
             }
         }
         bool i_is = false;
@@ -982,25 +953,31 @@ bool pac_flash(spdio_t* io, const char* folder)
                             {
                                 std::string name = unpac.u16_to_u8(file.name, MAX_U16_SN);
                                 if (name.empty()) continue;
-                                if (!g_app_state.pac.nr_fixnv1_mem)
+                                if (g_app_state.pac.nr_fixnv1_file_path.empty())
                                 {
                                     DEG_LOG(W, "Failed to load old NV data for nr_fixnv1, skipping writing.");
                                     continue;
                                 }
                                 if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str()))
                                 {
-                                    size_t a_size = g_app_state.pac.nr_fixnv1_mem_size, b_size = 0, c_size = 0;
-                                    uint8_t* a = g_app_state.pac.nr_fixnv1_mem;
+                                    size_t a_size = 0, b_size = 0, c_size = 0;
+                                    uint8_t* a = loadfile(g_app_state.pac.nr_fixnv1_file_path.c_str(), &a_size, 0);
 #ifndef _WIN32
                                     std::string file_path = g_app_state.flash.pac_folder + "/" + name;
 #else
                                     std::string file_path = g_app_state.flash.pac_folder + "\\" + name;
 #endif
                                     uint8_t* b = loadfile(file_path.c_str(), &b_size, 0);
-                                    uint8_t* c = (uint8_t*)malloc(a_size + b_size);
-                                    merge_nv(io, a, a_size, b, b_size, c, &c_size);
-                                    load_nv_partition_from_mem(io, partition.c_str(), c,
-                                                               blk_size ? blk_size : DEFAULT_BLK_SIZE);
+                                    if (!a || !b)
+                                    {
+                                        if (a) delete[](a);
+                                        if (b) delete[](b);
+                                        continue;
+                                    }
+                                    uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                                    merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
+                                    load_merged_nv(io, partition.c_str(), c, c_size,
+                                                   blk_size ? blk_size : DEFAULT_BLK_SIZE);
                                     delete[](a);
                                     delete[](b);
                                     free(c);
@@ -1011,7 +988,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                         }
                         else if (strstr(partition.c_str(), "l_fixnv1"))
                         {
-                            if (!g_app_state.pac.l_fixnv1_mem)
+                            if (g_app_state.pac.l_fixnv1_file_path.empty())
                             {
                                 DEG_LOG(W, "Failed to load old NV data for l_fixnv1, skipping writing.");
                                 continue;
@@ -1023,18 +1000,24 @@ bool pac_flash(spdio_t* io, const char* folder)
                                 if (name.empty()) continue;
                                 if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str()))
                                 {
-                                    size_t a_size = g_app_state.pac.l_fixnv1_mem_size, b_size = 0, c_size = 0;
-                                    uint8_t* a = g_app_state.pac.l_fixnv1_mem;
+                                    size_t a_size = 0, b_size = 0, c_size = 0;
+                                    uint8_t* a = loadfile(g_app_state.pac.l_fixnv1_file_path.c_str(), &a_size, 0);
 #ifndef _WIN32
                                     std::string file_path = g_app_state.flash.pac_folder + "/" + name;
 #else
                                     std::string file_path = g_app_state.flash.pac_folder + "\\" + name;
 #endif
                                     uint8_t* b = loadfile(file_path.c_str(), &b_size, 0);
-                                    uint8_t* c = (uint8_t*)malloc(a_size + b_size);
-                                    merge_nv(io, a, a_size, b, b_size, c, &c_size);
-                                    load_nv_partition_from_mem(io, partition.c_str(), c,
-                                                               blk_size ? blk_size : DEFAULT_BLK_SIZE);
+                                    if (!a || !b)
+                                    {
+                                        if (a) delete[](a);
+                                        if (b) delete[](b);
+                                        continue;
+                                    }
+                                    uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                                    merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
+                                    load_merged_nv(io, partition.c_str(), c, c_size,
+                                                   blk_size ? blk_size : DEFAULT_BLK_SIZE);
                                     delete[](a);
                                     delete[](b);
                                     free(c);
@@ -1096,7 +1079,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                         if (name.empty()) return;
                         if (g_app_state.flash.isPacMergingNV)
                         {
-                            if (!g_app_state.pac.downloadnv_mem)
+                            if (g_app_state.pac.downloadnv_file_path.empty())
                             {
                                 DEG_LOG(W, "Failed to load old NV data for downloadnv, skipping writing.");
                             }
@@ -1104,21 +1087,29 @@ bool pac_flash(spdio_t* io, const char* folder)
                             {
                                 if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str()))
                                 {
-                                    size_t a_size = g_app_state.pac.downloadnv_mem_size, b_size = 0, c_size = 0;
-                                    uint8_t* a = g_app_state.pac.downloadnv_mem;
+                                    size_t a_size = 0, b_size = 0, c_size = 0;
+                                    uint8_t* a = loadfile(g_app_state.pac.downloadnv_file_path.c_str(), &a_size, 0);
 #ifndef _WIN32
                                     std::string file_path = g_app_state.flash.pac_folder + "/" + name;
 #else
                                     std::string file_path = g_app_state.flash.pac_folder + "\\" + name;
 #endif
                                     uint8_t* b = loadfile(file_path.c_str(), &b_size, 0);
-                                    uint8_t* c = (uint8_t*)malloc(a_size + b_size);
-                                    merge_nv(io, a, a_size, b, b_size, c, &c_size);
-                                    load_nv_partition_from_mem(io, partition.c_str(), c,
-                                                               blk_size ? blk_size : DEFAULT_BLK_SIZE);
-                                    delete[] a;
-                                    delete[] b;
-                                    free(c);
+                                    if (!a || !b)
+                                    {
+                                        if (a) delete[] a;
+                                        if (b) delete[] b;
+                                    }
+                                    else
+                                    {
+                                        uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                                        merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
+                                        load_merged_nv(io, partition.c_str(), c, c_size,
+                                                       blk_size ? blk_size : DEFAULT_BLK_SIZE);
+                                        delete[] a;
+                                        delete[] b;
+                                        free(c);
+                                    }
                                 }
                                 
                             }

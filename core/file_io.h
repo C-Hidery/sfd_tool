@@ -8,6 +8,7 @@
 #include <string>
 #include <cstdint>
 #include <iostream>
+#include <filesystem>
 
 #ifndef __cplusplus
     #error "This header requires C++. Please compile with a C++ compiler."
@@ -18,8 +19,65 @@
 #define ftello _ftelli64
 #endif
 
+// 旧的定长缓冲尺寸：CLI 参数与 save_path 已改为动态存储，长度不再受它限制。
+// 保留宏是为了兼容可能仍引用它的外部代码。
 #define ARGV_LEN 384
-extern char savepath[ARGV_LEN];
+// 保存目录（UTF-8）。用 std::string 承载，路径长度不再受定长缓冲限制。
+extern std::string save_path;
+
+// 生成系统临时目录下的唯一文件路径（不创建文件）。
+// 系统临时目录为空/不可用时退回当前目录。
+std::string make_temp_file_path(const char* tag);
+// 在当前工作目录下生成唯一临时文件路径（绝对路径，不创建文件）。
+std::string make_temp_file_path_in_cwd(const char* tag);
+// 删除文件（Windows 使用 _wremove，其它平台 remove）。不存在时静默忽略。
+void remove_file(const char* path);
+void remove_file(const std::string& path);
+
+// UTF-8 <-> std::filesystem::path 的统一转换。
+// Windows 上 std::filesystem::path 的窄字符构造按 ANSI(ACP) 解释，直接用
+// std::string 构造会破坏 UTF-8 统一性；跨平台代码请一律走这两个函数：
+//   std::filesystem::exists(utf8_to_path(p))
+//   std::string utf8_p = path_to_utf8(fs_path);
+std::filesystem::path utf8_to_path(const std::string& utf8_path);
+std::string path_to_utf8(const std::filesystem::path& path);
+
+// RAII 临时文件：持有路径，析构时自动删除（Windows 使用 _wremove）。
+class TempFile {
+public:
+    TempFile() = default;
+    // 空路径检查：传入空路径时直接在当前目录下生成一个唯一临时文件名。
+    // RAII 语义不变，析构时仍会删除所持路径。
+    explicit TempFile(std::string path) noexcept
+        : path_(path.empty() ? make_temp_file_path_in_cwd("tmp") : std::move(path)) {}
+    ~TempFile() { remove(); }
+
+    TempFile(TempFile&& other) noexcept : path_(std::move(other.path_)) {}
+    TempFile& operator=(TempFile&& other) noexcept {
+        if (this != &other) {
+            remove();
+            path_ = std::move(other.path_);
+        }
+        return *this;
+    }
+    TempFile(const TempFile&) = delete;
+    TempFile& operator=(const TempFile&) = delete;
+
+    bool empty() const noexcept { return path_.empty(); }
+    const std::string& path() const noexcept { return path_; }
+    const char* c_str() const noexcept { return path_.c_str(); }
+
+    // 立即删除并清空
+    void remove();
+    // 放弃所有权（返回路径，析构时不再删除）
+    std::string release() noexcept { std::string p; p.swap(path_); return p; }
+
+private:
+    std::string path_;
+};
+
+// 把内存缓冲写入系统临时文件，返回 RAII 句柄（空对象表示失败）。
+TempFile write_buffer_to_temp(const void* data, size_t size, const char* tag);
 
 struct FileDeleter {
     void operator()(FILE* f) const noexcept {

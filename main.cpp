@@ -52,6 +52,7 @@
 #include "pages/page_pac_flash.h"
 #include <thread>
 #include <chrono>
+#include <vector>
 #include <gtk/gtk.h>
 #include <sstream>
 #include <iomanip>
@@ -70,6 +71,7 @@
 #include <unistd.h>
 #elif defined(_WIN32)
 #include <windows.h>
+#include <shellapi.h>
 #include <dbghelp.h>
 #include <sys/stat.h>
 #endif
@@ -143,16 +145,11 @@ static std::string get_executable_dir() {
         return std::string();
     }
     
-    char utf8_path[MAX_PATH] = {0};
-    int utf8_len = WideCharToMultiByte(CP_UTF8, 0, path, len, 
-                                        utf8_path, sizeof(utf8_path) - 1, 
-                                        NULL, NULL);
-    if (utf8_len <= 0) {
+    // UTF-8 编码后可能超过 MAX_PATH 个字节，按实际长度动态分配。
+    std::string p = utf16_to_utf8(std::wstring(path, len));
+    if (p.empty()) {
         return std::string();
     }
-    utf8_path[utf8_len] = '\0';  // 确保终止
-    
-    std::string p(utf8_path);
     
     // 支持 \ 和 / 两种分隔符
     size_t pos = p.find_last_of("\\/");
@@ -171,15 +168,9 @@ static bool dir_exists(const std::string& path) {
     struct stat st;
     return (stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode));
 #elif defined(_WIN32)
-    // 将 UTF-8 路径转换为 UTF-16
-    int wlen = MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, nullptr, 0);
-    if (wlen <= 0) return false;
-    
-    std::vector<wchar_t> wpath(wlen);
-    MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, wpath.data(), wlen);
-    
-    DWORD attr = GetFileAttributesW(wpath.data());
-    return (attr != INVALID_FILE_ATTRIBUTES) && (attr & FILE_ATTRIBUTE_DIRECTORY);
+    // 统一按 UTF-8 -> UTF-16 转换，避免 std::filesystem 的窄字符构造走 ACP
+    std::error_code ec;
+    return std::filesystem::is_directory(utf8_to_path(path), ec);
 #else
     (void)path;
     return false;
@@ -499,10 +490,8 @@ int gtk_kmain(int argc, char** argv) {
                     mkdir(docs_dir.c_str(), 0755);
                 }
                 if (stat(docs_dir.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
-                    if (docs_dir.size() < sizeof(savepath)) {
-                        std::snprintf(savepath, sizeof(savepath), "%s", docs_dir.c_str());
-                        DEG_LOG(I, "macOS bundle detected, savepath set to %s", savepath);
-                    }
+                    save_path = docs_dir; // 长度不限
+                    DEG_LOG(I, "macOS bundle detected, savepath set to %s", save_path.c_str());
                 }
             }
         }
@@ -605,7 +594,61 @@ int gtk_kmain(int argc, char** argv) {
     return 0;
 }
 
+#ifdef _WIN32
+namespace {
+// Windows 的 CRT 按 ANSI(ACP) 解码 argv，非 ASCII 参数（例如 --no-gui 的保存
+// 路径）会乱码；下游一律按 UTF-8 解释，所以这里用宽字符命令行重新解析成
+// UTF-8，保证 argv 全程 UTF-8。
+struct Utf8CommandLine {
+    std::vector<std::string> args;
+    std::vector<char*> ptrs;
+
+    void build_ptrs() {
+        ptrs.clear();
+        ptrs.reserve(args.size() + 1);
+        for (auto& s : args) ptrs.push_back(s.data());
+        ptrs.push_back(nullptr);
+    }
+};
+
+// 成功返回 true 并填充 out；失败时调用方继续使用原 argv。
+bool win32_command_line_to_utf8(std::vector<std::string>& out) {
+    int wargc = 0;
+    LPWSTR* wargv = CommandLineToArgvW(GetCommandLineW(), &wargc);
+    if (!wargv || wargc <= 0) {
+        if (wargv) LocalFree(wargv);
+        return false;
+    }
+    out.clear();
+    out.reserve((size_t)wargc);
+    for (int i = 0; i < wargc; ++i) {
+        int len = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wargv[i], -1,
+                                      nullptr, 0, nullptr, nullptr);
+        if (len <= 0) {
+            out.emplace_back(); // 非法宽字符：退化为空串，不阻断启动
+            continue;
+        }
+        std::string s((size_t)len - 1, '\0');
+        WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wargv[i], -1,
+                            s.data(), len, nullptr, nullptr);
+        out.push_back(std::move(s));
+    }
+    LocalFree(wargv);
+    return true;
+}
+} // namespace
+#endif
+
 int main(int argc, char** argv) {
+#ifdef _WIN32
+	// argv 统一转为 UTF-8（utf8_cmdline 必须存活到 main 结束）
+	Utf8CommandLine utf8_cmdline;
+	if (win32_command_line_to_utf8(utf8_cmdline.args)) {
+		utf8_cmdline.build_ptrs();
+		argc = static_cast<int>(utf8_cmdline.args.size());
+		argv = utf8_cmdline.ptrs.data();
+	}
+#endif
 	// 读取配置并根据 ui_language 设置 gettext 语言
 	sfd::AppConfig cfg;
 	sfd::loadAppConfigOrDefault(cfg); // 即使失败也会填充默认值（含 ui_language）

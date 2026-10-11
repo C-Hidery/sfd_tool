@@ -5,6 +5,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include "file_io.h"
 #include "Unpac.h"
 #include "PacXMLParser.hpp"
 
@@ -27,6 +28,8 @@ struct FlashState {
     int isCMethod = 0;      // 兼容模式标志（PartList 等）
     int selected_ab = -1;   // 当前使用的 slot（0=无，1=a，2=b）
     int g_w_force = 0;     // 是否自动启用强制写入（针对部分特殊分区）
+    int rpmb_pagecnt = -1; // EXTENDED e_rpmb_* 使用的 RPMB 页数（<0 表示未查询/不支持）
+    bool w_force_repart = false; // w_force 自我修复：内存表已改名，待回写设备分区表
     bool isPacFlashing = false; // 是否正在进行 PAC 刷机（影响分区选择和写入策略）
     bool isPacMergingNV = false;
     std::string pac_folder;  // PAC 刷机时解压的临时文件夹路径
@@ -49,18 +52,11 @@ struct ErrorState {
 
 struct PacNVMem
 {
-    uint8_t *nr_fixnv1_mem = nullptr;
-    uint64_t nr_fixnv1_mem_size = 0;
-    uint8_t *l_fixnv1_mem = nullptr;
-    uint64_t l_fixnv1_mem_size = 0;
-    uint8_t *downloadnv_mem = nullptr;
-    uint64_t downloadnv_mem_size = 0;
-    ~PacNVMem()
-    {
-        if (nr_fixnv1_mem) delete[] nr_fixnv1_mem;
-        if (l_fixnv1_mem) delete[] l_fixnv1_mem;
-        if (downloadnv_mem) delete[] downloadnv_mem;
-    }
+    // 读出的旧 NV 数据存放在系统临时文件中，这里只持有 RAII 句柄（内部保存
+    // 路径）。TempFile 析构时自动删除，整个 PAC 刷机过程不长期占用内存。
+    TempFile nr_fixnv1_file_path;
+    TempFile l_fixnv1_file_path;
+    TempFile downloadnv_file_path;
 };
 
 // 集中管理应用运行时状态，替代分散的 extern 全局变量

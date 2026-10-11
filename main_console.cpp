@@ -19,8 +19,7 @@
 extern AppState g_app_state;
 char** str2;
 int in_quote;
-char str1[(ARGC_MAX - 1) * ARGV_LEN];
-const char* Version = "[1.4.2.0@_250726+it]";
+const char* Version = "[1.5.0.0@_250726]";
 
 // 兼容旧代码的便捷访问器：直接操作 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
@@ -28,6 +27,17 @@ static int& selected_ab = g_app_state.flash.selected_ab;
 
 bool& isToolMode = g_app_state.flash.isToolMode;
 extern char* temp;
+
+// 有些命令没有显式输出路径，依赖 `path`(savepath)。未设置时只提示一次，
+// 避免用户以为文件写到了别处（安装版可能落到程序目录）。
+static void warn_if_savepath_unset(const char* cmd)
+{
+    static bool warned = false;
+    if (!save_path.empty() || warned) return;
+    warned = true;
+    DEG_LOG(W, "`%s` has no output path set; files will be written to the current directory.", cmd);
+    DEG_LOG(W, "Set one first with: path <DIR>");
+}
 
 void print_help()
 {
@@ -188,40 +198,61 @@ void print_help()
             "\t\tSave pgpt.bin to a specified file name if support.\n"
             "\t49.get_sprdpart [FILE]\n"
             "\t\tSave sprdpart.bin to a specified file name if support.\n"
+            "\nEXTENDED Commands (need special loaders)\n"
+            "\t50.e_readmem addr length FILE\n"
+            "\t\tReads memory at addr for length bytes and saves to FILE.\n"
+            "\t51.e_bl\n"
+            "\t\tSet bootloader status.\n"
+            "\t52.e_rpmb_pagecount\n"
+            "\t\tQueries RPMB page count.\n"
+            "\t53.e_rpmb_counter\n"
+            "\t\tQueries RPMB write counter.\n"
+            "\t54.e_rpmb_read page_start page_count FILE\n"
+            "\t\tReads RPMB pages starting at page_start and saves to FILE.\n"
+            "\t55.e_rpmb_read_auto\n"
+            "\t\tAutomatically reads all RPMB pages to file rpmb_dump.\n"
+            "\t56.e_rpmb_write page_start FILE\n"
+            "\t\tWrites FILE data to RPMB starting at page_start.\n"
+            "\t57.e_efuse_read block_id\n"
+            "\t\tReads eFuse block at given index, returns 4 bytes.\n"
+            "\t58.e_pwn\n"
+            "\t\tpwn trustos (bypass verification in modem).\n"
+            "\t59.e_checkpwn\n"
+            "\t\tChecks if device's trustos is pwned.\n"
             "Debug commands:\n"
-            "\t50.skip_confirm {0,1}\n"
+            "\t60.skip_confirm {0,1}\n"
             "\t\tSkips all confirmation prompts(use with caution!)\n"
-            "\t51.keep_charge\n"
+            "\t61.keep_charge\n"
             "\t\tKeep charge in FDL1/FDL2 stage.\n"
-            "\t52.send_end_data {0,1}\n"
+            "\t62.send_end_data {0,1}\n"
             "\t\tSends end data after file transfer.\n"
-            "\t53.rawdata {0,1,2}\n"
+            "\t63.rawdata {0,1,2}\n"
             "\t\tEnable raw_data mode for file sending to get better speed.\n"
             "\t\t(Not all FDL2 support.)\n"
-            "\t54.slot {0,1,2}\n"
+            "\t64.slot {0,1,2}\n"
             "\t\tSelect slot auto|a|b on VAB devices.\n"
-            "\t55.chip_uid\n"
+            "\t65.chip_uid\n"
             "\t\tReads the chip UID (FDL2 stage only).\n"
-            "\t56.transcode {0,1}\n"
+            "\t66.transcode {0,1}\n"
             "\t\tEnable or disable transcode mode (FDL2 stage only).\n"
-            "\t57.sendloop [ADDR]\n"
+            "\t67.sendloop [ADDR]\n"
             "\t\tSend [0, 0, 0, 0] packet to a specified address, then send addresses in a loop of [0, 0, 0, 0] packet to sequentially decrease by 8\n"
-            "\t58.write_word\n"
+            "\t68.write_word\n"
             "\t\tWrite a HEX number word to a specified address.\n"
-            "\t59.read_nand\n"
+            "\t69.read_nand\n"
             "\t\tDetermine whether the current device is a NAND model; not all devices are supported.(through 0x0D)\n"
-            "\t60.sendcmd [TYPE] <FILE>\n"
+            "\t70.sendcmd [TYPE] <FILE>\n"
             "\t\tSend a specified command (with a file)\n"
-            "\t61.pactime\n"
+            "\t71.pactime\n"
             "\t\tRead the last time the PAC firmware was flashed.\n"
-            "\t62.read_flash [ADDR] [OFFSET] [SIZE] [FILE]\n"
+            "\t72.read_flash [ADDR] [OFFSET] [SIZE] [FILE]\n"
             "\t\tRead flash content to a file\n"
             "\t\t`read_flash_dhtb` for reading DHTB Signature for ums9117\n"
-            "\t63.read_mem [ADDR] [SIZE] [FILE]\n"
+            "\t73.read_mem [ADDR] [SIZE] [FILE]\n"
             "\t\tRead memory content to a file\n"
-            "\t64.erase_flash [ADDR] [SIZE]\n"
+            "\t74.erase_flash [ADDR] [SIZE]\n"
             "\t\tErase flash content\n"
-            "\t65.part_guid\n"
+            "\t75.part_guid\n"
             "\t\tDump the GPT disk GUID (and per-partition GUIDs when the table is read from the device), FDL2 stage only.\n"
             "Notice:\n"
             "\t1.The compatibility method to get part table sometimes can not get all partitions on your device\n"
@@ -230,11 +261,11 @@ void print_help()
     );
     fprintf(stderr,
             "\nExit Commands\n"
-            "\t66.reboot-recovery\n\t\tFDL2 only\n"
-            "\t67.reboot-fastboot\n\t\tFDL2 only\n"
-            "\t68.reset\n\t\tFDL2 and new FDL1\n"
-            "\t69.poweroff\n\t\tFDL2 and new FDL1\n"
-            "\t70.exit\n\t\tExit the program (Tool mode only.)\n"
+            "\t76.reboot-recovery\n\t\tFDL2 only\n"
+            "\t77.reboot-fastboot\n\t\tFDL2 only\n"
+            "\t78.reset\n\t\tFDL2 and new FDL1\n"
+            "\t79.poweroff\n\t\tFDL2 and new FDL1\n"
+            "\t80.exit\n\t\tExit the program (Tool mode only.)\n"
     );
 }
 
@@ -849,19 +880,24 @@ int main_console(int argc, char** argv)
     while (true)
     {
         signal(SIGINT, SIG_DFL);
+        // str2 的存储：交互模式用 std::vector<std::string>，argv 模式用指针视图。
+        // 都不再有定长/定数量上限，命令长度与参数个数不受限。
+        std::vector<std::string> tokens;
+        std::vector<char*> str2_ptrs;
         if (argc > 1)
         {
-            str2 = NEWN char*[argc];
+            // 多留两个槽位：下面可能写入合成的 str2[1]/str2[2]
+            str2_ptrs.assign((size_t)argc + 2, nullptr);
             if (fdl1_loaded == -1)
             {
                 save_argv = argv;
-                str2[1] = const_cast<char*>("loadfdl");
-                str2[2] = const_cast<char*>("0x0");
+                str2_ptrs[1] = const_cast<char*>("loadfdl");
+                str2_ptrs[2] = const_cast<char*>("0x0");
             }
             else if (fdl2_executed == -1)
             {
                 if (!save_argv) save_argv = argv;
-                str2[1] = const_cast<char*>("exec");
+                str2_ptrs[1] = const_cast<char*>("exec");
             }
             else
             {
@@ -870,16 +906,15 @@ int main_console(int argc, char** argv)
                     argv = save_argv;
                     save_argv = nullptr;
                 }
-                for (i = 1; i < argc; i++) str2[i] = argv[i];
+                for (i = 1; i < argc; i++) str2_ptrs[i] = argv[i];
             }
+            str2 = str2_ptrs.data();
             argcount = argc;
             in_quote = -1;
         }
         else
         {
             char ifs = '"';
-            str2 = NEWN char*[ARGC_MAX];
-            memset(str1, 0, sizeof(str1));
             argcount = 0;
             in_quote = 0;
             if (!isToolMode)
@@ -900,21 +935,16 @@ int main_console(int argc, char** argv)
             {
                 continue;
             }
-            // 复制到 str1 以兼容现有分词逻辑
-            strncpy(str1, inputLine.c_str(), sizeof(str1) - 1);
-            str1[sizeof(str1) - 1] = '\0';
 
-            temp = strtok(str1, " ");
+            // strtok 需要可写缓冲：按输入实际长度分配，不再有长度上限
+            std::vector<char> line_buf(inputLine.begin(), inputLine.end());
+            line_buf.push_back('\0');
+
+            temp = strtok(line_buf.data(), " ");
             while (temp)
             {
-                if (!in_quote)
-                {
-                    argcount++;
-                    if (argcount == ARGC_MAX) break;
-                    str2[argcount] = NEWN char[ARGV_LEN];
-                    if (!str2[argcount]) ERR_EXIT("malloc failed\n");
-                    memset(str2[argcount], 0, ARGV_LEN);
-                }
+                if (!in_quote) tokens.emplace_back();
+                const size_t idx = tokens.size(); // 1-based，对应旧的 argcount
                 if (temp[0] == '\'') ifs = '\'';
                 if (temp[0] == ifs)
                 {
@@ -923,26 +953,25 @@ int main_console(int argc, char** argv)
                 }
                 else if (in_quote)
                 {
-                    strcat(str2[argcount], " ");
+                    tokens[idx - 1] += " ";
                 }
 
-                if (temp[strlen(temp) - 1] == ifs)
+                const size_t tlen = strlen(temp);
+                if (tlen > 0 && temp[tlen - 1] == ifs)
                 {
                     in_quote = 0;
-                    temp[strlen(temp) - 1] = 0;
+                    temp[tlen - 1] = 0;
                 }
 
-                strcat(str2[argcount], temp);
+                tokens[idx - 1] += temp;
                 temp = strtok(nullptr, " ");
             }
-            argcount++;
-        }
-        if (argcount == 1)
-        {
-            str2[1] = NEWN char[1];
-            if (str2[1]) str2[1][0] = '\0';
-            else ERR_EXIT("malloc failed\n");
-            argcount++;
+            if (tokens.empty()) tokens.emplace_back(); // 空输入兜底（等价旧的 argcount==1）
+
+            str2_ptrs.assign(tokens.size() + 1, nullptr);
+            for (size_t k = 0; k < tokens.size(); ++k) str2_ptrs[k + 1] = tokens[k].data();
+            str2 = str2_ptrs.data();
+            argcount = (int)tokens.size() + 1; // 与旧的“末尾 argcount++”语义一致
         }
         //parse args and interacting command
         if (!strcmp(str2[1], "sendloop"))
@@ -1691,19 +1720,10 @@ int main_console(int argc, char** argv)
             }
             if (argcount > 2)
             {
-                if (strlen(str2[2]) < sizeof(savepath))
-                {
-                    snprintf(savepath, sizeof(savepath), "%s", str2[2]);
-                }
-                else
-                {
-                    DEG_LOG(E, "Path too long");
-                    argc -= 2;
-                    argv += 2;
-                    continue;
-                }
+                // save_path 是 std::string：路径长度不再受限，整段保存
+                save_path = str2[2];
             }
-            DEG_LOG(I, "Save dir is %s", savepath);
+            DEG_LOG(I, "Save dir is %s", save_path.c_str());
             argc -= 2;
             argv += 2;
         }
@@ -2105,6 +2125,7 @@ int main_console(int argc, char** argv)
                 argc = 1;
                 continue;
             }
+            warn_if_savepath_unset("read_part");
             if (!strcmp(name, "preset_modem"))
             {
                 start_signal();
@@ -2319,6 +2340,7 @@ int main_console(int argc, char** argv)
                 argc = 1;
                 continue;
             }
+            warn_if_savepath_unset("read_parts");
             fn = str2[2];
             EnhancedFile fi = oxfopen_enhanced(fn, "r");
             if (!fi)
@@ -2654,27 +2676,27 @@ int main_console(int argc, char** argv)
                                     if (mergenv)
                                     {
                                         uint64_t size = 0;
-                                        uint8_t* NVmem = dump_flash_to_mem(io, f.addr[0], 0,
+                                        TempFile NVpath = dump_flash_to_temp(io, f.addr[0], 0,
                                             f.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, 0, &size);
-                                        if (!size) { if (NVmem) delete[] NVmem; continue;}
+                                        if (NVpath.empty() || !size) continue;
                                         std::string name = unpac.u16_to_u8(f.name, MAX_U16_SN);
-                                        if (name.empty()) { if (NVmem) delete[] NVmem; continue;}
+                                        if (name.empty()) continue;
                                         if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
-                                            size_t a_size = size, b_size = 0, c_size = 0;
-                                            uint8_t *a = NVmem;
+                                            size_t a_size = 0, b_size = 0, c_size = 0;
+                                            uint8_t *a = loadfile(NVpath.c_str(), &a_size, 0);
 #ifndef _WIN32
                                             uint8_t *b = loadfile((g_app_state.flash.pac_folder + "/" + name).c_str(), &b_size, 0);
 #else
                                             uint8_t *b = loadfile((g_app_state.flash.pac_folder + "\\" + name).c_str(), &b_size, 0);
 #endif
-                                            uint8_t *c = (uint8_t*)malloc(a_size + b_size);
-                                            merge_nv(io, a, a_size, b, b_size, c, &c_size);
+                                            if (!a || !b) { delete[](a); delete[](b); continue; }
+                                            uint8_t *c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                                            merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
                                             send_buf(io, f.addr[0], end_data, blk_size ? blk_size : DEFAULT_BLK_SIZE, c, c_size);
                                             DEG_LOG(OP, "Sent 0x%x to 0x%x.", c_size, f.addr[0]);
                                             delete[](a); delete[](b); free(c);
                                             continue;
                                         }
-                                        if (NVmem) delete[] NVmem;
                                     }
                                 }
                                 std::string name = unpac.u16_to_u8(f.name, MAX_U16_SN);
@@ -3101,6 +3123,176 @@ int main_console(int argc, char** argv)
                 continue;
             }
             erase_partition(io, "all", isCMethod);
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(str2[1], "e_readmem"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 4) argc = 1;
+                else { argc -= 4; argv += 4; }
+                continue;
+            }
+            if (argcount <= 4)
+            {
+                DEG_LOG(W, "e_readmem addr length FILE\n");
+                argc = 1;
+                continue;
+            }
+            do_e_readmem(io, (uint32_t)strtoull(str2[2], NULL, 0), (uint32_t)strtoull(str2[3], NULL, 0),
+                         str2[4], blk_size ? blk_size : DEFAULT_BLK_SIZE);
+            argc -= 4;
+            argv += 4;
+        }
+        else if (!strcmp(str2[1], "e_bl"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            DEG_LOG(W, "e_bl writes the encrypted \"VerifiedBoot-UNLOCK\" blob to miscdata@0x2000, use with caution!");
+            if (!skip_confirm && !check_confirm("unlock bootloader"))
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            do_e_bl(io, 4096, isCMethod);
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(str2[1], "e_rpmb_pagecount"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            do_e_rpmb_pagecount(io);
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(str2[1], "e_rpmb_counter"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            do_e_rpmb_counter(io);
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(str2[1], "e_rpmb_read"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 4) argc = 1;
+                else { argc -= 4; argv += 4; }
+                continue;
+            }
+            if (argcount <= 4)
+            {
+                DEG_LOG(W, "e_rpmb_read page_start page_count FILE\n");
+                argc = 1;
+                continue;
+            }
+            do_e_rpmb_read(io, (uint32_t)strtoul(str2[2], NULL, 0), (uint32_t)strtoul(str2[3], NULL, 0),
+                           str2[4], blk_size ? blk_size : DEFAULT_BLK_SIZE);
+            argc -= 4;
+            argv += 4;
+        }
+        else if (!strcmp(str2[1], "e_rpmb_read_auto"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            warn_if_savepath_unset("e_rpmb_read_auto");
+            do_e_rpmb_read_auto(io, blk_size ? blk_size : DEFAULT_BLK_SIZE);
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(str2[1], "e_rpmb_write"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 3) argc = 1;
+                else { argc -= 3; argv += 3; }
+                continue;
+            }
+            if (argcount <= 3)
+            {
+                DEG_LOG(W, "e_rpmb_write page_start FILE\n");
+                argc = 1;
+                continue;
+            }
+            DEG_LOG(W, "e_rpmb_write overwrites RPMB pages, use with caution!");
+            if (!skip_confirm && !check_confirm("write RPMB"))
+            {
+                argc -= 3;
+                argv += 3;
+                continue;
+            }
+            do_e_rpmb_write(io, (uint32_t)strtoul(str2[2], NULL, 0), str2[3],
+                            blk_size ? blk_size : DEFAULT_BLK_SIZE);
+            argc -= 3;
+            argv += 3;
+        }
+        else if (!strcmp(str2[1], "e_efuse_read"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2) argc = 1;
+                else { argc -= 2; argv += 2; }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "e_efuse_read block_id\n");
+                argc = 1;
+                continue;
+            }
+            do_e_efuse_read(io, (uint32_t)strtoul(str2[2], NULL, 0));
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "e_pwn"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            if (!skip_confirm && !check_confirm("pwn trustos"))
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            if (selected_ab < 0) select_ab(io);
+            do_e_pwn(io, selected_ab);
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(str2[1], "e_checkpwn"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            if (selected_ab < 0) select_ab(io);
+            do_e_checkpwn(io, selected_ab);
             argc -= 1;
             argv += 1;
         }
@@ -3543,25 +3735,28 @@ int main_console(int argc, char** argv)
                 continue;
             }
             uint64_t size = 0;
-            uint8_t* mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size,
-                                                 blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
-            if (!size)
+            TempFile temp_path = dump_partition_to_temp(io, gPartInfo.name, 0, gPartInfo.size,
+                                                        blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
+            if (temp_path.empty() || !size)
             {
-                DEG_LOG(E, "dump_partition_to_mem failed");
+                DEG_LOG(E, "dump_partition_to_temp failed");
                 argc = 1;
                 continue;
             }
             if (get_nvlist_xml(io, str2[2]))
             {
-                size_t a_size = size, b_size = 0, c_size = 0;
-                uint8_t* a = mem;
+                size_t a_size = 0, b_size = 0, c_size = 0;
+                uint8_t* a = loadfile(temp_path.c_str(), &a_size, 0);
                 uint8_t* b = loadfile(str2[3], &b_size, 0);
-                uint8_t* c = (uint8_t*)malloc(a_size + b_size);
-                merge_nv(io, a, a_size, b, b_size, c, &c_size);
-                load_nv_partition_from_mem(io, gPartInfo.name, c, 4096);
+                if (a && b)
+                {
+                    uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                    merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
+                    load_merged_nv(io, gPartInfo.name, c, c_size, 4096);
+                    free(c);
+                }
                 delete[](a);
                 delete[](b);
-                free(c);
             }
             argc -= 3;
             argv += 3;
@@ -3579,8 +3774,8 @@ int main_console(int argc, char** argv)
                 size_t a_size = 0, b_size = 0, c_size = 0;
                 uint8_t* a = loadfile(str2[3], &a_size, 0);
                 uint8_t* b = loadfile(str2[4], &b_size, 0);
-                uint8_t* c = (uint8_t*)malloc(a_size + b_size);
-                merge_nv(io, a, a_size, b, b_size, c, &c_size);
+                uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
                 EnhancedFile fi = oxfopen_enhanced(str2[5], "wb");
                 if (!fi) ERR_EXIT("fopen failed\n");
                 if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
@@ -3624,25 +3819,28 @@ int main_console(int argc, char** argv)
                 continue;
             }
             uint64_t size = 0;
-            uint8_t* mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size,
-                                                 blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
-            if (!size)
+            TempFile temp_path = dump_partition_to_temp(io, gPartInfo.name, 0, gPartInfo.size,
+                                                        blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
+            if (temp_path.empty() || !size)
             {
-                DEG_LOG(E, "dump_partition_to_mem failed");
+                DEG_LOG(E, "dump_partition_to_temp failed");
                 argc = 1;
                 continue;
             }
             if (get_nvlist_cfg(io, str2[2]))
             {
-                size_t a_size = size, b_size = 0, c_size = 0;
-                uint8_t* a = mem;
+                size_t a_size = 0, b_size = 0, c_size = 0;
+                uint8_t* a = loadfile(temp_path.c_str(), &a_size, 0);
                 uint8_t* b = loadfile(str2[3], &b_size, 0);
-                uint8_t* c = (uint8_t*)malloc(a_size + b_size);
-                merge_nv(io, a, a_size, b, b_size, c, &c_size);
-                load_nv_partition_from_mem(io, gPartInfo.name, c, 4096);
+                if (a && b)
+                {
+                    uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                    merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
+                    load_merged_nv(io, gPartInfo.name, c, c_size, 4096);
+                    free(c);
+                }
                 delete[](a);
                 delete[](b);
-                free(c);
             }
             argc -= 3;
             argv += 3;
@@ -3660,8 +3858,8 @@ int main_console(int argc, char** argv)
                 size_t a_size = 0, b_size = 0, c_size = 0;
                 uint8_t* a = loadfile(str2[3], &a_size, 0);
                 uint8_t* b = loadfile(str2[4], &b_size, 0);
-                uint8_t* c = (uint8_t*)malloc(a_size + b_size);
-                merge_nv(io, a, a_size, b, b_size, c, &c_size);
+                uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
                 EnhancedFile fi = oxfopen_enhanced(str2[5], "wb");
                 if (!fi) ERR_EXIT("fopen failed\n");
                 if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
@@ -3786,91 +3984,57 @@ int main_console(int argc, char** argv)
                 W,
                 "This operation may brick your device, and not all devices support this, if your device is broken, flash backup trustos image, if still not work, flash back all partitions");
             DEG_LOG(W, "Please make a FULL backup for your device before execute this command.");
-            uint8_t* t_mem = nullptr;
-            uint8_t* s_mem = nullptr;
-            uint64_t t_size = 0;
-            uint64_t s_size = 0;
             if (check_confirm("Disable AVB by patching trustos"))
             {
                 TosPatcher patcher;
                 get_partition_info(io, "trustos", 1);
-                if (gPartInfo.size)
-                {
-                    dump_partition(io, gPartInfo.name, 0, gPartInfo.size, str2[2],
-                                   blk_size ? blk_size : DEFAULT_BLK_SIZE);
-                    if (isCancel)
-                    {
-                        argc = 1;
-                        continue;
-                    }
-                    t_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size,
-                                                  blk_size ? blk_size : DEFAULT_BLK_SIZE, &t_size);
-                    if (!t_size || isCancel)
-                    {
-                        DEG_LOG(E, "dump_partition_to_mem failed.");
-                        if (t_mem) delete [] t_mem;
-                        argc = 1;
-                        continue;
-                    }
-                }
-                else
+                if (!gPartInfo.size)
                 {
                     DEG_LOG(E, "Trustos not found!");
                     argc = 1;
                     continue;
                 }
-                if (t_mem == nullptr)
+                // 备份到用户指定的文件
+                dump_partition(io, gPartInfo.name, 0, gPartInfo.size, str2[2],
+                               blk_size ? blk_size : DEFAULT_BLK_SIZE);
+                if (isCancel) { argc = 1; continue; }
+
+                uint64_t t_size = 0, s_size = 0;
+                TempFile t_path = dump_partition_to_temp(io, gPartInfo.name, 0, gPartInfo.size,
+                                                         blk_size ? blk_size : DEFAULT_BLK_SIZE, &t_size);
+                if (t_path.empty() || !t_size)
                 {
-                    DEG_LOG(E, "No trustos found!");
+                    DEG_LOG(E, "dump trustos to temp failed.");
                     argc = 1;
                     continue;
                 }
                 get_partition_info(io, "sml", 1);
-                if (gPartInfo.size)
-                {
-                    s_mem = dump_partition_to_mem(io, gPartInfo.name, 0, gPartInfo.size,
-                                                  blk_size ? blk_size : DEFAULT_BLK_SIZE, &s_size);
-                    if (!s_size || isCancel)
-                    {
-                        DEG_LOG(E, "dump_partition_to_mem failed.");
-                        if (s_mem) delete [] s_mem;
-                        if (t_mem) delete [] t_mem;
-                        argc = 1;
-                        continue;
-                    }
-                }
-                else
+                if (!gPartInfo.size)
                 {
                     DEG_LOG(E, "No sml partition found!");
-                    if (t_mem) delete[] t_mem;
                     argc = 1;
                     continue;
                 }
-                if (s_mem == nullptr)
+                TempFile s_path = dump_partition_to_temp(io, gPartInfo.name, 0, gPartInfo.size,
+                                                         blk_size ? blk_size : DEFAULT_BLK_SIZE, &s_size);
+                if (s_path.empty() || !s_size)
                 {
-                    DEG_LOG(E, "No sml found!");
-                    if (t_mem) delete [] t_mem;
+                    DEG_LOG(E, "dump sml to temp failed.");
                     argc = 1;
                     continue;
                 }
-                get_partition_info(io, "trustos", 1);
-                uint64_t save_size = gPartInfo.size;
-                uint8_t* save_mem = NEWN uint8_t[save_size];
-                int o = patcher.AvbFxxker_from_mem(s_mem, s_size,
-                                                   t_mem, t_size,
-                                                   save_mem, &save_size, true, true);
+                TempFile save_path(make_temp_file_path("tos_noavb"));
+                if (save_path.empty())
+                {
+                    DEG_LOG(E, "create temp output failed.");
+                    argc = 1;
+                    continue;
+                }
+                int o = patcher.AvbFxxker(s_path.c_str(), t_path.c_str(), save_path.c_str(), true, true);
                 if (!o)
                 {
-                    if (!save_size)
-                    {
-                        DEG_LOG(E, "patch failed!");
-                        if (save_mem) delete [] save_mem;
-                        if (s_mem) delete [] s_mem;
-                        if (t_mem) delete [] t_mem;
-                        argc = 1;
-                        continue;
-                    }
-                    w_mem_to_part_offset(io, gPartInfo.name, 0, save_mem, save_size,
+                    get_partition_info(io, "trustos", 1);
+                    load_partition_unify(io, gPartInfo.name, save_path.c_str(),
                                          blk_size ? blk_size : DEFAULT_BLK_SIZE, isCMethod);
                     DEG_LOG(I, "Done, backup trustos image %s", str2[2]);
                 }
@@ -3878,9 +4042,6 @@ int main_console(int argc, char** argv)
                 {
                     DEG_LOG(E, "Failed.");
                 }
-                if (save_mem) delete [] save_mem;
-                if (s_mem) delete [] s_mem;
-                if (t_mem) delete [] t_mem;
             }
             argc -= 2;
             argv += 2;
@@ -4538,17 +4699,17 @@ int main_console(int argc, char** argv)
                 continue;
             }
         }
-        else if (strlen(str2[1]))
+        else if (!strcmp(str2[1], "help"))
         {
             print_help();
             argc = 1;
         }
-        if (in_quote != -1)
+        else if (strlen(str2[1]))
         {
-            for (i = 1; i < argcount; i++)
-                delete[](str2[i]);
-            delete[](str2);
+            DEG_LOG(E, "Unknown command: %s, use `help` to see available commands.", str2[1]);
+            argc = 1;
         }
+        // str2 现在指向 tokens / str2_ptrs（本轮的局部 vector），随作用域自动释放
         if (!isToolMode && is_device_unattached_and_log(io))
         {
             break;

@@ -327,13 +327,13 @@ unsigned dump_flash(spdio_t *io, uint32_t addr, uint32_t start, uint32_t len, co
 unsigned read_flash(spdio_t *io,
 		uint32_t addr, uint32_t start, uint32_t len,
 		uint8_t *mem, FILE *fo, unsigned step) ;
-uint8_t* dump_flash_to_mem(spdio_t *io,
+TempFile dump_flash_to_temp(spdio_t *io,
 						   uint32_t addr, uint32_t start, uint32_t len,
 						   unsigned step, int mode,
 						   uint64_t *out_size);
 unsigned dump_mem(spdio_t *io, uint32_t start, uint32_t len, const char *fn, unsigned step);
 uint64_t dump_partition(spdio_t *io, const char *name, uint64_t start, uint64_t len, const char *fn, unsigned step);
-uint8_t* dump_partition_to_mem(spdio_t *io,
+TempFile dump_partition_to_temp(spdio_t *io,
 							   const char *name,
 							   uint64_t start,
 							   uint64_t len,
@@ -375,8 +375,9 @@ bool gpt_refresh_cached_identity(spdio_t *io);
 void erase_partition(spdio_t *io, const char *name, int CMethod);
 void load_partition(spdio_t *io, const char *name, const char *fn, unsigned step, int CMethod);
 void load_nv_partition(spdio_t *io, const char *name, const char *fn, unsigned step);
-void load_nv_partition_from_mem(spdio_t *io, const char *name,
-								 uint8_t *mem, unsigned step);
+// 把 merge_nv() 的结果写入系统临时文件，再用文件版 load_nv_partition 写回设备。
+// 临时文件由 RAII 在函数返回时删除，调用方无需处理。
+void load_merged_nv(spdio_t *io, const char *name, const uint8_t *data, size_t size, unsigned step);
 void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab, int CMethod);
 void load_partition_force(spdio_t *io, const int id, const char *fn, unsigned step, int CMethod);
 int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned step, int CMethod);
@@ -390,6 +391,29 @@ void dm_enable(spdio_t *io, unsigned step, int CMethod);
 void dm_disable(spdio_t *io, unsigned step, int CMethod);
 void w_mem_to_part_offset(spdio_t *io, const char *name, size_t offset, uint8_t *mem, size_t length, unsigned step, int CMethod);
 void set_active(spdio_t *io, const char *arg, int CMethod);
+
+// ---- EXTENDED (e_*) commands -------------------------------------------
+// CLI only; all of them need special loaders that implement the 0x70..0x7A
+// command set. Reads are streamed straight to the target file; the _to_temp
+// variants write into a system temporary file and return its path, so callers
+// that need the bytes later can load it back without holding them in RAM.
+void do_e_readmem(spdio_t *io, uint32_t addr, uint32_t length, const char *fn, unsigned step);
+TempFile do_e_readmem_to_temp(spdio_t *io, uint32_t addr, uint32_t length,
+	unsigned step, uint64_t *out_size);
+int do_e_bl(spdio_t *io, unsigned step, int CMethod);
+int do_e_rpmb_pagecount(spdio_t *io);
+int do_e_rpmb_counter(spdio_t *io);
+void do_e_rpmb_read(spdio_t *io, uint32_t page_start, uint32_t page_count,
+	const char *fn, unsigned step);
+TempFile do_e_rpmb_read_to_temp(spdio_t *io, uint32_t page_start, uint32_t page_count,
+	unsigned step, uint64_t *out_size);
+int do_e_rpmb_read_auto(spdio_t *io, unsigned step);
+void do_e_rpmb_write(spdio_t *io, uint32_t page_start, const char *fn, unsigned step);
+void do_e_efuse_read(spdio_t *io, uint32_t block_id);
+void do_e_pwn(spdio_t *io, int selected_ab);
+void do_e_checkpwn(spdio_t *io, int selected_ab);
+// Commit the in-memory repaired w_force partition name back to the device.
+void w_force_self_repair(spdio_t *io, int CMethod);
 
 partition_t* partition_list_d(spdio_t* io);
 int set_bootloader_status(spdio_t* io,int status);
@@ -408,8 +432,11 @@ int scan_xml_partitions_from_string(spdio_t *io, const std::string& xml_text,
 									 uint8_t *buf, size_t buf_size);
 int get_nvlist_xml(spdio_t *io, const char *fn);
 int get_nvlist_cfg(spdio_t *io, char *fn);
+// merge_nv() may need up to 3 extra alignment bytes per appended entry, so
+// callers must provide this much slack on top of (a_size + b_size).
+#define MERGE_NV_SLACK 0x40000u
 void merge_nv(spdio_t *io, const uint8_t *a, size_t a_size, const uint8_t *b, 
-			size_t b_size, uint8_t *c, size_t *c_size);
+			size_t b_size, uint8_t *c, size_t c_cap, size_t *c_size);
 int my_stricmp(const char* s1, const char* s2);
 char* my_stristr(const char* haystack, const char* needle);
 int my_strnicmp(const char* s1, const char* s2, size_t len);

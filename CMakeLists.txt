@@ -212,12 +212,12 @@ else()
 endif()
 
 if (WIN32)
-    # Windows 平台：崩溃堆栈 (dbghelp) + 串口枚举 (setupapi)
-    target_link_libraries(sfd_tool PRIVATE dbghelp setupapi)
+    # Windows 平台：崩溃堆栈 (dbghelp) + 串口枚举 (setupapi) + UTF-8 argv (shell32)
+    target_link_libraries(sfd_tool PRIVATE dbghelp setupapi shell32)
 
     # 同样为测试目标添加
     foreach(tgt IN LISTS SFD_TEST_TARGETS)
-        target_link_libraries(${tgt} PRIVATE dbghelp setupapi)
+        target_link_libraries(${tgt} PRIVATE dbghelp setupapi shell32)
     endforeach()
 endif()
 

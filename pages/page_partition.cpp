@@ -369,11 +369,7 @@ scan_backup_image_files(const std::string& folder)
     std::map<std::string, BackupImageFileInfo> files;
 
     std::error_code ec;
-#ifndef _WIN32
-    const std::filesystem::path root(folder);
-#else
-    const std::filesystem::path root(utf8_to_utf16(folder));
-#endif
+    const std::filesystem::path root = utf8_to_path(folder);
     if (!std::filesystem::exists(root, ec) || !std::filesystem::is_directory(root, ec))
     {
         DEG_LOG(E, "[backup-scan] invalid directory: %s", folder.c_str());
@@ -393,12 +389,7 @@ scan_backup_image_files(const std::string& folder)
         {
             continue;
         }
-#ifndef _WIN32
-        const auto filename = entry.path().filename().string();
-#else
-        const std::wstring wfilename = entry.path().filename().wstring();
-        const auto filename = utf16_to_utf8(wfilename);
-#endif
+        const std::string filename = path_to_utf8(entry.path().filename());
         std::string partition_name;
         int priority = 0;
         if (!parse_partition_image_filename(filename, partition_name, &priority))
@@ -1846,14 +1837,14 @@ void on_button_clicked_export_part_xml(GtkWidgetHelper helper)
 #if defined(__APPLE__)
 std::string BuildBackupRootDirForGuiBackup()
 {
-    if (savepath[0])
+    if (!save_path.empty())
     {
         char time_buf[32];
         std::time_t now = std::time(nullptr);
         std::tm tm_now{};
         localtime_r(&now, &tm_now);
         std::strftime(time_buf, sizeof(time_buf), "%Y%m%d_%H%M%S", &tm_now);
-        return std::string(savepath) + "/" + time_buf;
+        return save_path + "/" + time_buf;
     }
     return std::string("partitions_backup");
 }
@@ -2967,7 +2958,7 @@ void on_button_clicked_list_read(GtkWidgetHelper& helper)
 
         // 默认路径：savepath/partition.img，如果 savepath 为空则退回当前目录
         std::string finalPath;
-        if (savepath[0])
+        if (!save_path.empty())
         {
             std::string root = BuildBackupRootDirForGuiBackup();
             finalPath = root + "/" + part_name + ".img";

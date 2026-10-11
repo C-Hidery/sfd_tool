@@ -17,11 +17,11 @@ std::string BuildBackupRootDirForGuiBackup();
 
 TEST_CASE("BuildBackupRootDirForGuiBackup returns fallback when savepath empty") {
 #if defined(__APPLE__)
-    savepath[0] = '\0';
+    save_path.clear();
     auto root = BuildBackupRootDirForGuiBackup();
     CHECK(root == std::string("partitions_backup"));
 #else
-    savepath[0] = '\0';
+    save_path.clear();
     auto root = BuildBackupRootDirForGuiBackup();
     CHECK(root == std::string("partitions_backup"));
 #endif
@@ -29,8 +29,7 @@ TEST_CASE("BuildBackupRootDirForGuiBackup returns fallback when savepath empty")
 
 #if defined(__APPLE__)
 TEST_CASE("BuildBackupRootDirForGuiBackup uses savepath and timestamp when non-empty on macOS") {
-    std::strncpy(savepath, "/tmp/test_backup_root", sizeof(savepath) - 1);
-    savepath[sizeof(savepath) - 1] = '\0';
+    save_path = "/tmp/test_backup_root";
 
     auto root = BuildBackupRootDirForGuiBackup();
 
@@ -49,8 +48,7 @@ TEST_CASE("BuildBackupRootDirForGuiBackup uses savepath and timestamp when non-e
 }
 
 TEST_CASE("macOS list_read path format uses root/part_name.img") {
-    std::strncpy(savepath, "/tmp/test_backup_root2", sizeof(savepath) - 1);
-    savepath[sizeof(savepath) - 1] = '\0';
+    save_path = "/tmp/test_backup_root2";
 
     std::string part_name = "system";
     auto root = BuildBackupRootDirForGuiBackup();
@@ -64,12 +62,11 @@ TEST_CASE("macOS list_read path format uses root/part_name.img") {
 
 #if !defined(__APPLE__)
 TEST_CASE("BuildBackupRootDirForGuiBackup ignores savepath on non-Apple platforms") {
-    savepath[0] = '\0';
+    save_path.clear();
     auto root1 = BuildBackupRootDirForGuiBackup();
     CHECK(root1 == std::string("partitions_backup"));
 
-    std::strncpy(savepath, "/tmp/ignored", sizeof(savepath) - 1);
-    savepath[sizeof(savepath) - 1] = '\0';
+    save_path = "/tmp/ignored";
     auto root2 = BuildBackupRootDirForGuiBackup();
     CHECK(root2 == std::string("partitions_backup"));
 }

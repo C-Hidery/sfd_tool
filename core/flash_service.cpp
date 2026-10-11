@@ -323,7 +323,7 @@ namespace sfd
                 return make_error(FlashErrorCode::InvalidPacFile, "invalid partition io options");
             }
 
-            if (!std::filesystem::exists(options.file_path))
+            if (!std::filesystem::exists(utf8_to_path(options.file_path)))
             {
                 DEG_LOG(E, "writePartitionFromFile: file not found: %s", options.file_path.c_str());
                 return make_error(FlashErrorCode::IoError, "input file not found");
@@ -421,7 +421,7 @@ namespace sfd
             }
 
             std::error_code ec;
-            std::filesystem::create_directories(output_directory, ec);
+            std::filesystem::create_directories(utf8_to_path(output_directory), ec);
 
             std::vector<std::string> names = partition_names;
             if (names.empty())
@@ -480,10 +480,10 @@ namespace sfd
                 PartitionReadInfo info{};
                 info.name = name;
 
-                auto out_path = std::filesystem::path(output_directory) / (name + ".img");
+                auto out_path = utf8_to_path(output_directory) / utf8_to_path(name + ".img");
 
                 PartitionReadOptions opts{};
-                opts.output_path = out_path.string();
+                opts.output_path = path_to_utf8(out_path);
                 opts.block_cfg = blk_cfg;
 
                 DEG_LOG(OP, "backupPartitions: %s -> %s", name.c_str(), opts.output_path.c_str());
