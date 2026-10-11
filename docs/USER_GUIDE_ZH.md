@@ -325,6 +325,32 @@ man sfd-tool
 命令行模式通常不会给出过多保护提示，请在完全理解命令含义的
 前提下使用。
 
+### 12.3 EXTENDED 命令（`e_*`，需专用 loader）
+
+以下命令只有在手机端 FDL 实现了 `0x70..0x7A` 扩展命令集时才能使用，
+且仅提供 CLI 支持（不提供 GUI 按钮）：
+
+| 命令 | 说明 |
+| --- | --- |
+| `e_readmem addr length FILE` | 从内存 `addr` 读取 `length` 字节并保存到 `FILE` |
+| `e_bl` | 解锁 bootloader（把 `VerifiedBoot-UNLOCK` 用 HUK 加密后写入 `miscdata@0x2000`，有风险） |
+| `e_rpmb_pagecount` | 查询 RPMB 页数 |
+| `e_rpmb_counter` | 查询 RPMB 写计数器 |
+| `e_rpmb_read page_start page_count FILE` | 读取 RPMB 指定页并保存到 `FILE` |
+| `e_rpmb_read_auto` | 读取全部 RPMB 页到文件 `rpmb_dump` |
+| `e_rpmb_write page_start FILE` | 从 `page_start` 开始写入 `FILE`（文件大小须为 256 的整数倍） |
+| `e_efuse_read block_id` | 读取指定 eFuse 块，返回 4 字节 |
+| `e_pwn` | 对 `trustos` 执行 pwn（按当前 slot 选择 `trustos_a/b`） |
+| `e_checkpwn` | 检查 `trustos` 是否已被 pwn |
+
+> RPMB 页数采用**按需查询**：只有执行 `e_rpmb_pagecount` / `e_rpmb_read_auto` /
+> `e_rpmb_write` 时才会向设备发送查询命令，不会在连接阶段主动发送。
+
+> `e_bl`、`e_rpmb_write`、`e_pwn` 属于高风险操作，执行前请确认已了解后果；
+> `skip_confirm` 为 1 时不会弹出确认。
+
+---
+
 > 建议在使用命令行模式前，先通过 GUI 熟悉基本流程和风险，
 > 然后再把 GUI 里的操作映射到对应的 CLI 命令上。
 

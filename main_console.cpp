@@ -20,7 +20,7 @@ extern AppState g_app_state;
 char** str2;
 int in_quote;
 char str1[(ARGC_MAX - 1) * ARGV_LEN];
-const char* Version = "[1.4.2.0@_250726+it]";
+const char* Version = "[1.5.0.0@_250726]";
 
 // 兼容旧代码的便捷访问器：直接操作 AppState::flash.isCMethod
 static int& isCMethod = g_app_state.flash.isCMethod;
@@ -188,40 +188,61 @@ void print_help()
             "\t\tSave pgpt.bin to a specified file name if support.\n"
             "\t49.get_sprdpart [FILE]\n"
             "\t\tSave sprdpart.bin to a specified file name if support.\n"
+            "\nEXTENDED Commands (need special loaders)\n"
+            "\t50.e_readmem addr length FILE\n"
+            "\t\tReads memory at addr for length bytes and saves to FILE.\n"
+            "\t51.e_bl\n"
+            "\t\tSet bootloader status.\n"
+            "\t52.e_rpmb_pagecount\n"
+            "\t\tQueries RPMB page count.\n"
+            "\t53.e_rpmb_counter\n"
+            "\t\tQueries RPMB write counter.\n"
+            "\t54.e_rpmb_read page_start page_count FILE\n"
+            "\t\tReads RPMB pages starting at page_start and saves to FILE.\n"
+            "\t55.e_rpmb_read_auto\n"
+            "\t\tAutomatically reads all RPMB pages to file rpmb_dump.\n"
+            "\t56.e_rpmb_write page_start FILE\n"
+            "\t\tWrites FILE data to RPMB starting at page_start.\n"
+            "\t57.e_efuse_read block_id\n"
+            "\t\tReads eFuse block at given index, returns 4 bytes.\n"
+            "\t58.e_pwn\n"
+            "\t\tpwn trustos (bypass verification in modem).\n"
+            "\t59.e_checkpwn\n"
+            "\t\tChecks if device's trustos is pwned.\n"
             "Debug commands:\n"
-            "\t50.skip_confirm {0,1}\n"
+            "\t60.skip_confirm {0,1}\n"
             "\t\tSkips all confirmation prompts(use with caution!)\n"
-            "\t51.keep_charge\n"
+            "\t61.keep_charge\n"
             "\t\tKeep charge in FDL1/FDL2 stage.\n"
-            "\t52.send_end_data {0,1}\n"
+            "\t62.send_end_data {0,1}\n"
             "\t\tSends end data after file transfer.\n"
-            "\t53.rawdata {0,1,2}\n"
+            "\t63.rawdata {0,1,2}\n"
             "\t\tEnable raw_data mode for file sending to get better speed.\n"
             "\t\t(Not all FDL2 support.)\n"
-            "\t54.slot {0,1,2}\n"
+            "\t64.slot {0,1,2}\n"
             "\t\tSelect slot auto|a|b on VAB devices.\n"
-            "\t55.chip_uid\n"
+            "\t65.chip_uid\n"
             "\t\tReads the chip UID (FDL2 stage only).\n"
-            "\t56.transcode {0,1}\n"
+            "\t66.transcode {0,1}\n"
             "\t\tEnable or disable transcode mode (FDL2 stage only).\n"
-            "\t57.sendloop [ADDR]\n"
+            "\t67.sendloop [ADDR]\n"
             "\t\tSend [0, 0, 0, 0] packet to a specified address, then send addresses in a loop of [0, 0, 0, 0] packet to sequentially decrease by 8\n"
-            "\t58.write_word\n"
+            "\t68.write_word\n"
             "\t\tWrite a HEX number word to a specified address.\n"
-            "\t59.read_nand\n"
+            "\t69.read_nand\n"
             "\t\tDetermine whether the current device is a NAND model; not all devices are supported.(through 0x0D)\n"
-            "\t60.sendcmd [TYPE] <FILE>\n"
+            "\t70.sendcmd [TYPE] <FILE>\n"
             "\t\tSend a specified command (with a file)\n"
-            "\t61.pactime\n"
+            "\t71.pactime\n"
             "\t\tRead the last time the PAC firmware was flashed.\n"
-            "\t62.read_flash [ADDR] [OFFSET] [SIZE] [FILE]\n"
+            "\t72.read_flash [ADDR] [OFFSET] [SIZE] [FILE]\n"
             "\t\tRead flash content to a file\n"
             "\t\t`read_flash_dhtb` for reading DHTB Signature for ums9117\n"
-            "\t63.read_mem [ADDR] [SIZE] [FILE]\n"
+            "\t73.read_mem [ADDR] [SIZE] [FILE]\n"
             "\t\tRead memory content to a file\n"
-            "\t64.erase_flash [ADDR] [SIZE]\n"
+            "\t74.erase_flash [ADDR] [SIZE]\n"
             "\t\tErase flash content\n"
-            "\t65.part_guid\n"
+            "\t75.part_guid\n"
             "\t\tDump the GPT disk GUID (and per-partition GUIDs when the table is read from the device), FDL2 stage only.\n"
             "Notice:\n"
             "\t1.The compatibility method to get part table sometimes can not get all partitions on your device\n"
@@ -230,11 +251,11 @@ void print_help()
     );
     fprintf(stderr,
             "\nExit Commands\n"
-            "\t66.reboot-recovery\n\t\tFDL2 only\n"
-            "\t67.reboot-fastboot\n\t\tFDL2 only\n"
-            "\t68.reset\n\t\tFDL2 and new FDL1\n"
-            "\t69.poweroff\n\t\tFDL2 and new FDL1\n"
-            "\t70.exit\n\t\tExit the program (Tool mode only.)\n"
+            "\t76.reboot-recovery\n\t\tFDL2 only\n"
+            "\t77.reboot-fastboot\n\t\tFDL2 only\n"
+            "\t78.reset\n\t\tFDL2 and new FDL1\n"
+            "\t79.poweroff\n\t\tFDL2 and new FDL1\n"
+            "\t80.exit\n\t\tExit the program (Tool mode only.)\n"
     );
 }
 
@@ -2667,8 +2688,8 @@ int main_console(int argc, char** argv)
 #else
                                             uint8_t *b = loadfile((g_app_state.flash.pac_folder + "\\" + name).c_str(), &b_size, 0);
 #endif
-                                            uint8_t *c = (uint8_t*)malloc(a_size + b_size);
-                                            merge_nv(io, a, a_size, b, b_size, c, &c_size);
+                                            uint8_t *c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                                            merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
                                             send_buf(io, f.addr[0], end_data, blk_size ? blk_size : DEFAULT_BLK_SIZE, c, c_size);
                                             DEG_LOG(OP, "Sent 0x%x to 0x%x.", c_size, f.addr[0]);
                                             delete[](a); delete[](b); free(c);
@@ -3101,6 +3122,175 @@ int main_console(int argc, char** argv)
                 continue;
             }
             erase_partition(io, "all", isCMethod);
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(str2[1], "e_readmem"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 4) argc = 1;
+                else { argc -= 4; argv += 4; }
+                continue;
+            }
+            if (argcount <= 4)
+            {
+                DEG_LOG(W, "e_readmem addr length FILE\n");
+                argc = 1;
+                continue;
+            }
+            do_e_readmem(io, (uint32_t)strtoull(str2[2], NULL, 0), (uint32_t)strtoull(str2[3], NULL, 0),
+                         str2[4], blk_size ? blk_size : DEFAULT_BLK_SIZE);
+            argc -= 4;
+            argv += 4;
+        }
+        else if (!strcmp(str2[1], "e_bl"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            DEG_LOG(W, "e_bl writes the encrypted \"VerifiedBoot-UNLOCK\" blob to miscdata@0x2000, use with caution!");
+            if (!skip_confirm && !check_confirm("unlock bootloader"))
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            do_e_bl(io, 4096, isCMethod);
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(str2[1], "e_rpmb_pagecount"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            do_e_rpmb_pagecount(io);
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(str2[1], "e_rpmb_counter"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            do_e_rpmb_counter(io);
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(str2[1], "e_rpmb_read"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 4) argc = 1;
+                else { argc -= 4; argv += 4; }
+                continue;
+            }
+            if (argcount <= 4)
+            {
+                DEG_LOG(W, "e_rpmb_read page_start page_count FILE\n");
+                argc = 1;
+                continue;
+            }
+            do_e_rpmb_read(io, (uint32_t)strtoul(str2[2], NULL, 0), (uint32_t)strtoul(str2[3], NULL, 0),
+                           str2[4], blk_size ? blk_size : DEFAULT_BLK_SIZE);
+            argc -= 4;
+            argv += 4;
+        }
+        else if (!strcmp(str2[1], "e_rpmb_read_auto"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            do_e_rpmb_read_auto(io, blk_size ? blk_size : DEFAULT_BLK_SIZE);
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(str2[1], "e_rpmb_write"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 3) argc = 1;
+                else { argc -= 3; argv += 3; }
+                continue;
+            }
+            if (argcount <= 3)
+            {
+                DEG_LOG(W, "e_rpmb_write page_start FILE\n");
+                argc = 1;
+                continue;
+            }
+            DEG_LOG(W, "e_rpmb_write overwrites RPMB pages, use with caution!");
+            if (!skip_confirm && !check_confirm("write RPMB"))
+            {
+                argc -= 3;
+                argv += 3;
+                continue;
+            }
+            do_e_rpmb_write(io, (uint32_t)strtoul(str2[2], NULL, 0), str2[3],
+                            blk_size ? blk_size : DEFAULT_BLK_SIZE);
+            argc -= 3;
+            argv += 3;
+        }
+        else if (!strcmp(str2[1], "e_efuse_read"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 2) argc = 1;
+                else { argc -= 2; argv += 2; }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "e_efuse_read block_id\n");
+                argc = 1;
+                continue;
+            }
+            do_e_efuse_read(io, (uint32_t)strtoul(str2[2], NULL, 0));
+            argc -= 2;
+            argv += 2;
+        }
+        else if (!strcmp(str2[1], "e_pwn"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            if (!skip_confirm && !check_confirm("pwn trustos"))
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            if (selected_ab < 0) select_ab(io);
+            do_e_pwn(io, selected_ab);
+            argc -= 1;
+            argv += 1;
+        }
+        else if (!strcmp(str2[1], "e_checkpwn"))
+        {
+            if (isToolMode)
+            {
+                argc -= 1;
+                argv += 1;
+                continue;
+            }
+            if (selected_ab < 0) select_ab(io);
+            do_e_checkpwn(io, selected_ab);
             argc -= 1;
             argv += 1;
         }
@@ -3556,9 +3746,9 @@ int main_console(int argc, char** argv)
                 size_t a_size = size, b_size = 0, c_size = 0;
                 uint8_t* a = mem;
                 uint8_t* b = loadfile(str2[3], &b_size, 0);
-                uint8_t* c = (uint8_t*)malloc(a_size + b_size);
-                merge_nv(io, a, a_size, b, b_size, c, &c_size);
-                load_nv_partition_from_mem(io, gPartInfo.name, c, 4096);
+                uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
+                load_nv_partition_from_mem(io, gPartInfo.name, c, c_size, 4096);
                 delete[](a);
                 delete[](b);
                 free(c);
@@ -3579,8 +3769,8 @@ int main_console(int argc, char** argv)
                 size_t a_size = 0, b_size = 0, c_size = 0;
                 uint8_t* a = loadfile(str2[3], &a_size, 0);
                 uint8_t* b = loadfile(str2[4], &b_size, 0);
-                uint8_t* c = (uint8_t*)malloc(a_size + b_size);
-                merge_nv(io, a, a_size, b, b_size, c, &c_size);
+                uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
                 EnhancedFile fi = oxfopen_enhanced(str2[5], "wb");
                 if (!fi) ERR_EXIT("fopen failed\n");
                 if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
@@ -3637,9 +3827,9 @@ int main_console(int argc, char** argv)
                 size_t a_size = size, b_size = 0, c_size = 0;
                 uint8_t* a = mem;
                 uint8_t* b = loadfile(str2[3], &b_size, 0);
-                uint8_t* c = (uint8_t*)malloc(a_size + b_size);
-                merge_nv(io, a, a_size, b, b_size, c, &c_size);
-                load_nv_partition_from_mem(io, gPartInfo.name, c, 4096);
+                uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
+                load_nv_partition_from_mem(io, gPartInfo.name, c, c_size, 4096);
                 delete[](a);
                 delete[](b);
                 free(c);
@@ -3660,8 +3850,8 @@ int main_console(int argc, char** argv)
                 size_t a_size = 0, b_size = 0, c_size = 0;
                 uint8_t* a = loadfile(str2[3], &a_size, 0);
                 uint8_t* b = loadfile(str2[4], &b_size, 0);
-                uint8_t* c = (uint8_t*)malloc(a_size + b_size);
-                merge_nv(io, a, a_size, b, b_size, c, &c_size);
+                uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
                 EnhancedFile fi = oxfopen_enhanced(str2[5], "wb");
                 if (!fi) ERR_EXIT("fopen failed\n");
                 if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");

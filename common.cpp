@@ -21,6 +21,7 @@
 #include <cctype>
 #include "core/logging.h"
 #include "core/app_state.h"
+#include "core/aes128.h"
 #include <cstring>
 #include <cctype>
 
@@ -252,6 +253,7 @@ unsigned read_flash(spdio_t* io,
         encode_msg(io, BSL_CMD_READ_FLASH, data, 4 * 3);
         send_msg(io);
         ret = recv_msg(io);
+        if (!ret) ERR_EXIT("timeout reached\n");
         if ((ret = recv_type(io)) != BSL_REP_READ_FLASH)
         {
             const char* name = get_bsl_enum_name(ret);
@@ -374,34 +376,48 @@ uint8_t* dump_flash_to_mem(spdio_t* io,
         }
 
         // ---- 读取签名 ----
-        uint8_t sig_hdr[0x60];
-        uint32_t nread2 = read_flash(io, addr, start + total_read, sizeof(sig_hdr),
-                                     sig_hdr, nullptr, step);
-        if (nread2 == sizeof(sig_hdr))
+        // 与文件版 mode1 保持一致：只有基础段完整读完才解析签名，并校验签名头字段。
+        if (total_read == base_size)
         {
-            uint32_t sig_val = READ32_LE(sig_hdr + 0x10);
-            // 检查既不是全0也不是全1
-            if (!(sig_val == 0 || sig_val == 0xFFFFFFFFU))
+            uint8_t sig_hdr[0x60];
+            uint32_t nread2 = read_flash(io, addr, start + total_read, sizeof(sig_hdr),
+                                         sig_hdr, nullptr, step);
+            if (nread2 == sizeof(sig_hdr))
             {
-                uint32_t sig_data_size = READ32_LE(sig_hdr + 0x20);
-                uint32_t new_size = base_size + sizeof(sig_hdr) + sig_data_size;
-                uint8_t* new_mem = NEWN uint8_t[new_size];
-                if (!new_mem)
+                uint32_t sig_val = READ32_LE(sig_hdr + 0x10);
+                // 检查既不是全0也不是全1
+                if (!(sig_val == 0 || sig_val == 0xFFFFFFFFU))
                 {
-                    delete[] mem;
-                    ERR_EXIT("memory reallocation failed\n");
+                    uint32_t sig_data_size = READ32_LE(sig_hdr + 0x20);
+                    if (sig_val != data_len ||                        // data size
+                        READ32_LE(sig_hdr + 0x18) != 0x200 ||         // data offset
+                        (sig_data_size >> 12) ||                      // sign data size
+                        (uint32_t)READ32_LE(sig_hdr + 0x28) != base_size + 0x60) // sign data offset
+                    {
+                        DEG_LOG(E, "unexpected DHTB signature\n");
+                    }
+                    else
+                    {
+                        uint32_t new_size = base_size + sizeof(sig_hdr) + sig_data_size;
+                        uint8_t* new_mem = NEWN uint8_t[new_size];
+                        if (!new_mem)
+                        {
+                            delete[] mem;
+                            ERR_EXIT("memory reallocation failed\n");
+                        }
+                        memcpy(new_mem, mem, total_read);
+                        delete[] mem;
+                        mem = new_mem;
+
+                        memcpy(mem + total_read, sig_hdr, sizeof(sig_hdr));
+                        total_read += sizeof(sig_hdr);
+
+                        uint32_t sig_read = read_flash(io, addr, start + total_read,
+                                                       sig_data_size, mem + total_read,
+                                                       nullptr, step);
+                        total_read += sig_read;
+                    }
                 }
-                memcpy(new_mem, mem, total_read);
-                delete[] mem;
-                mem = new_mem;
-
-                memcpy(mem + total_read, sig_hdr, sizeof(sig_hdr));
-                total_read += sizeof(sig_hdr);
-
-                uint32_t sig_read = read_flash(io, addr, start + total_read,
-                                               sig_data_size, mem + total_read,
-                                               nullptr, step);
-                total_read += sig_read;
             }
         }
 
@@ -547,6 +563,15 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
     if (completed > PROGRESS_BAR_WIDTH) completed = PROGRESS_BAR_WIDTH;
     int remaining = PROGRESS_BAR_WIDTH - completed;
 
+    // 只有整数格变化时才刷新（减少终端重绘与 GUI invoke 次数）；进度结束时
+    // 始终刷新一次，保证 100% 状态可见。
+    static int last_completed = -1;
+    static uint64_t last_total = 0;
+    if (completed == last_completed && total == last_total && percent < 1.0)
+        return;
+    last_completed = completed;
+    last_total = total;
+
     fprintf(stderr, "Progress: |");
     for (int i = 0; i < completed; i++)
     {
@@ -637,12 +662,7 @@ uint64_t dump_partition(spdio_t* io,
 
     set_progress_desc(name);
 
-    if (!strcmp(name, "super"))
-    {
-        dump_partition(io, "metadata", 0, check_partition(io, "metadata", 1), "metadata.bin", step);
-        set_progress_desc(name);
-    }
-    else if (!strncmp(name, "userdata", 8)) { if (!check_confirm("read userdata")) return 0; }
+    if (!strncmp(name, "userdata", 8)) { if (!check_confirm("read userdata")) return 0; }
     else if (strstr(name, "nv1"))
     {
         strcpy(name_tmp, name);
@@ -667,7 +687,12 @@ uint64_t dump_partition(spdio_t* io,
         send_and_check(io);
         return 0;
     }
-    if (isCancel) { return 0; }
+    if (isCancel)
+    {
+        encode_msg_nocpy(io, BSL_CMD_READ_END, 0);
+        send_and_check(io);
+        return 0;
+    }
     EnhancedFile fo = my_oxfopen_enhanced(fn, "wb");
     if (!fo) ERR_EXIT("fopen(dump) failed, please check if program has permission to write file in current dir.\n");
 
@@ -676,7 +701,7 @@ uint64_t dump_partition(spdio_t* io,
     {
         uint32_t* data = (uint32_t*)io->temp_buf;
         n = (uint32_t)(n64 > step ? step : n64);
-        if (isCancel) { return offset - start; }
+        if (isCancel) { break; }
         WRITE32_LE(data, n);
         WRITE32_LE(data + 1, offset);
         t32 = offset >> 32;
@@ -758,6 +783,10 @@ uint8_t* dump_partition_to_mem(spdio_t* io,
 
     set_progress_desc(name);
 
+    // Note: the file variant additionally dumps the companion "metadata"
+    // partition to metadata.bin, then falls through and reads "super" itself.
+    // The memory API returns a single buffer, so it reads "super" (the main
+    // output) like the file variant does.
     if (!strncmp(name, "userdata", 8))
     {
         if (!check_confirm("read userdata"))
@@ -971,7 +1000,14 @@ int scan_partitions_from_doc(xmlDocPtr doc, spdio_t* io,
 
     // 按需分配 ptable
     if (io->ptable == nullptr)
+    {
         io->ptable = NEWN partition_t[128];
+        if (io->ptable == nullptr)
+        {
+            ERR_EXIT("malloc failed\n");
+            return -1;
+        }
+    }
 
     uint8_t* buf_ptr = buf;
     size_t remaining = buf_size;
@@ -1007,9 +1043,15 @@ int scan_partitions_from_doc(xmlDocPtr doc, spdio_t* io,
         }
         remaining -= 0x4c;
 
+        if (id.size() >= 36)
+        {
+            ERR_EXIT("Partition name too long (max 35 chars): %s\n", id.c_str());
+            return -1;
+        }
+
         // 名称区域：36 个 16 位字符（共 72 字节）
         memset(buf_ptr, 0, 36 * 2);
-        for (size_t i = 0; i < id.size() && i < 36; ++i)
+        for (size_t i = 0; i < id.size(); ++i)
             buf_ptr[i * 2] = static_cast<uint8_t>(id[i]);
 
         // 原始 size（LE，偏移 0x48）
@@ -1141,6 +1183,9 @@ void w_force_repair_prev(partition_t* ptable, int part_count, int i)
             DEG_LOG(I, "Repairing leftover w_force partition #%u name to: %s", i - 1, orig);
             snprintf(ptable[i - 1].name, sizeof(ptable[i - 1].name), "%s", orig);
             w_force_ids.emplace_back(i - 1);
+            // The in-memory table no longer says "w_force"; commit it back to
+            // the device once FDL2 is up (see w_force_self_repair).
+            g_app_state.flash.w_force_repart = true;
         }
     }
     else
@@ -1149,8 +1194,10 @@ void w_force_repair_prev(partition_t* ptable, int part_count, int i)
     }
 }
 
-int gpt_info(partition_t* ptable, uint8_t* mem, int* part_count_ptr)
+int gpt_info(partition_t* ptable, const uint8_t* mem, size_t mem_size, int* part_count_ptr)
 {
+    if (!ptable || !mem || !part_count_ptr || mem_size < SECTOR_SIZE) return -1;
+
     efi_header header;
     uint8_t buffer[SECTOR_SIZE];
     int sector_index = 0;
@@ -1159,7 +1206,9 @@ int gpt_info(partition_t* ptable, uint8_t* mem, int* part_count_ptr)
     // 在内存中逐扇区查找 "EFI PART" 签名
     while (sector_index < MAX_SECTORS)
     {
-        memcpy(buffer, mem + sector_index * SECTOR_SIZE, SECTOR_SIZE);
+        size_t off = (size_t)sector_index * SECTOR_SIZE;
+        if (off + SECTOR_SIZE > mem_size) break;
+        memcpy(buffer, mem + off, SECTOR_SIZE);
         if (memcmp(buffer, "EFI PART", 8) == 0)
         {
             memcpy(&header, buffer, sizeof(header));
@@ -1173,23 +1222,32 @@ int gpt_info(partition_t* ptable, uint8_t* mem, int* part_count_ptr)
     {
         return -1;
     }
-    else
+    else if (!Da_Info.dwStorageType)
     {
+        // Do not clobber a storage type that was already detected (e.g. 0x101 NAND).
         if (sector_index == 1) Da_Info.dwStorageType = 0x102;
         else Da_Info.dwStorageType = 0x103;
     }
 
     int real_SECTOR_SIZE = SECTOR_SIZE * sector_index;
+    if (real_SECTOR_SIZE <= 0) return -1;
 
-    efi_entry* entries = NEWN efi_entry[header.number_of_partition_entries * sizeof(efi_entry)];
+    if (header.number_of_partition_entries <= 0) return -1;
+    size_t entry_offset = (size_t)header.partition_entry_lba * (size_t)real_SECTOR_SIZE;
+    size_t entry_size = (size_t)header.number_of_partition_entries * sizeof(efi_entry);
+    if (entry_offset > mem_size || entry_size > mem_size - entry_offset)
+    {
+        DEG_LOG(E, "gpt_info: partition entry table out of range");
+        return -1;
+    }
+
+    efi_entry* entries = NEWN efi_entry[(size_t)header.number_of_partition_entries];
     if (entries == nullptr)
     {
         return -1;
     }
 
     // 直接从内存中读取分区条目表
-    size_t entry_offset = (size_t)header.partition_entry_lba * real_SECTOR_SIZE;
-    size_t entry_size = (size_t)header.number_of_partition_entries * sizeof(efi_entry);
     memcpy(entries, mem + entry_offset, entry_size);
 
     // 计算有效分区个数（遇到起始和结束LBA均为0的条目为止）
@@ -1442,6 +1500,11 @@ bool gpt_refresh_cached_identity(spdio_t* io)
     return true;
 }
 
+// Send a repartition packet built from an explicit table. Used by
+// partition_list() because the freshly parsed table is not yet stored in
+// io->ptable at that point.
+static void w_force_commit_table(spdio_t* io, partition_t* table, int count);
+
 partition_t* partition_list(spdio_t* io, int* part_count_ptr)
 {
     uint64_t size;
@@ -1451,6 +1514,9 @@ partition_t* partition_list(spdio_t* io, int* part_count_ptr)
     partition_t* ptable = NEWN partition_t[128];
     if (ptable == nullptr) return nullptr;
     w_force_ids.clear();
+    // Drop any stale repair flag from a previous attempt; repair_prev() will
+    // set it again below if the user confirms.
+    g_app_state.flash.w_force_repart = false;
 
     DEG_LOG(OP, "Reading partition table...\n");
     // 从设备读表：清掉“来自 XML”的标记，并刷新 GUID 缓存
@@ -1463,7 +1529,7 @@ partition_t* partition_list(spdio_t* io, int* part_count_ptr)
     io->verbose = verbose;
     if (32 * 1024 == size)
     {
-        g_app_state.flash.gpt_failed = gpt_info(ptable, read_mem, part_count_ptr);
+        g_app_state.flash.gpt_failed = gpt_info(ptable, read_mem, (size_t)size, part_count_ptr);
         if (g_app_state.flash.gpt_failed == 0)
             gpt_cache_identity_from_image(read_mem, (size_t)size);
     }
@@ -1574,6 +1640,11 @@ partition_t* partition_list(spdio_t* io, int* part_count_ptr)
                 }
             }
         }
+        // Commit the in-memory repaired names back to the device. This must
+        // happen here (with the local `ptable`) because the caller has not yet
+        // assigned it to io->ptable, and it covers both CLI and GUI callers.
+        if (g_app_state.flash.w_force_repart)
+            w_force_commit_table(io, ptable, *part_count_ptr);
         return ptable;
     }
     else
@@ -1651,6 +1722,16 @@ const char* get_bsl_enum_name(unsigned int value)
     case 0x49: return "BSL_CMD_WRITE_PARTITION_VALUE";
     case 0x50: return "BSL_CMD_WRITE_DOWNLOAD_TIMESTAMP";
     case 0x51: return "BSL_CMD_PARTITION_SIGNATURE";
+    // EXTENDED commands (need special loaders)
+    case 0x70: return "BSL_CMD_E_READ_MEM";
+    case 0x71: return "BSL_CMD_E_BL";
+    case 0x73: return "BSL_CMD_E_RPMB_PAGECOUNT";
+    case 0x74: return "BSL_CMD_E_RPMB_COUNTER";
+    case 0x75: return "BSL_CMD_E_RPMB_READ";
+    case 0x76: return "BSL_CMD_E_RPMB_WRITE";
+    case 0x78: return "BSL_CMD_E_EFUSE_READ";
+    case 0x79: return "BSL_CMD_E_PWN";
+    case 0x7A: return "BSL_CMD_E_CHECKPWN";
     case 0xCC: return "BSL_CMD_SEND_FLAG/YCC_REP_SET_BL_SUCCESS";
     case 0x7E: return "BSL_CMD_CHECK_BAUD";
     case 0x7F: return "BSL_CMD_END_PROCESS";
@@ -1722,6 +1803,12 @@ const char* get_bsl_enum_name(unsigned int value)
     case 0xD1: return "BSL_REP_REPARTITION_ERROR";
     case 0xD2: return "BSL_REP_READ_FLASH_ERROR";
     case 0xD3: return "BSL_REP_MALLOC_ERROR";
+    case 0xE0: return "BSL_REP_E_READ_MEM";
+    case 0xE1: return "BSL_REP_E_BL";
+    case 0xE3: return "BSL_REP_E_RPMB_PAGECOUNT";
+    case 0xE4: return "BSL_REP_E_RPMB_COUNTER";
+    case 0xE5: return "BSL_REP_E_RPMB_READ";
+    case 0xE8: return "BSL_REP_E_EFUSE_READ";
     case 0xFE: return "BSL_REP_UNSUPPORTED_COMMAND";
     case 0xFF: return "BSL_REP_LOG";
     default: return "UNKNOWN_COMMAND";
@@ -1796,6 +1883,15 @@ void print_all_bsl_commands()
     printf("0x49: BSL_CMD_WRITE_PARTITION_VALUE\n");
     printf("0x50: BSL_CMD_WRITE_DOWNLOAD_TIMESTAMP\n");
     printf("0x51: BSL_CMD_PARTITION_SIGNATURE\n");
+    printf("0x70: BSL_CMD_E_READ_MEM\n");
+    printf("0x71: BSL_CMD_E_BL\n");
+    printf("0x73: BSL_CMD_E_RPMB_PAGECOUNT\n");
+    printf("0x74: BSL_CMD_E_RPMB_COUNTER\n");
+    printf("0x75: BSL_CMD_E_RPMB_READ\n");
+    printf("0x76: BSL_CMD_E_RPMB_WRITE\n");
+    printf("0x78: BSL_CMD_E_EFUSE_READ\n");
+    printf("0x79: BSL_CMD_E_PWN\n");
+    printf("0x7A: BSL_CMD_E_CHECKPWN\n");
     printf("0xCC: BSL_CMD_SEND_FLAG / YCC_REP_SET_BL_SUCCESS\n");
     printf("0x7E: BSL_CMD_CHECK_BAUD\n");
     printf("0x7F: BSL_CMD_END_PROCESS\n");
@@ -1867,6 +1963,12 @@ void print_all_bsl_commands()
     printf("0xD1: BSL_REP_REPARTITION_ERROR\n");
     printf("0xD2: BSL_REP_READ_FLASH_ERROR\n");
     printf("0xD3: BSL_REP_MALLOC_ERROR\n");
+    printf("0xE0: BSL_REP_E_READ_MEM\n");
+    printf("0xE1: BSL_REP_E_BL\n");
+    printf("0xE3: BSL_REP_E_RPMB_PAGECOUNT\n");
+    printf("0xE4: BSL_REP_E_RPMB_COUNTER\n");
+    printf("0xE5: BSL_REP_E_RPMB_READ\n");
+    printf("0xE8: BSL_REP_E_EFUSE_READ\n");
     printf("0xFE: BSL_REP_UNSUPPORTED_COMMAND\n");
     printf("0xFF: BSL_REP_LOG\n");
 }
@@ -1954,6 +2056,17 @@ void add_partition(spdio_t* io, const char* name, long long size)
     partition_t* ptable = NEWN partition_t[128];
     if (ptable == nullptr) return;
     int k = io->part_count_c;
+    if (k < 0 || k >= 128)
+    {
+        delete[] ptable;
+        DEG_LOG(E, "partition table is full (max 128)");
+        return;
+    }
+    if (io->part_count_c > 0 && !io->Cptable)
+    {
+        delete[] ptable;
+        return;
+    }
     for (int i = 0; i < io->part_count_c; i++)
     {
         strncpy(ptable[i].name, io->Cptable[i].name, sizeof(ptable[i].name) - 1);
@@ -1965,6 +2078,7 @@ void add_partition(spdio_t* io, const char* name, long long size)
         if (strcmp(io->Cptable[i].name, name) == 0)
         {
             DEG_LOG(W, "Partition %s already exists", name);
+            delete[] ptable;
             return;
         }
     }
@@ -1987,6 +2101,11 @@ void repartition(spdio_t* io, const char* fn)
 {
     uint8_t* buf = io->temp_buf;
     int n = scan_xml_partitions(io, fn, buf, 0xffff);
+    if (n <= 0)
+    {
+        DEG_LOG(E, "repartition: no partition parsed from %s", fn ? fn : "(null)");
+        return;
+    }
     // print_mem(stderr, io->temp_buf, n * 0x4c);
     encode_msg_nocpy(io, BSL_CMD_REPARTITION, n * 0x4c);
     if (!send_and_check(io))
@@ -1996,6 +2115,11 @@ void repartition(spdio_t* io, const char* fn)
         g_app_state.flash.ptable_from_xml = false;
         // 重新读取设备 GPT，刷新 GUI 的 UUID 列 / 磁盘 GUID 显示
         gpt_refresh_cached_identity(io);
+    }
+    else
+    {
+        // Partition table write failed; drop force mode so it is not retried blindly.
+        g_app_state.flash.g_w_force = 0;
     }
     if (check_partition(io, "userdata", 0))
     {
@@ -2078,8 +2202,11 @@ void load_partition(spdio_t* io, const char* name,
         erase_partition(io, name, CMethod);
         return;
     }
-    if (!strcmp(name, "calinv")) { return; } //skip calinv
-    if (!strcmp(name, "factorynv")) return; // skip factorynv
+    if (strstr(name, "calinv") || strstr(name, "factorynv"))
+    {
+        DEG_LOG(W, "Partition %s is skipped (calinv/factorynv).", name);
+        return;
+    }
     DEG_LOG(OP, "Start to write partition %s", name);
     DEG_LOG(I, "Type CTRL + C to cancel...");
     start_signal();
@@ -2234,7 +2361,7 @@ void load_partition_force(spdio_t* io, const int id, const char* fn, unsigned st
         DEG_LOG(W, "Partition %s is skipped for force write due to potential risks.", part_name);
         return;
     } //skip calinv and factorynv
-    if (g_app_state.flash.selected_ab > 0)
+    if (g_app_state.flash.g_w_force == 1 && g_app_state.flash.selected_ab > 0)
     {
         size_t namelen = strlen(part_name);
         bool has_ab = (namelen > 2 && (strcmp(part_name + namelen - 2, "_a") == 0 || strcmp(
@@ -2279,7 +2406,11 @@ void load_partition_force(spdio_t* io, const int id, const char* fn, unsigned st
             buf += 0x4c;
         }
         encode_msg_nocpy(io, BSL_CMD_REPARTITION, io->part_count * 0x4c);
-        if (send_and_check(io)) return; //repart failed
+        if (send_and_check(io))
+        {
+            g_app_state.flash.g_w_force = 0;
+            return; //repart failed
+        }
         load_partition(io, name, fn, step, CMethod);
         buf = io->temp_buf;
         for (i = 0; i < io->part_count; i++)
@@ -2323,7 +2454,11 @@ void load_partition_force(spdio_t* io, const int id, const char* fn, unsigned st
             buf += 0x4c;
         }
         encode_msg_nocpy(io, BSL_CMD_REPARTITION, io->part_count_c * 0x4c);
-        if (send_and_check(io)) return; //repart failed
+        if (send_and_check(io))
+        {
+            g_app_state.flash.g_w_force = 0;
+            return; //repart failed
+        }
         load_partition(io, name, fn, step, CMethod);
         buf = io->temp_buf;
         for (i = 0; i < io->part_count_c; i++)
@@ -2399,35 +2534,41 @@ void load_nv_partition(spdio_t* io, const char* name,
     size_t offset, rsz;
     unsigned n;
     int ret;
-    size_t len = 0;
+    size_t len = 0, olen = 0;
     uint8_t* mem;
     uint16_t crc = 0;
     uint32_t cs = 0;
 
-    mem = loadfile(fn, &len, 0);
+    mem = loadfile(fn, &olen, 0);
     if (!mem) ERR_EXIT("Load file(\"%s\") failed\n", fn);
 
     uint8_t* mem0 = mem;
-    if (*(uint32_t*)mem == 0x4e56) mem += 0x200;
-    len = 0;
-    len += sizeof(uint32_t);
-
-    uint16_t tmp[2];
-    while (1)
+    if (olen >= sizeof(uint32_t) && *(uint32_t*)mem == 0x4e56)
     {
-        tmp[0] = 0;
-        tmp[1] = 0;
-        memcpy(tmp, mem + len, sizeof(tmp));
-        if (!tmp[1])
+        if (olen < 0x200)
         {
-            DEG_LOG(E, "Broken NV file, skipped!");
+            DEG_LOG(E, "NV file too short for NAND header, skipped!");
+            delete[](mem0);
             return;
         }
-        len += sizeof(tmp);
-        len += tmp[1];
+        mem += 0x200;
+        olen -= 0x200;
+    }
+    len = sizeof(uint32_t);
 
-        uint32_t doffset = ((len + 3) & 0xFFFFFFFC) - len;
-        len += doffset;
+    while (len + 4 < olen)
+    {
+        uint16_t tmp[2];
+        memcpy(tmp, mem + len, sizeof(tmp));
+        if (tmp[1] == 0 || len + tmp[1] > olen)
+        {
+            DEG_LOG(E, "Broken NV file at id %x!", tmp[0]);
+            break;
+        }
+        len += sizeof(tmp) + tmp[1];
+        len = (len + 3) & 0xFFFFFFFC;
+
+        if (len + 2 > olen) break;
         if (*(uint16_t*)(mem + len) == 0xffff)
         {
             len += 8;
@@ -2504,7 +2645,7 @@ void load_nv_partition(spdio_t* io, const char* name,
 }
 
 void load_nv_partition_from_mem(spdio_t* io, const char* name,
-                                uint8_t* mem, unsigned step)
+                                uint8_t* mem, size_t olen, unsigned step)
 {
     if (!mem)
     {
@@ -2520,31 +2661,36 @@ void load_nv_partition_from_mem(spdio_t* io, const char* name,
     uint16_t crc = 0;
     uint32_t cs = 0;
 
-    // 保存原始指针以便最后释放（注意：调用者负责释放，这里不做delete）
+    // 保存原始指针（调用者负责释放，这里不做 delete）
     uint8_t* mem0 = mem;
 
     // 处理可能的 NAND 头（0x4E56 标识）
-    if (*(uint32_t*)mem == 0x4E56) mem += 0x200;
-
-    len = 0;
-    len += sizeof(uint32_t);
-
-    uint16_t tmp[2];
-    while (1)
+    if (olen >= sizeof(uint32_t) && *(uint32_t*)mem == 0x4E56)
     {
-        tmp[0] = 0;
-        tmp[1] = 0;
-        memcpy(tmp, mem + len, sizeof(tmp));
-        if (!tmp[1])
+        if (olen < 0x200)
         {
-            DEG_LOG(E, "Broken NV data, skipped!");
+            DEG_LOG(E, "NV buffer too short for NAND header, skipped!");
             return;
         }
-        len += sizeof(tmp);
-        len += tmp[1];
+        mem += 0x200;
+        olen -= 0x200;
+    }
 
-        uint32_t doffset = ((len + 3) & 0xFFFFFFFC) - len;
-        len += doffset;
+    len = sizeof(uint32_t);
+
+    while (len + 4 < olen)
+    {
+        uint16_t tmp[2];
+        memcpy(tmp, mem + len, sizeof(tmp));
+        if (tmp[1] == 0 || len + tmp[1] > olen)
+        {
+            DEG_LOG(E, "Broken NV data at id %x!", tmp[0]);
+            break;
+        }
+        len += sizeof(tmp) + tmp[1];
+        len = (len + 3) & 0xFFFFFFFC;
+
+        if (len + 2 > olen) break;
         if (*(uint16_t*)(mem + len) == 0xffff)
         {
             len += 8;
@@ -2870,7 +3016,7 @@ void get_partition_info(spdio_t* io, const char* name, int need_size)
         if (g_app_state.flash.gpt_failed == 1) io->ptable = partition_list(io, &io->part_count);
         if (i > io->part_count)
         {
-            DEG_LOG(E, "part not exist: ", name);
+            DEG_LOG(E, "part not exist: %s", name);
             gPartInfo.size = 0;
             io->verbose = verbose;
             return;
@@ -3311,6 +3457,7 @@ int get_nvlist_cfg(spdio_t* io, char* fn)
     {
         if (line[0] == '#' || line[0] == '\0') continue;
         if (-1 == sscanf(line, "%*s %x", &id)) continue;
+        if (id >= 0x10000) continue; // 防止越界写入 nvid_list
         io->nvid_list[id] = 1;
         if (io->verbose)
             DBG_LOG("saved id 0x%X to list\n", id);
@@ -3327,8 +3474,12 @@ int get_nvlist_cfg(spdio_t* io, char* fn)
 }
 
 void merge_nv(spdio_t* io, const uint8_t* a, size_t a_size, const uint8_t* b,
-              size_t b_size, uint8_t* c, size_t* c_size)
+              size_t b_size, uint8_t* c, size_t c_cap, size_t* c_size)
 {
+    if (c_size) *c_size = 0;
+    if (!c || c_cap < 4) return;
+    if (!a || a_size < 4) return;
+
     NVEntry* nvid_list_offset = NEWN NVEntry[0x10000];
     if (!nvid_list_offset) ERR_EXIT("malloc failed\n");
     memset(nvid_list_offset, 0, 0x10000 * sizeof(NVEntry));
@@ -3339,14 +3490,23 @@ void merge_nv(spdio_t* io, const uint8_t* a, size_t a_size, const uint8_t* b,
         memcpy(dst, &val, sizeof(val));
     };
 
+    uint8_t* c_ptr = c;
+    uint8_t* const c_end = c + c_cap;
+    // 返回可写入 need 字节的起始地址；容量不足时返回 nullptr。
+    auto reserve = [&](size_t need) -> uint8_t*
+    {
+        if ((size_t)(c_end - c_ptr) >= need) return c_ptr;
+        return nullptr;
+    };
+
     // 解析 a，构建偏移表
     size_t pos = 4;
-    if (*(uint32_t*)a == 0x4e56) pos += 0x200;
+    if (*(const uint32_t*)a == 0x4e56) pos += 0x200;
 
     while (pos + 4 <= a_size)
     {
-        uint16_t type = *(uint16_t*)(a + pos);
-        uint16_t length = *(uint16_t*)(a + pos + 2);
+        uint16_t type = *(const uint16_t*)(a + pos);
+        uint16_t length = *(const uint16_t*)(a + pos + 2);
         pos += 4;
 
         if (length == 0 || pos + length > a_size)
@@ -3358,52 +3518,82 @@ void merge_nv(spdio_t* io, const uint8_t* a, size_t a_size, const uint8_t* b,
         nvid_list_offset[type].offset = pos;
         pos += length;
 
-        uint32_t doffset = ((pos + 3) & 0xFFFFFFFC) - pos;
-        pos += doffset;
+        pos = (pos + 3) & ~(size_t)3;
 
-        if (*(uint16_t*)(a + pos) == 0xffff) break;
+        if (pos + 2 <= a_size && *(const uint16_t*)(a + pos) == 0xffff) break;
     }
+
+    if (!b || b_size < 4)
+    {
+        delete[] nvid_list_offset;
+        return;
+    }
+
     // 合并输出
-    uint8_t* c_ptr = c;
     pos = 4;
-    if (*(uint32_t*)b == 0x4e56) pos += 0x200;
-    memcpy(c_ptr, b + pos - 4, 4);
-    c_ptr += 4;
+    if (*(const uint32_t*)b == 0x4e56) pos += 0x200;
+    {
+        uint8_t* dst = reserve(4);
+        if (!dst)
+        {
+            DEG_LOG(E, "merge_nv: output buffer too small (%zu bytes)", c_cap);
+            delete[] nvid_list_offset;
+            ERR_EXIT("merge_nv: output buffer too small\n");
+        }
+        memcpy(dst, b + pos - 4, 4);
+        c_ptr = dst + 4;
+    }
 
     while (pos + 4 <= b_size)
     {
-        uint16_t type = *(uint16_t*)(b + pos);
-        uint16_t length = *(uint16_t*)(b + pos + 2);
+        uint16_t type = *(const uint16_t*)(b + pos);
+        uint16_t length = *(const uint16_t*)(b + pos + 2);
         pos += 4;
         if (pos + length > b_size) break;
 
         // 如果 a 中该 type 有效且需要覆盖（io->nvid_list[type] 为真）
-        if (io->nvid_list[type] && nvid_list_offset[type].length > 0)
+        bool from_a = io->nvid_list && io->nvid_list[type] && nvid_list_offset[type].length > 0;
+        size_t entry_len = from_a ? (size_t)nvid_list_offset[type].length : (size_t)length;
+
+        uint8_t* dst = reserve(4 + entry_len);
+        if (!dst)
+        {
+            DEG_LOG(E, "merge_nv: output buffer too small (%zu bytes)", c_cap);
+            delete[] nvid_list_offset;
+            ERR_EXIT("merge_nv: output buffer too small\n");
+        }
+        if (from_a)
         {
             // 使用 a 中的条目覆盖 b 的条目
-            write16(c_ptr, type);
-            write16(c_ptr + 2, nvid_list_offset[type].length);
-            memcpy(c_ptr + 4, a + nvid_list_offset[type].offset,
+            write16(dst, type);
+            write16(dst + 2, nvid_list_offset[type].length);
+            memcpy(dst + 4, a + nvid_list_offset[type].offset,
                    nvid_list_offset[type].length);
-            c_ptr += 4 + nvid_list_offset[type].length;
         }
         else
         {
             // 保留 b 中的条目
-            memcpy(c_ptr, b + pos - 4, 4 + length);
-            c_ptr += 4 + length;
+            memcpy(dst, b + pos - 4, 4 + length);
         }
+        c_ptr = dst + 4 + entry_len;
 
         nvid_list_offset[type].saved = 1;
         pos += length;
 
         // 复制 b 中的对齐填充（保持布局不变）
-        uint32_t doffset = ((pos + 3) & 0xFFFFFFFC) - pos;
-        memcpy(c_ptr, b + pos, doffset);
+        uint32_t doffset = (uint32_t)(((pos + 3) & ~(size_t)3) - pos);
+        uint8_t* pad = reserve(doffset);
+        if (!pad)
+        {
+            DEG_LOG(E, "merge_nv: output buffer too small (%zu bytes)", c_cap);
+            delete[] nvid_list_offset;
+            ERR_EXIT("merge_nv: output buffer too small\n");
+        }
+        if (doffset) memcpy(pad, b + pos, doffset);
         pos += doffset;
-        c_ptr += doffset;
+        c_ptr = pad + doffset;
 
-        if (*(uint16_t*)(b + pos) == 0xffff) break;
+        if (pos + 2 <= b_size && *(const uint16_t*)(b + pos) == 0xffff) break;
     }
 
     // 追加 a 中独有的条目（无论 a 解析是否出错，已解析的有效条目仍会被追加）
@@ -3411,18 +3601,48 @@ void merge_nv(spdio_t* io, const uint8_t* a, size_t a_size, const uint8_t* b,
     {
         if (nvid_list_offset[i].length > 0 && nvid_list_offset[i].saved == 0)
         {
-            write16(c_ptr, i);
-            write16(c_ptr + 2, nvid_list_offset[i].length);
-            memcpy(c_ptr + 4, a + nvid_list_offset[i].offset,
-                   nvid_list_offset[i].length);
-            c_ptr += 4 + nvid_list_offset[i].length;
+            size_t entry_len = nvid_list_offset[i].length;
+            uint8_t* dst = reserve(4 + entry_len);
+            if (!dst)
+            {
+                DEG_LOG(E, "merge_nv: output buffer too small (%zu bytes)", c_cap);
+                delete[] nvid_list_offset;
+                ERR_EXIT("merge_nv: output buffer too small\n");
+            }
+            write16(dst, (uint16_t)i);
+            write16(dst + 2, nvid_list_offset[i].length);
+            memcpy(dst + 4, a + nvid_list_offset[i].offset, entry_len);
+            c_ptr = dst + 4 + entry_len;
+
+            // 每个追加条目后按 4 字节对齐，保持 NV 布局合法
+            size_t cur = (size_t)(c_ptr - c);
+            size_t aligned = (cur + 3) & ~(size_t)3;
+            if (aligned > cur)
+            {
+                uint8_t* pad = reserve(aligned - cur);
+                if (!pad)
+                {
+                    DEG_LOG(E, "merge_nv: output buffer too small (%zu bytes)", c_cap);
+                    delete[] nvid_list_offset;
+                    ERR_EXIT("merge_nv: output buffer too small\n");
+                }
+                memset(pad, 0, aligned - cur);
+                c_ptr = c + aligned;
+            }
         }
     }
 
     // 写入结束标记
     uint8_t endbuf[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-    memcpy(c_ptr, endbuf, 8);
-    *c_size = (c_ptr - c) + 8; // 原逻辑：c_ptr 尚未自增结束标记的长度
+    uint8_t* endp = reserve(8);
+    if (!endp)
+    {
+        DEG_LOG(E, "merge_nv: output buffer too small (%zu bytes)", c_cap);
+        delete[] nvid_list_offset;
+        ERR_EXIT("merge_nv: output buffer too small\n");
+    }
+    memcpy(endp, endbuf, 8);
+    *c_size = (size_t)(endp - c) + 8;
 
     delete[] nvid_list_offset;
 }
@@ -3433,7 +3653,7 @@ void load_partitions(spdio_t* io, const char* path, unsigned step, int force_ab,
     DEG_LOG(I, "Type CTRL + C to cancel...");
     start_signal();
     bool isHasDownloadNV = false;
-    int dlnv_id = 0;
+    int dlnv_id = -1;
     typedef struct
     {
         char name[36];
@@ -3693,11 +3913,12 @@ fallback_to_ansi:
             continue;
         }
 
-        if (!my_stricmp(fn, "splloader") ||
-            !my_stricmp(fn, "uboot_a") ||
-            !my_stricmp(fn, "uboot_b") ||
-            !my_stricmp(fn, "vbmeta_a") ||
-            !my_stricmp(fn, "vbmeta_b"))
+        bool isSpl = !my_stricmp(fn, "splloader");
+        bool isAbSlot = !my_stricmp(fn, "uboot_a") ||
+                        !my_stricmp(fn, "uboot_b") ||
+                        !my_stricmp(fn, "vbmeta_a") ||
+                        !my_stricmp(fn, "vbmeta_b");
+        if (isSpl || isAbSlot)
         {
             if (partitions[i].written_flag == 0)
             {
@@ -3715,7 +3936,12 @@ fallback_to_ansi:
                 }
                 if (isAllowed)
                 {
-                    load_partition(io, fn, partitions[i].file_path, step, CMethod);
+                    // splloader is written directly; uboot/vbmeta A/B images must
+                    // go through unify so the _bak partition and force mode work.
+                    if (isSpl)
+                        load_partition(io, fn, partitions[i].file_path, step, CMethod);
+                    else
+                        load_partition_unify(io, fn, partitions[i].file_path, step, CMethod);
                     flashed_parts.emplace_back(fn);
                 }
                 partitions[i].written_flag = 1;
@@ -3738,8 +3964,14 @@ fallback_to_ansi:
             }
             if (isAllowed)
             {
-                load_partition(io, fn, partitions[i].file_path, step, CMethod);
-                flashed_parts.emplace_back(fn);
+                // Plain "uboot"/"vbmeta" must be resolved to the active slot
+                // (_a/_b) before writing, then written through unify.
+                get_partition_info(io, fn, 0);
+                if (gPartInfo.size)
+                {
+                    load_partition_unify(io, gPartInfo.name, partitions[i].file_path, step, CMethod);
+                    flashed_parts.emplace_back(fn);
+                }
             }
             partitions[i].written_flag = 1;
             continue;
@@ -3852,10 +4084,9 @@ fallback_to_ansi:
             else erase_partition(io, "metadata", CMethod);
         }
     }
-    if (selected_ab == 1) set_active(io, "a", CMethod);
-    else if (selected_ab == 2) set_active(io, "b", CMethod);
-    selected_ab = selected_ab_bak;
-    if (isHasDownloadNV && dlnv_id)
+    // downloadnv must be written before set_active (C order); the sentinel is
+    // -1 so an entry at index 0 is not silently skipped.
+    if (isHasDownloadNV)
     {
         fn = partitions[dlnv_id].name;
         std::string relfn = case_part({}, fn, io);
@@ -3875,6 +4106,9 @@ fallback_to_ansi:
         if (isAllowed)
             load_partition_unify(io, fn, partitions[dlnv_id].file_path, step, CMethod);
     }
+    if (selected_ab == 1) set_active(io, "a", CMethod);
+    else if (selected_ab == 2) set_active(io, "b", CMethod);
+    selected_ab = selected_ab_bak;
     delete[](partitions);
 }
 
@@ -4107,7 +4341,28 @@ int load_partition_unify(spdio_t* io, const char* name, const char* fn, unsigned
     get_partition_info(io, name1, 1);
     if (!gPartInfo.size)
     {
-        load_partition(io, name0, fn, step, CMethod);
+        // No _bak partition on this device: a force write must still go through
+        // load_partition_force so the "w_force" placeholder swap is applied.
+        if (g_app_state.flash.g_w_force)
+        {
+            partition_t* table = CMethod ? io->Cptable : io->ptable;
+            int count = CMethod ? io->part_count_c : io->part_count;
+            bool forced = false;
+            for (int i = 0; i < count; i++)
+            {
+                if (table && !strcmp(name0, table[i].name))
+                {
+                    load_partition_force(io, i, fn, step, CMethod);
+                    forced = true;
+                    break;
+                }
+            }
+            if (!forced) load_partition(io, name0, fn, step, CMethod);
+        }
+        else
+        {
+            load_partition(io, name0, fn, step, CMethod);
+        }
         return 1;
     }
     size1 = gPartInfo.size;
@@ -4211,3 +4466,429 @@ std::string utf16_to_utf8(const std::wstring& wstr)
     return utf8;
 }
 #endif
+
+// =========================================================================
+// EXTENDED (e_*) commands
+//
+// All of them need a special FDL that implements the 0x70..0x7A command set.
+// Reading commands are implemented memory-first: the payload is collected in
+// a RAM buffer (do_*_to_mem) and the file variant is only a thin writer on top
+// of it. This keeps the memory processing mode (PAC / in-RAM merging) intact
+// and avoids any temporary files.
+// =========================================================================
+
+uint8_t* do_e_readmem_to_mem(spdio_t* io, uint32_t addr, uint32_t length,
+                             unsigned step, uint64_t* out_size)
+{
+    if (out_size) *out_size = 0;
+    if (!length) return nullptr;
+    if (!step) step = DEFAULT_BLK_SIZE;
+
+    uint8_t* out = NEWN uint8_t[length];
+    if (!out) ERR_EXIT("malloc failed\n");
+
+    uint32_t total_read = 0;
+    while (total_read < length)
+    {
+        uint32_t chunk = length - total_read;
+        if (chunk > step) chunk = step;
+        WRITE32_LE(io->temp_buf, addr + total_read);
+        WRITE32_LE(io->temp_buf + 4, chunk);
+        encode_msg_nocpy(io, BSL_CMD_E_READ_MEM, 8);
+        send_msg(io);
+        int ret = recv_msg(io);
+        if (!ret)
+        {
+            delete[] out;
+            ERR_EXIT("timeout reached\n");
+        }
+        if ((ret = (int)recv_type(io)) != BSL_REP_E_READ_MEM)
+        {
+            DEG_LOG(W, "unexpected response (%s : 0x%04x)",
+                    get_bsl_enum_name((unsigned)ret), (unsigned)ret);
+            break;
+        }
+        uint16_t nread = READ16_BE(io->raw_buf + 2);
+        if (nread > chunk)
+        {
+            DEG_LOG(W, "e_readmem: unexpected length");
+            break;
+        }
+        memcpy(out + total_read, io->raw_buf + 4, nread);
+        total_read += nread;
+        if (nread != chunk) break;
+    }
+
+    if (out_size) *out_size = total_read;
+    DEG_LOG(I, "e_readmem Done: addr=0x%x, target=0x%x, read=0x%x", addr, length, total_read);
+    return out;
+}
+
+void do_e_readmem(spdio_t* io, uint32_t addr, uint32_t length, const char* fn, unsigned step)
+{
+    uint64_t got = 0;
+    uint8_t* mem = do_e_readmem_to_mem(io, addr, length, step, &got);
+    if (!mem)
+    {
+        DEG_LOG(W, "e_readmem: nothing to read");
+        return;
+    }
+    EnhancedFile fo = oxfopen_enhanced(fn, "wb");
+    if (!fo)
+    {
+        delete[] mem;
+        ERR_EXIT("fopen(e_readmem) failed\n");
+    }
+    if (got && fo.write(mem, 1, (size_t)got) != got)
+    {
+        delete[] mem;
+        ERR_EXIT("fwrite(e_readmem) failed\n");
+    }
+    fo.close();
+    delete[] mem;
+}
+
+int do_e_bl(spdio_t* io, unsigned step, int CMethod)
+{
+    if (!step) step = DEFAULT_BLK_SIZE;
+    encode_msg_nocpy(io, BSL_CMD_E_BL, 0);
+    send_msg(io);
+    if (!recv_msg(io)) ERR_EXIT("timeout reached\n");
+
+    uint16_t n = READ16_BE(io->raw_buf + 2);
+    unsigned rt = recv_type(io);
+    if (rt == BSL_REP_E_BL)
+    {
+        uint8_t* out = NEWN uint8_t[n ? n : 1];
+        if (!out) ERR_EXIT("malloc failed\n");
+        for (uint16_t i = 0; i < n; i++)
+            out[i] = (uint8_t)((io->raw_buf + 4)[i] ^ (uint8_t)(0x55 + i));
+        DEG_LOG(I, "HUK:");
+        print_mem(stderr, out, n);
+
+        if (n >= 16)
+        {
+            uint8_t pt[64];
+            uint8_t ct[64];
+            memset(pt, 0, sizeof(pt));
+            memcpy(pt, "VerifiedBoot-UNLOCK", 19);
+            aes128_ecb_encrypt(out, pt, 64, ct);
+            DEG_LOG(I, "Encrypted:");
+            print_mem(stderr, ct, 64);
+            w_mem_to_part_offset(io, "miscdata", 0x2000, ct, 64, step, CMethod);
+        }
+        else
+        {
+            DEG_LOG(W, "e_bl: response too short");
+        }
+        delete[] out;
+    }
+    else
+    {
+        DEG_LOG(W, "unexpected response (%s : 0x%04x)",
+                get_bsl_enum_name(rt), rt);
+        print_mem(stderr, io->raw_buf + 4, n);
+    }
+    return 1;
+}
+
+int do_e_rpmb_pagecount(spdio_t* io)
+{
+    encode_msg_nocpy(io, BSL_CMD_E_RPMB_PAGECOUNT, 0);
+    send_msg(io);
+    if (!recv_msg(io)) ERR_EXIT("timeout reached\n");
+    unsigned rt = recv_type(io);
+    if (rt != BSL_REP_E_RPMB_PAGECOUNT)
+    {
+        DEG_LOG(W, "unexpected response (%s : 0x%04x)", get_bsl_enum_name(rt), rt);
+        g_app_state.flash.rpmb_pagecnt = -1;
+        return -1;
+    }
+    uint32_t cnt = 0;
+    memcpy(&cnt, io->raw_buf + 4, sizeof(cnt));
+    DEG_LOG(I, "RPMB_PAGECOUNT 0x%x", cnt);
+    g_app_state.flash.rpmb_pagecnt = (int)cnt;
+    return (int)cnt;
+}
+
+int do_e_rpmb_counter(spdio_t* io)
+{
+    encode_msg_nocpy(io, BSL_CMD_E_RPMB_COUNTER, 0);
+    send_msg(io);
+    if (!recv_msg(io)) ERR_EXIT("timeout reached\n");
+    unsigned rt = recv_type(io);
+    if (rt != BSL_REP_E_RPMB_COUNTER)
+    {
+        DEG_LOG(W, "unexpected response (%s : 0x%04x)", get_bsl_enum_name(rt), rt);
+        return -1;
+    }
+    uint32_t cnt = 0;
+    memcpy(&cnt, io->raw_buf + 4, sizeof(cnt));
+    DEG_LOG(I, "RPMB_COUNTER 0x%x", cnt);
+    return (int)cnt;
+}
+
+uint8_t* do_e_rpmb_read_to_mem(spdio_t* io, uint32_t page_start, uint32_t page_count,
+                               unsigned step, uint64_t* out_size)
+{
+    if (out_size) *out_size = 0;
+    if (!page_count) return nullptr;
+
+    uint32_t pages_per_chunk = step >> 8;
+    if (pages_per_chunk < 1) pages_per_chunk = 1;
+
+    size_t total_bytes = (size_t)page_count << 8;
+    uint8_t* out = NEWN uint8_t[total_bytes];
+    if (!out) ERR_EXIT("malloc failed\n");
+
+    uint32_t pages_read = 0;
+    unsigned long long time_start = GetTickCount64();
+    while (pages_read < page_count)
+    {
+        uint32_t chunk = page_count - pages_read;
+        if (chunk > pages_per_chunk) chunk = pages_per_chunk;
+        uint8_t* data = (uint8_t*)io->temp_buf;
+        WRITE16_LE(data, (uint16_t)(page_start + pages_read));
+        WRITE16_LE(data + 2, (uint16_t)chunk);
+        encode_msg_nocpy(io, BSL_CMD_E_RPMB_READ, 4);
+        send_msg(io);
+        int ret = recv_msg(io);
+        if (!ret)
+        {
+            delete[] out;
+            ERR_EXIT("timeout reached\n");
+        }
+        if ((ret = (int)recv_type(io)) != BSL_REP_E_RPMB_READ)
+        {
+            DEG_LOG(W, "unexpected response (%s : 0x%04x)",
+                    get_bsl_enum_name((unsigned)ret), (unsigned)ret);
+            break;
+        }
+        uint16_t n = READ16_BE(io->raw_buf + 2);
+        uint32_t want = chunk << 8;
+        if (n > want)
+        {
+            DEG_LOG(W, "e_rpmb_read: unexpected length");
+            break;
+        }
+        size_t off = (size_t)pages_read << 8;
+        if (off + n > total_bytes) break;
+        memcpy(out + off, io->raw_buf + 4, n);
+        pages_read += chunk;
+        print_progress_bar(io, pages_read, page_count, time_start);
+        if (n < want)
+        {
+            DEG_LOG(W, "short read");
+            break;
+        }
+    }
+
+    if (out_size) *out_size = (uint64_t)pages_read << 8;
+    DEG_LOG(I, "e_rpmb_read Done: start=0x%x, count=0x%x, read=%u pages",
+            page_start, page_count, pages_read);
+    return out;
+}
+
+void do_e_rpmb_read(spdio_t* io, uint32_t page_start, uint32_t page_count,
+                    const char* fn, unsigned step)
+{
+    uint64_t got = 0;
+    uint8_t* mem = do_e_rpmb_read_to_mem(io, page_start, page_count, step, &got);
+    if (!mem)
+    {
+        DEG_LOG(W, "e_rpmb_read: nothing to read");
+        return;
+    }
+    EnhancedFile fo = oxfopen_enhanced(fn, "wb");
+    if (!fo)
+    {
+        delete[] mem;
+        ERR_EXIT("fopen(e_rpmb_read) failed\n");
+    }
+    if (got && fo.write(mem, 1, (size_t)got) != got)
+    {
+        delete[] mem;
+        ERR_EXIT("fwrite(e_rpmb_read) failed\n");
+    }
+    fo.close();
+    delete[] mem;
+}
+
+int do_e_rpmb_read_auto(spdio_t* io, unsigned step)
+{
+    // On-demand query: never fire an unsupported command at connect time.
+    if (g_app_state.flash.rpmb_pagecnt < 0)
+    {
+        if (do_e_rpmb_pagecount(io) < 0) return 0;
+    }
+    if (g_app_state.flash.rpmb_pagecnt <= 0) return 0;
+    do_e_rpmb_read(io, 0, (uint32_t)g_app_state.flash.rpmb_pagecnt, "rpmb_dump", step);
+    return 1;
+}
+
+void do_e_rpmb_write(spdio_t* io, uint32_t page_start, const char* fn, unsigned step)
+{
+    if (g_app_state.flash.rpmb_pagecnt < 0)
+    {
+        if (do_e_rpmb_pagecount(io) < 0) return;
+    }
+    if (g_app_state.flash.rpmb_pagecnt <= 0) return;
+
+    uint32_t page_count_max = (uint32_t)g_app_state.flash.rpmb_pagecnt;
+    size_t file_size = 0;
+    uint8_t* file_buf = loadfile(fn, &file_size, 0);
+    if (!file_buf || !file_size) ERR_EXIT("loadfile failed\n");
+    if (file_size & 0xFF)
+    {
+        delete[] file_buf;
+        ERR_EXIT("file size must be multiple of 256\n");
+    }
+
+    uint32_t page_count = (uint32_t)(file_size >> 8);
+    if (page_start >= page_count_max)
+    {
+        page_count = 0;
+    }
+    else if (page_start + page_count > page_count_max || page_start + page_count < page_start)
+    {
+        page_count = page_count_max - page_start;
+    }
+
+    uint32_t pages_per_chunk = step >> 8;
+    if (pages_per_chunk < 1) pages_per_chunk = 1;
+
+    uint32_t pages_done = 0;
+    unsigned long long time_start = GetTickCount64();
+    while (pages_done < page_count)
+    {
+        uint32_t chunk = page_count - pages_done;
+        if (chunk > pages_per_chunk) chunk = pages_per_chunk;
+        uint8_t* data = (uint8_t*)io->temp_buf;
+        WRITE16_LE(data, 0);
+        WRITE16_LE(data + 2, (uint16_t)(page_start + pages_done));
+        WRITE16_LE(data + 4, (uint16_t)chunk);
+        encode_msg_nocpy(io, BSL_CMD_E_RPMB_WRITE, 6);
+        if (send_and_check(io))
+        {
+            DEG_LOG(E, "e_rpmb_write init_config failed");
+            break;
+        }
+        WRITE16_LE(data, 1);
+        memcpy(data + 2, file_buf + ((size_t)pages_done << 8), (size_t)chunk << 8);
+        encode_msg_nocpy(io, BSL_CMD_E_RPMB_WRITE, (chunk << 8) + 2);
+        if (send_and_check(io))
+        {
+            DEG_LOG(E, "e_rpmb_write send_data failed");
+            break;
+        }
+        WRITE16_LE(data, 2);
+        encode_msg_nocpy(io, BSL_CMD_E_RPMB_WRITE, 2);
+        if (send_and_check(io))
+            print_mem(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+        pages_done += chunk;
+        print_progress_bar(io, pages_done, page_count, time_start);
+    }
+
+    delete[] file_buf;
+    DEG_LOG(I, "e_rpmb_write Done: start=0x%x, count=0x%x pages", page_start, page_count);
+}
+
+void do_e_efuse_read(spdio_t* io, uint32_t block_id)
+{
+    DEG_LOG(I, "e_efuse_read: block_id=0x%x", block_id);
+    WRITE32_LE(io->temp_buf, block_id);
+    WRITE32_LE(io->temp_buf + 4, 1);
+    encode_msg_nocpy(io, BSL_CMD_E_EFUSE_READ, 8);
+    send_msg(io);
+    if (!recv_msg(io)) ERR_EXIT("timeout reached\n");
+    unsigned rt = recv_type(io);
+    if (rt == BSL_REP_E_EFUSE_READ)
+    {
+        uint32_t val = READ32_LE(io->raw_buf + 4);
+        DEG_LOG(I, "eFuse[0x%x] = 0x%x", block_id, val);
+    }
+    else
+    {
+        DEG_LOG(W, "unexpected response (%s : 0x%04x)", get_bsl_enum_name(rt), rt);
+        print_mem(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+    }
+}
+
+static void e_build_trustos_name(uint8_t* data, int selected_ab)
+{
+    memset(data, 0, 32);
+    if (selected_ab > 0)
+    {
+        char name_ab[16];
+        snprintf(name_ab, sizeof(name_ab), "trustos_%c", 96 + selected_ab);
+        memcpy(data, name_ab, strlen(name_ab));
+    }
+    else
+    {
+        memcpy(data, "trustos", 7);
+    }
+    for (int i = 0; i < 32; i++)
+        data[i] = (uint8_t)(data[i] ^ (uint8_t)(0x65 + i));
+}
+
+void do_e_pwn(spdio_t* io, int selected_ab)
+{
+    uint8_t* data = (uint8_t*)io->temp_buf;
+    e_build_trustos_name(data, selected_ab);
+    encode_msg_nocpy(io, BSL_CMD_E_CHECKPWN, 32);
+    if (send_and_check(io) && READ32_LE(io->raw_buf + 4) == 7)
+    {
+        encode_msg_nocpy(io, BSL_CMD_E_PWN, 32);
+        if (send_and_check(io))
+            print_mem(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+    }
+    else
+    {
+        print_mem(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+    }
+}
+
+void do_e_checkpwn(spdio_t* io, int selected_ab)
+{
+    uint8_t* data = (uint8_t*)io->temp_buf;
+    e_build_trustos_name(data, selected_ab);
+    encode_msg_nocpy(io, BSL_CMD_E_CHECKPWN, 32);
+    if (send_and_check(io))
+        print_mem(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+}
+
+static void w_force_commit_table(spdio_t* io, partition_t* table, int count)
+{
+    if (!io || !table || count <= 0) return;
+
+    uint8_t* buf = io->temp_buf;
+    for (int i = 0; i < count; i++)
+    {
+        memset(buf, 0, 36 * 2);
+        char a;
+        int j;
+        for (j = 0; (a = table[i].name[j]); j++)
+            buf[j * 2] = (uint8_t)a;
+        if (!j) ERR_EXIT("empty partition name\n");
+        if (i + 1 == count) WRITE32_LE(buf + 0x48, ~0);
+        else WRITE32_LE(buf + 0x48, (uint32_t)(table[i].size >> 20));
+        buf += 0x4c;
+    }
+    encode_msg_nocpy(io, BSL_CMD_REPARTITION, count * 0x4c);
+    if (send_and_check(io))
+    {
+        DEG_LOG(W, "w_force self-repair: repartition failed, device still holds \"w_force\" partition, fix it manually");
+        return; // keep the flag so it can be retried
+    }
+    g_app_state.flash.w_force_repart = false;
+    w_force_ids.clear();
+    DEG_LOG(I, "w_force self-repair: repaired partition table written back");
+}
+
+void w_force_self_repair(spdio_t* io, int CMethod)
+{
+    partition_t* table = CMethod ? io->Cptable : io->ptable;
+    int count = CMethod ? io->part_count_c : io->part_count;
+    w_force_commit_table(io, table, count);
+}
+

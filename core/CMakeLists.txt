@@ -3,6 +3,7 @@
 
 add_library(core_lib STATIC
     logging.cpp
+    aes128.cpp
     file_io.cpp
     pac_extract.cpp
     usb_transport.cpp

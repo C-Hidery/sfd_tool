@@ -997,9 +997,9 @@ bool pac_flash(spdio_t* io, const char* folder)
                                     std::string file_path = g_app_state.flash.pac_folder + "\\" + name;
 #endif
                                     uint8_t* b = loadfile(file_path.c_str(), &b_size, 0);
-                                    uint8_t* c = (uint8_t*)malloc(a_size + b_size);
-                                    merge_nv(io, a, a_size, b, b_size, c, &c_size);
-                                    load_nv_partition_from_mem(io, partition.c_str(), c,
+                                    uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                                    merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
+                                    load_nv_partition_from_mem(io, partition.c_str(), c, c_size,
                                                                blk_size ? blk_size : DEFAULT_BLK_SIZE);
                                     delete[](a);
                                     delete[](b);
@@ -1031,9 +1031,9 @@ bool pac_flash(spdio_t* io, const char* folder)
                                     std::string file_path = g_app_state.flash.pac_folder + "\\" + name;
 #endif
                                     uint8_t* b = loadfile(file_path.c_str(), &b_size, 0);
-                                    uint8_t* c = (uint8_t*)malloc(a_size + b_size);
-                                    merge_nv(io, a, a_size, b, b_size, c, &c_size);
-                                    load_nv_partition_from_mem(io, partition.c_str(), c,
+                                    uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                                    merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
+                                    load_nv_partition_from_mem(io, partition.c_str(), c, c_size,
                                                                blk_size ? blk_size : DEFAULT_BLK_SIZE);
                                     delete[](a);
                                     delete[](b);
@@ -1112,9 +1112,9 @@ bool pac_flash(spdio_t* io, const char* folder)
                                     std::string file_path = g_app_state.flash.pac_folder + "\\" + name;
 #endif
                                     uint8_t* b = loadfile(file_path.c_str(), &b_size, 0);
-                                    uint8_t* c = (uint8_t*)malloc(a_size + b_size);
-                                    merge_nv(io, a, a_size, b, b_size, c, &c_size);
-                                    load_nv_partition_from_mem(io, partition.c_str(), c,
+                                    uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                                    merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
+                                    load_nv_partition_from_mem(io, partition.c_str(), c, c_size,
                                                                blk_size ? blk_size : DEFAULT_BLK_SIZE);
                                     delete[] a;
                                     delete[] b;

@@ -27,6 +27,8 @@ struct FlashState {
     int isCMethod = 0;      // 兼容模式标志（PartList 等）
     int selected_ab = -1;   // 当前使用的 slot（0=无，1=a，2=b）
     int g_w_force = 0;     // 是否自动启用强制写入（针对部分特殊分区）
+    int rpmb_pagecnt = -1; // EXTENDED e_rpmb_* 使用的 RPMB 页数（<0 表示未查询/不支持）
+    bool w_force_repart = false; // w_force 自我修复：内存表已改名，待回写设备分区表
     bool isPacFlashing = false; // 是否正在进行 PAC 刷机（影响分区选择和写入策略）
     bool isPacMergingNV = false;
     std::string pac_folder;  // PAC 刷机时解压的临时文件夹路径

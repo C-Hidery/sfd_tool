@@ -86,6 +86,30 @@ private:
         return max_size(main_size, sizewithPostrom);
     }
     static uint8_t* dis_avb_in_memory(uint8_t* buf, size_t size, size_t* out_size) {
+        if (!buf || !out_size) return nullptr;
+        if (size < sizeof(sys_img_header) + 0x200 + sizeof(sprdsignedimageheader)) {
+            printf("[TosPatcher] [ERROR] image too small for AVB patch.\n");
+            return nullptr;
+        }
+        // Already patched? payload_offset == sizeof(sys_img_header) for a fresh
+        // signed image; anything else means AVB was disabled before.
+        {
+            sys_img_header* hdr = (sys_img_header*)buf;
+            if ((size_t)hdr->mImgSize + 0x200 + sizeof(sprdsignedimageheader) > size) {
+                printf("[TosPatcher] [ERROR] image footer out of range.\n");
+                return nullptr;
+            }
+            sprdsignedimageheader* fh = (sprdsignedimageheader*)&buf[hdr->mImgSize + 0x200];
+            if (fh->payload_offset != sizeof(sys_img_header)) {
+                printf("[TosPatcher] [INFO] image already AVB-patched, skipping patch.\n");
+                uint8_t* copy = (uint8_t*)malloc(size);
+                if (!copy) return nullptr;
+                memcpy(copy, buf, size);
+                *out_size = size;
+                return copy;
+            }
+        }
+
         size_t pmov[3] = {0};
         size_t last_start_pos = 0, start_pos = 0;
         int mov_count = 0;
@@ -161,13 +185,26 @@ private:
     static uint8_t* bsp_cve_2img_in_memory(uint8_t* signed_buf, size_t signed_size,
                                        uint8_t* target_buf, size_t target_size,
                                        size_t* out_size) {
+        if (!signed_buf || !target_buf || !out_size) return nullptr;
+        if (signed_size < sizeof(sys_img_header) + 0x200 + sizeof(sprdsignedimageheader)) {
+            printf("[TosPatcher] [ERROR] signed image too small.\n");
+            return nullptr;
+        }
+
         size_t modified_img_size = ((target_size + 15) / 16) * 16;
+        if (modified_img_size > target_size)
+            modified_img_size = target_size; // never read past the caller buffer
 
         uint8_t* modified_img = target_buf;
-        size_t orig_modified_img_size = *(uint32_t*)&modified_img[0x30];
-        if (*(uint32_t*)modified_img == 0x42544844 && orig_modified_img_size) {
-            modified_img_size = orig_modified_img_size;
-            modified_img += sizeof(sys_img_header);
+        if (target_size >= sizeof(sys_img_header)) {
+            size_t orig_modified_img_size = *(uint32_t*)&modified_img[0x30];
+            if (*(uint32_t*)modified_img == 0x42544844 && orig_modified_img_size) {
+                modified_img_size = orig_modified_img_size;
+                modified_img += sizeof(sys_img_header);
+                size_t avail = target_size - sizeof(sys_img_header);
+                if (modified_img_size > avail)
+                    modified_img_size = avail; // clamp to the real buffer
+            }
         }
 
         sys_img_header* sys_img_hdr = (sys_img_header*)signed_buf;
