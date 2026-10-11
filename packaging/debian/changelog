@@ -1,3 +1,9 @@
+sfd-tool (3.3.0-1-ltv) unstable; urgency=medium
+
+  * 新增 e_* EXTENDED 命令行命令（e_readmem/e_bl/e_rpmb_*/e_efuse_read/e_pwn/e_checkpwn，需专用 loader）
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sun, 11 Oct 2026 10:53:12 +0800
+
 sfd-tool (3.2.3-1-ltv) unstable; urgency=medium
 
   * 修复了一些已知问题

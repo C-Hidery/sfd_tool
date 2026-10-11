@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 3.2.3 LTV Edition
+Version 3.3.0 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -487,11 +487,8 @@ Remove unstable blk_size detection
 ---v 3.2.3---
 修复了一些已知问题
 
----Unreleased---
+---v 3.3.0---
 新增 e_* EXTENDED 命令行命令（e_readmem/e_bl/e_rpmb_*/e_efuse_read/e_pwn/e_checkpwn，需专用 loader）
-修复 NV 读取越界、merge_nv 对齐/边界、GPT 读取边界与存储类型判断
-修复强制写入（w_force）闸门与失败复位、downloadnv 写入顺序、w_force 自我修复回写
-读取取消时正确结束 READ_END 会话；BSP/DHTB 签名镜像按真实大小裁剪
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
