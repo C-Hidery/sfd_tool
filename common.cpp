@@ -350,7 +350,11 @@ TempFile dump_flash_to_temp(spdio_t* io,
     }
     unsigned got = dump_flash(io, addr, start, len, path.c_str(), step, mode);
     if (out_size) *out_size = got;
-    if (!got) return TempFile{};
+    if (!got)
+    {
+        remove_file(path); // 失败时不能泄漏已创建的临时文件
+        return TempFile{};
+    }
     return TempFile(std::move(path));
 }
 
@@ -694,7 +698,11 @@ TempFile dump_partition_to_temp(spdio_t* io,
     }
     uint64_t got = dump_partition(io, name, start, len, path.c_str(), step);
     if (out_size) *out_size = got;
-    if (!got) return TempFile{};
+    if (!got)
+    {
+        remove_file(path); // 失败时不能泄漏已创建的临时文件
+        return TempFile{};
+    }
     return TempFile(std::move(path));
 }
 

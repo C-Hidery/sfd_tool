@@ -29,6 +29,17 @@ static int& selected_ab = g_app_state.flash.selected_ab;
 bool& isToolMode = g_app_state.flash.isToolMode;
 extern char* temp;
 
+// 有些命令没有显式输出路径，依赖 `path`(savepath)。未设置时只提示一次，
+// 避免用户以为文件写到了别处（安装版可能落到程序目录）。
+static void warn_if_savepath_unset(const char* cmd)
+{
+    static bool warned = false;
+    if (savepath[0] || warned) return;
+    warned = true;
+    DEG_LOG(W, "`%s` has no output path set; files will be written to the current directory.", cmd);
+    DEG_LOG(W, "Set one first with: path <DIR>");
+}
+
 void print_help()
 {
     fprintf(stderr, "Usage:\n"
@@ -2126,6 +2137,7 @@ int main_console(int argc, char** argv)
                 argc = 1;
                 continue;
             }
+            warn_if_savepath_unset("read_part");
             if (!strcmp(name, "preset_modem"))
             {
                 start_signal();
@@ -2340,6 +2352,7 @@ int main_console(int argc, char** argv)
                 argc = 1;
                 continue;
             }
+            warn_if_savepath_unset("read_parts");
             fn = str2[2];
             EnhancedFile fi = oxfopen_enhanced(fn, "r");
             if (!fi)
@@ -3214,6 +3227,7 @@ int main_console(int argc, char** argv)
                 argv += 1;
                 continue;
             }
+            warn_if_savepath_unset("e_rpmb_read_auto");
             do_e_rpmb_read_auto(io, blk_size ? blk_size : DEFAULT_BLK_SIZE);
             argc -= 1;
             argv += 1;
@@ -4697,9 +4711,14 @@ int main_console(int argc, char** argv)
                 continue;
             }
         }
-        else if (strlen(str2[1]))
+        else if (!strcmp(str2[1], "help"))
         {
             print_help();
+            argc = 1;
+        }
+        else if (strlen(str2[1]))
+        {
+            DEG_LOG(E, "Unknown command: %s, use `help` to see available commands.", str2[1]);
             argc = 1;
         }
         if (in_quote != -1)

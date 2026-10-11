@@ -34,7 +34,8 @@ static bool is_absolute_utf8(const char* fn) {
 #endif
 }
 
-// 简易 UTF-8 合法性检查（只做结构校验，不解析字符）。
+// 简易 UTF-8 合法性检查（只做结构校验，不解析字符）。仅 POSIX 分支使用。
+#ifndef _WIN32
 static bool is_valid_utf8(const std::string& s) {
     size_t i = 0;
     const size_t n = s.size();
@@ -54,6 +55,7 @@ static bool is_valid_utf8(const std::string& s) {
     }
     return true;
 }
+#endif // !_WIN32
 
 // 生成系统临时目录下的唯一文件路径，保证返回合法 UTF-8。
 std::string make_temp_file_path(const char* tag) {
