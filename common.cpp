@@ -4265,7 +4265,7 @@ int do_e_bl(spdio_t* io, unsigned step, int CMethod)
             memset(pt, 0, sizeof(pt));
             memcpy(pt, "VerifiedBoot-UNLOCK", 19);
             aes128_ecb_encrypt(out, pt, 64, ct);
-            DEG_LOG(I, "Encrypted:");
+            DBG_LOG("Encrypted:");
             print_mem(stderr, ct, 64);
             w_mem_to_part_offset(io, "miscdata", 0x2000, ct, 64, step, CMethod);
         }
