@@ -23,6 +23,9 @@ sfd_tool is a maintenance release for spreadtrum_flash
 
 [spreadtrum_flash](https://github.com/TomKing062/spreadtrum_flash)
 
+
+**Notice: The support for Windows 7 is deprecated, because GTK Development Team stopped the maintenance for MinGW64 on 2026 Oct.17.**
+
 ---
 
 Run this before making:
@@ -195,9 +198,6 @@ SFD Tool is primarily tested and released for:
 - **macOS** (recent versions)
 - **Termux / Android** (CLI only, via `--no-gui`)
 
-Windows 7 users need to install `VxKex NEXT` to run the tool.
-
-[VxKex NEXT](https://github.com/YuZhouRen86/VxKex-NEXT)
 
 Prebuilt binaries and packages are provided on GitHub Releases, typically including:
 

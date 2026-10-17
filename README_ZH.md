@@ -15,6 +15,8 @@ SFD Tool 是一个面向 Spreadtrum / UNISOC 设备的跨平台刷机与维护�
 
 ---
 
+**提示：SFD Tool对Windows7的维护已停止，其原因是GTK开发团队于2026年10月17日停止了对MinGW64预编译包的维护。**
+
 ## 支持平台与预编译包
 
 当前主要支持并测试的运行平台：
@@ -24,9 +26,6 @@ SFD Tool 是一个面向 Spreadtrum / UNISOC 设备的跨平台刷机与维护�
 - **macOS**（近期版本）
 - **Termux / Android**（仅命令行模式，通过 `--no-gui`）
 
-Windows 7 用户需要安装`VxKex NEXT`
-
-[VxKex NEXT](https://github.com/YuZhouRen86/VxKex-NEXT)
 
 GitHub Releases 中通常会提供：
 
