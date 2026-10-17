@@ -9,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        3.3.0
+Version:        3.3.1
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -63,6 +63,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Sat Oct 17 2026 RyanCrepa <Ryan110413@outlook.com> - 3.3.1-1-ltv
+- 修复了一些已知问题
+
 * Sun Oct 11 2026 RyanCrepa <Ryan110413@outlook.com> - 3.3.0-1-ltv
 - 新增 e_* EXTENDED 命令行命令（e_readmem/e_bl/e_rpmb_*/e_efuse_read/e_pwn/e_checkpwn，需专用 loader）
 

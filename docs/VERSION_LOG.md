@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 3.3.0 LTV Edition
+Version 3.3.1 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -492,6 +492,9 @@ Remove unstable blk_size detection
 修复 NV 读取越界、merge_nv 对齐/边界、GPT 读取边界与存储类型判断
 修复强制写入（w_force）闸门与失败复位、downloadnv 写入顺序、w_force 自我修复回写
 其它已知问题
+
+---v 3.3.1---
+修复了一些已知问题
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
