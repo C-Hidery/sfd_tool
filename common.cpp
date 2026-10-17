@@ -1988,8 +1988,7 @@ int checkPartitionSuffix(std::string_view name) {
 void load_partition(spdio_t* io, const char* name,
                     const char* fn, unsigned step, int CMethod)
 {
-    get_partition_info(io, name, 1);
-    if (!gPartInfo.size) return;
+    if (!check_partition(io, name, 0)) return;
     uint64_t offset, len, n64;
     unsigned mode64, n, step0 = step;
     int ret;
@@ -2152,8 +2151,7 @@ void load_partition_force(spdio_t* io, const int id, const char* fn, unsigned st
     double rtime = get_time();
     char name[] = "w_force";
     const char* part_name = CMethod ? (*(io->Cptable + id)).name : (*(io->ptable + id)).name;
-    get_partition_info(io, part_name, 1);
-    if (!gPartInfo.size) return;
+    if (!check_partition(io, part_name, 0)) return;
     if (strstr(part_name, "calinv") || strstr(part_name, "factorynv"))
     {
         DEG_LOG(W, "Partition %s is skipped for force write due to potential risks.", part_name);
