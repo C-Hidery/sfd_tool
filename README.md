@@ -23,6 +23,9 @@ sfd_tool is a maintenance release for spreadtrum_flash
 
 [spreadtrum_flash](https://github.com/TomKing062/spreadtrum_flash)
 
+
+**Notice: The support for Windows 7 is deprecated, because GTK Development Team stopped the maintenance for MinGW64 on 2026 Oct.17.**
+
 ---
 
 Run this before making:
@@ -127,7 +130,7 @@ Notice:
 
 ## WARNING - DISABLE VERITY & AVB
 
-**Command:** `dis_avb_tos [BACKUP FILE]` / `verity 0`
+**Command:** `dis_avb_tos [BACKUP FILE]` / `verity 0` / `bl 0` / `e_bl [BACKUP MISCDATA PATH]`
 
 This command will **DISABLE** Android's DM-verity and AVB security verification mechanisms on your device.
 
@@ -144,7 +147,10 @@ This command will **DISABLE** Android's DM-verity and AVB security verification 
 
 ## BEFORE CONTINUING
 
+**FULL Backup is very important before these operations!**
+
 - For  `dis_avb_tos` , SFD Tool will automatically backup your `trustos` partition
+- For `e_bl`, SFD Tool will automatically backup your `miscdata` partition
 - **Keep this backup safe** - you will need it for recovery
 
 ## TO RESTORE
@@ -152,6 +158,12 @@ This command will **DISABLE** Android's DM-verity and AVB security verification 
 For `verity 0`, Use command: `verity 1`
 
 For  `dis_avb_tos`, flash backup image.
+
+For `bl 0`, Use command: `bl 1`
+
+For `e_bl`, flash backup image and execute a factory reset.
+
+**If these don't work for your device, please flash back all partition backups!**
 
 [Useful link for more details](https://github.com/TomKing062/unisoc_chipram_signcheck_exploit/)
 
@@ -186,9 +198,6 @@ SFD Tool is primarily tested and released for:
 - **macOS** (recent versions)
 - **Termux / Android** (CLI only, via `--no-gui`)
 
-Windows 7 users need to install `VxKex NEXT` to run the tool.
-
-[VxKex NEXT](https://github.com/YuZhouRen86/VxKex-NEXT)
 
 Prebuilt binaries and packages are provided on GitHub Releases, typically including:
 

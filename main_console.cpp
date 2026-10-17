@@ -201,7 +201,7 @@ void print_help()
             "\nEXTENDED Commands (need special loaders)\n"
             "\t50.e_readmem addr length FILE\n"
             "\t\tReads memory at addr for length bytes and saves to FILE.\n"
-            "\t51.e_bl\n"
+            "\t51.e_bl [BACKUP MISCDATA PATH]\n"
             "\t\tSet bootloader status.\n"
             "\t52.e_rpmb_pagecount\n"
             "\t\tQueries RPMB page count.\n"
@@ -3149,20 +3149,41 @@ int main_console(int argc, char** argv)
         {
             if (isToolMode)
             {
-                argc -= 1;
-                argv += 1;
+                if (argcount <= 2)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 2;
+                    argv += 2;
+                }
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "e_bl [BACKUP MISCDATA PATH]");
+                argc = 1;
                 continue;
             }
             DEG_LOG(W, "e_bl writes the encrypted \"VerifiedBoot-UNLOCK\" blob to miscdata@0x2000, use with caution!");
-            if (!skip_confirm && !check_confirm("unlock bootloader"))
+            if (!skip_confirm && !check_confirm("Set bootloader status"))
             {
                 argc -= 1;
                 argv += 1;
                 continue;
             }
+            get_partition_info(io, "miscdata", 1);
+            auto s = dump_partition(io, gPartInfo.name, 0, gPartInfo.size, str2[2], blk_size ? blk_size : DEFAULT_BLK_SIZE);
+            if (!s)
+            {
+                DEG_LOG(E, "backup miscdata failed.");
+                argc = 1;
+                continue;
+            }
             do_e_bl(io, 4096, isCMethod);
-            argc -= 1;
-            argv += 1;
+            argc -= 2;
+            argv += 2;
         }
         else if (!strcmp(str2[1], "e_rpmb_pagecount"))
         {

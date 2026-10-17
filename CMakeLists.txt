@@ -255,9 +255,9 @@ endif()
 if (USE_GTK)
     if (WIN32)
         # Windows: headers/libraries are provided by MSYS2 GTK in the CI image.
-        # Use mingw64 for 64-bit builds and mingw32 for 32-bit (x86) builds.
+        # Use ucrt64 for 64-bit builds and mingw32 for 32-bit (x86) builds.
         if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-            set(_gtk_root "C:/msys64/mingw64")
+            set(_gtk_root "C:/msys64/ucrt64")
         else()
             set(_gtk_root "C:/msys64/mingw32")
         endif()
@@ -345,7 +345,7 @@ if (USE_LIBUSB)
     if (WIN32 AND MINGW)
         # MinGW: 使用 MSYS2 的 libusb
         if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-            set(_libusb_root "C:/msys64/mingw64")
+            set(_libusb_root "C:/msys64/ucrt64")
         else()
             set(_libusb_root "C:/msys64/mingw32")
         endif()
