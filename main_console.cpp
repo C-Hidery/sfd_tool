@@ -2377,9 +2377,9 @@ int main_console(int argc, char** argv)
             fi.close();
             bool i_is = pac_extract(fn, path);
             pac_part_select_t* select_table = nullptr;
-            if (!isToolMode)
+            if (!isToolMode && i_is)
             {
-                if (i_is && g_app_state.flash.isPacRdaTable == false)
+                if (g_app_state.flash.isPacRdaTable == false)
                 {
                     if (io->part_count > 0)
                     {
