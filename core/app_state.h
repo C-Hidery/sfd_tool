@@ -34,7 +34,7 @@ struct FlashState {
     bool isPacMergingNV = false;
     std::string pac_folder;  // PAC 刷机时解压的临时文件夹路径
     std::string pac_xmlPath; // PAC 刷机时解析出的 XML 路径，供后续分区信息查询使用
-    std::vector<std::string> pacptable; // PAC 刷机时解析出的分区表（仅包含分区名，顺序与 XML 中一致）
+    std::vector<std::string> selected_pacptable; // PAC 刷机时用户选择的分区表（仅包含分区名）
     bool isToolMode = false; // 是否处于 Tool 模式（影响日志输出、错误处理、用户交互等）
     bool isPacRdaTable = false; // PAC是否使用 RDA 分区表（影响分区选择和写入策略）
 };
@@ -57,6 +57,10 @@ struct PacNVMem
     TempFile nr_fixnv1_file_path;
     TempFile l_fixnv1_file_path;
     TempFile downloadnv_file_path;
+    std::vector<std::string> missing_parts;
+    std::vector<std::string> extra_parts;
+    bool isHasMissingParts() const { return !missing_parts.empty(); }
+    bool isHasExtraParts() const { return !extra_parts.empty(); }
 };
 
 // 集中管理应用运行时状态，替代分散的 extern 全局变量

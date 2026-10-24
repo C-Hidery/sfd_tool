@@ -15,6 +15,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <algorithm>
+#include <cstdio>
 #include <filesystem>  // C++17 filesystem
 #include <sstream>
 #include <sys/stat.h>
@@ -424,16 +426,16 @@ bool pac_extract(const char* fn, const char* folder)
         DEG_LOG(E, "No partition info found in xml");
         return false;
     }
-    if (!io->ptable)
+    if (!io->pacptable)
     {
-        io->ptable = NEWN partition_t[128];
-        if (!io->ptable)
+        io->pacptable = NEWN partition_t[128];
+        if (!io->pacptable)
         {
             DEG_LOG(E, "Failed to allocate memory for partition table");
             return false;
         }
     }
-    auto r = parse_partitions_xml_result(partxml, io->ptable, &io->part_count);
+    auto r = parse_partitions_xml_result(partxml, io->pacptable, &io->part_count_pac);
     if (!r)
     {
         return false;
@@ -442,7 +444,7 @@ bool pac_extract(const char* fn, const char* folder)
     if (isHelperInit)
     {
         // 本函数可能运行在工作线程，所有 GTK 模型操作必须回到 GUI 线程
-        const std::vector<partition_t> partitions(io->ptable, io->ptable + io->part_count);
+        const std::vector<partition_t> partitions(io->pacptable, io->pacptable + io->part_count_pac);
         bool view_ok = true;
         gui_idle_call_wait_drag([partitions, &view_ok]()
         {
@@ -539,7 +541,225 @@ static bool hasPartition(const std::vector<std::string>& partitions, const std::
                         }) != partitions.end();
 }
 
-bool pac_flash(spdio_t* io, const char* folder)
+// ----- PAC 分区表与设备分区表比较 -----
+
+enum class PartitionDiffKind
+{
+    Match,
+    MissingInPac,
+    ExtraInPac,
+    SizeMismatch
+};
+
+struct PartitionTableDiffEntry
+{
+    std::string name;
+    std::string device_size;
+    std::string pac_size;
+    PartitionDiffKind kind = PartitionDiffKind::Match;
+};
+
+static std::string format_partition_size(long long bytes)
+{
+    if (bytes < 0)
+    {
+        return "-";
+    }
+    const unsigned long long value = static_cast<unsigned long long>(bytes);
+    if (value < 1024ULL)
+    {
+        return std::to_string(value) + " B";
+    }
+    if (value < 1024ULL * 1024ULL)
+    {
+        return std::to_string(value / 1024ULL) + " KB";
+    }
+    if (value < 1024ULL * 1024ULL * 1024ULL)
+    {
+        return std::to_string(value / (1024ULL * 1024ULL)) + " MB";
+    }
+    char buf[64];
+    std::snprintf(buf, sizeof(buf), "%.2f GB",
+                  static_cast<double>(value) / (1024.0 * 1024.0 * 1024.0));
+    return std::string(buf);
+}
+
+static const partition_t* find_partition_entry(const partition_t* table, int count, const char* name)
+{
+    if (!table || !name)
+    {
+        return nullptr;
+    }
+    for (int i = 0; i < count; ++i)
+    {
+        if (std::strcmp(table[i].name, name) == 0)
+        {
+            return &table[i];
+        }
+    }
+    return nullptr;
+}
+
+static std::string size_mismatch_detail(const partition_t& device_part, const partition_t& pac_part)
+{
+    return std::string(device_part.name) + " (size mismatch: device=" +
+        format_partition_size(device_part.size) + ", pac=" +
+        format_partition_size(pac_part.size) + ")";
+}
+
+// 逐项比较设备分区表与 PAC 分区表，并把差异同步到 missing_parts / extra_parts。
+// 大小不一致会同时记入两份列表，便于 GUI/CLI 统一展示“存在差异”。
+static std::vector<PartitionTableDiffEntry> compare_partition_tables(spdio_t* io)
+{
+    std::vector<PartitionTableDiffEntry> entries;
+    g_app_state.pac.missing_parts.clear();
+    g_app_state.pac.extra_parts.clear();
+    if (!io)
+    {
+        return entries;
+    }
+
+    const int device_count = io->ptable ? io->part_count : 0;
+    const int pac_count = io->pacptable ? io->part_count_pac : 0;
+
+    for (int i = 0; i < device_count; ++i)
+    {
+        const partition_t& device_part = io->ptable[i];
+        const partition_t* pac_part = find_partition_entry(io->pacptable, pac_count, device_part.name);
+
+        PartitionTableDiffEntry entry;
+        entry.name = device_part.name;
+        entry.device_size = format_partition_size(device_part.size);
+        entry.pac_size = pac_part ? format_partition_size(pac_part->size) : "-";
+
+        if (!pac_part)
+        {
+            entry.kind = PartitionDiffKind::MissingInPac;
+            g_app_state.pac.missing_parts.push_back(entry.name);
+            DEG_LOG(W, "Partition %s exists on device but not in PAC", device_part.name);
+        }
+        // userdata 的实际容量会随设备/刷机模式变化，不参与大小一致性判断。
+        else if (device_part.size != pac_part->size && !iequals(device_part.name, "userdata"))
+        {
+            entry.kind = PartitionDiffKind::SizeMismatch;
+            const std::string detail = size_mismatch_detail(device_part, *pac_part);
+            g_app_state.pac.missing_parts.push_back(detail);
+            g_app_state.pac.extra_parts.push_back(detail);
+            DEG_LOG(W, "Partition %s size mismatch: device=%s, pac=%s",
+                    device_part.name, entry.device_size.c_str(), entry.pac_size.c_str());
+        }
+        entries.push_back(std::move(entry));
+    }
+
+    for (int i = 0; i < pac_count; ++i)
+    {
+        const partition_t& pac_part = io->pacptable[i];
+        if (find_partition_entry(io->ptable, device_count, pac_part.name))
+        {
+            continue;
+        }
+
+        PartitionTableDiffEntry entry;
+        entry.name = pac_part.name;
+        entry.device_size = "-";
+        entry.pac_size = format_partition_size(pac_part.size);
+        entry.kind = PartitionDiffKind::ExtraInPac;
+        g_app_state.pac.extra_parts.push_back(entry.name);
+        DEG_LOG(W, "Partition %s exists in PAC but not on device", pac_part.name);
+        entries.push_back(std::move(entry));
+    }
+
+    return entries;
+}
+
+static void show_partition_table_comparison_dialog(
+    GtkWindow* parent,
+    const std::vector<PartitionTableDiffEntry>& entries,
+    std::size_t device_count,
+    std::size_t pac_count,
+    std::size_t missing_count,
+    std::size_t extra_count,
+    std::size_t mismatch_count)
+{
+    GtkWidget* dialog = gtk_dialog_new_with_buttons(
+        _("Partition Table Comparison"),
+        parent,
+        GTK_DIALOG_MODAL,
+        _("Close"), GTK_RESPONSE_CLOSE,
+        nullptr);
+
+    GtkWidget* content = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+
+    std::string summary = _("Device partitions: ");
+    summary += std::to_string(device_count);
+    summary += _(", PAC partitions: ");
+    summary += std::to_string(pac_count);
+    summary += _(", Missing in PAC: ");
+    summary += std::to_string(missing_count);
+    summary += _(", Extra in PAC: ");
+    summary += std::to_string(extra_count);
+    summary += _(", Size mismatch: ");
+    summary += std::to_string(mismatch_count);
+
+    GtkWidget* summary_label = gtk_label_new(summary.c_str());
+    gtk_widget_set_halign(summary_label, GTK_ALIGN_START);
+    gtkBoxPackStart(content, summary_label, FALSE, FALSE, 0);
+
+    GtkWidget* warning_label = gtk_label_new(
+        _("PAC flashing has been aborted because the device and PAC partition tables are inconsistent."));
+    gtk_widget_set_halign(warning_label, GTK_ALIGN_START);
+    gtk_widget_set_margin_bottom(warning_label, 8);
+    gtkBoxPackStart(content, warning_label, FALSE, FALSE, 0);
+
+    GtkWidget* scrolled = gtk_scrolled_window_new();
+    gtk_widget_set_size_request(scrolled, 900, 520);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    gtkBoxPackStart(content, scrolled, TRUE, TRUE, 0);
+
+    GtkWidget* tree = sfd_row_view_new(FALSE);
+    sfd_row_view_add_text_column(tree, _("Status"), 0, FALSE);
+    sfd_row_view_add_text_column(tree, _("Partition Name"), 1, FALSE);
+    sfd_row_view_add_text_column(tree, _("Device Size"), 2, FALSE);
+    sfd_row_view_add_text_column(tree, _("PAC Size"), 3, FALSE);
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), tree);
+
+    for (const auto& entry : entries)
+    {
+        const char* status = "";
+        switch (entry.kind)
+        {
+        case PartitionDiffKind::Match:
+            status = _("OK");
+            break;
+        case PartitionDiffKind::MissingInPac:
+            status = _("Missing in PAC");
+            break;
+        case PartitionDiffKind::ExtraInPac:
+            status = _("Extra in PAC");
+            break;
+        case PartitionDiffKind::SizeMismatch:
+            status = _("Size mismatch");
+            break;
+        }
+
+        SfdRow* row = sfd_row_new();
+        sfd_row_set_cell(row, 0, status);
+        sfd_row_set_cell(row, 1, entry.name.c_str());
+        sfd_row_set_cell(row, 2, entry.device_size.c_str());
+        sfd_row_set_cell(row, 3, entry.pac_size.c_str());
+        sfd_row_view_add(tree, row);
+    }
+
+#if GTK_CHECK_VERSION(4, 0, 0)
+    gtk_widget_set_visible(dialog, TRUE);
+#else
+    gtk_widget_show_all(dialog);
+#endif
+    runDialog(GTK_DIALOG(dialog));
+    destroyWidget(dialog);
+}
+
+bool pac_flash(const char* folder)
 {
     bool isMergingNV_GUI = helper.getCheckButtonState(helper.getWidget("pac_merge_nv"));
     bool isRepartitionGUI = helper.getCheckButtonState(helper.getWidget("pac_repartition"));
@@ -557,14 +777,6 @@ bool pac_flash(spdio_t* io, const char* folder)
         DEG_LOG(E, "No XML file found in the extracted folder.");
         return false;
     }
-    if (isHelperInit)
-    {
-        if (!showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")),
-                                           _("Confirm"), _("Do you really want to start flashing PAC firmware?")))
-        {
-            return false;
-        }
-    }
     g_app_state.flash.pac_xmlPath = xmlPath;
     if (isHelperInit)
     {
@@ -578,7 +790,7 @@ bool pac_flash(spdio_t* io, const char* folder)
         g_app_state.flash.isPacMergingNV = (n == "Y" || n == "y");
     }
 
-    auto into_func = [&io, isRepartitionGUI]() mutable // Catch io for spdio_free
+    auto into_func = [isRepartitionGUI]() mutable
     {
         std::string fdl1_path;
         uint32_t fdl1_base_addr = 0;
@@ -721,7 +933,7 @@ bool pac_flash(spdio_t* io, const char* folder)
             if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
 
             fdl1_loaded = 1;
-            gui_idle_call([](){ bottom_bar_set_mode("FDL1 - PAC"); });
+            if (isHelperInit) gui_idle_call([](){ bottom_bar_set_mode("FDL1 - PAC"); });
             g_app_state.device.device_stage = FDL1;
         }
         if (g_app_state.device.device_stage == FDL1)
@@ -799,7 +1011,7 @@ bool pac_flash(spdio_t* io, const char* folder)
             if (Da_Info.bSupportRawData)
             {
                 blk_size = 0xf800;
-                // io->ptable = partition_list(io, &io->part_count);
+                io->ptable = partition_list(io, &io->part_count);
                 if (fdl2_executed)
                 {
                     Da_Info.bSupportRawData = 0;
@@ -816,11 +1028,11 @@ bool pac_flash(spdio_t* io, const char* folder)
             else if (highspeed || Da_Info.dwStorageType == 0x103)
             {
                 blk_size = 0xf800;
-                // io->ptable = partition_list(io, &io->part_count);
+                io->ptable = partition_list(io, &io->part_count);
             }
             else if (Da_Info.dwStorageType == 0x102)
             {
-                // io->ptable = partition_list(io, &io->part_count);
+                io->ptable = partition_list(io, &io->part_count);
             }
             else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
             if (selected_ab < 0) select_ab(io);
@@ -855,10 +1067,113 @@ bool pac_flash(spdio_t* io, const char* folder)
             g_app_state.device.device_stage = FDL2;
         }
         DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
-        gui_idle_call([](){ bottom_bar_set_mode("FDL2 - PAC"); });
+        if (isHelperInit) gui_idle_call([](){ bottom_bar_set_mode("FDL2 - PAC"); });
+        if (!io->ptable || io->part_count <= 0)
+        {
+            g_app_state.pac.missing_parts.clear();
+            g_app_state.pac.extra_parts.clear();
+            if (isHelperInit)
+            {
+                bool i_is = false;
+                i_is = showConfirmDialogSyncInThread(
+                    GTK_WINDOW(helper.getWidget("main_window")), _("Confirm"),
+                    _("No partition table found on device, cannot verify if PAC is compatible. Do you want to continue flashing?"));
+                if (!i_is)
+                {
+                    return;
+                }
+            }
+            else
+            {
+                std::cout << "No partition table found on device, cannot verify if PAC is compatible. " << std::endl << "Do you want to continue flashing? (Y/n): ";
+                std::string response;
+                std::getline(std::cin, response);
+                if (response != "y" && response != "Y")
+                {
+                    return;
+                }
+            }
+        }
+        else
+        {
+            const std::vector<PartitionTableDiffEntry> diff_entries = compare_partition_tables(io);
+            std::size_t missing_count = 0;
+            std::size_t extra_count = 0;
+            std::size_t mismatch_count = 0;
+            for (const auto& entry : diff_entries)
+            {
+                switch (entry.kind)
+                {
+                case PartitionDiffKind::MissingInPac:
+                    ++missing_count;
+                    break;
+                case PartitionDiffKind::ExtraInPac:
+                    ++extra_count;
+                    break;
+                case PartitionDiffKind::SizeMismatch:
+                    ++mismatch_count;
+                    break;
+                case PartitionDiffKind::Match:
+                    break;
+                }
+            }
+
+            if (g_app_state.pac.isHasMissingParts() || g_app_state.pac.isHasExtraParts())
+            {
+                DEG_LOG(E, "Partition table mismatch detected, PAC flashing aborted.");
+
+                if (isHelperInit)
+                {
+                    GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+                    const std::size_t device_count = static_cast<std::size_t>(io->part_count);
+                    const std::size_t pac_count = static_cast<std::size_t>(io->part_count_pac);
+                    gui_idle_call_wait_drag(
+                        [parent, diff_entries, device_count, pac_count,
+                         missing_count, extra_count, mismatch_count]()
+                        {
+                            show_partition_table_comparison_dialog(
+                                parent, diff_entries, device_count, pac_count,
+                                missing_count, extra_count, mismatch_count);
+                        }, parent);
+                }
+                else
+                {
+                    std::cout << "Partition table mismatch detected, PAC flashing aborted." << std::endl;
+                    std::cout << "missing_parts:" << std::endl;
+                    for (const auto& part : g_app_state.pac.missing_parts)
+                    {
+                        std::cout << "  " << part << std::endl;
+                    }
+                    std::cout << "extra_parts:" << std::endl;
+                    for (const auto& part : g_app_state.pac.extra_parts)
+                    {
+                        std::cout << "  " << part << std::endl;
+                    }
+                }
+                return;
+            }
+        }
+        if (isHelperInit)
+        {
+            if (!showConfirmDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")),
+                                               _("Confirm"), _("Do you really want to start flashing PAC firmware?")))
+            {
+                return;
+            }
+        }
+        else
+        {
+            std::cout << "Do you really want to start flashing PAC firmware? (Y/n): ";
+            std::string response;
+            std::getline(std::cin, response);
+            if (response != "y" && response != "Y")
+            {
+                return;
+            }
+        }
         if (g_app_state.flash.isPacMergingNV)
         {
-            auto& pacptable = g_app_state.flash.pacptable;
+            auto& pacptable = g_app_state.flash.selected_pacptable;
             uint64_t nv_size = 0;
             get_partition_info(io, "nr_fixnv1", 1);
             if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
@@ -928,16 +1243,16 @@ bool pac_flash(spdio_t* io, const char* folder)
                 if (partition.empty()) continue;
                 gui_idle_call([id, partition](){ bottom_bar_set_status("PAC Flashing: " + id + " -> " + partition); });
                 if (!strcmp(partition.c_str(), "miscdata") && hasPartition(
-                    g_app_state.flash.pacptable, "miscdata"))
+                    g_app_state.flash.selected_pacptable, "miscdata"))
                 {
                     continue;
                 }
-                if (!strcmp(partition.c_str(), "prodnv") && hasPartition(g_app_state.flash.pacptable, "prodnv"))
+                if (!strcmp(partition.c_str(), "prodnv") && hasPartition(g_app_state.flash.selected_pacptable, "prodnv"))
                 {
                     continue;
                 }
                 if (!strcmp(partition.c_str(), "userdata") && hasPartition(
-                    g_app_state.flash.pacptable, "userdata"))
+                    g_app_state.flash.selected_pacptable, "userdata"))
                 {
                     erase_partition(io, partition.c_str(), 0);
                     continue;
@@ -948,7 +1263,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                     {
                         if (strstr(partition.c_str(), "nr_fixnv1"))
                         {
-                            if (hasPartition(g_app_state.flash.pacptable,
+                            if (hasPartition(g_app_state.flash.selected_pacptable,
                                              partition))
                             {
                                 std::string name = unpac.u16_to_u8(file.name, MAX_U16_SN);
@@ -993,7 +1308,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                                 DEG_LOG(W, "Failed to load old NV data for l_fixnv1, skipping writing.");
                                 continue;
                             }
-                            if (hasPartition(g_app_state.flash.pacptable,
+                            if (hasPartition(g_app_state.flash.selected_pacptable,
                                              partition))
                             {
                                 std::string name = unpac.u16_to_u8(file.name, MAX_U16_SN);
@@ -1035,7 +1350,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                 }
                 if (!partition.empty())
                 {
-                    if (hasPartition(g_app_state.flash.pacptable, partition))
+                    if (hasPartition(g_app_state.flash.selected_pacptable, partition))
                     {
                         DEG_LOG(I, "Flashing partition: %s", partition.c_str());
                         std::string name = unpac.u16_to_u8(file.name, MAX_U16_SN);
@@ -1072,7 +1387,7 @@ bool pac_flash(spdio_t* io, const char* folder)
                 gui_idle_call([id, partition](){ bottom_bar_set_status("PAC Flashing: " + id + " -> " + partition); });
                 if (!partition.empty())
                 {
-                    if (hasPartition(g_app_state.flash.pacptable, partition))
+                    if (hasPartition(g_app_state.flash.selected_pacptable, partition))
                     {
                         DEG_LOG(I, "Flashing partition: %s", partition.c_str());
                         std::string name = unpac.u16_to_u8(file.name, MAX_U16_SN);

@@ -104,8 +104,8 @@ void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
 		showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), _("Error"), _("Please unpack the PAC file first."));
 		return;
 	}
-	g_app_state.flash.pacptable = getSelectedPartitions(helper);
-	pac_flash(io, g_app_state.flash.pac_folder.c_str());
+	g_app_state.flash.selected_pacptable = getSelectedPartitions(helper);
+	pac_flash(g_app_state.flash.pac_folder.c_str());
 }
 
 // ===== UI 构建 =====

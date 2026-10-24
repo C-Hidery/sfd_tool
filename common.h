@@ -187,7 +187,9 @@ typedef struct spdio_t {
 	int raw_len, enc_len, verbose, timeout;
 	partition_t *ptable;
 	partition_t *Cptable;
+	partition_t *pacptable;
 	int part_count_c;
+	int part_count_pac;
 	int nor_bar;
 	int part_count;
 	int *nvid_list;

@@ -2427,17 +2427,17 @@ int main_console(int argc, char** argv)
                                 DEG_LOG(W, "Partition not found in PAC firmware.");
                             }
                         }
-                        g_app_state.flash.pacptable.clear();
+                        g_app_state.flash.selected_pacptable.clear();
                         for (int l = 0; l < io->part_count; l++)
                         {
                             if (select_table[l].Selected)
                             {
                                 DEG_LOG(I, "Selected partition: %s", select_table[l].name);
-                                g_app_state.flash.pacptable.emplace_back(select_table[l].name);
+                                g_app_state.flash.selected_pacptable.emplace_back(select_table[l].name);
                             }
                         }
                         delete[] select_table;
-                        if (check_confirm("flash pac")) pac_flash(io, path);
+                        if (check_confirm("flash pac")) pac_flash(path);
                     }
                     else if (i_is && g_app_state.flash.isPacRdaTable)
                     {
