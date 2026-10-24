@@ -332,6 +332,7 @@ typedef struct pac_part_select_t
     bool Selected = true;
 } pac_part_select_t;
 
+extern bool showCanceled;
 int main_console(int argc, char** argv)
 {
     ThrowExit();
@@ -2377,9 +2378,9 @@ int main_console(int argc, char** argv)
             fi.close();
             bool i_is = pac_extract(fn, path);
             pac_part_select_t* select_table = nullptr;
-            if (!isToolMode)
+            if (!isToolMode && i_is)
             {
-                if (i_is && g_app_state.flash.isPacRdaTable == false)
+                if (g_app_state.flash.isPacRdaTable == false)
                 {
                     if (io->part_count > 0)
                     {
@@ -2394,6 +2395,9 @@ int main_console(int argc, char** argv)
                                      (*(io->ptable + k)).name);
                             select_table[k].Selected = true;
                         }
+                        signal(SIGINT, SIG_DFL);
+                        start_signal();
+                        showCanceled = false;
                         while (true)
                         {
                             for (int k = 0; k < io->part_count; k++)
@@ -2407,11 +2411,15 @@ int main_console(int argc, char** argv)
                             }
                             DEG_LOG(
                                 I,
-                                "Select partitions to flash, type the partition name to toggle selection, type 'done' to finish:");
+                                "Select partitions to flash, type the partition name to toggle selection, type CTRL+C and enter to finish:");
                             printf("[SELECT]: ");
                             std::string name;
                             std::getline(std::cin, name);
-                            if (name == "done") break;
+                            if (isCancel)
+                            {
+                                showCanceled = true;
+                                break;
+                            }
                             bool found = false;
                             for (int k = 0; k < io->part_count; k++)
                             {
@@ -2427,17 +2435,17 @@ int main_console(int argc, char** argv)
                                 DEG_LOG(W, "Partition not found in PAC firmware.");
                             }
                         }
-                        g_app_state.flash.pacptable.clear();
+                        g_app_state.flash.selected_pacptable.clear();
                         for (int l = 0; l < io->part_count; l++)
                         {
                             if (select_table[l].Selected)
                             {
                                 DEG_LOG(I, "Selected partition: %s", select_table[l].name);
-                                g_app_state.flash.pacptable.emplace_back(select_table[l].name);
+                                g_app_state.flash.selected_pacptable.emplace_back(select_table[l].name);
                             }
                         }
                         delete[] select_table;
-                        if (check_confirm("flash pac")) pac_flash(io, path);
+                        if (check_confirm("flash pac")) pac_flash(path);
                     }
                     else if (i_is && g_app_state.flash.isPacRdaTable)
                     {
