@@ -2452,14 +2452,14 @@ void load_merged_nv(spdio_t* io, const char* name, const uint8_t* data, size_t s
     }
     load_nv_partition(io, name, merged.c_str(), step);
 }
-
+bool showCanceled = true;
 void signal_handler(int sig)
 {
     (void)sig;
     //Cancallation handler
     isCancel = 1;
     signal(SIGINT, SIG_DFL);
-    DBG_LOG("\nCancelled.\n");
+    if (showCanceled) DBG_LOG("\nCancelled.\n");
 }
 
 double get_time()
