@@ -9,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        3.4.0
+Version:        3.4.1
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -63,6 +63,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Sun Oct 25 2026 RyanCrepa <Ryan110413@outlook.com> - 3.4.1-1-ltv
+- 修复了一些已知问题
+
 * Sat Oct 24 2026 RyanCrepa <Ryan110413@outlook.com> - 3.4.0-1-ltv
 - 新增PAC分区表效验逻辑，PAC分区表不匹配则拒绝刷写
 
