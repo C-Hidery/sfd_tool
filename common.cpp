@@ -4577,7 +4577,6 @@ void w_force_self_repair(spdio_t* io, int CMethod)
     w_force_commit_table(io, table, count);
 }
 
-// ---- CVE-2022-38693 (pwnexec) ------------------------------------------
 // Payload tables, anchor and layout constants are stored obfuscated and are
 // rebuilt in memory right before use.
 namespace {
