@@ -4727,7 +4727,7 @@ int jack_fdl1(spdio_t* io, const char* img_fn, const char* platform)
     uint32_t dst_addr, img_addr, usb_ctrl_addr, patch_at[10];
     uint32_t usb_tbl = 0, usb_first = 0, uart_tbls[4] = {0};
     int npatch = 0, k, nu, i;
-    uint64_t hijack_val;
+    uint64_t jack_val;
     size_t win;
     unsigned chunk = 512; // chunk <= 768
     unsigned long long time0;
@@ -4747,7 +4747,7 @@ int jack_fdl1(spdio_t* io, const char* img_fn, const char* platform)
     dst_addr = pwn_d32(L->a);
     img_addr = pwn_d32(L->b);
     usb_ctrl_addr = pwn_d32(L->c);
-    hijack_val = (uint64_t)pwn_d32(L->e);
+    jack_val = (uint64_t)pwn_d32(L->e);
     win = (size_t)pwn_d32(0xA5C22671u);
     DBG_LOG("pwnexec: platform %s: dst 0x%x, image base 0x%x, usb ctrl 0x%x",
             L->n, (unsigned)dst_addr, (unsigned)img_addr, (unsigned)usb_ctrl_addr);
@@ -4800,7 +4800,7 @@ int jack_fdl1(spdio_t* io, const char* img_fn, const char* platform)
     nu = pwn_scan_c(img, scan_size, img_addr, usb_first, uart_tbls, 4);
     for (i = 0; i < nu && npatch < (int)(sizeof(patch_at) / sizeof(patch_at[0])); i++)
         patch_at[npatch++] = uart_tbls[i] + 0x18;
-    DBG_LOG("pwnexec: %d hijack slot(s) will be patched", npatch);
+    DBG_LOG("pwnexec: %d jack slot(s) will be patched", npatch);
 
     len = (size_t)(img_addr - dst_addr) + win;
     payload = (uint8_t*)calloc(1, len);
@@ -4849,7 +4849,7 @@ int jack_fdl1(spdio_t* io, const char* img_fn, const char* platform)
 
     for (k = 0; k < npatch; k++)
     {
-        uint64_t val = hijack_val;
+        uint64_t val = jack_val;
         size_t poff_patch;
         if (patch_at[k] < dst_addr)
         {
@@ -4866,7 +4866,7 @@ int jack_fdl1(spdio_t* io, const char* img_fn, const char* platform)
         }
         memcpy(payload + poff_patch, &val, 8);
         DBG_LOG("pwnexec:   [0x%x] = 0x%llx bytes ",
-                (unsigned)patch_at[k], (unsigned long long)hijack_val);
+                (unsigned)patch_at[k], (unsigned long long)jack_val);
         print_mem(stderr, payload + poff_patch, 8);
     }
 
