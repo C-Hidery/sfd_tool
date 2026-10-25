@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 3.4.0 LTV Edition
+Version 3.4.1 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -498,6 +498,9 @@ Remove unstable blk_size detection
 
 ---v 3.4.0---
 新增PAC分区表效验逻辑，PAC分区表不匹配则拒绝刷写
+
+---v 3.4.1---
+修复了一些已知问题
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool

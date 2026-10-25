@@ -1,6 +1,6 @@
 .\" Man page for sfd_tool - Spreadtrum Firmware Dumper Tool
 .\" Contact RyanCrepa <Ryan110413@outlook.com> for updates/corrections
-.TH SFD_TOOL 1 "April 2026" "sfd_tool LTV edition" "User Commands"
+.TH SFD_TOOL 1 "October 2026" "sfd_tool LTV edition" "User Commands"
 
 .SH NAME
 sfd_tool \- Spreadtrum Firmware Dumping and Programming Tool
@@ -15,7 +15,8 @@ is a powerful tool for dumping, flashing, and manipulating Spreadtrum device fir
 
 The tool can operate in one-line mode or interactive mode for advanced operations.
 
-This man is written for console mode, for GUI mode, just start sfd_tool directly
+This man page documents console mode. To use the GUI, start \fBsfd_tool\fR
+without arguments.
 
 .SH OPTIONS
 .TP
@@ -64,7 +65,19 @@ Read partition table in compatibility mode.
 
 .TP
 .B \-\-no\-gui
-Run sfd_tool without GUI
+Run sfd_tool without GUI. This option must be the first command-line argument
+when console mode is required.
+
+.TP
+.B \-\-tool\-mode
+Enter the command loop without connecting to a device. Use it together with
+\fB\-\-no\-gui\fR. Only offline commands (for example \fBpac\fR,
+\fBmergenv\-xml\-ex\fR and \fBmergenv\-cfg\-ex\fR) are usable. Exit with
+\fBexit\fR.
+
+.TP
+.B \-\-usb\-fd \fICODE\fR
+Use a file descriptor passed by termux\-usb (Android only).
 
 .TP
 .B \-\-no\-fdl
@@ -98,8 +111,12 @@ Specifies 4th NAND ID for size calculation (default 0x15).
 Rawdata protocol for faster writes (FDL2 only).
 
 .TP
-.B blk_size \fIVALUE(byte)\fR
+.B blk_size, bs \fIVALUE(byte)\fR
 Sets block size (max 65535) for faster operations.
+
+.TP
+.B help
+Show the built-in command help.
 
 .SS "File Transfer Commands"
 .TP
@@ -123,8 +140,19 @@ Load FDL file using address encoded in filename.
 Send file without executing. Specify path and address first.
 
 .TP
-.B exec \fIADDR\fR
-Execute sent file (sml or FDL2/uboot/lk).
+.B exec \fI[ADDR]\fR
+Execute a previously sent file (sml or FDL2/uboot/lk).
+When executing FDL1, the FDL1 load address must be given as \fIADDR\fR.
+
+.TP
+.B pwnexec \fI9360|9632\fR
+Patch and execute the FDL1 image cached when it was sent to \fB0x65008000\fR,
+then initialize FDL2. Supported on ums9360 and ums9632 only.
+
+.TP
+.B pwnexecd \fI9360|9632\fR \fIFILE\fR
+Same as \fBpwnexec\fR, but load the FDL1 image from \fIFILE\fR instead of using
+the cached copy.
 
 .SS "Partition Operations"
 .TP
@@ -200,8 +228,9 @@ Check if partition exists.
 Add partition to table (FDL2 only, compatibility mode).
 
 .TP
-.B read_flash \fIaddr offset size FILE\fR
-Read flash on device, read_flash_dhtb for ums9117
+.B read_flash, read_flash_dhtb \fIaddr offset size FILE\fR
+Read flash on device. \fBread_flash_dhtb\fR reads the DHTB signature on
+ums9117.
 
 .TP
 .B erase_flash \fIaddr size\fR
@@ -214,6 +243,11 @@ Read memory on device.
 .TP
 .B scan_partition \fIPARTITION_TABLE_XML\fR
 Get partition table through scanning partition XML file.
+
+.TP
+.B part_guid
+Dump the GPT disk GUID and, when the partition table was read from the device,
+the per-partition GUIDs (FDL2 only).
 
 .SS "Device Control Commands"
 .TP
@@ -229,7 +263,7 @@ Set active slot on VAB devices.
 Set device mode after reboot.
 
 .TP
-.B bootloader \fI{0,1}\fR
+.B bl \fI{0,1}\fR
 Set bootloader status (FDL2 only).
 
 .TP
@@ -331,6 +365,72 @@ Find BSL command by hex number.
 .B cptable
 Read partition table in compatibility mode.
 
+.TP
+.B fblk_size, fbs \fIMB\fR
+Set the flash block size in megabytes.
+
+.SS "Image Commands"
+.TP
+.B gen_tos \fITRUSTOS_IMAGE\fR \fISAVE_PATH\fR
+Patch a trustos image and write the result to \fISAVE_PATH\fR.
+
+.TP
+.B bsp_patch \fIORIG_SIGNED\fR \fIMODIFIED\fR \fISAVE_PATH\fR
+Patch the BSP signature area of a signed image.
+
+.TP
+.B get_pgpt \fIFILE\fR
+Save the primary GPT to \fIFILE\fR if supported by the device.
+
+.TP
+.B get_sprdpart \fIFILE\fR
+Save the Spreadtrum partition table to \fIFILE\fR if supported by the device.
+
+.SS "Extended Commands"
+These commands require a special FDL loader that implements the
+\fB0x70\fR-\fB0x7A\fR command set.
+
+.TP
+.B e_readmem \fIADDR LENGTH FILE\fR
+Read \fILENGTH\fR bytes of memory at \fIADDR\fR and save them to \fIFILE\fR.
+
+.TP
+.B e_bl \fIMISCDATA_BACKUP_PATH\fR
+Set the bootloader status. The \fBmiscdata\fR partition is backed up to
+\fIMISCDATA_BACKUP_PATH\fR before the new status is written.
+
+.TP
+.B e_rpmb_pagecount
+Query the RPMB page count.
+
+.TP
+.B e_rpmb_counter
+Query the RPMB write counter.
+
+.TP
+.B e_rpmb_read \fIPAGE_START PAGE_COUNT FILE\fR
+Read RPMB pages and save them to \fIFILE\fR.
+
+.TP
+.B e_rpmb_read_auto
+Automatically read all RPMB pages to \fBrpmb_dump\fR.
+
+.TP
+.B e_rpmb_write \fIPAGE_START FILE\fR
+Write \fIFILE\fR to RPMB starting at \fIPAGE_START\fR.
+
+.TP
+.B e_efuse_read \fIBLOCK_ID\fR
+Read the eFuse block at \fIBLOCK_ID\fR (4 bytes).
+
+.TP
+.B e_pwn
+Patch trustos to bypass signature verification in the modem.
+
+.TP
+.B e_checkpwn
+Check whether the device trustos has been patched.
+
 .SS "Exit Commands"
 .TP
 .B reboot-recovery
@@ -348,25 +448,38 @@ Reset device (FDL2 and new FDL1).
 .B poweroff
 Power off device (FDL2 and new FDL1).
 
+.TP
+.B exit
+Exit the command loop. Only available in \fB--tool-mode\fR.
+
 .SH EXAMPLES
 
 .SS "One-line Mode Examples"
 .TP
-\fBsfd_tool --wait 300 fdl path/to/fdl 0x0000 fdl path/to/fdl 0x0000 exec read_part boot write_part boot boot.img reset\fR
+\fBsfd_tool --no-gui --wait 300 fdl path/to/fdl 0x0000 fdl path/to/fdl 0x0000 exec read_part boot write_part boot boot.img reset\fR
 Complete flash operation with FDL transfer and partition write.
 
 .TP
-\fBsfd_tool --wait 300 fdl path/to/fdl 0x0000 fdl path/to/fdl 0x0000 exec\fR
+\fBsfd_tool --no-gui --wait 300 fdl path/to/fdl 0x0000 fdl path/to/fdl 0x0000 exec\fR
 Start interactive mode after initial FDL transfer.
 
 .TP
-\fBsfd_tool --kick --verbose 2\fR
+\fBsfd_tool --no-gui --wait 300 fdl fdl1.bin 0x65008000 pwnexec 9360\fR
+Send and cache FDL1, then patch and execute it on an ums9360 device.
+
+.TP
+\fBsfd_tool --no-gui --kick --verbose 2\fR
 Start console mode with kick connection and verbose output.
 
 .SS "Interactive Mode Examples"
 .TP
-\fBsfd_tool\fR
-Start GUI application.
+\fBsfd_tool --no-gui\fR
+Start console mode with an interactive command prompt.
+
+.TP
+\fBsfd_tool --no-gui --tool-mode\fR
+Start console mode without a device. Run offline commands and leave with
+\fBexit\fR.
 
 .TP
 \fBpath /home/user/firmware\fR
@@ -384,15 +497,26 @@ Flash system partition.
 \fBdis_avb_tos\fR
 Disable AVB verification.
 
+.TP
+\fBpwnexecd 9632 /path/to/fdl1.bin\fR
+Patch and execute FDL1 from the given file on an ums9632 device.
+
 .SH NOTES
 
 .SS "Important Notices"
 .IP \(bu 2
 The compatibility method to get partition table sometimes cannot get all partitions on your device.
 .IP \(bu
-Command \fBbootloader\fR is only supported on special FDL2 and requires trustos and sml partition files.
+Command \fBbl\fR is only supported on special FDL2 and requires trustos and sml partition files.
 .IP \(bu
 Command \fBsendloop\fR is a debugging tool: it sends zeros to a starting address and then decrements by 8 until device becomes unresponsive.
+
+.SS "FDL1 Custom Execution"
+\fBpwnexec\fR only supports ums9360 and ums9632 FDL1 loaders. It reuses the
+FDL1 image that was cached when \fBfdl\fR sent it to \fB0x65008000\fR during the
+current session. If that image is not cached, use \fBpwnexecd\fR and pass the
+FDL1 file explicitly. After the call, FDL2 is initialized in the same way as
+with \fBexec\fR.
 
 .SS "Root Permission"
 The tool requires root permission for proper device access. Running without root may cause connection issues.

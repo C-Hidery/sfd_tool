@@ -254,6 +254,11 @@ void print_help()
             "\t\tErase flash content\n"
             "\t75.part_guid\n"
             "\t\tDump the GPT disk GUID (and per-partition GUIDs when the table is read from the device), FDL2 stage only.\n"
+            "\t76.pwnexec [9360|9632]\n"
+            "\t\tLet FDL1 execute a custom FDL2. (ums9360/ums9632 only).\n"
+            "\t\tUses the FDL1 image cached when it was sent to 0x65008000.\n"
+            "\t77.pwnexecd [9360|9632] FILE\n"
+            "\t\tSame as pwnexec, but resends FDL1 from FILE.\n"
             "Notice:\n"
             "\t1.The compatibility method to get part table sometimes can not get all partitions on your device\n"
             "\t2.Command `bl` : It is only supported on special FDL2 and requires trustos and sml partition files.\n"
@@ -261,11 +266,11 @@ void print_help()
     );
     fprintf(stderr,
             "\nExit Commands\n"
-            "\t76.reboot-recovery\n\t\tFDL2 only\n"
-            "\t77.reboot-fastboot\n\t\tFDL2 only\n"
-            "\t78.reset\n\t\tFDL2 and new FDL1\n"
-            "\t79.poweroff\n\t\tFDL2 and new FDL1\n"
-            "\t80.exit\n\t\tExit the program (Tool mode only.)\n"
+            "\t78.reboot-recovery\n\t\tFDL2 only\n"
+            "\t79.reboot-fastboot\n\t\tFDL2 only\n"
+            "\t80.reset\n\t\tFDL2 and new FDL1\n"
+            "\t81.poweroff\n\t\tFDL2 and new FDL1\n"
+            "\t82.exit\n\t\tExit the program (Tool mode only.)\n"
     );
 }
 
@@ -333,6 +338,131 @@ typedef struct pac_part_select_t
 } pac_part_select_t;
 
 extern bool showCanceled;
+
+// Send EXEC_DATA from FDL1 and initialize the freshly started FDL2.
+// Shared by the `exec` command and the CVE-2022-38693 `pwnexec` command.
+static void exec_fdl1_to_fdl2(spdio_t* io)
+{
+    memset(&Da_Info, 0, sizeof(Da_Info));
+    encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+    send_msg(io);
+    // Feature phones respond immediately,
+    // but it may take a second for a smartphone to respond.
+    ret = recv_msg_timeout(io, 15000);
+    if (!ret)
+    {
+        ThrowExit();
+        ERR_EXIT("%s: timeout reached\n", o_exception);
+    }
+    ret = recv_type(io);
+    // Is it always bullshit?
+    if (ret == BSL_REP_INCOMPATIBLE_PARTITION)
+        get_Da_Info(io);
+    else if (ret != BSL_REP_ACK)
+    {
+        ThrowExit();
+        const char* name = get_bsl_enum_name(ret);
+        ERR_EXIT("%s: unexpected response (%s : 0x%04x)\n", name, o_exception, ret);
+    }
+    DEG_LOG(OP, "Execute FDL2");
+    //remove 0d detection for nand device
+    //This is not supported on certain devices.
+    /*
+    encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
+    send_msg(io);
+    ret = recv_msg(io);
+    if (ret) {
+        ret = recv_type(io);
+        if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"unexpected response (0x%04x)\n", ret);
+        else Da_Info.dwStorageType = 0x101;
+        // need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
+        // for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
+    }
+    */
+    if (Da_Info.bDisableHDLC)
+    {
+        encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
+        if (!send_and_check(io))
+        {
+            io->flags &= ~FLAGS_TRANSCODE;
+            DEG_LOG(OP, "Try to disable transcode 0x7D.");
+        }
+    }
+    int o = io->verbose;
+    io->verbose = -1;
+    g_spl_size = check_partition(io, "splloader", 1);
+    io->verbose = o;
+    if (Da_Info.bSupportRawData)
+    {
+        blk_size = 0xf800;
+        io->ptable = partition_list(io, &io->part_count);
+        if (fdl2_executed)
+        {
+            Da_Info.bSupportRawData = 0;
+            DEG_LOG(OP, "Raw data mode disabled for SPRD4.");
+        }
+        else
+        {
+            encode_msg_nocpy(io, BSL_CMD_ENABLE_RAW_DATA, 0);
+            if (!send_and_check(io)) DEG_LOG(OP, "Raw data mode enabled.");
+        }
+    }
+
+
+    else if (highspeed || Da_Info.dwStorageType == 0x103)
+    {
+        blk_size = 0xf800;
+        io->ptable = partition_list(io, &io->part_count);
+    }
+    else if (Da_Info.dwStorageType == 0x102)
+    {
+        io->ptable = partition_list(io, &io->part_count);
+    }
+    else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
+    if (selected_ab < 0) select_ab(io);
+    if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b");
+    else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a");
+    else DEG_LOG(I, "Device is not using VAB");
+    if (g_app_state.flash.gpt_failed != 1)
+    {
+        if (selected_ab != 1 && selected_ab != 2)
+        {
+            if (Da_Info.bSupportRawData)
+            {
+                DEG_LOG(
+                    I,
+                    "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.",
+                    (unsigned)Da_Info.bSupportRawData);
+                Da_Info.bSupportRawData = 0;
+            }
+        }
+    }
+    else if (isUseCptable)
+    {
+        io->Cptable = partition_list_d(io);
+        if (io->Cptable) isCMethod = 1;
+    }
+    if (!isUseCptable && !io->part_count)
+    {
+        DEG_LOG(W, "No partition table found on current device");
+        DEG_LOG(I, "You may get partition table through compatibility method.");
+        DEG_LOG(I, "(Use command `cptable` to do it.)");
+    }
+    if (nand_id == DEFAULT_NAND_ID)
+    {
+        nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+        nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+        nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+    }
+    fdl2_executed = 1;
+    g_app_state.device.device_stage = FDL2;
+    if (exec_addr > 0)
+    {
+        DEG_LOG(OP, "w_force enabled (exec_addr > 0)");
+        g_app_state.flash.g_w_force = 1;
+    }
+}
+
 int main_console(int argc, char** argv)
 {
     ThrowExit();
@@ -1274,6 +1404,19 @@ int main_console(int argc, char** argv)
                         continue;
                     }
                     fi.close();
+                    // pwnexec needs the original FDL1 bytes later.
+                    if (addr == 0x65008000)
+                    {
+                        size_t n = 0;
+                        uint8_t* m = loadfile(fn, &n, 0);
+                        if (m)
+                        {
+                            delete[](g_fdl1_img);
+                            g_fdl1_img = m;
+                            g_fdl1_img_size = n;
+                            DEG_LOG(I, "Cached FDL1 image for pwnexec (%u bytes)", (unsigned)n);
+                        }
+                    }
                     if (exec_addr_v2)
                     {
                         size_t execsize = send_file(io, fn, addr, 0, 528, 0, 0);
@@ -1443,124 +1586,7 @@ int main_console(int argc, char** argv)
             }
             else if (fdl1_loaded > 0)
             {
-                memset(&Da_Info, 0, sizeof(Da_Info));
-                encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-                send_msg(io);
-                // Feature phones respond immediately,
-                // but it may take a second for a smartphone to respond.
-                ret = recv_msg_timeout(io, 15000);
-                if (!ret)
-                {
-                    ThrowExit();
-                    ERR_EXIT("%s: timeout reached\n", o_exception);
-                }
-                ret = recv_type(io);
-                // Is it always bullshit?
-                if (ret == BSL_REP_INCOMPATIBLE_PARTITION)
-                    get_Da_Info(io);
-                else if (ret != BSL_REP_ACK)
-                {
-                    ThrowExit();
-                    const char* name = get_bsl_enum_name(ret);
-                    ERR_EXIT("%s: unexpected response (%s : 0x%04x)\n", name, o_exception, ret);
-                }
-                DEG_LOG(OP, "Execute FDL2");
-                //remove 0d detection for nand device
-                //This is not supported on certain devices.
-                /*
-                encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
-                send_msg(io);
-                ret = recv_msg(io);
-                if (ret) {
-                    ret = recv_type(io);
-                    if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"unexpected response (0x%04x)\n", ret);
-                    else Da_Info.dwStorageType = 0x101;
-                    // need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
-                    // for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
-                }
-                */
-                if (Da_Info.bDisableHDLC)
-                {
-                    encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
-                    if (!send_and_check(io))
-                    {
-                        io->flags &= ~FLAGS_TRANSCODE;
-                        DEG_LOG(OP, "Try to disable transcode 0x7D.");
-                    }
-                }
-                int o = io->verbose;
-                io->verbose = -1;
-                g_spl_size = check_partition(io, "splloader", 1);
-                io->verbose = o;
-                if (Da_Info.bSupportRawData)
-                {
-                    blk_size = 0xf800;
-                    io->ptable = partition_list(io, &io->part_count);
-                    if (fdl2_executed)
-                    {
-                        Da_Info.bSupportRawData = 0;
-                        DEG_LOG(OP, "Raw data mode disabled for SPRD4.");
-                    }
-                    else
-                    {
-                        encode_msg_nocpy(io, BSL_CMD_ENABLE_RAW_DATA, 0);
-                        if (!send_and_check(io)) DEG_LOG(OP, "Raw data mode enabled.");
-                    }
-                }
-
-
-                else if (highspeed || Da_Info.dwStorageType == 0x103)
-                {
-                    blk_size = 0xf800;
-                    io->ptable = partition_list(io, &io->part_count);
-                }
-                else if (Da_Info.dwStorageType == 0x102)
-                {
-                    io->ptable = partition_list(io, &io->part_count);
-                }
-                else if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
-                if (selected_ab < 0) select_ab(io);
-                if (g_app_state.flash.selected_ab == 2) DEG_LOG(I, "Device is using slot b");
-                else if (g_app_state.flash.selected_ab == 1) DEG_LOG(I, "Device is using slot a");
-                else DEG_LOG(I, "Device is not using VAB");
-                if (g_app_state.flash.gpt_failed != 1)
-                {
-                    if (selected_ab != 1 && selected_ab != 2)
-                    {
-                        if (Da_Info.bSupportRawData)
-                        {
-                            DEG_LOG(
-                                I,
-                                "Raw data mode is supported (level is %u) ,but DISABLED for stability, you can set it manually.",
-                                (unsigned)Da_Info.bSupportRawData);
-                            Da_Info.bSupportRawData = 0;
-                        }
-                    }
-                }
-                else if (isUseCptable)
-                {
-                    io->Cptable = partition_list_d(io);
-                    if (io->Cptable) isCMethod = 1;
-                }
-                if (!isUseCptable && !io->part_count)
-                {
-                    DEG_LOG(W, "No partition table found on current device");
-                    DEG_LOG(I, "You may get partition table through compatibility method.");
-                    DEG_LOG(I, "(Use command `cptable` to do it.)");
-                }
-                if (nand_id == DEFAULT_NAND_ID)
-                {
-                    nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
-                    nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
-                    nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
-                }
-                fdl2_executed = 1;
-                g_app_state.device.device_stage = FDL2;
-                if (exec_addr > 0)
-                {
-                    DEG_LOG(OP, "w_force enabled (exec_addr > 0)");
-                    g_app_state.flash.g_w_force = 1;
-                }
+                exec_fdl1_to_fdl2(io);
                 argc -= 1;
                 argv += 1;
             }
@@ -4574,6 +4600,63 @@ int main_console(int argc, char** argv)
             io->timeout = atoi(str2[2]);
             argc -= 2;
             argv += 2;
+        }
+        else if (!strncmp(str2[1], "pwnexec", 7))
+        {
+            int with_file = strcmp(str2[1], "pwnexec");
+            int consumed = 2;
+            const char* platform = nullptr;
+            const char* fn = nullptr;
+
+            if (isToolMode)
+            {
+                argc = 1;
+                continue;
+            }
+            if (argcount <= 2)
+            {
+                DEG_LOG(W, "pwnexec [9360|9632]\npwnexecd [9360|9632] FILE");
+                argc = 1;
+                continue;
+            }
+            platform = str2[2];
+            if (with_file)
+            {
+                if (argcount <= 3)
+                {
+                    DEG_LOG(W, "pwnexecd [9360|9632] FILE");
+                    argc = 1;
+                    continue;
+                }
+                fn = str2[3];
+                consumed = 3;
+            }
+            if (fdl2_executed > 0)
+            {
+                DEG_LOG(W, "FDL2 is already executed, skipped.");
+                argc -= consumed;
+                argv += consumed;
+                continue;
+            }
+            if (fdl1_loaded <= 0)
+            {
+                DEG_LOG(W, "pwnexec needs FDL1 loaded first.");
+                argc -= consumed;
+                argv += consumed;
+                continue;
+            }
+            if (jack_fdl1(io, fn, platform))
+            {
+                DEG_LOG(OP, "pwnexec: executing hijacked FDL1");
+                argc -= consumed;
+                argv += consumed;
+                exec_fdl1_to_fdl2(io);
+            }
+            else
+            {
+                argc -= consumed;
+                argv += consumed;
+            }
         }
         else if (!strcmp(str2[1], "send_end_data"))
         {
