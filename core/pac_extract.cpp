@@ -315,6 +315,8 @@ PacFile& unpac = g_app_state.pacFile;
 
 bool pac_extract(const char* fn, const char* folder)
 {
+    // 每次解包都重新判定 PAC 类型，避免上一次 RDA PAC 的标记残留到普通 PAC。
+    g_app_state.flash.isPacRdaTable = false;
 #ifndef _WIN32
     if (mkdir(folder, 0755) != 0 && errno != EEXIST) return false;
 #else
@@ -502,7 +504,7 @@ bool pac_extract(const char* fn, const char* folder)
                 }
                 else
                 {
-                    size_str = "DEFAULT, ERASE!!!";
+                    size_str = "DEFAULT";
                 }
 
                 SfdRow* row = sfd_row_new();
@@ -539,6 +541,50 @@ static bool hasPartition(const std::vector<std::string>& partitions, const std::
                         {
                             return iequals(s, partitionName);
                         }) != partitions.end();
+}
+
+// 判断 PAC 目录中是否存在某个 XML 操作项对应的、带数据的文件。
+static bool pac_id_has_data(const std::string& id, const std::string& alias)
+{
+    PacFile& unpac = g_app_state.pacFile;
+    for (int i = 0; i < unpac.fileCount; ++i)
+    {
+        const sprd_file_t& f = unpac.files[i];
+        if (f.type == 0 || f.type == 0x101 || f.type == 2) continue;
+        if (!f.size || !f.name[0]) continue;
+        std::string fid = unpac.u16_to_u8(f.id, MAX_U16_SN);
+        if (fid == id || (!alias.empty() && fid == alias)) return true;
+    }
+    return false;
+}
+
+bool pac_validate_required_files()
+{
+    for (const auto& file : g_app_state.pacXml.getPrimaryFiles())
+    {
+        if (file.flag != 1 || file.checkFlag != 1) continue;
+        if (file.id.empty()) continue;
+        if (my_strnicmp(file.id.c_str(), "FDL", 3) == 0) continue;
+        if (!pac_id_has_data(file.id, file.idAlias))
+        {
+            DEG_LOG(E, "Required PAC file missing for operation: %s", file.id.c_str());
+            return false;
+        }
+    }
+    return true;
+}
+
+void pac_skip_empty_operations()
+{
+    for (const auto& file : g_app_state.pacXml.getPrimaryFiles())
+    {
+        if (file.flag != 0) continue;
+        if (file.id.empty()) continue;
+        if (my_strnicmp(file.id.c_str(), "FDL", 3) == 0) continue;
+
+        DEG_LOG(I, "PAC operation %s (%s) has no file, skipping.",
+                file.id.c_str(), file.type.c_str());
+    }
 }
 
 // ----- PAC 分区表与设备分区表比较 -----
@@ -788,6 +834,19 @@ bool pac_flash(const char* folder)
         std::string n;
         std::getline(std::cin, n);
         g_app_state.flash.isPacMergingNV = (n == "Y" || n == "y");
+    }
+    if (!pac_validate_required_files())
+    {
+        if (isHelperInit)
+        {
+            gui_idle_call_wait_drag([]()
+            {
+                showErrorDialog(
+                    GTK_WINDOW(helper.getWidget("main_window")), _("Error"),
+                    _("A required file is missing in the PAC."));
+            }, GTK_WINDOW(helper.getWidget("main_window")));
+        }
+        return false;
     }
 
     auto into_func = [isRepartitionGUI]() mutable
@@ -1228,9 +1287,12 @@ bool pac_flash(const char* folder)
                 gpt_refresh_cached_identity(io);
             }
         }
+        // 对齐闭源 PAC 流程：XML 中没有文件的操作项（EraseUBOOT / FLASH_* /
+        // EraseMisc / PhaseCheck 等）只记录并跳过，不发空文件/擦除命令。
         g_app_state.flash.isPacFlashing = true;
         int dlnv_id = 0;
         if (g_app_state.flash.selected_ab < 0) select_ab(io);
+        pac_skip_empty_operations();
         if (unpac.fileCount > 0)
         {
             for (int o = 0; o < unpac.fileCount; o++)
@@ -1242,19 +1304,57 @@ bool pac_flash(const char* folder)
                 std::string partition = g_app_state.pacXml.getPartitionByOperation(id);
                 if (partition.empty()) continue;
                 gui_idle_call([id, partition](){ bottom_bar_set_status("PAC Flashing: " + id + " -> " + partition); });
-                if (!strcmp(partition.c_str(), "miscdata") && hasPartition(
-                    g_app_state.flash.selected_pacptable, "miscdata"))
+                if (!strcmp(partition.c_str(), "miscdata"))
                 {
                     continue;
                 }
-                if (!strcmp(partition.c_str(), "prodnv") && hasPartition(g_app_state.flash.selected_pacptable, "prodnv"))
+                if (!strcmp(partition.c_str(), "prodnv"))
                 {
                     continue;
                 }
                 if (!strcmp(partition.c_str(), "userdata") && hasPartition(
                     g_app_state.flash.selected_pacptable, "userdata"))
                 {
-                    erase_partition(io, partition.c_str(), 0);
+                    // userdata 不再默认擦除：PAC 里有镜像就正常写入，
+                    // 没有文件/文件为空时才跳过。
+                    std::string name = unpac.u16_to_u8(file.name, MAX_U16_SN);
+                    if (name.empty() || file.size == 0)
+                    {
+                        DEG_LOG(I, "userdata image is empty or missing in PAC, skipping.");
+                        continue;
+                    }
+#ifndef _WIN32
+                    std::string file_path = g_app_state.flash.pac_folder + "/" + name;
+#else
+                    std::string file_path = g_app_state.flash.pac_folder + "\\" + name;
+#endif
+                    EnhancedFile uf = oxfopen_enhanced(file_path.c_str(), "rb");
+                    if (!uf)
+                    {
+                        DEG_LOG(W, "userdata image %s does not exist, skipping.", file_path.c_str());
+                        continue;
+                    }
+                    // userdata.img 在别的 PAC 里可能超过 2GB，用 64 位接口取大小。
+                    if (uf.seeko(0, SEEK_END) != 0)
+                    {
+                        DEG_LOG(W, "userdata image %s: seek failed, skipping.", file_path.c_str());
+                        continue;
+                    }
+                    const auto userdata_size = uf.tello();
+                    uf.close();
+                    if (userdata_size <= 0)
+                    {
+                        DEG_LOG(I, "userdata image %s is empty, skipping.", file_path.c_str());
+                        continue;
+                    }
+                    DEG_LOG(I, "Flashing userdata image: %s (%lld bytes)",
+                            file_path.c_str(), static_cast<long long>(userdata_size));
+                    load_partition_unify(io, partition.c_str(), file_path.c_str(),
+                                         blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
+                    continue;
+                }
+                else if (!strcmp(partition.c_str(), "userdata"))
+                {
                     continue;
                 }
                 if (g_app_state.flash.isPacMergingNV)
@@ -1360,13 +1460,24 @@ bool pac_flash(const char* folder)
 #else
                         std::string file_path = g_app_state.flash.pac_folder + "\\" + name;
 #endif
-                        EnhancedFile f = oxfopen_enhanced(file_path.c_str(), "r");
+                        EnhancedFile f = oxfopen_enhanced(file_path.c_str(), "rb");
                         if (!f)
                         {
                             DEG_LOG(E, "File %s does not exist.", file_path.c_str());
                             continue;
                         }
+                        if (f.seeko(0, SEEK_END) != 0)
+                        {
+                            DEG_LOG(W, "File %s: seek failed, skipping.", file_path.c_str());
+                            continue;
+                        }
+                        const auto file_size = f.tello();
                         f.close();
+                        if (file_size <= 0)
+                        {
+                            DEG_LOG(I, "File %s is empty, skipping.", file_path.c_str());
+                            continue;
+                        }
                         load_partition_unify(io, partition.c_str(), file_path.c_str(),
                                              blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
                     }
@@ -1412,6 +1523,8 @@ bool pac_flash(const char* folder)
                                     uint8_t* b = loadfile(file_path.c_str(), &b_size, 0);
                                     if (!a || !b)
                                     {
+                                        DEG_LOG(W,
+                                                "downloadnv image or old NV data is empty/missing, skipping.");
                                         if (a) delete[] a;
                                         if (b) delete[] b;
                                     }
@@ -1436,6 +1549,24 @@ bool pac_flash(const char* folder)
 #else
                             std::string file_path = g_app_state.flash.pac_folder + "\\" + name;
 #endif
+                            EnhancedFile f = oxfopen_enhanced(file_path.c_str(), "rb");
+                            if (!f)
+                            {
+                                DEG_LOG(E, "File %s does not exist.", file_path.c_str());
+                                return;
+                            }
+                            if (f.seeko(0, SEEK_END) != 0)
+                            {
+                                DEG_LOG(W, "File %s: seek failed, skipping.", file_path.c_str());
+                                return;
+                            }
+                            const auto file_size = f.tello();
+                            f.close();
+                            if (file_size <= 0)
+                            {
+                                DEG_LOG(I, "File %s is empty, skipping.", file_path.c_str());
+                                return;
+                            }
                             load_partition_unify(io, partition.c_str(), file_path.c_str(),
                                                  blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
                         }

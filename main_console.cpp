@@ -246,7 +246,7 @@ void print_help()
             "\t71.pactime\n"
             "\t\tRead the last time the PAC firmware was flashed.\n"
             "\t72.read_flash [ADDR] [OFFSET] [SIZE] [FILE]\n"
-            "\t\tRead flash content to a file\n"
+            "\t\tRead flash content to a file; SIZE 0 means auto-detect until a short read.\n"
             "\t\t`read_flash_dhtb` for reading DHTB Signature for ums9117\n"
             "\t73.read_mem [ADDR] [SIZE] [FILE]\n"
             "\t\tRead memory content to a file\n"
@@ -2406,355 +2406,481 @@ int main_console(int argc, char** argv)
             pac_part_select_t* select_table = nullptr;
             if (!isToolMode && i_is)
             {
-                if (g_app_state.flash.isPacRdaTable == false)
+                if (!g_app_state.flash.isPacRdaTable && io->part_count > 0)
                 {
-                    if (io->part_count > 0)
+                    select_table = NEWN pac_part_select_t[128];
+                    if (!select_table)
                     {
-                        select_table = NEWN pac_part_select_t[128];
-                        if (!select_table)
-                        {
-                            ERR_EXIT("Memory allocation failed for partition selection table.");
-                        }
+                        ERR_EXIT("Memory allocation failed for partition selection table.");
+                    }
+                    for (int k = 0; k < io->part_count; k++)
+                    {
+                        snprintf(select_table[k].name, sizeof(select_table[k].name), "%s",
+                                 (*(io->ptable + k)).name);
+                        select_table[k].Selected = true;
+                    }
+                    signal(SIGINT, SIG_DFL);
+                    start_signal();
+                    showCanceled = false;
+                    while (true)
+                    {
                         for (int k = 0; k < io->part_count; k++)
                         {
-                            snprintf(select_table[k].name, sizeof(select_table[k].name), "%s",
-                                     (*(io->ptable + k)).name);
-                            select_table[k].Selected = true;
+                            DEG_LOG(I, "%s, toggle=%s", select_table[k].name,
+                                        select_table[k].Selected ? "yes" : "no");
                         }
-                        signal(SIGINT, SIG_DFL);
-                        start_signal();
-                        showCanceled = false;
-                        while (true)
+                        DEG_LOG(
+                            I,
+                            "Select partitions to flash, type the partition name to toggle selection, type CTRL+C and enter to finish:");
+                        printf("[SELECT]: ");
+                        std::string name;
+                        std::getline(std::cin, name);
+                        if (isCancel)
                         {
-                            for (int k = 0; k < io->part_count; k++)
+                            showCanceled = true;
+                            break;
+                        }
+                        bool found = false;
+                        for (int k = 0; k < io->part_count; k++)
+                        {
+                            if (name == select_table[k].name)
                             {
-                                if (strcmp(select_table[k].name, "userdata") != 0)
-                                    DEG_LOG(I, "%s, toggle=%s", select_table[k].name,
-                                            select_table[k].Selected ? "yes" : "no");
-                                else
-                                    DEG_LOG(I, "%s, toggle=%s, ERASE!!!", select_table[k].name,
-                                            select_table[k].Selected ? "yes" : "no");
-                            }
-                            DEG_LOG(
-                                I,
-                                "Select partitions to flash, type the partition name to toggle selection, type CTRL+C and enter to finish:");
-                            printf("[SELECT]: ");
-                            std::string name;
-                            std::getline(std::cin, name);
-                            if (isCancel)
-                            {
-                                showCanceled = true;
+                                select_table[k].Selected = !select_table[k].Selected;
+                                found = true;
                                 break;
                             }
-                            bool found = false;
-                            for (int k = 0; k < io->part_count; k++)
+                        }
+                        if (!found)
+                        {
+                            DEG_LOG(W, "Partition not found in PAC firmware.");
+                        }
+                    }
+                    g_app_state.flash.selected_pacptable.clear();
+                    for (int l = 0; l < io->part_count; l++)
+                    {
+                        if (select_table[l].Selected)
+                        {
+                            DEG_LOG(I, "Selected partition: %s", select_table[l].name);
+                            g_app_state.flash.selected_pacptable.emplace_back(select_table[l].name);
+                        }
+                    }
+                    delete[] select_table;
+                    if (check_confirm("flash pac")) pac_flash(path);
+                }
+                else if (g_app_state.flash.isPacRdaTable)
+                {
+                    DEG_LOG(I, "RDA Table detected.");
+
+                    // RDA Table PAC 没有 XML 分区表，可刷写的“分区”就是 PAC 目录里
+                    // 带物理地址的文件条目。这里先按条目选择，再进入写入流程。
+                    PacFile& unpac = g_app_state.pacFile;
+                    if (!pac_validate_required_files())
+                    {
+                        argc = 1;
+                        continue;
+                    }
+                    struct RdaPacEntry
+                    {
+                        int index = 0;
+                        std::string label;
+                        std::string id;
+                        std::string name;
+                        uint32_t addr = 0;
+                        uint32_t size = 0;
+                        bool selected = true;
+                    };
+                    std::vector<RdaPacEntry> rdaEntries;
+                    for (int o = 0; o < unpac.fileCount; ++o)
+                    {
+                        const sprd_file_t& f = unpac.files[o];
+                        if (f.type == 0 || f.type == 0x101 || f.type == 2) continue; // No file or FDL or XML
+                        std::string id = unpac.u16_to_u8(f.id, MAX_U16_SN);
+                        if (my_strnicmp(id.c_str(), "FDL", 3) == 0) continue;
+                        std::string name = unpac.u16_to_u8(f.name, MAX_U16_SN);
+                        if (name.empty()) continue;
+                        if (!f.size)
+                        {
+                            DEG_LOG(W, "Skipping empty PAC entry: %s", id.empty() ? name.c_str() : id.c_str());
+                            continue;
+                        }
+                        RdaPacEntry e;
+                        e.index = o;
+                        e.id = id;
+                        e.name = name;
+                        e.addr = f.addr[0];
+                        e.size = f.size;
+                        e.label = id.empty() ? name : id;
+                        for (const auto& prev : rdaEntries)
+                        {
+                            if (prev.label == e.label)
                             {
-                                if (name == select_table[k].name)
+                                e.label += "#" + std::to_string(e.index);
+                                break;
+                            }
+                        }
+                        rdaEntries.push_back(e);
+                    }
+                    if (rdaEntries.empty())
+                    {
+                        DEG_LOG(E, "No flashable entries found in RDA PAC.");
+                        argc = 1;
+                        continue;
+                    }
+                    signal(SIGINT, SIG_DFL);
+                    start_signal();
+                    showCanceled = false;
+                    while (true)
+                    {
+                        for (const auto& e : rdaEntries)
+                        {
+                            DEG_LOG(I, "[%d] %s, addr=0x%08x, size=0x%x, file=%s, toggle=%s",
+                                    e.index, e.label.c_str(), e.addr, e.size, e.name.c_str(),
+                                    e.selected ? "yes" : "no");
+                        }
+                        DEG_LOG(
+                            I,
+                            "Select entries to flash, type the entry name/index to toggle selection, type CTRL+C and enter to finish:");
+                        printf("[SELECT]: ");
+                        std::string input;
+                        std::getline(std::cin, input);
+                        if (isCancel)
+                        {
+                            showCanceled = true;
+                            break;
+                        }
+                        size_t first = input.find_first_not_of(" \t\r\n");
+                        size_t last = input.find_last_not_of(" \t\r\n");
+                        if (first == std::string::npos) continue;
+                        input = input.substr(first, last - first + 1);
+                        bool found = false;
+                        for (auto& e : rdaEntries)
+                        {
+                            if (input == e.label || input == e.id || input == e.name ||
+                                input == std::to_string(e.index))
+                            {
+                                e.selected = !e.selected;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found)
+                        {
+                            DEG_LOG(W, "Entry not found in RDA PAC.");
+                        }
+                    }
+                    auto isRdaSelected = [&rdaEntries](int fileIndex)
+                    {
+                        for (const auto& e : rdaEntries)
+                        {
+                            if (e.index == fileIndex) return e.selected;
+                        }
+                        return false;
+                    };
+                    if (check_confirm("flash pac"))
+                    {
+                        std::string fdl1_path;
+                        uint32_t fdl1_base_addr = 0;
+                        std::string fdl2_path;
+                        uint32_t fdl2_base_addr = 0;
+                        for (int i = 0; i < unpac.fileCount; i++)
+                        {
+                            const sprd_file_t& file = unpac.files[i];
+                            if (file.id[0])
+                            {
+                                if (!my_strnicmp(unpac.u16_to_u8(file.id, MAX_U16_SN).c_str(), "FDL", 3))
                                 {
-                                    select_table[k].Selected = !select_table[k].Selected;
-                                    found = true;
+                                    std::string name = unpac.u16_to_u8(file.name, MAX_U16_SN);
+                                    if (name.empty()) fdl1_path = "";
+#ifndef _WIN32
+                                    else fdl1_path = g_app_state.flash.pac_folder + "/" + name;
+#else
+                                    else fdl1_path = g_app_state.flash.pac_folder + "\\" + name;
+#endif
+                                    auto fdl1info = g_app_state.pacXml.getFileInfoByOperation("FDL");
+                                    if (!fdl1info.blocks.empty())
+                                    {
+                                        fdl1_base_addr = strtoul(fdl1info.blocks.front().base.c_str(), nullptr, 16);
+                                        DEG_LOG(I, "XML: FDL1_BASE_ADDR=%u", fdl1_base_addr);
+                                    }
+                                    else
+                                    {
+                                        fdl1_base_addr = file.addr[0];
+                                    }
                                     break;
                                 }
                             }
-                            if (!found)
+                        }
+                        for (int i = 0; i < unpac.fileCount; i++)
+                        {
+                            const sprd_file_t& file = unpac.files[i];
+                            if (file.id[0])
                             {
-                                DEG_LOG(W, "Partition not found in PAC firmware.");
+                                if (!my_strnicmp(unpac.u16_to_u8(file.id, MAX_U16_SN).c_str(), "FDL2", 4))
+                                {
+                                    std::string name = unpac.u16_to_u8(file.name, MAX_U16_SN);
+                                    if (name.empty()) fdl2_path = "";
+#ifndef _WIN32
+                                    else fdl2_path = g_app_state.flash.pac_folder + "/" + name;
+#else
+                                    else fdl2_path = g_app_state.flash.pac_folder + "\\" + name;
+#endif
+                                    auto fdl2info = g_app_state.pacXml.getFileInfoByOperation("FDL2");
+                                    if (!fdl2info.blocks.empty())
+                                    {
+                                        fdl2_base_addr = strtoul(fdl2info.blocks.front().base.c_str(), nullptr, 16);
+                                        DEG_LOG(I, "XML: FDL2_BASE_ADDR=%u", fdl2_base_addr);
+                                    }
+                                    else
+                                    {
+                                        fdl2_base_addr = file.addr[0];
+                                    }
+                                    break;
+                                }
                             }
                         }
-                        g_app_state.flash.selected_pacptable.clear();
-                        for (int l = 0; l < io->part_count; l++)
+                        DEG_LOG(I, "FDL1_PATH=%s", fdl1_path.c_str());
+                        DEG_LOG(I, "FDL1_BASE_ADDR=%u", fdl1_base_addr);
+                        DEG_LOG(I, "FDL2_PATH=%s", fdl2_path.c_str());
+                        DEG_LOG(I, "FDL2_BASE_ADDR=%u", fdl2_base_addr);
+                        if (g_app_state.device.device_stage == BROM)
                         {
-                            if (select_table[l].Selected)
+                            if (fdl1_base_addr == 0 || fdl1_path.empty())
                             {
-                                DEG_LOG(I, "Selected partition: %s", select_table[l].name);
-                                g_app_state.flash.selected_pacptable.emplace_back(select_table[l].name);
+                                DEG_LOG(E, "Can not read FDL1 info from PAC");
+                                argc = 1;
+                                continue;
                             }
-                        }
-                        delete[] select_table;
-                        if (check_confirm("flash pac")) pac_flash(path);
-                    }
-                    else if (i_is && g_app_state.flash.isPacRdaTable)
-                    {
-                        DEG_LOG(I, "RDA Table detected.");
-                        if (check_confirm("flash pac"))
-                        {
-                            std::string fdl1_path;
-                            uint32_t fdl1_base_addr = 0;
-                            std::string fdl2_path;
-                            uint32_t fdl2_base_addr = 0;
-                            PacFile& unpac = g_app_state.pacFile;
-                            for (int i = 0; i < unpac.fileCount; i++)
+                            EnhancedFile fi = oxfopen_enhanced(fdl1_path.c_str(), "r");
+                            if (!fi)
                             {
-                                const sprd_file_t& file = unpac.files[i];
-                                if (file.id[0])
-                                {
-                                    if (!my_strnicmp(unpac.u16_to_u8(file.id, MAX_U16_SN).c_str(), "FDL", 3))
-                                    {
-                                        std::string name = unpac.u16_to_u8(file.name, MAX_U16_SN);
-                                        if (name.empty()) fdl1_path = "";
-#ifndef _WIN32
-                                        else fdl1_path = g_app_state.flash.pac_folder + "/" + name;
-#else
-                                        else fdl1_path = g_app_state.flash.pac_folder + "\\" + name;
-#endif
-                                        auto fdl1info = g_app_state.pacXml.getFileInfoByOperation("FDL");
-                                        if (!fdl1info.blocks.empty())
-                                        {
-                                            fdl1_base_addr = strtoul(fdl1info.blocks.front().base.c_str(), nullptr, 16);
-                                            DEG_LOG(I, "XML: FDL1_BASE_ADDR=%u", fdl1_base_addr);
-                                        }
-                                        else
-                                        {
-                                            fdl1_base_addr = file.addr[0];
-                                        }
-                                        break;
-                                    }
-                                }
+                                DEG_LOG(W, "File does not exist.\n");
+                                argc = 1;
+                                continue;
                             }
-                            for (int i = 0; i < unpac.fileCount; i++)
+                            fi.close();
+                            send_file(io, fdl1_path.c_str(), fdl1_base_addr, 0, 528, 0, 0);
+                            encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+                            if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
+
+                            DEG_LOG(OP, "Execute FDL1");
+
+                            if (fdl1_base_addr == 0x5500 || fdl1_base_addr == 0x65000800)
                             {
-                                const sprd_file_t& file = unpac.files[i];
-                                if (file.id[0])
-                                {
-                                    if (!my_strnicmp(unpac.u16_to_u8(file.id, MAX_U16_SN).c_str(), "FDL2", 4))
-                                    {
-                                        std::string name = unpac.u16_to_u8(file.name, MAX_U16_SN);
-                                        if (name.empty()) fdl2_path = "";
-#ifndef _WIN32
-                                        else fdl2_path = g_app_state.flash.pac_folder + "/" + name;
-#else
-                                        else fdl2_path = g_app_state.flash.pac_folder + "\\" + name;
-#endif
-                                        auto fdl2info = g_app_state.pacXml.getFileInfoByOperation("FDL2");
-                                        if (!fdl2info.blocks.empty())
-                                        {
-                                            fdl2_base_addr = strtoul(fdl2info.blocks.front().base.c_str(), nullptr, 16);
-                                            DEG_LOG(I, "XML: FDL2_BASE_ADDR=%u", fdl2_base_addr);
-                                        }
-                                        else
-                                        {
-                                            fdl2_base_addr = file.addr[0];
-                                        }
-                                        break;
-                                    }
-                                }
+                                highspeed = 1;
+                                if (!baudrate) baudrate = 921600;
                             }
-                            DEG_LOG(I, "FDL1_PATH=%s", fdl1_path.c_str());
-                            DEG_LOG(I, "FDL1_BASE_ADDR=%u", fdl1_base_addr);
-                            DEG_LOG(I, "FDL2_PATH=%s", fdl2_path.c_str());
-                            DEG_LOG(I, "FDL2_BASE_ADDR=%u", fdl2_base_addr);
-                            if (g_app_state.device.device_stage == BROM)
+
+                            /* FDL1 (chk = sum) */
+                            io->flags &= ~FLAGS_CRC16;
+
+                            encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
+                            for (int i = 0; ; i++)
                             {
-                                if (fdl1_base_addr == 0 || fdl1_path.empty())
+                                send_msg(io);
+                                recv_msg(io);
+                                if (recv_type(io) == BSL_REP_VER) break;
+                                DEG_LOG(W, "Failed to check baud, retry...");
+                                if (i == 4)
                                 {
-                                    DEG_LOG(E, "Can not read FDL1 info from PAC");
-                                    argc = 1;
-                                    continue;
+                                    ERR_EXIT(
+                                        "Can not execute FDL, please reboot your phone by pressing POWER and VOL_UP for 7-10 seconds.\n");
                                 }
-                                EnhancedFile fi = oxfopen_enhanced(fdl1_path.c_str(), "r");
-                                if (!fi)
-                                {
-                                    DEG_LOG(W, "File does not exist.\n");
-                                    argc = 1;
-                                    continue;
-                                }
-                                fi.close();
-                                send_file(io, fdl1_path.c_str(), fdl1_base_addr, 0, 528, 0, 0);
-                                encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-                                if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
+                                usleep(500000);
+                            }
+                            DEG_LOG(I, "Check baud FDL1 done.");
 
-                                DEG_LOG(OP, "Execute FDL1");
-
-                                if (fdl1_base_addr == 0x5500 || fdl1_base_addr == 0x65000800)
-                                {
-                                    highspeed = 1;
-                                    if (!baudrate) baudrate = 921600;
-                                }
-
-                                /* FDL1 (chk = sum) */
-                                io->flags &= ~FLAGS_CRC16;
-
-                                encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
-                                for (int i = 0; ; i++)
-                                {
-                                    send_msg(io);
-                                    recv_msg(io);
-                                    if (recv_type(io) == BSL_REP_VER) break;
-                                    DEG_LOG(W, "Failed to check baud, retry...");
-                                    if (i == 4)
-                                    {
-                                        ERR_EXIT(
-                                            "Can not execute FDL, please reboot your phone by pressing POWER and VOL_UP for 7-10 seconds.\n");
-                                    }
-                                    usleep(500000);
-                                }
-                                DEG_LOG(I, "Check baud FDL1 done.");
-
-                                DEG_LOG(I, "Device REP_Version: ");
-                                print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
+                            DEG_LOG(I, "Device REP_Version: ");
+                            print_string(stderr, io->raw_buf + 4, READ16_BE(io->raw_buf + 2));
 
 
-                                encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
-                                if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
-                                DEG_LOG(I, "FDL1 connected.");
+                            encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+                            if (send_and_check(io)) ERR_EXIT("FDL connect failed\n");
+                            DEG_LOG(I, "FDL1 connected.");
 #if !USE_LIBUSB
-                                if (baudrate)
+                            if (baudrate)
+                            {
+                                uint8_t* data = io->temp_buf;
+                                WRITE32_BE(data, baudrate);
+                                encode_msg_nocpy(io, BSL_CMD_CHANGE_BAUD, 4);
+                                if (!send_and_check(io))
                                 {
-                                    uint8_t* data = io->temp_buf;
-                                    WRITE32_BE(data, baudrate);
-                                    encode_msg_nocpy(io, BSL_CMD_CHANGE_BAUD, 4);
-                                    if (!send_and_check(io))
-                                    {
-                                        DEG_LOG(OP, "Change baud FDL1 to %d", baudrate);
-                                        call_SetProperty(io->handle, 0, 100, (LPCVOID) & baudrate);
-                                    }
+                                    DEG_LOG(OP, "Change baud FDL1 to %d", baudrate);
+                                    call_SetProperty(io->handle, 0, 100, (LPCVOID) & baudrate);
                                 }
+                            }
 #endif
 
-                                encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
-                                if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
+                            encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
+                            if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
 
-                                fdl1_loaded = 1;
-                                g_app_state.device.device_stage = FDL1;
-                            }
-                            if (g_app_state.device.device_stage == FDL1)
+                            fdl1_loaded = 1;
+                            g_app_state.device.device_stage = FDL1;
+                        }
+                        if (g_app_state.device.device_stage == FDL1)
+                        {
+                            if (fdl2_base_addr == 0 || fdl2_path.empty())
                             {
-                                if (fdl2_base_addr == 0 || fdl2_path.empty())
-                                {
-                                    DEG_LOG(E, "Can not read FDL2 info from PAC");
-                                    argc = 1;
-                                    continue;
-                                }
-                                EnhancedFile fi = oxfopen_enhanced(fdl2_path.c_str(), "r");
-                                if (!fi)
-                                {
-                                    DEG_LOG(W, "File does not exist.\n");
-                                    argc = 1;
-                                    continue;
-                                }
-                                fi.close();
-                                // FDL2
-                                send_file(io, fdl2_path.c_str(), fdl2_base_addr, 0, 528, 0, 0);
-                                memset(&Da_Info, 0, sizeof(Da_Info));
-                                encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-                                send_msg(io);
-                                // Feature phones respond immediately,
-                                // but it may take a second for a smartphone to respond.
-                                int ret = recv_msg_timeout(io, 15000);
-                                if (!ret)
-                                {
-                                    ERR_EXIT("timeout reached\n");
-                                }
+                                DEG_LOG(E, "Can not read FDL2 info from PAC");
+                                argc = 1;
+                                continue;
+                            }
+                            EnhancedFile fi = oxfopen_enhanced(fdl2_path.c_str(), "r");
+                            if (!fi)
+                            {
+                                DEG_LOG(W, "File does not exist.\n");
+                                argc = 1;
+                                continue;
+                            }
+                            fi.close();
+                            // FDL2
+                            send_file(io, fdl2_path.c_str(), fdl2_base_addr, 0, 528, 0, 0);
+                            memset(&Da_Info, 0, sizeof(Da_Info));
+                            encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+                            send_msg(io);
+                            // Feature phones respond immediately,
+                            // but it may take a second for a smartphone to respond.
+                            int ret = recv_msg_timeout(io, 15000);
+                            if (!ret)
+                            {
+                                ERR_EXIT("timeout reached\n");
+                            }
+                            ret = recv_type(io);
+                            // Is it always bullshit?
+                            if (ret == BSL_REP_INCOMPATIBLE_PARTITION)
+                                get_Da_Info(io);
+                            else if (ret != BSL_REP_ACK)
+                            {
+                                const char* name = get_bsl_enum_name(ret);
+                                ERR_EXIT("unexpected response (%s : 0x%04x)\n", name, ret);
+                            }
+                            DEG_LOG(OP, "Execute FDL2");
+                            //remove 0d detection for nand device
+                            //This is not supported on certain devices.
+                            /*
+                            encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
+                            send_msg(io);
+                            ret = recv_msg(io);
+                            if (ret) {
                                 ret = recv_type(io);
-                                // Is it always bullshit?
-                                if (ret == BSL_REP_INCOMPATIBLE_PARTITION)
-                                    get_Da_Info(io);
-                                else if (ret != BSL_REP_ACK)
-                                {
-                                    const char* name = get_bsl_enum_name(ret);
-                                    ERR_EXIT("unexpected response (%s : 0x%04x)\n", name, ret);
-                                }
-                                DEG_LOG(OP, "Execute FDL2");
-                                //remove 0d detection for nand device
-                                //This is not supported on certain devices.
-                                /*
-                                encode_msg_nocpy(io, BSL_CMD_READ_FLASH_INFO, 0);
-                                send_msg(io);
-                                ret = recv_msg(io);
-                                if (ret) {
-                                    ret = recv_type(io);
-                                    if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"unexpected response (0x%04x)\n", ret);
-                                    else Da_Info.dwStorageType = 0x101;
-                                    // need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
-                                    // for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
-                                }
-                                */
-                                if (Da_Info.bDisableHDLC)
-                                {
-                                    encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
-                                    if (!send_and_check(io))
-                                    {
-                                        io->flags &= ~FLAGS_TRANSCODE;
-                                        DEG_LOG(OP, "Try to disable transcode 0x7D.");
-                                    }
-                                }
-                                int o = io->verbose;
-                                io->verbose = -1;
-                                g_spl_size = check_partition(io, "splloader", 1);
-                                io->verbose = o;
-                                if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
-                                if (nand_id == DEFAULT_NAND_ID)
-                                {
-                                    nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
-                                    nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
-                                    nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
-                                }
-                                fdl2_executed = 1;
-                                g_app_state.device.device_stage = FDL2;
+                                if (ret != BSL_REP_READ_FLASH_INFO) DEG_LOG(E,"unexpected response (0x%04x)\n", ret);
+                                else Da_Info.dwStorageType = 0x101;
+                                // need more samples to cover BSL_REP_READ_MCP_TYPE packet to nand_id/nand_info
+                                // for nand_id 0x15, packet is 00 9b 00 0c 00 00 00 00 00 02 00 00 00 00 08 00
                             }
-                            DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
-                            for (int o = 0; o < unpac.fileCount; ++o)
+                            */
+                            if (Da_Info.bDisableHDLC)
                             {
-                                const sprd_file_t& f = unpac.files[o];
-                                if (f.type == 0 || f.type == 0x101 || f.type == 2) continue; // No file or FDL or XML
-                                std::string id = unpac.u16_to_u8(f.id, MAX_U16_SN);
-                                if (my_strnicmp(id.c_str(), "FDL", 3) == 0) continue;
-                                if (!my_stricmp(id.c_str(), "NV"))
+                                encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
+                                if (!send_and_check(io))
                                 {
-                                    // Merge NV process
-                                    bool mergenv = false;
-                                    std::string res;
-                                    std::cout << "Do you want to Merge NV partition(Y/n)?" << std::endl;
-                                    std::getline(std::cin, res);
-                                    mergenv = (res == "Y" || res == "y");
-                                    if (mergenv)
+                                    io->flags &= ~FLAGS_TRANSCODE;
+                                    DEG_LOG(OP, "Try to disable transcode 0x7D.");
+                                }
+                            }
+                            int o = io->verbose;
+                            io->verbose = -1;
+                            g_spl_size = check_partition(io, "splloader", 1);
+                            io->verbose = o;
+                            if (Da_Info.dwStorageType == 0x101) DEG_LOG(I, "Device storage is nand.");
+                            if (nand_id == DEFAULT_NAND_ID)
+                            {
+                                nand_info[0] = (uint8_t)pow(2, nand_id & 3); //page size
+                                nand_info[1] = 32 / (uint8_t)pow(2, (nand_id >> 2) & 3); //spare area size
+                                nand_info[2] = 64 * (uint8_t)pow(2, (nand_id >> 4) & 3); //block size
+                            }
+                            fdl2_executed = 1;
+                            g_app_state.device.device_stage = FDL2;
+                        }
+                        pac_skip_empty_operations();
+                        DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
+                        for (int o = 0; o < unpac.fileCount; ++o)
+                        {
+                            const sprd_file_t& f = unpac.files[o];
+                            if (f.type == 0 || f.type == 0x101 || f.type == 2) continue; // No file or FDL or XML
+                            std::string id = unpac.u16_to_u8(f.id, MAX_U16_SN);
+                            if (my_strnicmp(id.c_str(), "FDL", 3) == 0) continue;
+                            if (!isRdaSelected(o))
+                            {
+                                DEG_LOG(I, "PAC entry #%d not selected for flashing, skipping.", o);
+                                continue;
+                            }
+                            if (!my_stricmp(id.c_str(), "NV"))
+                            {
+                                // Merge NV process
+                                bool mergenv = false;
+                                std::string res;
+                                std::cout << "Do you want to Merge NV partition(Y/n)?" << std::endl;
+                                std::getline(std::cin, res);
+                                mergenv = (res == "Y" || res == "y");
+                                if (mergenv)
+                                {
+                                    uint64_t size = 0;
+                                    // 默认步长 0x4000；f.size 只作为 PAC 容量参考。
+                                    const unsigned nv_step = blk_size ? blk_size : 0x4000;
+                                    TempFile NVpath = dump_flash_to_temp(io, f.addr[0], 0,
+                                        0, nv_step, 0, &size);
+                                    if (NVpath.empty() || !size)
                                     {
-                                        uint64_t size = 0;
-                                        TempFile NVpath = dump_flash_to_temp(io, f.addr[0], 0,
-                                            f.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, 0, &size);
-                                        if (NVpath.empty() || !size) continue;
-                                        std::string name = unpac.u16_to_u8(f.name, MAX_U16_SN);
-                                        if (name.empty()) continue;
-                                        if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
-                                            size_t a_size = 0, b_size = 0, c_size = 0;
-                                            uint8_t *a = loadfile(NVpath.c_str(), &a_size, 0);
+                                        DEG_LOG(E,
+                                                "Failed to read old NV from 0x%08x (PAC capacity 0x%x), skipping NV write.",
+                                                f.addr[0], f.size);
+                                        continue;
+                                    }
+                                    if (size != f.size)
+                                    {
+                                        DEG_LOG(I,
+                                                "Old NV size: read 0x%llx, PAC capacity 0x%x.",
+                                                (unsigned long long)size, f.size);
+                                    }
+                                    if (size > f.size)
+                                    {
+                                        DEG_LOG(W,
+                                                "Old NV read 0x%llx exceeds PAC capacity 0x%x; merge may include extra data.",
+                                                (unsigned long long)size, f.size);
+                                    }
+                                    std::string name = unpac.u16_to_u8(f.name, MAX_U16_SN);
+                                    if (name.empty()) continue;
+                                    if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str())) {
+                                        size_t a_size = 0, b_size = 0, c_size = 0;
+                                        uint8_t *a = loadfile(NVpath.c_str(), &a_size, 0);
 #ifndef _WIN32
-                                            uint8_t *b = loadfile((g_app_state.flash.pac_folder + "/" + name).c_str(), &b_size, 0);
+                                        uint8_t *b = loadfile((g_app_state.flash.pac_folder + "/" + name).c_str(), &b_size, 0);
 #else
-                                            uint8_t *b = loadfile((g_app_state.flash.pac_folder + "\\" + name).c_str(), &b_size, 0);
+                                        uint8_t *b = loadfile((g_app_state.flash.pac_folder + "\\" + name).c_str(), &b_size, 0);
 #endif
-                                            if (!a || !b) { delete[](a); delete[](b); continue; }
-                                            uint8_t *c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
-                                            merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
-                                            send_buf(io, f.addr[0], end_data, blk_size ? blk_size : DEFAULT_BLK_SIZE, c, c_size);
-                                            DEG_LOG(OP, "Sent 0x%x to 0x%x.", c_size, f.addr[0]);
-                                            delete[](a); delete[](b); free(c);
+                                        if (!a || !b)
+                                        {
+                                            DEG_LOG(W, "Failed to load NV image for merge (%s), skipping NV write.",
+                                                    !a ? NVpath.c_str() : name.c_str());
+                                            delete[](a);
+                                            delete[](b);
                                             continue;
                                         }
+                                        uint8_t *c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                                        merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
+                                        send_buf(io, f.addr[0], end_data, blk_size ? blk_size : DEFAULT_BLK_SIZE, c, c_size);
+                                        DEG_LOG(OP, "Sent 0x%x to 0x%x.", c_size, f.addr[0]);
+                                        delete[](a); delete[](b); free(c);
+                                        continue;
                                     }
                                 }
-                                std::string name = unpac.u16_to_u8(f.name, MAX_U16_SN);
-                                size_t b_size = 0;
-#ifndef _WIN32
-                                uint8_t *b = loadfile((g_app_state.flash.pac_folder + "/" + name).c_str(), &b_size, 0);
-#else
-                                uint8_t *b = loadfile((g_app_state.flash.pac_folder + "\\" + name).c_str(), &b_size, 0);
-#endif
-                                send_buf(io, f.addr[0], end_data, blk_size ? blk_size : DEFAULT_BLK_SIZE, b, b_size);
-                                DEG_LOG(OP, "Sent 0x%x to 0x%x.", b_size, f.addr[0]);
-                                delete[] b;
                             }
+                            std::string name = unpac.u16_to_u8(f.name, MAX_U16_SN);
+                            size_t b_size = 0;
+#ifndef _WIN32
+                            uint8_t *b = loadfile((g_app_state.flash.pac_folder + "/" + name).c_str(), &b_size, 0);
+#else
+                            uint8_t *b = loadfile((g_app_state.flash.pac_folder + "\\" + name).c_str(), &b_size, 0);
+#endif
+                            send_buf(io, f.addr[0], end_data, blk_size ? blk_size : DEFAULT_BLK_SIZE, b, b_size);
+                            DEG_LOG(OP, "Sent 0x%x to 0x%x.", b_size, f.addr[0]);
+                            delete[] b;
                         }
-                    }
-                    else
-                    {
-                        DEG_LOG(E, "Partition table not available and not RDA.");
-                        argc = 1;
-                        continue;
                     }
                 }
                 else
                 {
+                    DEG_LOG(E, "Partition table not available and not RDA.");
                     argc = 1;
                     continue;
                 }
