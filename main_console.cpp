@@ -246,7 +246,7 @@ void print_help()
             "\t71.pactime\n"
             "\t\tRead the last time the PAC firmware was flashed.\n"
             "\t72.read_flash [ADDR] [OFFSET] [SIZE] [FILE]\n"
-            "\t\tRead flash content to a file\n"
+            "\t\tRead flash content to a file; SIZE 0 means auto-detect until a short read.\n"
             "\t\t`read_flash_dhtb` for reading DHTB Signature for ums9117\n"
             "\t73.read_mem [ADDR] [SIZE] [FILE]\n"
             "\t\tRead memory content to a file\n"
@@ -2478,6 +2478,11 @@ int main_console(int argc, char** argv)
                     // RDA Table PAC 没有 XML 分区表，可刷写的“分区”就是 PAC 目录里
                     // 带物理地址的文件条目。这里先按条目选择，再进入写入流程。
                     PacFile& unpac = g_app_state.pacFile;
+                    if (!pac_validate_required_files())
+                    {
+                        argc = 1;
+                        continue;
+                    }
                     struct RdaPacEntry
                     {
                         int index = 0;
@@ -2790,6 +2795,9 @@ int main_console(int argc, char** argv)
                             fdl2_executed = 1;
                             g_app_state.device.device_stage = FDL2;
                         }
+                        // RDA 的 XML 空操作项（EraseRunNV / EraseUserNV /
+                        // Erase FS / PhaseCheck 等）与闭源流程一样只记录并跳过。
+                        pac_skip_empty_operations();
                         DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
                         for (int o = 0; o < unpac.fileCount; ++o)
                         {
@@ -2813,20 +2821,29 @@ int main_console(int argc, char** argv)
                                 if (mergenv)
                                 {
                                     uint64_t size = 0;
+                                    // 对齐闭源 spd_dump：NV 用 len=0 让底层自动探测长度，
+                                    // 默认步长 0x4000；f.size 只作为 PAC 容量参考。
+                                    const unsigned nv_step = blk_size ? blk_size : 0x4000;
                                     TempFile NVpath = dump_flash_to_temp(io, f.addr[0], 0,
-                                        f.size, blk_size ? blk_size : DEFAULT_BLK_SIZE, 0, &size);
+                                        0, nv_step, 0, &size);
                                     if (NVpath.empty() || !size)
                                     {
                                         DEG_LOG(E,
-                                                "Failed to read old NV from 0x%08x (size 0x%x), skipping NV write.",
+                                                "Failed to read old NV from 0x%08x (PAC capacity 0x%x), skipping NV write.",
                                                 f.addr[0], f.size);
                                         continue;
                                     }
                                     if (size != f.size)
                                     {
+                                        DEG_LOG(I,
+                                                "Old NV size: read 0x%llx, PAC capacity 0x%x.",
+                                                (unsigned long long)size, f.size);
+                                    }
+                                    if (size > f.size)
+                                    {
                                         DEG_LOG(W,
-                                                "Old NV read short: expected 0x%x, got 0x%llx; merge result may be incomplete.",
-                                                f.size, (unsigned long long)size);
+                                                "Old NV read 0x%llx exceeds PAC capacity 0x%x; merge may include extra data.",
+                                                (unsigned long long)size, f.size);
                                     }
                                     std::string name = unpac.u16_to_u8(f.name, MAX_U16_SN);
                                     if (name.empty()) continue;

@@ -543,6 +543,52 @@ static bool hasPartition(const std::vector<std::string>& partitions, const std::
                         }) != partitions.end();
 }
 
+// 判断 PAC 目录中是否存在某个 XML 操作项对应的、带数据的文件。
+static bool pac_id_has_data(const std::string& id, const std::string& alias)
+{
+    PacFile& unpac = g_app_state.pacFile;
+    for (int i = 0; i < unpac.fileCount; ++i)
+    {
+        const sprd_file_t& f = unpac.files[i];
+        if (f.type == 0 || f.type == 0x101 || f.type == 2) continue;
+        if (!f.size || !f.name[0]) continue;
+        std::string fid = unpac.u16_to_u8(f.id, MAX_U16_SN);
+        if (fid == id || (!alias.empty() && fid == alias)) return true;
+    }
+    return false;
+}
+
+bool pac_validate_required_files()
+{
+    for (const auto& file : g_app_state.pacXml.getPrimaryFiles())
+    {
+        if (file.flag != 1 || file.checkFlag != 1) continue;
+        if (file.id.empty()) continue;
+        if (my_strnicmp(file.id.c_str(), "FDL", 3) == 0) continue;
+        if (!pac_id_has_data(file.id, file.idAlias))
+        {
+            DEG_LOG(E, "Required PAC file missing for operation: %s", file.id.c_str());
+            return false;
+        }
+    }
+    return true;
+}
+
+void pac_skip_empty_operations()
+{
+    for (const auto& file : g_app_state.pacXml.getPrimaryFiles())
+    {
+        if (file.flag != 0) continue;
+        if (file.id.empty()) continue;
+        if (my_strnicmp(file.id.c_str(), "FDL", 3) == 0) continue;
+
+        // 闭源 spd_dump 的 pac 流程只处理带数据的文件；没有文件的
+        // Erase*/PhaseCheck 等操作项只打印后跳过，不会发送空文件或擦除命令。
+        DEG_LOG(I, "PAC operation %s (%s) has no file, skipping.",
+                file.id.c_str(), file.type.c_str());
+    }
+}
+
 // ----- PAC 分区表与设备分区表比较 -----
 
 enum class PartitionDiffKind
@@ -790,6 +836,19 @@ bool pac_flash(const char* folder)
         std::string n;
         std::getline(std::cin, n);
         g_app_state.flash.isPacMergingNV = (n == "Y" || n == "y");
+    }
+    if (!pac_validate_required_files())
+    {
+        if (isHelperInit)
+        {
+            gui_idle_call_wait_drag([]()
+            {
+                showErrorDialog(
+                    GTK_WINDOW(helper.getWidget("main_window")), _("Error"),
+                    _("A required file is missing in the PAC."));
+            }, GTK_WINDOW(helper.getWidget("main_window")));
+        }
+        return false;
     }
 
     auto into_func = [isRepartitionGUI]() mutable
@@ -1230,9 +1289,12 @@ bool pac_flash(const char* folder)
                 gpt_refresh_cached_identity(io);
             }
         }
+        // 对齐闭源 PAC 流程：XML 中没有文件的操作项（EraseUBOOT / FLASH_* /
+        // EraseMisc / PhaseCheck 等）只记录并跳过，不发空文件/擦除命令。
         g_app_state.flash.isPacFlashing = true;
         int dlnv_id = 0;
         if (g_app_state.flash.selected_ab < 0) select_ab(io);
+        pac_skip_empty_operations();
         if (unpac.fileCount > 0)
         {
             for (int o = 0; o < unpac.fileCount; o++)

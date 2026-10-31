@@ -122,6 +122,20 @@ public:
         return getFilesByScheme(scheme);
     }
 
+    // PAC 通常只对应一个 Product/Scheme；优先使用第一个 Product 的 Scheme，
+    // 避免多 Product 的 PAC 把其他方案的 File 也当成操作计划。
+    std::vector<FileInfo> getPrimaryFiles() const {
+        if (!m_products.empty()) {
+            auto it = m_schemeMap.find(m_products.front().schemeName);
+            if (it != m_schemeMap.end()) return it->second.files;
+        }
+        if (!m_schemeOrder.empty()) {
+            auto it = m_schemeMap.find(m_schemeOrder.front());
+            if (it != m_schemeMap.end()) return it->second.files;
+        }
+        return {};
+    }
+
     FileInfo getFileInfoByOperation(const std::string& opName) const {
         for (const auto& pair : m_schemeMap) {
             for (const auto& file : pair.second.files) {
