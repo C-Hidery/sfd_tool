@@ -340,7 +340,7 @@ typedef struct pac_part_select_t
 extern bool showCanceled;
 
 // Send EXEC_DATA from FDL1 and initialize the freshly started FDL2.
-// Shared by the `exec` command and the CVE-2022-38693 `pwnexec` command.
+// Shared by the `exec` command and the `pwnexec` command.
 static void exec_fdl1_to_fdl2(spdio_t* io)
 {
     memset(&Da_Info, 0, sizeof(Da_Info));

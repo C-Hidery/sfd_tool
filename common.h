@@ -415,7 +415,6 @@ void do_e_efuse_read(spdio_t *io, uint32_t block_id);
 void do_e_pwn(spdio_t *io, int selected_ab);
 void do_e_checkpwn(spdio_t *io, int selected_ab);
 
-// ---- CVE-2022-38693 (pwnexec) ------------------------------------------
 // FDL1 image cached by the CLI when it is sent to 0x65008000, so `pwnexec`
 // can patch and resend it without asking for the file again.
 extern uint8_t *g_fdl1_img;
