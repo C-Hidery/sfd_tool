@@ -582,8 +582,6 @@ void pac_skip_empty_operations()
         if (file.id.empty()) continue;
         if (my_strnicmp(file.id.c_str(), "FDL", 3) == 0) continue;
 
-        // 闭源 spd_dump 的 pac 流程只处理带数据的文件；没有文件的
-        // Erase*/PhaseCheck 等操作项只打印后跳过，不会发送空文件或擦除命令。
         DEG_LOG(I, "PAC operation %s (%s) has no file, skipping.",
                 file.id.c_str(), file.type.c_str());
     }

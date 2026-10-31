@@ -2795,8 +2795,6 @@ int main_console(int argc, char** argv)
                             fdl2_executed = 1;
                             g_app_state.device.device_stage = FDL2;
                         }
-                        // RDA 的 XML 空操作项（EraseRunNV / EraseUserNV /
-                        // Erase FS / PhaseCheck 等）与闭源流程一样只记录并跳过。
                         pac_skip_empty_operations();
                         DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
                         for (int o = 0; o < unpac.fileCount; ++o)
@@ -2821,7 +2819,6 @@ int main_console(int argc, char** argv)
                                 if (mergenv)
                                 {
                                     uint64_t size = 0;
-                                    // 对齐闭源 spd_dump：NV 用 len=0 让底层自动探测长度，
                                     // 默认步长 0x4000；f.size 只作为 PAC 容量参考。
                                     const unsigned nv_step = blk_size ? blk_size : 0x4000;
                                     TempFile NVpath = dump_flash_to_temp(io, f.addr[0], 0,
