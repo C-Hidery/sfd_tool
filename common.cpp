@@ -199,7 +199,18 @@ void send_buf(spdio_t* io,
         // n = spd_transcode_max(mem + i, size - i, 2048 - 2 - 6);
         if (n > step) n = step;
         encode_msg(io, BSL_CMD_MIDST_DATA, mem + i, n);
-        if (send_and_check(io)) return;
+        send_msg(io);
+        int ret = recv_msg(io);
+        if (ret)
+        {
+            if ((ret = recv_type(io)) != BSL_REP_ACK)
+                {
+                    const char* type = get_bsl_enum_name(ret);
+                    DEG_LOG(E, "unexpected response (%s : 0x%04x)\n", type, ret);
+                }
+        }
+        else if (i + n == size) return;
+        else ERR_EXIT("timeout reached\n");
     }
     if (end_data)
     {
