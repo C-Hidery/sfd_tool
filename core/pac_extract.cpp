@@ -315,6 +315,8 @@ PacFile& unpac = g_app_state.pacFile;
 
 bool pac_extract(const char* fn, const char* folder)
 {
+    // 每次解包都重新判定 PAC 类型，避免上一次 RDA PAC 的标记残留到普通 PAC。
+    g_app_state.flash.isPacRdaTable = false;
 #ifndef _WIN32
     if (mkdir(folder, 0755) != 0 && errno != EEXIST) return false;
 #else
