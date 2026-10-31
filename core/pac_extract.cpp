@@ -1304,19 +1304,57 @@ bool pac_flash(const char* folder)
                 std::string partition = g_app_state.pacXml.getPartitionByOperation(id);
                 if (partition.empty()) continue;
                 gui_idle_call([id, partition](){ bottom_bar_set_status("PAC Flashing: " + id + " -> " + partition); });
-                if (!strcmp(partition.c_str(), "miscdata") && hasPartition(
-                    g_app_state.flash.selected_pacptable, "miscdata"))
+                if (!strcmp(partition.c_str(), "miscdata"))
                 {
                     continue;
                 }
-                if (!strcmp(partition.c_str(), "prodnv") && hasPartition(g_app_state.flash.selected_pacptable, "prodnv"))
+                if (!strcmp(partition.c_str(), "prodnv"))
                 {
                     continue;
                 }
                 if (!strcmp(partition.c_str(), "userdata") && hasPartition(
                     g_app_state.flash.selected_pacptable, "userdata"))
                 {
-                    erase_partition(io, partition.c_str(), 0);
+                    // userdata 不再默认擦除：PAC 里有镜像就正常写入，
+                    // 没有文件/文件为空时才跳过。
+                    std::string name = unpac.u16_to_u8(file.name, MAX_U16_SN);
+                    if (name.empty() || file.size == 0)
+                    {
+                        DEG_LOG(I, "userdata image is empty or missing in PAC, skipping.");
+                        continue;
+                    }
+#ifndef _WIN32
+                    std::string file_path = g_app_state.flash.pac_folder + "/" + name;
+#else
+                    std::string file_path = g_app_state.flash.pac_folder + "\\" + name;
+#endif
+                    EnhancedFile uf = oxfopen_enhanced(file_path.c_str(), "rb");
+                    if (!uf)
+                    {
+                        DEG_LOG(W, "userdata image %s does not exist, skipping.", file_path.c_str());
+                        continue;
+                    }
+                    // userdata.img 在别的 PAC 里可能超过 2GB，用 64 位接口取大小。
+                    if (uf.seeko(0, SEEK_END) != 0)
+                    {
+                        DEG_LOG(W, "userdata image %s: seek failed, skipping.", file_path.c_str());
+                        continue;
+                    }
+                    const auto userdata_size = uf.tello();
+                    uf.close();
+                    if (userdata_size <= 0)
+                    {
+                        DEG_LOG(I, "userdata image %s is empty, skipping.", file_path.c_str());
+                        continue;
+                    }
+                    DEG_LOG(I, "Flashing userdata image: %s (%lld bytes)",
+                            file_path.c_str(), static_cast<long long>(userdata_size));
+                    load_partition_unify(io, partition.c_str(), file_path.c_str(),
+                                         blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
+                    continue;
+                }
+                else if (!strcmp(partition.c_str(), "userdata"))
+                {
                     continue;
                 }
                 if (g_app_state.flash.isPacMergingNV)
