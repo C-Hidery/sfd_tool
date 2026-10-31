@@ -504,7 +504,7 @@ bool pac_extract(const char* fn, const char* folder)
                 }
                 else
                 {
-                    size_str = "DEFAULT, ERASE!!!";
+                    size_str = "DEFAULT";
                 }
 
                 SfdRow* row = sfd_row_new();

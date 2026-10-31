@@ -2426,11 +2426,7 @@ int main_console(int argc, char** argv)
                     {
                         for (int k = 0; k < io->part_count; k++)
                         {
-                            if (strcmp(select_table[k].name, "userdata") != 0)
-                                DEG_LOG(I, "%s, toggle=%s", select_table[k].name,
-                                        select_table[k].Selected ? "yes" : "no");
-                            else
-                                DEG_LOG(I, "%s, toggle=%s, ERASE!!!", select_table[k].name,
+                            DEG_LOG(I, "%s, toggle=%s", select_table[k].name,
                                         select_table[k].Selected ? "yes" : "no");
                         }
                         DEG_LOG(
