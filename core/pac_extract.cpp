@@ -1460,13 +1460,24 @@ bool pac_flash(const char* folder)
 #else
                         std::string file_path = g_app_state.flash.pac_folder + "\\" + name;
 #endif
-                        EnhancedFile f = oxfopen_enhanced(file_path.c_str(), "r");
+                        EnhancedFile f = oxfopen_enhanced(file_path.c_str(), "rb");
                         if (!f)
                         {
                             DEG_LOG(E, "File %s does not exist.", file_path.c_str());
                             continue;
                         }
+                        if (f.seeko(0, SEEK_END) != 0)
+                        {
+                            DEG_LOG(W, "File %s: seek failed, skipping.", file_path.c_str());
+                            continue;
+                        }
+                        const auto file_size = f.tello();
                         f.close();
+                        if (file_size <= 0)
+                        {
+                            DEG_LOG(I, "File %s is empty, skipping.", file_path.c_str());
+                            continue;
+                        }
                         load_partition_unify(io, partition.c_str(), file_path.c_str(),
                                              blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
                     }
@@ -1512,6 +1523,8 @@ bool pac_flash(const char* folder)
                                     uint8_t* b = loadfile(file_path.c_str(), &b_size, 0);
                                     if (!a || !b)
                                     {
+                                        DEG_LOG(W,
+                                                "downloadnv image or old NV data is empty/missing, skipping.");
                                         if (a) delete[] a;
                                         if (b) delete[] b;
                                     }
@@ -1536,6 +1549,24 @@ bool pac_flash(const char* folder)
 #else
                             std::string file_path = g_app_state.flash.pac_folder + "\\" + name;
 #endif
+                            EnhancedFile f = oxfopen_enhanced(file_path.c_str(), "rb");
+                            if (!f)
+                            {
+                                DEG_LOG(E, "File %s does not exist.", file_path.c_str());
+                                return;
+                            }
+                            if (f.seeko(0, SEEK_END) != 0)
+                            {
+                                DEG_LOG(W, "File %s: seek failed, skipping.", file_path.c_str());
+                                return;
+                            }
+                            const auto file_size = f.tello();
+                            f.close();
+                            if (file_size <= 0)
+                            {
+                                DEG_LOG(I, "File %s is empty, skipping.", file_path.c_str());
+                                return;
+                            }
                             load_partition_unify(io, partition.c_str(), file_path.c_str(),
                                                  blk_size ? blk_size : DEFAULT_BLK_SIZE, 0);
                         }
