@@ -201,14 +201,24 @@ public:
 
 #ifdef _MSC_VER
     int64_t tello() const noexcept { return file_ ? static_cast<int64_t>(ftello(file_.get())) : -1LL; }
-    int seeko(int64_t offset, int origin) noexcept { return file_ ? fseeko(file_.get(), offset, origin) : -1; }
+    int seeko(int64_t offset, int origin) noexcept {
+        if (!file_) return -1;
+        if (!buf_.sync_position()) return -1;
+        return fseeko(file_.get(), offset, origin);
+    }
 #else
     off_t tello() const noexcept { return file_ ? ftello(file_.get()) : static_cast<off_t>(-1); }
-    int seeko(off_t offset, int origin) noexcept { return file_ ? fseeko(file_.get(), offset, origin) : -1; }
+    int seeko(off_t offset, int origin) noexcept {
+        if (!file_) return -1;
+        if (!buf_.sync_position()) return -1;
+        return fseeko(file_.get(), offset, origin);
+    }
 #endif
 
     int seek(long offset, int origin) noexcept {
-        return file_ ? std::fseek(file_.get(), offset, origin) : -1;
+        if (!file_) return -1;
+        if (!buf_.sync_position()) return -1;
+        return std::fseek(file_.get(), offset, origin);
     }
     void rewind() noexcept {
         if (file_) std::rewind(file_.get());
