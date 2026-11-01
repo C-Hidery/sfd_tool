@@ -1348,4 +1348,7 @@ msgstr "设备大小"
 msgid "PAC Size"
 msgstr "PAC 大小"
 
+msgid "A required file is missing in the PAC."
+msgstr "PAC 中缺少必要的文件。"
+
 

@@ -298,6 +298,7 @@ unsigned dump_flash(spdio_t* io,
                     const char* fn, unsigned step, int mode)
 {
     uint32_t nread = 0;
+    uint32_t log_len = len;
     EnhancedFile fo = my_oxfopen_enhanced(fn, "wb");
     if (!fo) ERR_EXIT("fopen(dump) failed, please check if program has permission to write file in current dir.\n");
 
@@ -314,7 +315,11 @@ unsigned dump_flash(spdio_t* io,
         len = READ32_LE(buf + 0x30);
         if (len >> 31) ERR_EXIT("unexpected DHTB size (0x%x)\n", len);
         len += 0x200;
+        log_len = len;
     }
+    else if (len == 0)
+        len = 0x10000000;
+
     nread += read_flash(io, addr, start + nread, len - nread, NULL, fo.get(), step);
     if (mode == 1 && len == nread)
         do
@@ -346,7 +351,7 @@ unsigned dump_flash(spdio_t* io,
             nread += read_flash(io, addr, start + nread, nread2, NULL, fo.get(), step);
         }
         while (0);
-    DEG_LOG(I, "Read flash successfully: 0x%08x+0x%x, target: 0x%x, read: 0x%x\n", addr, start, len, nread);
+    DEG_LOG(I, "Read flash successfully: 0x%08x+0x%x, target: 0x%x, read: 0x%x\n", addr, start, log_len, nread);
     return nread;
 }
 
