@@ -14,6 +14,7 @@ add_library(core_lib STATIC
         Unpac.cpp
         xmlutil.hpp
         PacXMLParser.hpp
+        file_buf.h
 )
 
 target_include_directories(core_lib
