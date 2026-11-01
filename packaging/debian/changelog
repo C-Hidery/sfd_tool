@@ -1,3 +1,9 @@
+sfd-tool (3.5.1-1-ltv) unstable; urgency=medium
+
+  * 修复了file_io的流式操作
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sun, 01 Nov 2026 13:26:00 +0800
+
 sfd-tool (3.5.0-1-ltv) unstable; urgency=medium
 
   * 修复了一些已知问题

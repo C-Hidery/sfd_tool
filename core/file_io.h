@@ -3,51 +3,54 @@
  * SFDTool Copyright (C) 2026 Ryan Crepa
  */
 #pragma once
+#include "file_buf.h"
+
 #include <stdio.h>
 #include <memory>
 #include <string>
 #include <cstdint>
 #include <iostream>
 #include <filesystem>
+#include <ios>
+#include <type_traits>
+#include <cstdarg>
 
 #ifndef __cplusplus
-    #error "This header requires C++. Please compile with a C++ compiler."
+#error "This header requires C++. Please compile with a C++ compiler."
 #endif
 
 #ifdef _MSC_VER
-#define fseeko _fseeki64
-#define ftello _ftelli64
+#  ifndef fseeko
+#    define fseeko _fseeki64
+#  endif
+#  ifndef ftello
+#    define ftello _ftelli64
+#  endif
 #endif
 
 // 旧的定长缓冲尺寸：CLI 参数与 save_path 已改为动态存储，长度不再受它限制。
 // 保留宏是为了兼容可能仍引用它的外部代码。
 #define ARGV_LEN 384
-// 保存目录（UTF-8）。用 std::string 承载，路径长度不再受定长缓冲限制。
+
+// 保存目录（UTF-8）。
 extern std::string save_path;
 
 // 生成系统临时目录下的唯一文件路径（不创建文件）。
-// 系统临时目录为空/不可用时退回当前目录。
 std::string make_temp_file_path(const char* tag);
 // 在当前工作目录下生成唯一临时文件路径（绝对路径，不创建文件）。
 std::string make_temp_file_path_in_cwd(const char* tag);
-// 删除文件（Windows 使用 _wremove，其它平台 remove）。不存在时静默忽略。
+// 删除文件（Windows 使用 _wremove，其它平台 remove）。
 void remove_file(const char* path);
 void remove_file(const std::string& path);
 
 // UTF-8 <-> std::filesystem::path 的统一转换。
-// Windows 上 std::filesystem::path 的窄字符构造按 ANSI(ACP) 解释，直接用
-// std::string 构造会破坏 UTF-8 统一性；跨平台代码请一律走这两个函数：
-//   std::filesystem::exists(utf8_to_path(p))
-//   std::string utf8_p = path_to_utf8(fs_path);
 std::filesystem::path utf8_to_path(const std::string& utf8_path);
 std::string path_to_utf8(const std::filesystem::path& path);
 
-// RAII 临时文件：持有路径，析构时自动删除（Windows 使用 _wremove）。
+// RAII 临时文件：持有路径，析构时自动删除。
 class TempFile {
 public:
     TempFile() = default;
-    // 空路径检查：传入空路径时直接在当前目录下生成一个唯一临时文件名。
-    // RAII 语义不变，析构时仍会删除所持路径。
     explicit TempFile(std::string path) noexcept
         : path_(path.empty() ? make_temp_file_path_in_cwd("tmp") : std::move(path)) {}
     ~TempFile() { remove(); }
@@ -67,9 +70,7 @@ public:
     const std::string& path() const noexcept { return path_; }
     const char* c_str() const noexcept { return path_.c_str(); }
 
-    // 立即删除并清空
     void remove();
-    // 放弃所有权（返回路径，析构时不再删除）
     std::string release() noexcept { std::string p; p.swap(path_); return p; }
 
 private:
@@ -85,123 +86,228 @@ struct FileDeleter {
     }
 };
 
-// 基础类型定义
 using UniqueFile = std::unique_ptr<FILE, FileDeleter>;
 
-// 格式化状态标志
-enum class NumberBase {
-    Dec,
-    Hex,
-    Oct
-};
-
-// 增强的文件类，支持运算符重载
+// 增强文件类：在 FILE* 之上包一层 std::iostream。
+//  - file_   负责所有权 + fclose
+//  - buf_    把 FILE* 适配成 streambuf
+//  - stream_ 真正的 iostream，负责格式化/操纵符/异常位
+// 所有 operator<< / operator>> 都转发到 stream_，因此 std::hex、
+// std::setw、std::setprecision、std::endl 等标准操纵符全部生效。
 class EnhancedFile {
 private:
-    UniqueFile file;
-    
-    // 格式化状态
-    struct FormatState {
-        NumberBase base = NumberBase::Dec;
-        bool showbase = false;   // 显示进制前缀 (0x, 0)
-        bool uppercase = false;  // 十六进制大写字母
-        bool boolalpha = false;  // true/false 而不是 1/0
-        bool skipws = true;      // 跳过空白字符
-        int width = 0;           // 字段宽度 (0=无限制)
-        int precision = 6;       // 浮点数精度
-        char fill = ' ';         // 填充字符
-    } format;
-    
+    UniqueFile file_;
+    FileBuf    buf_;
+    std::unique_ptr<std::iostream> stream_;
+
+    void bind_stream_noexcept() noexcept {
+        if (!file_) return;
+        try {
+            stream_ = std::make_unique<std::iostream>(&buf_);
+        } catch (...) {
+            // 分配失败：退回只有 FILE* 的退化状态，对象无效
+            stream_.reset();
+            file_.reset();
+            buf_.attach(nullptr);
+        }
+    }
+
 public:
-    // 构造函数
     EnhancedFile() noexcept = default;
-    explicit EnhancedFile(FILE* f) noexcept;
-    explicit EnhancedFile(UniqueFile&& f) noexcept;
-    
-    // 移动语义
-    EnhancedFile(EnhancedFile&& other) noexcept = default;
-    EnhancedFile& operator=(EnhancedFile&& other) noexcept = default;
-    
-    // 禁止拷贝
+
+    explicit EnhancedFile(FILE* f) noexcept
+        : file_(f), buf_(f) { bind_stream_noexcept(); }
+
+    explicit EnhancedFile(UniqueFile&& f) noexcept
+        : file_(std::move(f)), buf_(file_.get()) { bind_stream_noexcept(); }
+
+    EnhancedFile(EnhancedFile&& rhs) noexcept
+        : file_(std::move(rhs.file_)), buf_(file_.get()) {
+        if (rhs.stream_) {
+            bind_stream_noexcept();
+            if (stream_) {
+                try {
+                    stream_->copyfmt(*rhs.stream_);
+                    stream_->setstate(rhs.stream_->rdstate());
+                } catch (...) {
+                    stream_.reset();
+                    file_.reset();
+                    buf_.attach(nullptr);
+                }
+            }
+        }
+        rhs.buf_.attach(nullptr);
+        rhs.stream_.reset();
+    }
+
+    EnhancedFile& operator=(EnhancedFile&& rhs) noexcept {
+        if (this != &rhs) {
+            stream_.reset();
+            buf_.attach(nullptr);
+            file_ = std::move(rhs.file_);
+            buf_.attach(file_.get());
+            if (file_) bind_stream_noexcept();
+            if (stream_ && rhs.stream_) {
+                try {
+                    stream_->copyfmt(*rhs.stream_);
+                    stream_->setstate(rhs.stream_->rdstate());
+                } catch (...) {
+                    stream_.reset();
+                    file_.reset();
+                    buf_.attach(nullptr);
+                }
+            }
+            rhs.buf_.attach(nullptr);
+            rhs.stream_.reset();
+        }
+        return *this;
+    }
+
     EnhancedFile(const EnhancedFile&) = delete;
     EnhancedFile& operator=(const EnhancedFile&) = delete;
-    
-    // 析构函数
+
     ~EnhancedFile() = default;
-    
-    // 运算符重载
-    explicit operator bool() const noexcept;
-    bool operator!() const noexcept;
-    operator FILE*() const noexcept;
-    FILE* operator->() const noexcept;
-    
-    // 成员函数
-    FILE* get() const noexcept;
-    UniqueFile release() noexcept;
-    void reset(FILE* f = nullptr) noexcept;
-    void close() noexcept;
-    int flush() noexcept;
-    long tell() const noexcept;
+
+    // ---- 状态查询 ----
+    explicit operator bool() const noexcept { return static_cast<bool>(file_); }
+    bool operator!() const noexcept { return !file_; }
+    operator FILE*() const noexcept { return file_.get(); }
+    FILE* operator->() const noexcept { return file_.get(); }
+
+    FILE* get() const noexcept { return file_.get(); }
+
+    // ---- iostream 访问 ----
+    std::iostream& stream() const noexcept { return *stream_; }
+
+    // ---- 所有权 ----
+    UniqueFile release() noexcept {
+        stream_.reset();
+        buf_.attach(nullptr);
+        return std::move(file_);
+    }
+
+    void reset(FILE* f = nullptr) noexcept {
+        stream_.reset();
+        buf_.attach(f);
+        file_.reset(f);
+        if (f) bind_stream_noexcept();
+    }
+
+    void close() noexcept { reset(nullptr); }
+
+    // ---- C 风格便利函数（保持原签名） ----
+    int flush() noexcept { return file_ ? std::fflush(file_.get()) : -1; }
+    long tell() const noexcept { return file_ ? std::ftell(file_.get()) : -1L; }
+
 #ifdef _MSC_VER
-    int64_t tello() const noexcept;
+    int64_t tello() const noexcept { return file_ ? static_cast<int64_t>(ftello(file_.get())) : -1LL; }
+    int seeko(int64_t offset, int origin) noexcept { return file_ ? fseeko(file_.get(), offset, origin) : -1; }
 #else
-    off_t tello() const noexcept; // `-D_FILE_OFFSET_BITS=64` if on 32-bit Linux
+    off_t tello() const noexcept { return file_ ? ftello(file_.get()) : static_cast<off_t>(-1); }
+    int seeko(off_t offset, int origin) noexcept { return file_ ? fseeko(file_.get(), offset, origin) : -1; }
 #endif
-    int seek(long offset, int origin) noexcept;
-#ifdef _MSC_VER
-    int seeko(int64_t offset, int origin) noexcept;
-#else
-    int seeko(off_t offset, int origin) noexcept; // `-D_FILE_OFFSET_BITS=64` if on 32-bit Linux
-#endif
-    void rewind() noexcept;
-    int eof() const noexcept;
-    int error() const noexcept;
-    void clearerr() noexcept;
-    
-    // 读写操作
-    size_t write(const void* buffer, size_t size, size_t count) noexcept;
-    size_t read(void* buffer, size_t size, size_t count) noexcept;
-    int putc(int ch) noexcept;
-    int getc() noexcept;
-    int puts(const char* str) noexcept;
-    char* gets(char* buffer, int maxSize) noexcept;
-    int printf(const char* format, ...) noexcept;
-    int scanf(const char* format, ...) noexcept;
-    // 从当前位置读到 EOF
+
+    int seek(long offset, int origin) noexcept {
+        return file_ ? std::fseek(file_.get(), offset, origin) : -1;
+    }
+    void rewind() noexcept {
+        if (file_) std::rewind(file_.get());
+        if (stream_) stream_->clear();
+    }
+
+    int eof() const noexcept {
+        if (stream_ && stream_->eof()) return 1;
+        return file_ ? std::feof(file_.get()) : 0;
+    }
+    int error() const noexcept {
+        if (stream_ && stream_->bad()) return 1;
+        return file_ ? std::ferror(file_.get()) : 0;
+    }
+    void clearerr() noexcept {
+        if (file_) std::clearerr(file_.get());
+        if (stream_) stream_->clear();
+    }
+
+    // ---- C 风格 IO ----
+    size_t write(const void* buffer, size_t size, size_t count) noexcept {
+        return file_ ? std::fwrite(buffer, size, count, file_.get()) : 0;
+    }
+    size_t read(void* buffer, size_t size, size_t count) noexcept {
+        return file_ ? std::fread(buffer, size, count, file_.get()) : 0;
+    }
+    int putc(int ch) noexcept { return file_ ? std::fputc(ch, file_.get()) : EOF; }
+    int getc() noexcept { return file_ ? std::fgetc(file_.get()) : EOF; }
+    int puts(const char* s) noexcept { return file_ ? std::fputs(s, file_.get()) : EOF; }
+    char* gets(char* b, int m) noexcept { return file_ ? std::fgets(b, m, file_.get()) : nullptr; }
+
+    int printf(const char* fmt, ...) noexcept {
+        if (!file_) return -1;
+        va_list a; va_start(a, fmt);
+        int r = std::vfprintf(file_.get(), fmt, a);
+        va_end(a);
+        return r;
+    }
+    int scanf(const char* fmt, ...) noexcept {
+        if (!file_) return EOF;
+        va_list a; va_start(a, fmt);
+        int r = std::vfscanf(file_.get(), fmt, a);
+        va_end(a);
+        return r;
+    }
+
     std::string read_all_string() const;
-    
     std::string read_all_chunked(size_t chunk_size = 4096);
-    
-    // 格式化状态设置
-    void set_base(NumberBase base) noexcept { format.base = base; }
-    void set_hex(bool enable) noexcept { format.base = enable ? NumberBase::Hex : NumberBase::Dec; }
-    void set_oct(bool enable) noexcept { format.base = enable ? NumberBase::Oct : NumberBase::Dec; }
-    void set_dec(bool enable) noexcept { if (enable) format.base = NumberBase::Dec; }
-    void set_showbase(bool enable) noexcept { format.showbase = enable; }
-    void set_uppercase(bool enable) noexcept { format.uppercase = enable; }
-    void set_boolalpha(bool enable) noexcept { format.boolalpha = enable; }
-    void set_skipws(bool enable) noexcept { format.skipws = enable; }
-    void set_width(int w) noexcept { format.width = w; }
-    void set_precision(int p) noexcept { format.precision = p; }
-    void set_fill(char c) noexcept { format.fill = c; }
-    
-    // 格式化状态获取
-    NumberBase base() const noexcept { return format.base; }
-    bool is_hex() const noexcept { return format.base == NumberBase::Hex; }
-    bool is_oct() const noexcept { return format.base == NumberBase::Oct; }
-    bool is_dec() const noexcept { return format.base == NumberBase::Dec; }
-    bool showbase() const noexcept { return format.showbase; }
-    bool uppercase() const noexcept { return format.uppercase; }
-    bool boolalpha() const noexcept { return format.boolalpha; }
-    bool skipws() const noexcept { return format.skipws; }
-    int width() const noexcept { return format.width; }
-    int precision() const noexcept { return format.precision; }
-    char fill() const noexcept { return format.fill; }
+
+    // ---- 兼容旧 API：格式化状态转发到 iostream ----
+    void set_hex(bool en) noexcept {
+        if (stream_) stream_->setf(en ? std::ios::hex : std::ios::dec, std::ios::basefield);
+    }
+    void set_oct(bool en) noexcept {
+        if (stream_) stream_->setf(en ? std::ios::oct : std::ios::dec, std::ios::basefield);
+    }
+    void set_dec(bool en) noexcept {
+        if (stream_ && en) stream_->setf(std::ios::dec, std::ios::basefield);
+    }
+    void set_showbase(bool en) noexcept {
+        if (stream_) stream_->setf(en ? std::ios::showbase : std::ios_base::fmtflags(0),
+                                    std::ios::showbase);
+    }
+    void set_uppercase(bool en) noexcept {
+        if (stream_) stream_->setf(en ? std::ios::uppercase : std::ios_base::fmtflags(0),
+                                    std::ios::uppercase);
+    }
+    void set_boolalpha(bool en) noexcept {
+        if (stream_) stream_->setf(en ? std::ios::boolalpha : std::ios_base::fmtflags(0),
+                                    std::ios::boolalpha);
+    }
+    void set_skipws(bool en) noexcept {
+        if (stream_) stream_->setf(en ? std::ios::skipws : std::ios_base::fmtflags(0),
+                                    std::ios::skipws);
+    }
+    void set_width(int w) noexcept     { if (stream_) stream_->width(w); }
+    void set_precision(int p) noexcept { if (stream_) stream_->precision(p); }
+    void set_fill(char c) noexcept     { if (stream_) stream_->fill(c); }
+
+    bool is_hex() const noexcept {
+        return stream_ && (stream_->flags() & std::ios::basefield) == std::ios::hex;
+    }
+    bool is_oct() const noexcept {
+        return stream_ && (stream_->flags() & std::ios::basefield) == std::ios::oct;
+    }
+    bool is_dec() const noexcept {
+        return stream_ && (stream_->flags() & std::ios::basefield) == std::ios::dec;
+    }
+    bool showbase() const noexcept  { return stream_ && (stream_->flags() & std::ios::showbase) != 0; }
+    bool uppercase() const noexcept { return stream_ && (stream_->flags() & std::ios::uppercase) != 0; }
+    bool boolalpha() const noexcept { return stream_ && (stream_->flags() & std::ios::boolalpha) != 0; }
+    bool skipws() const noexcept    { return stream_ && (stream_->flags() & std::ios::skipws) != 0; }
+    int  width() const noexcept     { return stream_ ? stream_->width() : 0; }
+    int  precision() const noexcept { return stream_ ? stream_->precision() : 6; }
+    char fill() const noexcept      { return stream_ ? stream_->fill() : ' '; }
 };
 
 // 工厂函数
 EnhancedFile oxfopen_enhanced(const char* fn, const char* mode);
-// 工厂函数
 EnhancedFile my_oxfopen_enhanced(const char* fn, const char* mode);
 
 // 原有的函数声明
@@ -210,84 +316,67 @@ FILE* my_oxfopen(const char* fn, const char* mode);
 
 // 此接口已废弃
 UniqueFile oxfopen_unique(const char* fn, const char* mode);
-// 此接口已废弃
 UniqueFile my_oxfopen_unique(const char* fn, const char* mode);
 
-// 自定义操纵符
+// 兼容旧代码：file_manip::xxx 直接等价于 std::xxx
 namespace file_manip {
-    // 进制操纵符
-    struct hex_tag {};    inline constexpr hex_tag hex;
-    struct dec_tag {};    inline constexpr dec_tag dec;
-    struct oct_tag {};    inline constexpr oct_tag oct;
-    
-    // 格式操纵符
-    struct showbase_tag {};    inline constexpr showbase_tag showbase;
-    struct noshowbase_tag {};  inline constexpr noshowbase_tag noshowbase;
-    struct uppercase_tag {};   inline constexpr uppercase_tag uppercase;
-    struct nouppercase_tag {}; inline constexpr nouppercase_tag nouppercase;
-    struct boolalpha_tag {};   inline constexpr boolalpha_tag boolalpha;
-    struct noboolalpha_tag {}; inline constexpr noboolalpha_tag noboolalpha;
-    struct skipws_tag {};      inline constexpr skipws_tag skipws;
-    struct noskipws_tag {};    inline constexpr noskipws_tag noskipws;
-    
-    // 流操纵符
-    struct endl_tag {};    inline constexpr endl_tag endl;
-    struct flush_tag {};   inline constexpr flush_tag flush;
+    using std::hex;
+    using std::dec;
+    using std::oct;
+    using std::showbase;
+    using std::noshowbase;
+    using std::uppercase;
+    using std::nouppercase;
+    using std::boolalpha;
+    using std::noboolalpha;
+    using std::skipws;
+    using std::noskipws;
+    using std::endl;
+    using std::flush;
 }
 
-// 进制操纵符重载
-EnhancedFile& operator<<(EnhancedFile& ef, file_manip::hex_tag);
-EnhancedFile& operator<<(EnhancedFile& ef, file_manip::dec_tag);
-EnhancedFile& operator<<(EnhancedFile& ef, file_manip::oct_tag);
+// ---- 用模板一次性覆盖所有 std::ostream/istream 可处理的类型 ----
+namespace detail {
+    template <typename T, typename = void>
+    struct is_stream_insertable : std::false_type {};
+    template <typename T>
+    struct is_stream_insertable<T, std::void_t<decltype(
+        std::declval<std::ostream&>() << std::declval<const T&>())>>
+        : std::true_type {};
 
-// 格式操纵符重载
-EnhancedFile& operator<<(EnhancedFile& ef, file_manip::showbase_tag);
-EnhancedFile& operator<<(EnhancedFile& ef, file_manip::noshowbase_tag);
-EnhancedFile& operator<<(EnhancedFile& ef, file_manip::uppercase_tag);
-EnhancedFile& operator<<(EnhancedFile& ef, file_manip::nouppercase_tag);
-EnhancedFile& operator<<(EnhancedFile& ef, file_manip::boolalpha_tag);
-EnhancedFile& operator<<(EnhancedFile& ef, file_manip::noboolalpha_tag);
-EnhancedFile& operator<<(EnhancedFile& ef, file_manip::skipws_tag);
-EnhancedFile& operator<<(EnhancedFile& ef, file_manip::noskipws_tag);
+    template <typename T, typename = void>
+    struct is_stream_extractable : std::false_type {};
+    template <typename T>
+    struct is_stream_extractable<T, std::void_t<decltype(
+        std::declval<std::istream&>() >> std::declval<T&>())>>
+        : std::true_type {};
+}
 
-// 流操纵符重载
-EnhancedFile& operator<<(EnhancedFile& ef, file_manip::endl_tag);
-EnhancedFile& operator<<(EnhancedFile& ef, file_manip::flush_tag);
+template <typename T>
+EnhancedFile& operator<<(EnhancedFile& ef, const T& v) {
+    if (!ef) return ef;
+    static_assert(detail::is_stream_insertable<T>::value,
+                  "EnhancedFile: no matching std::ostream::operator<< for this type");
+    ef.stream() << v;
+    return ef;
+}
 
-// 标准库兼容的操纵符重载（可选）
-EnhancedFile& operator<<(EnhancedFile& ef, std::ostream& (*manip)(std::ostream&));
+template <typename T>
+EnhancedFile& operator>>(EnhancedFile& ef, T& v) {
+    if (!ef) return ef;
+    static_assert(detail::is_stream_extractable<T>::value,
+                  "EnhancedFile: no matching std::istream::operator>> for this type");
+    ef.stream() >> v;
+    return ef;
+}
 
-// 流式输出运算符 (<<)
-EnhancedFile& operator<<(EnhancedFile& ef, const char* str);
-EnhancedFile& operator<<(EnhancedFile& ef, const std::string& str);
-EnhancedFile& operator<<(EnhancedFile& ef, int val);
-EnhancedFile& operator<<(EnhancedFile& ef, unsigned int val);
-EnhancedFile& operator<<(EnhancedFile& ef, long val);
-EnhancedFile& operator<<(EnhancedFile& ef, unsigned long val);
-EnhancedFile& operator<<(EnhancedFile& ef, long long val);
-EnhancedFile& operator<<(EnhancedFile& ef, unsigned long long val);
-EnhancedFile& operator<<(EnhancedFile& ef, float val);
-EnhancedFile& operator<<(EnhancedFile& ef, double val);
-EnhancedFile& operator<<(EnhancedFile& ef, long double val);
-EnhancedFile& operator<<(EnhancedFile& ef, char c);
+// ---- 三处必须显式重载（标准 iostream 语义与本项目旧行为不一致） ----
+// 1) std::ostream 有 unsigned char，但按整数打印；旧代码按原始字节写。
 EnhancedFile& operator<<(EnhancedFile& ef, unsigned char c);
-EnhancedFile& operator<<(EnhancedFile& ef, bool val);
-EnhancedFile& operator<<(EnhancedFile& ef, const void* ptr);
-
-// 流式输入运算符 (>>)
-EnhancedFile& operator>>(EnhancedFile& ef, std::string& str);
-EnhancedFile& operator>>(EnhancedFile& ef, int& val);
-EnhancedFile& operator>>(EnhancedFile& ef, unsigned int& val);
-EnhancedFile& operator>>(EnhancedFile& ef, long& val);
-EnhancedFile& operator>>(EnhancedFile& ef, unsigned long& val);
-EnhancedFile& operator>>(EnhancedFile& ef, long long& val);
-EnhancedFile& operator>>(EnhancedFile& ef, unsigned long long& val);
-EnhancedFile& operator>>(EnhancedFile& ef, float& val);
-EnhancedFile& operator>>(EnhancedFile& ef, double& val);
-EnhancedFile& operator>>(EnhancedFile& ef, long double& val);
-EnhancedFile& operator>>(EnhancedFile& ef, char& c);
+// 2) std::istream 没有 unsigned char 的重载，必须自己提供。
 EnhancedFile& operator>>(EnhancedFile& ef, unsigned char& c);
-EnhancedFile& operator>>(EnhancedFile& ef, bool& val);
+// 3) std::istream 默认不认 "true"/"false"，旧代码无条件支持。
+EnhancedFile& operator>>(EnhancedFile& ef, bool& v);
 
 // 从 UniqueFile 创建 EnhancedFile
 inline EnhancedFile to_enhanced(UniqueFile&& uf) {
