@@ -1287,8 +1287,7 @@ bool pac_flash(const char* folder)
                 gpt_refresh_cached_identity(io);
             }
         }
-        // 对齐闭源 PAC 流程：XML 中没有文件的操作项（EraseUBOOT / FLASH_* /
-        // EraseMisc / PhaseCheck 等）只记录并跳过，不发空文件/擦除命令。
+
         g_app_state.flash.isPacFlashing = true;
         int dlnv_id = 0;
         if (g_app_state.flash.selected_ab < 0) select_ab(io);
