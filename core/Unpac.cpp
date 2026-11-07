@@ -268,7 +268,7 @@ bool PacFile::load(const char* filename) {
     }
 
     // 读取头部
-    if (fread(&head, sizeof(head), 1, fp) != 1) {
+    if (fp.read(&head, sizeof(head), 1) != 1) {
         fprintf(stderr, "fread(head) failed\n");
         return false;
     }

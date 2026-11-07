@@ -250,7 +250,7 @@ int GetStage()
 
 unsigned read_flash(spdio_t* io,
                     uint32_t addr, uint32_t start, uint32_t len,
-                    uint8_t* mem, FILE* fo, unsigned step)
+                    uint8_t* mem, EnhancedFile* fo, unsigned step)
 {
     uint32_t n, offset, nread;
     int ret;
@@ -283,7 +283,7 @@ unsigned read_flash(spdio_t* io,
             memcpy(mem, io->raw_buf + 4, nread);
             mem += nread;
         }
-        if (fo && fwrite(io->raw_buf + 4, 1, nread, fo) != nread)
+        if (fo && fo->write(io->raw_buf + 4, 1, nread) != nread)
         {
             ERR_EXIT("fwrite(dump) failed\n");
         }
@@ -306,7 +306,7 @@ unsigned dump_flash(spdio_t* io,
     {
         uint8_t buf[0x34];
         len = sizeof(buf);
-        nread = read_flash(io, addr, start, len, buf, fo.get(), step);
+        nread = read_flash(io, addr, start, len, buf, &fo, step);
         if (nread != len)
             ERR_EXIT("can't read DHTB header\n");
         // "DHTB" -> "BTHD", Boot Header
@@ -320,7 +320,7 @@ unsigned dump_flash(spdio_t* io,
     else if (len == 0)
         len = 0x10000000;
 
-    nread += read_flash(io, addr, start + nread, len - nread, NULL, fo.get(), step);
+    nread += read_flash(io, addr, start + nread, len - nread, NULL, &fo, step);
     if (mode == 1 && len == nread)
         do
         {
@@ -348,7 +348,7 @@ unsigned dump_flash(spdio_t* io,
                 break;
             }
             len += nread2 = READ32_LE(buf + 0x20);
-            nread += read_flash(io, addr, start + nread, nread2, NULL, fo.get(), step);
+            nread += read_flash(io, addr, start + nread, nread2, NULL, &fo, step);
         }
         while (0);
     DEG_LOG(I, "Read flash successfully: 0x%08x+0x%x, target: 0x%x, read: 0x%x\n", addr, start, log_len, nread);
@@ -4198,7 +4198,7 @@ std::string utf16_to_utf8(const std::wstring& wstr)
 
 // 流式把设备内存写入已打开的文件（不在 RAM 里缓存）。
 static void e_readmem_stream(spdio_t* io, uint32_t addr, uint32_t length,
-                             unsigned step, FILE* fo, uint64_t* out_size)
+                             unsigned step, EnhancedFile* fo, uint64_t* out_size)
 {
     if (out_size) *out_size = 0;
     if (!length) return;
@@ -4227,7 +4227,7 @@ static void e_readmem_stream(spdio_t* io, uint32_t addr, uint32_t length,
             DEG_LOG(W, "e_readmem: unexpected length");
             break;
         }
-        if (fo && nread && fwrite(io->raw_buf + 4, 1, nread, fo) != nread)
+        if (fo && nread && fo->write(io->raw_buf + 4, 1, nread) != nread)
             ERR_EXIT("fwrite(e_readmem) failed\n");
         total_read += nread;
         if (nread != chunk) break;
@@ -4245,7 +4245,7 @@ TempFile do_e_readmem_to_temp(spdio_t* io, uint32_t addr, uint32_t length,
     if (path.empty()) return TempFile{};
     EnhancedFile fo = oxfopen_enhanced(path.c_str(), "wb");
     if (!fo) return TempFile{};
-    e_readmem_stream(io, addr, length, step, fo.get(), out_size);
+    e_readmem_stream(io, addr, length, step, &fo, out_size);
     fo.close();
     return TempFile(std::move(path));
 }
@@ -4256,7 +4256,7 @@ void do_e_readmem(spdio_t* io, uint32_t addr, uint32_t length, const char* fn, u
     // 避免未设置路径时把文件落到当前目录（安装版可能是程序目录）。
     EnhancedFile fo = my_oxfopen_enhanced(fn, "wb");
     if (!fo) ERR_EXIT("fopen(e_readmem) failed, set a writable dir with `path` first\n");
-    e_readmem_stream(io, addr, length, step, fo.get(), nullptr);
+    e_readmem_stream(io, addr, length, step, &fo, nullptr);
     fo.close();
 }
 
@@ -4342,7 +4342,7 @@ int do_e_rpmb_counter(spdio_t* io)
 
 // 流式把 RPMB 页写入已打开的文件（不在 RAM 里缓存）。
 static void e_rpmb_read_stream(spdio_t* io, uint32_t page_start, uint32_t page_count,
-                               unsigned step, FILE* fo, uint64_t* out_size)
+                               unsigned step, EnhancedFile* fo, uint64_t* out_size)
 {
     if (out_size) *out_size = 0;
     if (!page_count) return;
@@ -4376,7 +4376,7 @@ static void e_rpmb_read_stream(spdio_t* io, uint32_t page_start, uint32_t page_c
             DEG_LOG(W, "e_rpmb_read: unexpected length");
             break;
         }
-        if (fo && n && fwrite(io->raw_buf + 4, 1, n, fo) != n)
+        if (fo && n && fo->write(io->raw_buf + 4, 1, n) != n)
             ERR_EXIT("fwrite(e_rpmb_read) failed\n");
         pages_read += chunk;
         print_progress_bar(io, pages_read, page_count, time_start);
@@ -4400,7 +4400,7 @@ TempFile do_e_rpmb_read_to_temp(spdio_t* io, uint32_t page_start, uint32_t page_
     if (path.empty()) return TempFile{};
     EnhancedFile fo = oxfopen_enhanced(path.c_str(), "wb");
     if (!fo) return TempFile{};
-    e_rpmb_read_stream(io, page_start, page_count, step, fo.get(), out_size);
+    e_rpmb_read_stream(io, page_start, page_count, step, &fo, out_size);
     fo.close();
     return TempFile(std::move(path));
 }
@@ -4411,7 +4411,7 @@ void do_e_rpmb_read(spdio_t* io, uint32_t page_start, uint32_t page_count,
     // 同 do_e_readmem：输出走 `path`(savepath)，避免落到程序目录。
     EnhancedFile fo = my_oxfopen_enhanced(fn, "wb");
     if (!fo) ERR_EXIT("fopen(e_rpmb_read) failed, set a writable dir with `path` first\n");
-    e_rpmb_read_stream(io, page_start, page_count, step, fo.get(), nullptr);
+    e_rpmb_read_stream(io, page_start, page_count, step, &fo, nullptr);
     fo.close();
 }
 

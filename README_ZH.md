@@ -49,7 +49,7 @@ Arch Linux 用户可以使用此AUR包：
 ## 介绍
 
 
-这是工具'spreadtrum_flash'的维护
+这是工具'spreadtrum_flash'的增强版本
 
 
 **(这个版本添加了GTK4图形化)**

@@ -17,7 +17,7 @@ operations**, with first‑class support for modern 64‑bit platforms.
 
 This is the modified version of tool 'spreadtrum_flash'
 
-sfd_tool is a maintenance release for spreadtrum_flash
+sfd_tool is an enhanced release for spreadtrum_flash
 
 **(This version adds GTK4 graphical interface)**
 
@@ -118,7 +118,7 @@ This option will let tool try to reconnect to device, equivalent to `-r` in CLI.
 
 ## PAC Flashing Notes
 
-**Device must be in any stage when you decide to flash a PAC firmware.**
+**Device can be in any stage when you decide to flash a PAC firmware.**
 
 **SFD Tool will automatically execute FDL in PAC firmware if device is not in FDL2.**
 

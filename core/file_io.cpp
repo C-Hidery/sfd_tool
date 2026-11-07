@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <cstdio>
 #include <cctype>
+#include <cstdint>
 #include <vector>
 #include <string>
 #include <atomic>
@@ -355,36 +356,60 @@ EnhancedFile my_oxfopen_enhanced(const char* fn, const char* mode) {
 }
 
 // ---------------------------------------------------------------
-//  EnhancedFile 非内联成员（其余成员已在 header 内联）
+//  EnhancedFile 非内联成员
 // ---------------------------------------------------------------
 
+// 走 FileBuf::sgetn，与 << / >> / read() / write() 共用同一套 peek_/dir_。
+// 流程：sync → fseeko END + ftello → fseeko SET(0) → mark_seek → sgetn。
+// 【异常安全】对 resize 的 bad_alloc 做捕获，失败返回空串。
+// 【溢出保护】ftello 返回值 > PTRDIFF_MAX 时直接返回空串，避免
+//              static_cast<std::streamsize> 溢出（32 位平台上可能出现）。
 std::string EnhancedFile::read_all_string() const {
-    if (!file_) return {};
+    if (!file_ || !stream_) return {};
+    auto* self = const_cast<EnhancedFile*>(this);
 
-    // 与原实现一致：定位到文件头读全量（不恢复位置）
-    std::fseek(file_.get(), 0, SEEK_END);
-    long size = std::ftell(file_.get());
-    std::fseek(file_.get(), 0, SEEK_SET);
+    if (!self->sync_buf_position()) return {};
 
-    if (size <= 0) return {};
+    if (fseeko(file_.get(), 0, SEEK_END) != 0) return {};
+    off_t sz = ftello(file_.get());
+    if (fseeko(file_.get(), 0, SEEK_SET) != 0) return {};
+    self->buf_.mark_after_external_seek();
+
+    if (sz <= 0) return {};
+
+    if (static_cast<uintmax_t>(sz) >
+        static_cast<uintmax_t>(PTRDIFF_MAX)) return {};
 
     std::string content;
-    content.resize(static_cast<size_t>(size));
+    try {
+        content.resize(static_cast<size_t>(sz));
+    } catch (...) {
+        return {};
+    }
 
-    size_t read_bytes = std::fread(&content[0], 1, content.size(), file_.get());
-    content.resize(read_bytes);
-
+    auto got = self->buf_.sgetn(&content[0],
+                                static_cast<std::streamsize>(sz));
+    content.resize(got > 0 ? static_cast<size_t>(got) : 0);
     return content;
 }
 
+// 走 FileBuf::sgetn，与 << / >> / write() 协同。
+// 【异常安全】可能抛 std::bad_alloc（vector/string 增长时）。
+// 【溢出保护】chunk_size > PTRDIFF_MAX 时 clamp 到 PTRDIFF_MAX。
 std::string EnhancedFile::read_all_chunked(size_t chunk_size) {
-    if (!file_) return {};
+    if (!file_ || !stream_) return {};
     if (chunk_size == 0) chunk_size = 4096;
+    if (chunk_size > static_cast<size_t>(PTRDIFF_MAX))
+        chunk_size = static_cast<size_t>(PTRDIFF_MAX);
+
     std::string content;
     std::vector<char> buffer(chunk_size);
-    size_t bytes_read;
-    while ((bytes_read = std::fread(buffer.data(), 1, chunk_size, file_.get())) > 0) {
-        content.append(buffer.data(), bytes_read);
+    for (;;) {
+        auto got = buf_.sgetn(buffer.data(),
+                              static_cast<std::streamsize>(chunk_size));
+        if (got <= 0) break;
+        content.append(buffer.data(), static_cast<size_t>(got));
+        if (static_cast<size_t>(got) < chunk_size) break;
     }
     return content;
 }
@@ -394,21 +419,28 @@ std::string EnhancedFile::read_all_chunked(size_t chunk_size) {
 // ---------------------------------------------------------------
 
 // 旧代码 f << (unsigned char)c 按原始字节输出；std::ostream 会当整数打印。
+// 走 ef.putc()（FileBuf::sputc），与 << / >> / read / write 状态一致。
+// 语义与旧版保持一致：只检查 FILE 是否有效，不看 stream 的 fail/eof 位。
 EnhancedFile& operator<<(EnhancedFile& ef, unsigned char c) {
-    if (ef) std::fputc(static_cast<int>(c), ef.get());
+    if (ef) ef.putc(static_cast<int>(c));
     return ef;
 }
 
-// std::istream 没有 unsigned char 重载，自己提供：读单字节，跳过检查与旧版一致。
+// std::istream 没有 unsigned char 重载，自己提供：读单字节。
+// 走 ef.getc()（FileBuf::sbumpc），与 << / >> / read / write 状态一致。
+// 语义与旧版保持一致：读到 EOF 时 c 不变、不设置 stream 状态位。
 EnhancedFile& operator>>(EnhancedFile& ef, unsigned char& c) {
     if (ef) {
-        int ch = std::fgetc(ef.get());
+        int ch = ef.getc();
         if (ch != EOF) c = static_cast<unsigned char>(ch);
     }
     return ef;
 }
 
 // 旧代码 f >> b 无条件接受 "true"/"false"/"1"/"0"；保持该行为。
+// 读入失败（EOF / failbit / 不匹配）时 v 保持不变，并设置 failbit。
+// 【注意】若调用者在此之前主动 set_skipws(false)，则 s 会包含前导空白，
+//        可能导致匹配失败（旧版 %s 也跳过空白，此处行为可能有细微差异）。
 EnhancedFile& operator>>(EnhancedFile& ef, bool& v) {
     if (!ef) return ef;
     std::string s;

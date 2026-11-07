@@ -10,7 +10,6 @@
 #include "file_io.h"
 
 #include <filesystem>
-#include <fstream>
 #include <string>
 
 TEST_CASE("make_temp_file_path returns a unique path under the system temp dir")
@@ -35,7 +34,8 @@ TEST_CASE("make_temp_file_path sanitizes tags and remove_file deletes")
     CHECK(std::filesystem::u8path(a).parent_path() == std::filesystem::temp_directory_path());
 
     {
-        std::ofstream out(std::filesystem::u8path(a), std::ios::binary);
+        EnhancedFile out = oxfopen_enhanced(a.c_str(), "wb");
+        REQUIRE(out);
         out << "payload";
     }
     CHECK(std::filesystem::exists(std::filesystem::u8path(a)));
@@ -71,7 +71,8 @@ TEST_CASE("TempFile falls back to a fresh temp name in the current path when con
     {
         TempFile tf{std::string()};
         q = tf.path();
-        std::ofstream out(std::filesystem::u8path(q), std::ios::binary);
+        EnhancedFile out = oxfopen_enhanced(q.c_str(), "wb");
+        REQUIRE(out);
         out << "payload";
         out.close();
         CHECK(std::filesystem::exists(std::filesystem::u8path(q)));
@@ -88,7 +89,8 @@ TEST_CASE("TempFile fallback path stays valid across chdir")
         TempFile tf{std::string()};
         q = tf.path();
         {
-            std::ofstream out(std::filesystem::u8path(q), std::ios::binary);
+            EnhancedFile out = oxfopen_enhanced(q.c_str(), "wb");
+            REQUIRE(out);
             out << "payload";
         }
         CHECK(std::filesystem::exists(std::filesystem::u8path(q)));
