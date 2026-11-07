@@ -85,6 +85,81 @@ private:
         // 3. 取主体和 postrom 的最大值
         return max_size(main_size, sizewithPostrom);
     }
+
+    // ===== dis_avb 辅助函数（与上游 dis_avb 实现保持一致）=====
+    // TOS 载荷紧跟在 0x200 字节的 DHTB 头之后，因此镜像内虚拟地址为
+    // (文件偏移 - DHTB_HDR_SIZE)。
+    static constexpr size_t DHTB_HDR_SIZE = 0x200;
+
+    static size_t find_bytes(const uint8_t* mem, size_t size, const char* pat) {
+        size_t plen = strlen(pat);
+        if (size < plen) return (size_t)-1;
+        for (size_t i = 0; i + plen <= size; i++)
+            if (!memcmp(&mem[i], pat, plen)) return i;
+        return (size_t)-1;
+    }
+
+    static int is_func_prologue(uint32_t insn) {
+        if ((insn & 0xFFC07FFFu) == 0xA9807BFDu)  // stp x29, x30, [sp, #-imm]!
+            return 1;
+        if ((insn & 0xFFC003FFu) == 0xD10003FFu)  // sub sp, sp, #imm
+            return 1;
+        return 0;
+    }
+
+    // 找到加载 marker 字符串地址的指令。libavb 代码使用 adrp/add 对
+    // 引用字符串常量，adrp 页由镜像内虚拟地址计算。
+    static size_t find_marker_ref(const uint8_t* mem, size_t size, size_t marker_off) {
+        if (marker_off < DHTB_HDR_SIZE) return (size_t)-1;
+        uint64_t target = (uint64_t)marker_off - DHTB_HDR_SIZE;
+        uint64_t page[32] = {0};
+        int valid[32] = {0};
+
+        for (size_t i = DHTB_HDR_SIZE; i + 4 <= size; i += 4) {
+            uint32_t insn = *(const uint32_t*)&mem[i];
+            if ((insn & 0x9F000000u) == 0x90000000u) {  // ADRP
+                int rd = insn & 31;
+                int64_t imm = ((int64_t)((insn >> 5) & 0x7FFFF) << 2) | ((insn >> 29) & 3);
+                if (imm & (1 << 20)) imm -= 1 << 21;
+                page[rd] = (((uint64_t)i - DHTB_HDR_SIZE) & ~0xFFFULL) + ((uint64_t)imm << 12);
+                valid[rd] = 1;
+            } else if ((insn & 0xFF800000u) == 0x91000000u) {  // ADD (immediate, 64-bit)
+                int rn = (insn >> 5) & 31;
+                uint64_t imm12 = (insn >> 10) & 0xFFF;
+                if (insn & (1u << 22)) imm12 <<= 12;
+                if (valid[rn] && page[rn] + imm12 == target) return i;
+            }
+        }
+        return (size_t)-1;
+    }
+
+    // 从交叉引用处向前回溯到所在函数的入口。
+    static size_t find_func_start(const uint8_t* mem, size_t ref) {
+        size_t lo = DHTB_HDR_SIZE;
+        for (size_t i = ref; i >= DHTB_HDR_SIZE + 4; i -= 4) {
+            if (*(const uint32_t*)&mem[i - 4] == 0xD65F03C0u) {  // ret
+                lo = i;
+                break;
+            }
+        }
+        for (size_t i = lo; i < ref; i += 4)
+            if (is_func_prologue(*(const uint32_t*)&mem[i])) return i;
+        return lo;
+    }
+
+    // 当前函数之后的下一个函数入口（ret 之后出现的序言）。
+    static size_t find_func_end(const uint8_t* mem, size_t size, size_t start) {
+        int seen_ret = 0;
+        for (size_t i = start + 4; i + 4 <= size; i += 4) {
+            uint32_t insn = *(const uint32_t*)&mem[i];
+            if (insn == 0xD65F03C0u)
+                seen_ret = 1;
+            else if (seen_ret && is_func_prologue(insn))
+                return i;
+        }
+        return size;
+    }
+
     static uint8_t* dis_avb_in_memory(uint8_t* buf, size_t size, size_t* out_size) {
         if (!buf || !out_size) return nullptr;
         if (size < sizeof(sys_img_header) + 0x200 + sizeof(sprdsignedimageheader)) {
@@ -110,17 +185,33 @@ private:
             }
         }
 
-        size_t pmov[3] = {0};
-        size_t last_start_pos = 0, start_pos = 0;
-        int mov_count = 0;
+        size_t start_pos = 0;
+        size_t patch_pos = 0;
 
-        for (size_t i = 0x200; i < size; i += 4) {
+        // 通过日志字符串定位 "enter avb_slot_verify" 包装函数，随后把
+        // mov/尾声扫描限制在引用该字符串的函数范围内。
+        size_t marker = find_bytes(buf, size, "### enter avb_slot_verify. ###");
+        if (marker == (size_t)-1)
+            marker = find_bytes(buf, size, "enter avb_slot_verify");
+        if (marker == (size_t)-1) {
+            printf("[TosPatcher] [ERROR] avb marker not found.\n");
+            return nullptr;
+        }
+        size_t ref = find_marker_ref(buf, size, marker);
+        if (ref == (size_t)-1) {
+            printf("[TosPatcher] [ERROR] avb marker at 0x%zx has no xref (not an AArch64 TOS?).\n", marker);
+            return nullptr;
+        }
+        size_t scan_lo = find_func_start(buf, ref);
+        size_t scan_hi = find_func_end(buf, size, scan_lo);
+        printf("[TosPatcher] [INFO] avb marker at 0x%zx, xref at 0x%zx, function 0x%zx-0x%zx\n",
+            marker, ref, scan_lo, scan_hi);
+
+        for (size_t i = scan_lo; i + 32 <= scan_hi; i += 4) {
             uint32_t current = *(uint32_t*)&buf[i];
             if (current == 0xD65F03C0 || (current & 0xFF00FFFF) == 0xA8007BFD) {
-                last_start_pos = 0;
                 start_pos = 0;
             } else if ((current & 0xFF00FFFF) == 0xA9007BFD) {
-                if (start_pos) last_start_pos = start_pos;
                 start_pos = i;
             } else if (start_pos) {
                 int count1 = 0, count2 = 0, ldp_count = 0, ret_flag = 0;
@@ -137,8 +228,6 @@ private:
                     }
                     if (ret_flag) {
                         if (*(uint16_t*)&buf[i - 4] == 0x3E0 && *(uint8_t*)&buf[i - 7] == 0x3) {
-                            if (start_pos > i && last_start_pos)
-                                start_pos = last_start_pos;
                             for (size_t m = start_pos; m < i; m += 4) {
                                 if (*(uint32_t*)&buf[m] >> 16 == 0x9400)
                                     count1++;
@@ -146,14 +235,8 @@ private:
                                     count2++;
                             }
                             if (count1 && count2 && count1 + count2 > 2) {
-                                if (mov_count < 3) {
-                                    pmov[mov_count] = i - 4;
-                                    mov_count++;
-                                } else {
-                                    pmov[0] = pmov[1];
-                                    pmov[1] = pmov[2];
-                                    pmov[2] = i - 4;
-                                }
+                                printf("[TosPatcher] [INFO] detected mov at 0x%zx\n", i - 4);
+                                patch_pos = i - 4;
                             }
                         }
                     }
@@ -161,23 +244,17 @@ private:
             }
         }
 
-        if (mov_count < 2) {
-            printf("[TosPatcher] [ERROR] Failed to find mov points (mov_count < 2).\n");
+        if (!patch_pos) {
+            printf("[TosPatcher] [ERROR] dis_avb: no patch point found.\n");
             return nullptr;
         }
-        int idx;
-        if (mov_count > 2) {
-            idx = (pmov[2] - 2 * pmov[1] + pmov[0] > 0) ? 1 : 2;
-        } else {
-            idx = mov_count - 1;
-        }
-        size_t patch_addr = pmov[idx];
+        printf("[TosPatcher] [INFO] patch mov at 0x%zx\n", patch_pos);
 
         // 复制一份缓冲区，进行修改
         uint8_t* patched = (uint8_t*)malloc(size);
         if (!patched) return nullptr;
         memcpy(patched, buf, size);
-        *(uint32_t*)&patched[patch_addr] = 0x52800000;  // mov w0, #0
+        *(uint32_t*)&patched[patch_pos] = 0x52800000;  // mov w0, #0
 
         *out_size = size;
         return patched;
