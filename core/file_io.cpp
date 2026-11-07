@@ -355,36 +355,57 @@ EnhancedFile my_oxfopen_enhanced(const char* fn, const char* mode) {
 }
 
 // ---------------------------------------------------------------
-//  EnhancedFile 非内联成员（其余成员已在 header 内联）
+//  EnhancedFile 非内联成员
 // ---------------------------------------------------------------
 
+// [修复] 走 FileBuf::sgetn，与 << / >> / read() / write() 共用同一套
+// peek_/dir_ 状态。内部流程：
+//   sync  → 退回 peek_，对齐"逻辑位置"
+//   fseeko END + ftello        → 获取大小（fseeko 隐式 fflush，满足更新流）
+//   fseeko SET（=0）
+//   mark_after_external_seek   → 清 peek_，dir_ = Unknown
+//   sgetn                      → 触发 ensure_input，方向切到 In，读全量
+// [异常安全]对 std::string::resize 的 bad_alloc 做捕获，失败时返回空串。
 std::string EnhancedFile::read_all_string() const {
-    if (!file_) return {};
+    if (!file_ || !stream_) return {};
+    auto* self = const_cast<EnhancedFile*>(this);
 
-    // 与原实现一致：定位到文件头读全量（不恢复位置）
-    std::fseek(file_.get(), 0, SEEK_END);
-    long size = std::ftell(file_.get());
-    std::fseek(file_.get(), 0, SEEK_SET);
+    if (!self->sync_buf_position()) return {};
 
-    if (size <= 0) return {};
+    if (fseeko(file_.get(), 0, SEEK_END) != 0) return {};
+    off_t sz = ftello(file_.get());
+    if (fseeko(file_.get(), 0, SEEK_SET) != 0) return {};
+    self->buf_.mark_after_external_seek();
+
+    if (sz <= 0) return {};
 
     std::string content;
-    content.resize(static_cast<size_t>(size));
+    try {
+        content.resize(static_cast<size_t>(sz));
+    } catch (...) {
+        return {};
+    }
 
-    size_t read_bytes = std::fread(&content[0], 1, content.size(), file_.get());
-    content.resize(read_bytes);
-
+    auto got = self->buf_.sgetn(&content[0],
+                                static_cast<std::streamsize>(sz));
+    content.resize(got > 0 ? static_cast<size_t>(got) : 0);
     return content;
 }
 
+// [修复] 走 FileBuf::sgetn，与 << / >> / write() 协同。
+// 语义：从当前位置读到 EOF。触发 ensure_input 处理方向切换
+// （若之前是写方向，会先 fflush）。
+// [异常安全]可能抛 std::bad_alloc（vector/string 增长时）。
 std::string EnhancedFile::read_all_chunked(size_t chunk_size) {
-    if (!file_) return {};
+    if (!file_ || !stream_) return {};
     if (chunk_size == 0) chunk_size = 4096;
     std::string content;
     std::vector<char> buffer(chunk_size);
-    size_t bytes_read;
-    while ((bytes_read = std::fread(buffer.data(), 1, chunk_size, file_.get())) > 0) {
-        content.append(buffer.data(), bytes_read);
+    for (;;) {
+        auto got = buf_.sgetn(buffer.data(),
+                              static_cast<std::streamsize>(chunk_size));
+        if (got <= 0) break;
+        content.append(buffer.data(), static_cast<size_t>(got));
     }
     return content;
 }

@@ -22,6 +22,17 @@
 //  - 单字符 overflow/uflow 走 fputc/fgetc，批量走 fwrite/fread
 //  - seek/tell 直接转发 fseeko/ftello，seek 前把窥视字符退回
 //  - 按 C 标准处理更新流的方向切换（输出→输入 fflush；输入→输出 fseek）
+//
+// 【线程安全】本类不是线程安全的。同一 FILE* 不能被多个 FileBuf 同时
+// 接管；外部如果从别的线程直接操作同一个 FILE*，行为未定义。
+//
+// 【外部直通 FILE* 的约定】
+// 若调用者绕过本 streambuf 直接对 FILE* 进行读/写/定位，必须按顺序：
+//   1) 读之前：prepare_external_input()      —— 退回 peek_，Out→In 时 fflush
+//   2) 读之后：mark_after_external_input()   —— 清 peek_，dir_ = In
+//   3) 定位之后：mark_after_external_seek()  —— 清 peek_，dir_ = Unknown
+// 三步缺一不可。仅 sync_position() 只退 peek_、不 fflush，不能单独用于
+// 外部读（见 C11 7.21.5.3 p6 关于更新流的读写切换要求）。
 class FileBuf : public std::basic_streambuf<char> {
 public:
     explicit FileBuf(FILE* f = nullptr) noexcept : file_(f) {
@@ -29,12 +40,20 @@ public:
     }
     FILE* file() const noexcept { return file_; }
 
+    // 绑定新 FILE*。绑定后本 buf 状态重置（peek_/last_/dir_ 全部清空）。
+    // 【约定】调用者需保证传入的 FILE* 自身状态干净（刚打开或刚 fseek），
+    // 不要把一个方向未知、缓冲有残留的 FILE* 交进来。
     void attach(FILE* f) noexcept {
         file_ = f;
-        setg(nullptr, nullptr, nullptr);   // 修复：清空 get 区指针
+        setg(nullptr, nullptr, nullptr);
         dir_ = Dir::Unknown;
         has_last_ = false;
     }
+
+    // 把 get 区里的窥视字符退回 FILE（逻辑位置 = FILE 位置 - pending）。
+    // 无 peek_ 时是 no-op 且返回 true；fseeko 失败返回 false。
+    // 仅对齐 peek_，不处理方向（不 fflush）。外部自己 fseek 前用它即可；
+    // 外部自己 fscanf 前必须改用 prepare_external_input()。
     bool sync_position() noexcept {
         if (!file_) return false;
         if (gptr() == nullptr || gptr() >= egptr()) return true;  // 无待退字符
@@ -43,6 +62,35 @@ public:
             return false;
         setg(nullptr, nullptr, nullptr);
         return true;
+    }
+
+    // [修复] 外部即将绕过 streambuf 直接对 FILE* 读（如 vfscanf）前调用。
+    // 成功返回后：peek_ 已退回 FILE，方向已切到 In（若之前是 Out 已 fflush）。
+    // 满足 C 标准"更新流输出→输入必须 fflush 或 fseek"。
+    // 失败（文件未绑定 / 退回失败 / fflush 失败）返回 false，外部不应读。
+    bool prepare_external_input() noexcept {
+        if (!file_) return false;
+        if (!sync_position()) return false;     // 退回 peek_
+        if (!ensure_input()) return false;      // Out→In 的 fflush，dir_=In
+        return true;
+    }
+
+    // [修复] 外部绕过 streambuf 直接对 FILE* 读之后调用。
+    // 丢弃 peek_ / last_，并标记方向为 In。
+    // 【约定】仅当 FILE 位置确实已前进（外部读过）后调用；只读不写。
+    void mark_after_external_input() noexcept {
+        setg(nullptr, nullptr, nullptr);
+        has_last_ = false;
+        dir_ = Dir::In;
+    }
+
+    // [修复] 外部绕过 streambuf 直接对 FILE* 定位（fseek/fseeko/rewind）之后
+    // 调用。丢弃 peek_ / last_，并把方向重置为 Unknown——下次读/写由
+    // ensure_input/ensure_output 根据更新流规则重新判定。
+    void mark_after_external_seek() noexcept {
+        setg(nullptr, nullptr, nullptr);
+        has_last_ = false;
+        dir_ = Dir::Unknown;
     }
 
 protected:
