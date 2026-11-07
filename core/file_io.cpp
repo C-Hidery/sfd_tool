@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <cstdio>
 #include <cctype>
+#include <cstdint>
 #include <vector>
 #include <string>
 #include <atomic>
@@ -358,14 +359,11 @@ EnhancedFile my_oxfopen_enhanced(const char* fn, const char* mode) {
 //  EnhancedFile 非内联成员
 // ---------------------------------------------------------------
 
-// [修复] 走 FileBuf::sgetn，与 << / >> / read() / write() 共用同一套
-// peek_/dir_ 状态。内部流程：
-//   sync  → 退回 peek_，对齐"逻辑位置"
-//   fseeko END + ftello        → 获取大小（fseeko 隐式 fflush，满足更新流）
-//   fseeko SET（=0）
-//   mark_after_external_seek   → 清 peek_，dir_ = Unknown
-//   sgetn                      → 触发 ensure_input，方向切到 In，读全量
-// [异常安全]对 std::string::resize 的 bad_alloc 做捕获，失败时返回空串。
+// 走 FileBuf::sgetn，与 << / >> / read() / write() 共用同一套 peek_/dir_。
+// 流程：sync → fseeko END + ftello → fseeko SET(0) → mark_seek → sgetn。
+// 【异常安全】对 resize 的 bad_alloc 做捕获，失败返回空串。
+// 【溢出保护】ftello 返回值 > PTRDIFF_MAX 时直接返回空串，避免
+//              static_cast<std::streamsize> 溢出（32 位平台上可能出现）。
 std::string EnhancedFile::read_all_string() const {
     if (!file_ || !stream_) return {};
     auto* self = const_cast<EnhancedFile*>(this);
@@ -378,6 +376,9 @@ std::string EnhancedFile::read_all_string() const {
     self->buf_.mark_after_external_seek();
 
     if (sz <= 0) return {};
+
+    if (static_cast<uintmax_t>(sz) >
+        static_cast<uintmax_t>(PTRDIFF_MAX)) return {};
 
     std::string content;
     try {
@@ -392,13 +393,15 @@ std::string EnhancedFile::read_all_string() const {
     return content;
 }
 
-// [修复] 走 FileBuf::sgetn，与 << / >> / write() 协同。
-// 语义：从当前位置读到 EOF。触发 ensure_input 处理方向切换
-// （若之前是写方向，会先 fflush）。
-// [异常安全]可能抛 std::bad_alloc（vector/string 增长时）。
+// 走 FileBuf::sgetn，与 << / >> / write() 协同。
+// 【异常安全】可能抛 std::bad_alloc（vector/string 增长时）。
+// 【溢出保护】chunk_size > PTRDIFF_MAX 时 clamp 到 PTRDIFF_MAX。
 std::string EnhancedFile::read_all_chunked(size_t chunk_size) {
     if (!file_ || !stream_) return {};
     if (chunk_size == 0) chunk_size = 4096;
+    if (chunk_size > static_cast<size_t>(PTRDIFF_MAX))
+        chunk_size = static_cast<size_t>(PTRDIFF_MAX);
+
     std::string content;
     std::vector<char> buffer(chunk_size);
     for (;;) {
@@ -406,6 +409,7 @@ std::string EnhancedFile::read_all_chunked(size_t chunk_size) {
                               static_cast<std::streamsize>(chunk_size));
         if (got <= 0) break;
         content.append(buffer.data(), static_cast<size_t>(got));
+        if (static_cast<size_t>(got) < chunk_size) break;
     }
     return content;
 }
@@ -415,21 +419,28 @@ std::string EnhancedFile::read_all_chunked(size_t chunk_size) {
 // ---------------------------------------------------------------
 
 // 旧代码 f << (unsigned char)c 按原始字节输出；std::ostream 会当整数打印。
+// 走 ef.putc()（FileBuf::sputc），与 << / >> / read / write 状态一致。
+// 语义与旧版保持一致：只检查 FILE 是否有效，不看 stream 的 fail/eof 位。
 EnhancedFile& operator<<(EnhancedFile& ef, unsigned char c) {
-    if (ef) std::fputc(static_cast<int>(c), ef.get());
+    if (ef) ef.putc(static_cast<int>(c));
     return ef;
 }
 
-// std::istream 没有 unsigned char 重载，自己提供：读单字节，跳过检查与旧版一致。
+// std::istream 没有 unsigned char 重载，自己提供：读单字节。
+// 走 ef.getc()（FileBuf::sbumpc），与 << / >> / read / write 状态一致。
+// 语义与旧版保持一致：读到 EOF 时 c 不变、不设置 stream 状态位。
 EnhancedFile& operator>>(EnhancedFile& ef, unsigned char& c) {
     if (ef) {
-        int ch = std::fgetc(ef.get());
+        int ch = ef.getc();
         if (ch != EOF) c = static_cast<unsigned char>(ch);
     }
     return ef;
 }
 
 // 旧代码 f >> b 无条件接受 "true"/"false"/"1"/"0"；保持该行为。
+// 读入失败（EOF / failbit / 不匹配）时 v 保持不变，并设置 failbit。
+// 【注意】若调用者在此之前主动 set_skipws(false)，则 s 会包含前导空白，
+//        可能导致匹配失败（旧版 %s 也跳过空白，此处行为可能有细微差异）。
 EnhancedFile& operator>>(EnhancedFile& ef, bool& v) {
     if (!ef) return ef;
     std::string s;

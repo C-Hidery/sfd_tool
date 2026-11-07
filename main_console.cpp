@@ -1501,8 +1501,7 @@ int main_console(int argc, char** argv)
                 int pagecount = 0;
                 char* pdump;
                 char chdump;
-                UniqueFile fdump;
-                fdump = my_oxfopen_unique("memdump.bin", "wb");
+                EnhancedFile fdump = my_oxfopen_enhanced("memdump.bin", "wb");
                 encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
                 while (1)
                 {
@@ -1518,7 +1517,7 @@ int main_console(int argc, char** argv)
                         {
                             if (*pdump == 0x5d || *pdump == 0x5e) chdump = *(pdump++) + 0x20;
                         }
-                        fputc(chdump, fdump.get());
+                        fdump.putc(chdump);
                     }
                     DEG_LOG(I, "dump page count %d", ++pagecount);
                 }
@@ -1640,8 +1639,7 @@ int main_console(int argc, char** argv)
                 int pagecount = 0;
                 char* pdump;
                 char chdump;
-                UniqueFile fdump;
-                fdump = my_oxfopen_unique("memdump.bin", "wb");
+                EnhancedFile fdump = my_oxfopen_enhanced("memdump.bin", "wb");
                 encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
                 while (1)
                 {
@@ -1657,7 +1655,7 @@ int main_console(int argc, char** argv)
                         {
                             if (*pdump == 0x5d || *pdump == 0x5e) chdump = *(pdump++) + 0x20;
                         }
-                        fputc(chdump, fdump.get());
+                        fdump.putc(chdump);
                     }
                     DEG_LOG(I, "dump page count %d", ++pagecount);
                 }

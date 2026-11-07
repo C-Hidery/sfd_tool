@@ -328,7 +328,7 @@ size_t send_file(spdio_t *io, const char *fn, uint32_t start_addr, int end_data,
 unsigned dump_flash(spdio_t *io, uint32_t addr, uint32_t start, uint32_t len, const char *fn, unsigned step, int mode);
 unsigned read_flash(spdio_t *io,
 		uint32_t addr, uint32_t start, uint32_t len,
-		uint8_t *mem, FILE *fo, unsigned step) ;
+		uint8_t *mem, EnhancedFile *fo, unsigned step) ;
 TempFile dump_flash_to_temp(spdio_t *io,
 						   uint32_t addr, uint32_t start, uint32_t len,
 						   unsigned step, int mode,
