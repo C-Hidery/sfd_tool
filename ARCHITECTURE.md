@@ -43,6 +43,7 @@ sfd_tool/
 │   ├── page_connect.cpp/.h       # 连接页（Connect）
 │   ├── page_partition.cpp/.h     # 分区操作页（Partition Operation）
 │   ├── page_pac_flash.cpp/.h     # PAC 刷写页（PAC Flash）
+│   ├── page_automated_task.cpp/.h # 自动化任务页（Automated task）
 │   ├── page_manual.cpp/.h        # 手动操作页（Manual）
 │   ├── page_advanced_op.cpp/.h   # 高级操作页（Advanced Operation）
 │   ├── page_advanced_set.cpp/.h  # 高级设置页（Advanced Settings）
@@ -111,8 +112,8 @@ sfd_tool/
 
 - 负责界面展示、用户交互、基本输入校验和简单状态管理；
 - 通过 Service 接口调用业务能力，不直接操作 USB、协议、文件或 JSON；
-- 每个标签页（Connect / Partition / PAC Flash / Manual / Advanced / Settings /
-  Debug / Log / About）与用户视角的功能一一对应，其说明可参见
+- 每个标签页（Connect / Partition / PAC Flash / Automated task / Manual / Advanced /
+  Settings / Debug / Log / About）与用户视角的功能一一对应，其说明可参见
   [docs/USER_GUIDE_ZH.md](docs/USER_GUIDE_ZH.md)；
 - 公共 UI 行为（如长任务期间统一禁用按钮、刷新状态栏）通过
   `GtkWidgetHelper` 与 `ui_common` 中的辅助函数实现。

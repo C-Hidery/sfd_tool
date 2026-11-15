@@ -1351,4 +1351,136 @@ msgstr "PAC 大小"
 msgid "A required file is missing in the PAC."
 msgstr "PAC 中缺少必要的文件。"
 
+# ===== Automated task 页面翻译 =====
 
+msgid "Automated task"
+msgstr "自动化任务"
+
+msgid "Package File Path"
+msgstr "包文件路径"
+
+msgid "Package Info"
+msgstr "包信息"
+
+msgid "Package name"
+msgstr "包名"
+
+msgid "Author"
+msgstr "作者"
+
+msgid "Version"
+msgstr "版本"
+
+msgid "Contact"
+msgstr "联系方式"
+
+msgid "Unknown"
+msgstr "未知"
+
+msgid "Load"
+msgstr "加载"
+
+msgid "Partition List"
+msgstr "分区列表"
+
+msgid "Task Selection"
+msgstr "任务选择"
+
+msgid "Task Name"
+msgstr "任务名"
+
+msgid "Start"
+msgstr "开始"
+
+msgid "Select ZIP archive"
+msgstr "选择 ZIP 存档"
+
+msgid "ZIP archive (*.zip)"
+msgstr "ZIP 存档 (*.zip)"
+
+msgid "Please select a ZIP archive first."
+msgstr "请先选择 ZIP 存档。"
+
+msgid "ZIP archive extracted successfully."
+msgstr "ZIP 存档解压成功。"
+
+msgid "Failed to extract ZIP archive."
+msgstr "ZIP 存档解压失败。"
+
+msgid "package.json is missing in the ZIP archive."
+msgstr "ZIP 存档根目录缺少 package.json。"
+
+msgid "Failed to parse package.json: "
+msgstr "package.json 解析失败："
+
+msgid "package.json must be a JSON object."
+msgstr "package.json 必须是 JSON 对象。"
+
+msgid "package.json field must be a string: "
+msgstr "package.json 字段必须为字符串："
+
+msgid "package.json field \"type\" is required."
+msgstr "package.json 缺少必填字段 \"type\"。"
+
+msgid "Unsupported package type: "
+msgstr "不支持的包类型："
+
+msgid " (expected write_part or single_act)."
+msgstr "（应为 write_part 或 single_act）。"
+
+msgid "package.json field \"actions\" must be a non-empty array."
+msgstr "package.json 的 \"actions\" 字段必须是非空数组。"
+
+msgid "write_part package requires an images folder in the ZIP archive."
+msgstr "write_part 类型的包必须在 ZIP 存档根目录包含 images 文件夹。"
+
+msgid "Create Example ZIP"
+msgstr "创建示例 ZIP"
+
+msgid "Example ZIP archive created successfully."
+msgstr "示例 ZIP 存档创建成功。"
+
+msgid "Please select a folder to extract the ZIP archive."
+msgstr "请选择一个文件夹来解压 ZIP 存档。"
+
+msgid "Partition size is empty."
+msgstr "分区大小为空。"
+
+msgid "Invalid partition size: "
+msgstr "无效的分区大小："
+
+msgid "Partition size is too large: "
+msgstr "分区大小超出范围："
+
+msgid "package.json field \"partitions\" must be an array."
+msgstr "package.json 的 \"partitions\" 字段必须是数组。"
+
+msgid "package.json partitions entries must be [name, size] pairs."
+msgstr "package.json 的 partitions 项必须是 [分区名, 大小] 形式。"
+
+msgid "package.json partition name must not be empty."
+msgstr "package.json 的分区名不能为空。"
+
+msgid "Cannot verify package compatibility: device is not connected or the partition table is empty."
+msgstr "无法验证包兼容性：设备未连接或分区表为空。"
+
+msgid ", Package partitions: "
+msgstr "，包内分区数："
+
+msgid ", Missing on device: "
+msgstr "，设备中缺失："
+
+msgid "Package rejected because the device and package partition tables are inconsistent."
+msgstr "设备与包内分区表不一致，已拒绝使用该包。"
+
+msgid "Package Size"
+msgstr "包内大小"
+
+msgid "Missing on device"
+msgstr "设备中缺失"
+
+msgid "Extra in package"
+msgstr "包中多余"
+
+msgid "The package partition list must not contain splloader."
+msgstr "包内分区列表不应包含 splloader。"

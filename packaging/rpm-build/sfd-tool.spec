@@ -22,11 +22,13 @@ BuildRequires:  cmake
 BuildRequires:  ninja-build
 BuildRequires:  gtk4-devel
 BuildRequires:  libusb1-devel
+BuildRequires:  libzip-devel
 BuildRequires:  pkgconf-pkg-config
 BuildRequires:  desktop-file-utils
 BuildRequires:  gtk-update-icon-cache
 Requires:       gtk4
 Requires:       libusb1
+Requires:       libzip
 
 %description
 GUI tool for dumping and programming Spreadtrum device firmware.

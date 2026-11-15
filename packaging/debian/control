@@ -6,6 +6,7 @@ Build-Depends: debhelper (>= 13),
                debhelper-compat (= 13),
                libgtk-4-dev,
                libusb-1.0-0-dev,
+               libzip-dev,
                pkg-config,
                g++,
                imagemagick

@@ -3,11 +3,38 @@
  * SFDTool Copyright (C) 2026 Ryan Crepa
  */
 #pragma once
+#include <cstddef>
 #include <string>
 #include <vector>
 #include <cstdint>
 #include "result.h"
 #include "spd_protocol.h"  // for Stages enum
+
+struct _GtkWindow;
+
+// 自动化任务包的分区兼容性检查结果。弹窗复用 PAC 分区表比较对话框。
+enum class PackagePartitionCheckKind
+{
+    Match,
+    MissingOnDevice,
+    SizeMismatch
+};
+
+struct PackagePartitionCheckEntry
+{
+    std::string name;
+    std::string device_size;
+    std::string package_size;
+    PackagePartitionCheckKind kind = PackagePartitionCheckKind::Match;
+};
+
+void show_package_partition_check_dialog(
+    _GtkWindow* parent,
+    const std::vector<PackagePartitionCheckEntry>& entries,
+    std::size_t device_count,
+    std::size_t package_count,
+    std::size_t missing_count,
+    std::size_t mismatch_count);
 
 bool pac_extract(const char* fn, const char* folder);
 bool pac_flash(const char* folder);

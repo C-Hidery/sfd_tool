@@ -183,6 +183,7 @@ ifeq ($(LIBUSB),1)
 endif
 	@pkg-config --exists nlohmann_json && echo "nlohmann_json: Found" || echo "nlohmann_json: Not found"
 	@pkg-config --exists libxml-2.0 && echo "libxml2: Found" || echo "libxml2: Not found"
+	@pkg-config --exists libzip && echo "libzip: Found" || echo "libzip: Not found"
 
 	@echo "Compiler: $(CXX)"
 

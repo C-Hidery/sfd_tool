@@ -223,6 +223,46 @@ endif()
 
 # ================= 依赖：GTK4 / libusb =================
 find_package(PkgConfig QUIET)
+
+# ================= 依赖：libzip（ZIP 存档） =================
+# Windows/MSYS2 的 libzip CMake 配置位于 UCRT64/MINGW32 前缀下，
+# 显式加入 CMAKE_PREFIX_PATH，避免只设置 PATH 时 find_package 找不到。
+if (WIN32)
+    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+        list(APPEND CMAKE_PREFIX_PATH "C:/msys64/ucrt64")
+    else()
+        list(APPEND CMAKE_PREFIX_PATH "C:/msys64/mingw32")
+    endif()
+endif()
+
+# Debian/Ubuntu 的 libzip CMake config 会同时导入 zipcmp/zipmerge/ziptool
+# 三个可执行目标，但 libzip-dev 并不提供这些工具。缺少工具时加载 config
+# 会直接 FATAL_ERROR，因此先检查工具是否齐全，再决定是否使用 config 模式。
+find_program(LIBZIP_ZIPCMP_EXECUTABLE zipcmp)
+find_program(LIBZIP_ZIPMERGE_EXECUTABLE zipmerge)
+find_program(LIBZIP_ZIPTOOL_EXECUTABLE ziptool)
+
+if (LIBZIP_ZIPCMP_EXECUTABLE AND LIBZIP_ZIPMERGE_EXECUTABLE AND LIBZIP_ZIPTOOL_EXECUTABLE)
+    find_package(libzip CONFIG QUIET)
+endif()
+
+if (TARGET libzip::zip)
+    message(STATUS "Found libzip via CMake config: libzip::zip")
+    # core 层提供 ZIP 服务，pages 通过 core/zipxx.hpp 使用同一依赖。
+    target_link_libraries(core_lib PRIVATE libzip::zip)
+    target_link_libraries(pages_lib PRIVATE libzip::zip)
+else()
+    message(STATUS "libzip CMake config not usable, falling back to pkg-config")
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(LIBZIP REQUIRED libzip)
+
+    foreach(tgt core_lib pages_lib)
+        target_include_directories(${tgt} PRIVATE ${LIBZIP_INCLUDE_DIRS})
+        target_link_directories(${tgt} PRIVATE ${LIBZIP_LIBRARY_DIRS})
+        target_link_libraries(${tgt} PRIVATE ${LIBZIP_LIBRARIES})
+    endforeach()
+endif()
+
 # ================= 依赖：libxml2 =================
 if (PKG_CONFIG_FOUND)
     pkg_check_modules(LIBXML2 REQUIRED libxml-2.0)
