@@ -10,6 +10,8 @@ add_library(core_lib STATIC
     spd_protocol.cpp
     device_attach_helpers.cpp
     flash_service.cpp
+        automated_task.cpp
+        automated_task.h
         config_service.cpp
         Unpac.cpp
         xmlutil.hpp

@@ -1484,3 +1484,35 @@ msgstr "包中多余"
 
 msgid "The package partition list must not contain splloader."
 msgstr "包内分区列表不应包含 splloader。"
+
+msgid "Re-check Package"
+msgstr "重新检查包"
+
+msgid "Package check passed. Start unlocked."
+msgstr "包检查通过，Start 已解锁。"
+
+msgid "Failed to re-check ZIP archive."
+msgstr "重新检查 ZIP 存档失败。"
+
+msgid ""
+"Please confirm that this package's actions and partition images are harmless. "
+"Flashing a wrong or corrupted automated task may damage the device.\n"
+"Device damage caused by this automated package is solely the user's responsibility."
+msgstr ""
+"请确认该包的行为及分区镜像无害，刷入错误的自动化任务或损坏的自动化任务可能导致设备损坏\n"
+"此自动化包导致的设备损坏由用户个人承担"
+
+msgid "The package has not been extracted yet."
+msgstr "该包尚未解压。"
+
+msgid "Please select at least one task."
+msgstr "请至少选择一个任务。"
+
+msgid "Automated task completed."
+msgstr "自动化任务已完成。"
+
+msgid "Device disconnected. All controls have been disabled. Please reconnect the device and restart the tool."
+msgstr "设备已断开，所有操作已禁用。请重新连接设备并重启工具。"
+
+msgid "Automated task failed: "
+msgstr "自动化任务失败："

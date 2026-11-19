@@ -5,6 +5,7 @@
 #include "page_automated_task.h"
 
 #include "../common.h"
+#include "../core/automated_task.h"
 #include "../core/pac_extract.h"
 #include "../core/zipxx.hpp"
 #include "../i18n.h"
@@ -30,6 +31,11 @@
 namespace {
 
 constexpr const char* kUnknown = "Unknown";
+
+// 当前已加载包的解压根目录与 package.json 分区表，供 Start 执行使用。
+// 两者都在 GUI 线程写入/读取。
+std::string g_package_root;
+std::vector<sfd::AutomatedTaskPartition> g_package_partitions;
 
 std::string trim_ascii(std::string value)
 {
@@ -215,7 +221,16 @@ PackageManifest read_package_manifest(const std::string& archive_path)
                 throw std::runtime_error(
                     _("The package partition list must not contain splloader."));
             }
-            parse_package_size_bytes(spec.size); // 尽早校验格式
+
+            const bool is_userdata = lower_ascii(spec.name) == "userdata";
+            const std::string size_key = lower_ascii(trim_ascii(spec.size));
+            // userdata 的实际容量随设备变化，不参与大小校验；
+            // 同时允许 XML 中常见的 0xffffffff（剩余空间）写法。
+            if (is_userdata && size_key == "0xffffffff") {
+                spec.size = size_key;
+            } else {
+                parse_package_size_bytes(spec.size); // 尽早校验格式
+            }
             manifest.partitions.push_back(spec);
         }
     }
@@ -244,6 +259,50 @@ void set_info_value(GtkWidgetHelper& helper, const char* widget_name, const std:
     }
     const std::string text = (value.empty() || value == kUnknown) ? _("Unknown") : value;
     helper.setLabelText(label, text);
+}
+
+void disable_all_gui_controls(GtkWidgetHelper helper)
+{
+    DisableWidgets(helper);
+
+    // 再遍历一次所有已注册控件，确保所有按钮都被禁用。
+    for (const auto& name : helper.getWidgetNames()) {
+        GtkWidget* widget = helper.getWidget(name);
+        if (widget && GTK_IS_BUTTON(widget)) {
+            gtk_widget_set_sensitive(widget, FALSE);
+        }
+    }
+
+    // DisableWidgets 覆盖主界面通用按钮；自动化任务页自身的控件单独处理。
+    const char* widgets[] = {
+        "auto_task_pkg_path",
+        "auto_task_pkg_select",
+        "auto_task_pkg_load",
+        "auto_task_create_example",
+        "auto_task_partition_list",
+        "auto_task_list",
+        "auto_task_recheck",
+        "auto_task_start",
+    };
+    for (const char* name : widgets) {
+        helper.setWidgetSensitive(name, FALSE);
+    }
+}
+
+void append_auto_task_log(GtkWidgetHelper helper, const std::string& message)
+{
+    gui_idle_call([helper, message]() mutable {
+        GtkWidget* view = helper.getWidget("auto_task_log");
+        if (!view || !GTK_IS_TEXT_VIEW(view)) {
+            return;
+        }
+        GtkTextBuffer* buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
+        GtkTextIter end;
+        gtk_text_buffer_get_end_iter(buffer, &end);
+        gtk_text_buffer_insert(buffer, &end, message.c_str(), -1);
+        gtk_text_buffer_insert(buffer, &end, "\n", -1);
+        gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(view), &end, 0.0, FALSE, 0.0, 0.0);
+    });
 }
 
 std::string choose_zip_archive(GtkWindow* parent)
@@ -317,11 +376,13 @@ PackagePartitionCheckResult check_package_partitions(
     }
 
     for (const auto& spec : specs) {
-        const std::uint64_t expected = parse_package_size_bytes(spec.size);
+        const bool is_userdata = lower_ascii(spec.name) == "userdata";
+        const std::uint64_t expected =
+            is_userdata ? 0 : parse_package_size_bytes(spec.size);
 
         AutomatedTaskPartitionRow row;
         row.name = spec.name;
-        row.size = format_size_bytes(expected);
+        row.size = is_userdata ? spec.size : format_size_bytes(expected);
         row.raw_name = spec.name;
 
         PackagePartitionCheckEntry entry;
@@ -342,7 +403,8 @@ PackagePartitionCheckResult check_package_partitions(
             } else {
                 row.device_size = format_size_bytes(actual);
                 entry.device_size = row.device_size;
-                if (actual != expected) {
+                // userdata 实际容量随设备变化，只检查是否存在，不比较大小。
+                if (!is_userdata && actual != expected) {
                     ++result.mismatch;
                     entry.kind = PackagePartitionCheckKind::SizeMismatch;
                 }
@@ -353,6 +415,72 @@ PackagePartitionCheckResult check_package_partitions(
         result.entries.push_back(entry);
     }
     return result;
+}
+
+
+struct PackageEvaluation {
+    PackageManifest manifest;
+    PackagePartitionCheckResult check;
+    std::vector<sfd::AutomatedTaskPartition> core_partitions;
+    bool has_partitions = false;
+    bool compatibility_ok = true;
+};
+
+PackageEvaluation evaluate_package(const std::string& archive)
+{
+    PackageEvaluation eval;
+    eval.manifest = read_package_manifest(archive);
+    eval.has_partitions = !eval.manifest.partitions.empty();
+    if (eval.has_partitions) {
+        eval.check = check_package_partitions(eval.manifest.partitions);
+    }
+    eval.compatibility_ok =
+        !eval.has_partitions ||
+        (eval.check.device_available && eval.check.missing == 0 &&
+         eval.check.mismatch == 0);
+
+    eval.core_partitions.reserve(eval.manifest.partitions.size());
+    for (const auto& spec : eval.manifest.partitions) {
+        sfd::AutomatedTaskPartition part;
+        part.name = spec.name;
+        const bool is_userdata = lower_ascii(spec.name) == "userdata";
+        const bool remaining = is_userdata &&
+            lower_ascii(trim_ascii(spec.size)) == "0xffffffff";
+        part.size_bytes = remaining ? 0 : parse_package_size_bytes(spec.size);
+        eval.core_partitions.push_back(part);
+    }
+    return eval;
+}
+
+std::vector<AutomatedTaskItem> build_task_items(const nlohmann::json& actions)
+{
+    std::vector<AutomatedTaskItem> tasks;
+    tasks.reserve(actions.size());
+    for (const auto& action : actions) {
+        AutomatedTaskItem item;
+        item.name = action.is_string() ? action.get<std::string>()
+                                       : action.dump();
+        item.selected = true;
+        tasks.push_back(item);
+    }
+    return tasks;
+}
+
+// 必须在 GUI 线程调用。update_tasks=false 用于手动重新检查，避免重置用户勾选。
+void apply_package_to_ui(GtkWidgetHelper& helper, const PackageEvaluation& eval,
+                         bool update_tasks = true)
+{
+    automated_task_set_package_info(helper, eval.manifest.info);
+    if (update_tasks) {
+        automated_task_set_tasks(helper, build_task_items(eval.manifest.actions));
+    }
+    if (eval.has_partitions) {
+        automated_task_set_partitions(helper, eval.check.rows);
+    } else {
+        automated_task_set_partitions(helper, {});
+    }
+    g_package_partitions = eval.core_partitions;
+    helper.setWidgetSensitive("auto_task_start", eval.compatibility_ok);
 }
 
 void on_button_clicked_load_package(GtkWidgetHelper helper)
@@ -391,55 +519,28 @@ void on_button_clicked_load_package(GtkWidgetHelper helper)
                 return;
             }
 
-            PackageManifest manifest = read_package_manifest(archive);
+            PackageEvaluation eval = evaluate_package(archive);
 
-            const bool has_partitions = !manifest.partitions.empty();
-            PackagePartitionCheckResult check;
-            if (has_partitions) {
-                check = check_package_partitions(manifest.partitions);
-            }
+            // 解压与兼容性判定分开：即使暂时无法验证/不兼容也完成解压，
+            // 这样设备状态恢复后点击 Re-check 即可直接使用；Start 仍保持禁用。
+            zipxx::extract_zip(archive, extract_dir);
 
-            const bool compatibility_ok =
-                !has_partitions ||
-                (check.device_available && check.missing == 0 && check.mismatch == 0);
-
-            // 不兼容或无法验证时拒绝使用该包：不解压，也不启用 Start。
-            if (compatibility_ok) {
-                zipxx::extract_zip(archive, extract_dir);
-            }
-
-            const AutomatedTaskPackageInfo info = manifest.info;
-            std::vector<AutomatedTaskItem> tasks;
-            tasks.reserve(manifest.actions.size());
-            for (const auto& action : manifest.actions) {
-                AutomatedTaskItem item;
-                item.name = action.is_string() ? action.get<std::string>()
-                                               : action.dump();
-                item.selected = true;
-                tasks.push_back(item);
-            }
-
-            std::vector<AutomatedTaskPartitionRow> partition_rows;
-            if (has_partitions) {
-                partition_rows = check.rows;
-            }
-
-            gui_idle_call([helper, info, tasks, partition_rows, compatibility_ok]() mutable {
-                automated_task_set_package_info(helper, info);
-                automated_task_set_tasks(helper, tasks);
-                automated_task_set_partitions(helper, partition_rows);
-                helper.setWidgetSensitive("auto_task_start", compatibility_ok);
+            gui_idle_call([helper, eval, extract_dir]() mutable {
+                g_package_root = extract_dir;
+                apply_package_to_ui(helper, eval);
             });
 
-            if (has_partitions && !check.device_available) {
+            if (eval.has_partitions && !eval.check.device_available) {
                 showWarningDialogSyncInThread(
                     parent, _("Warning"),
                     _("Cannot verify package compatibility: device is not connected or the partition table is empty."));
-            } else if (has_partitions && !compatibility_ok) {
+            } else if (eval.has_partitions && !eval.compatibility_ok) {
                 gui_idle_call_wait_drag(
-                    [parent, entries = check.entries, device_count = check.device_count,
-                     package_count = manifest.partitions.size(),
-                     missing = check.missing, mismatch = check.mismatch]() {
+                    [parent, entries = eval.check.entries,
+                     device_count = eval.check.device_count,
+                     package_count = eval.manifest.partitions.size(),
+                     missing = eval.check.missing,
+                     mismatch = eval.check.mismatch]() {
                         show_package_partition_check_dialog(
                             parent, entries, device_count, package_count,
                             missing, mismatch);
@@ -455,6 +556,65 @@ void on_button_clicked_load_package(GtkWidgetHelper helper)
                                         _("Failed to extract ZIP archive."));
         }
         reenable_load_button();
+    }).detach();
+}
+
+void on_button_clicked_recheck_package(GtkWidgetHelper helper)
+{
+    GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+    const char* path = helper.getEntryText(helper.getWidget("auto_task_pkg_path"));
+    const std::string archive = (path && *path) ? path : "";
+    if (archive.empty()) {
+        showErrorDialogSyncInThread(parent, _("Error"), _("Please select a ZIP archive first."));
+        return;
+    }
+
+    helper.disableWidget("auto_task_start");
+    helper.disableWidget("auto_task_recheck");
+    helper.disableWidget("auto_task_pkg_load");
+
+    std::thread([helper, parent, archive]() {
+        auto reenable_buttons = [helper]() {
+            gui_idle_call([helper]() mutable {
+                helper.enableWidget("auto_task_recheck");
+                helper.enableWidget("auto_task_pkg_load");
+            });
+        };
+
+        try {
+            PackageEvaluation eval = evaluate_package(archive);
+
+            gui_idle_call([helper, eval]() mutable {
+                apply_package_to_ui(helper, eval, false);
+            });
+
+            if (eval.has_partitions && !eval.check.device_available) {
+                showWarningDialogSyncInThread(
+                    parent, _("Warning"),
+                    _("Cannot verify package compatibility: device is not connected or the partition table is empty."));
+            } else if (eval.has_partitions && !eval.compatibility_ok) {
+                gui_idle_call_wait_drag(
+                    [parent, entries = eval.check.entries,
+                     device_count = eval.check.device_count,
+                     package_count = eval.manifest.partitions.size(),
+                     missing = eval.check.missing,
+                     mismatch = eval.check.mismatch]() {
+                        show_package_partition_check_dialog(
+                            parent, entries, device_count, package_count,
+                            missing, mismatch);
+                    }, parent);
+            } else {
+                showInfoDialogSyncInThread(
+                    parent, _("Info"),
+                    _("Package check passed. Start unlocked."));
+            }
+        } catch (const std::exception& e) {
+            showErrorDialogSyncInThread(parent, _("Error"), e.what());
+        } catch (...) {
+            showErrorDialogSyncInThread(parent, _("Error"),
+                                        _("Failed to re-check ZIP archive."));
+        }
+        reenable_buttons();
     }).detach();
 }
 
@@ -495,11 +655,72 @@ void on_button_clicked_create_example_zip(GtkWidgetHelper helper)
 
 void on_button_clicked_start(GtkWidgetHelper helper)
 {
-    const char* path = helper.getEntryText(helper.getWidget("auto_task_pkg_path"));
+    GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+    if (g_package_root.empty()) {
+        showErrorDialog(parent, _("Error"),
+                        _("The package has not been extracted yet."));
+        return;
+    }
+
     const std::vector<std::string> tasks = automated_task_selected_tasks(helper);
-    DEG_LOG(I, "Automated task start requested: package=%s, selected_tasks=%zu",
-            (path && *path) ? path : "", tasks.size());
-    // TODO: 接入自动化任务执行逻辑。
+    if (tasks.empty()) {
+        showErrorDialog(parent, _("Error"), _("Please select at least one task."));
+        return;
+    }
+
+    const bool confirmed = showConfirmDialog(
+        parent, _("Warning"),
+        _("Please confirm that this package's actions and partition images are harmless. "
+          "Flashing a wrong or corrupted automated task may damage the device.\n"
+          "Device damage caused by this automated package is solely the user's responsibility."));
+    if (!confirmed) {
+        return;
+    }
+
+    sfd::AutomatedTaskRequest request;
+    request.package_root = g_package_root;
+    request.partitions = g_package_partitions;
+    request.actions = tasks;
+
+    helper.disableWidget("auto_task_start");
+    helper.disableWidget("auto_task_recheck");
+    helper.disableWidget("auto_task_pkg_load");
+    append_auto_task_log(helper, "=== Automated task start ===");
+
+    std::thread([helper, parent, request]() {
+        const auto log = [helper](const std::string& line) {
+            append_auto_task_log(helper, line);
+        };
+        const sfd::AutomatedTaskResult result =
+            sfd::run_automated_task(request, log);
+
+        if (result.success && result.device_detached) {
+            append_auto_task_log(helper, "Device disconnected by reset/poweroff/reboot command.");
+            gui_idle_call_wait_drag([helper, parent]() {
+                disable_all_gui_controls(helper);
+                showWarningDialog(
+                    parent, _("Warning"),
+                    _("Device disconnected. All controls have been disabled. "
+                      "Please reconnect the device and restart the tool."));
+            }, parent);
+        } else if (result.success) {
+            append_auto_task_log(helper, "Automated task completed.");
+            showInfoDialogSyncInThread(parent, _("Info"), _("Automated task completed."));
+            gui_idle_call([helper]() mutable {
+                helper.enableWidget("auto_task_recheck");
+                helper.enableWidget("auto_task_pkg_load");
+            });
+        } else {
+            append_auto_task_log(helper, "Automated task failed: " + result.message);
+            const std::string message =
+                std::string(_("Automated task failed: ")) + result.message;
+            showWarningDialogSyncInThread(parent, _("Warning"), message.c_str());
+            gui_idle_call([helper]() mutable {
+                helper.enableWidget("auto_task_recheck");
+                helper.enableWidget("auto_task_pkg_load");
+            });
+        }
+    }).detach();
 }
 
 } // namespace
@@ -590,8 +811,8 @@ std::vector<std::string> automated_task_selected_tasks(GtkWidgetHelper& helper)
 
 GtkWidget* AutomatedTaskPage::init(GtkWidgetHelper& helper, GtkWidget* notebook)
 {
-    // 页面根容器：左分区列表 + 右操作列。
-    GtkWidget* pageRoot = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+    // 页面根容器：上方左分区列表 + 右操作列，下方日志窗口。
+    GtkWidget* pageRoot = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
     gtk_widget_set_name(pageRoot, "auto_task_page");
     gtk_widget_set_hexpand(pageRoot, TRUE);
     gtk_widget_set_vexpand(pageRoot, TRUE);
@@ -602,6 +823,10 @@ GtkWidget* AutomatedTaskPage::init(GtkWidgetHelper& helper, GtkWidget* notebook)
 
     helper.addWidget("auto_task_page", pageRoot);
     helper.addNotebookPage(notebook, pageRoot, _("Automated task"));
+
+    GtkWidget* contentRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+    gtk_widget_set_hexpand(contentRow, TRUE);
+    gtk_widget_set_vexpand(contentRow, TRUE);
 
     // ── 左侧：分区列表 ──────────────────────────────────────
     GtkWidget* listFrame = make_titled_frame(_("Partition List"), "auto_task_partition_title");
@@ -629,7 +854,7 @@ GtkWidget* AutomatedTaskPage::init(GtkWidgetHelper& helper, GtkWidget* notebook)
 
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(listScroll), partitionView);
     gtk_box_append(GTK_BOX(listCard), listScroll);
-    gtk_box_append(GTK_BOX(pageRoot), listFrame);
+    gtk_box_append(GTK_BOX(contentRow), listFrame);
 
     // ── 右侧：操作列 ────────────────────────────────────────
     GtkWidget* rightScroll = gtk_scrolled_window_new();
@@ -644,7 +869,7 @@ GtkWidget* AutomatedTaskPage::init(GtkWidgetHelper& helper, GtkWidget* notebook)
     gtk_widget_set_margin_start(rightBox, 4);
     gtk_widget_set_margin_end(rightBox, 4);
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(rightScroll), rightBox);
-    gtk_box_append(GTK_BOX(pageRoot), rightScroll);
+    gtk_box_append(GTK_BOX(contentRow), rightScroll);
 
     // 1. Package File Path
     GtkWidget* fileFrame = make_titled_frame(_("Package File Path"), "auto_task_pkg_title");
@@ -746,7 +971,15 @@ GtkWidget* AutomatedTaskPage::init(GtkWidgetHelper& helper, GtkWidget* notebook)
     gtk_box_append(GTK_BOX(taskCard), taskScroll);
     gtk_box_append(GTK_BOX(rightBox), taskFrame);
 
-    // 4. Start
+    // 4. Re-check and Start
+    GtkWidget* recheckBtn = gtk_button_new_with_label(_("Re-check Package"));
+    gtk_widget_set_name(recheckBtn, "auto_task_recheck");
+    gtk_widget_set_size_request(recheckBtn, -1, 36);
+    gtk_widget_set_hexpand(recheckBtn, TRUE);
+    gtk_widget_set_margin_top(recheckBtn, 4);
+    helper.addWidget("auto_task_recheck", recheckBtn);
+    gtk_box_append(GTK_BOX(rightBox), recheckBtn);
+
     GtkWidget* startBtn = gtk_button_new_with_label(_("Start"));
     gtk_widget_set_name(startBtn, "auto_task_start");
     gtk_widget_set_size_request(startBtn, -1, 40);
@@ -755,6 +988,33 @@ GtkWidget* AutomatedTaskPage::init(GtkWidgetHelper& helper, GtkWidget* notebook)
     gtk_widget_set_sensitive(startBtn, FALSE);
     helper.addWidget("auto_task_start", startBtn);
     gtk_box_append(GTK_BOX(rightBox), startBtn);
+
+    gtk_box_append(GTK_BOX(pageRoot), contentRow);
+
+    // 5. 底部日志窗口
+    GtkWidget* logFrame = make_titled_frame(_("Log"), "auto_task_log_title");
+    helper.addWidget("auto_task_log_title",
+                     gtk_frame_get_label_widget(GTK_FRAME(logFrame)));
+    GtkWidget* logCard = make_card_box(8, 8);
+    gtk_frame_set_child(GTK_FRAME(logFrame), logCard);
+
+    GtkWidget* logScroll = gtk_scrolled_window_new();
+    gtk_widget_set_size_request(logScroll, -1, 150);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(logScroll),
+                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    gtk_widget_set_hexpand(logScroll, TRUE);
+
+    GtkWidget* logView = gtk_text_view_new();
+    gtk_widget_set_name(logView, "auto_task_log");
+    gtk_text_view_set_editable(GTK_TEXT_VIEW(logView), FALSE);
+    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(logView), FALSE);
+    gtk_text_view_set_monospace(GTK_TEXT_VIEW(logView), TRUE);
+    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(logView), GTK_WRAP_WORD_CHAR);
+    helper.addWidget("auto_task_log", logView);
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(logScroll), logView);
+
+    gtk_box_append(GTK_BOX(logCard), logScroll);
+    gtk_box_append(GTK_BOX(pageRoot), logFrame);
 
     // 初始状态：所有包信息为 Unknown。
     automated_task_clear_package_info(helper);
@@ -785,6 +1045,13 @@ void AutomatedTaskPage::bindSignals(GtkWidgetHelper& helper)
     if (createExampleBtn) {
         helper.bindClick(createExampleBtn, [helper]() {
             on_button_clicked_create_example_zip(helper);
+        });
+    }
+
+    GtkWidget* recheckBtn = helper.getWidget("auto_task_recheck");
+    if (recheckBtn) {
+        helper.bindClick(recheckBtn, [helper]() {
+            on_button_clicked_recheck_package(helper);
         });
     }
 

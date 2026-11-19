@@ -34,6 +34,8 @@ sfd_tool/
 │   ├── file_io.h/.cpp        # 文件读写封装（跨平台路径处理等）
 │   ├── logging.h/.cpp        # 日志接口与实现（DEG_LOG 等）
 │   ├── pac_extract.h/.cpp    # PAC 固件解析与解包
+│   ├── automated_task.h/.cpp # 自动化任务命令解析与执行
+│   ├── zipxx.hpp             # libzip 封装（ZIP 读写/解压）
 │   ├── result.h              # Result<T> / ErrorCode 等错误返回模型
 │   ├── spd_protocol.h/.cpp   # SPD/BSL 协议封装（编解码、消息收发）
 │   ├── usb_transport.h/.cpp  # USB 传输抽象（libusb / Windows Wrapper）
