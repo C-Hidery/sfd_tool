@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -34,6 +35,7 @@ constexpr const char* kUnknown = "Unknown";
 
 // 当前已加载包的解压根目录与 package.json 分区表，供 Start 执行使用。
 // 两者都在 GUI 线程写入/读取。
+std::string g_package_archive;
 std::string g_package_root;
 std::vector<sfd::AutomatedTaskPartition> g_package_partitions;
 
@@ -67,7 +69,8 @@ std::uint64_t parse_package_size_bytes(const std::string& raw)
     errno = 0;
     char* end = nullptr;
     const double number = std::strtod(text.c_str(), &end);
-    if (end == text.c_str() || errno == ERANGE || number < 0.0) {
+    if (end == text.c_str() || errno == ERANGE || number < 0.0 ||
+        !std::isfinite(number)) {
         throw std::runtime_error(std::string(_("Invalid partition size: ")) + raw);
     }
 
@@ -525,7 +528,8 @@ void on_button_clicked_load_package(GtkWidgetHelper helper)
             // 这样设备状态恢复后点击 Re-check 即可直接使用；Start 仍保持禁用。
             zipxx::extract_zip(archive, extract_dir);
 
-            gui_idle_call([helper, eval, extract_dir]() mutable {
+            gui_idle_call([helper, eval, extract_dir, archive]() mutable {
+                g_package_archive = archive;
                 g_package_root = extract_dir;
                 apply_package_to_ui(helper, eval);
             });
@@ -566,6 +570,14 @@ void on_button_clicked_recheck_package(GtkWidgetHelper helper)
     const std::string archive = (path && *path) ? path : "";
     if (archive.empty()) {
         showErrorDialogSyncInThread(parent, _("Error"), _("Please select a ZIP archive first."));
+        return;
+    }
+
+    // Re-check 只能针对已经成功加载并解压的当前 ZIP，避免用旧解压目录
+    // 绕过 Load 直接解锁 Start。
+    if (g_package_archive != archive || g_package_root.empty()) {
+        showErrorDialogSyncInThread(
+            parent, _("Error"), _("The package has not been extracted yet."));
         return;
     }
 
@@ -656,7 +668,10 @@ void on_button_clicked_create_example_zip(GtkWidgetHelper helper)
 void on_button_clicked_start(GtkWidgetHelper helper)
 {
     GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
-    if (g_package_root.empty()) {
+    const char* package_path = helper.getEntryText(helper.getWidget("auto_task_pkg_path"));
+    const std::string current_archive = (package_path && *package_path) ? package_path : "";
+    if (g_package_root.empty() || g_package_archive != current_archive) {
+        helper.disableWidget("auto_task_start");
         showErrorDialog(parent, _("Error"),
                         _("The package has not been extracted yet."));
         return;

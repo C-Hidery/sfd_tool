@@ -16,6 +16,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <stdexcept>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -37,6 +38,20 @@ std::string trim_copy(const std::string& value)
         return {};
     }
     return std::string(begin, end);
+}
+
+bool iequals_ascii(const std::string& a, const char* b)
+{
+    if (!b || a.size() != std::strlen(b)) {
+        return false;
+    }
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        if (std::tolower(static_cast<unsigned char>(a[i])) !=
+            std::tolower(static_cast<unsigned char>(b[i]))) {
+            return false;
+        }
+    }
+    return true;
 }
 
 bool parse_int(const std::string& text, int& out)
@@ -161,8 +176,14 @@ public:
                 continue;
             }
             write_log("[cmd] " + line);
-            if (!execute(line)) {
-                error_ = line + " -> " + error_;
+            try {
+                if (!execute(line)) {
+                    error_ = line + " -> " + error_;
+                    return {false, error_};
+                }
+            } catch (const std::exception& e) {
+                error_ = line + " -> " + e.what();
+                write_log("ERROR: " + error_);
                 return {false, error_};
             }
             if (terminal_) {
@@ -219,9 +240,23 @@ private:
     {
         const std::filesystem::path p = utf8_to_path(image);
         if (p.is_absolute()) {
-            return p;
+            throw std::runtime_error("image path must be relative to images/");
         }
-        return image_root() / p;
+
+        const std::filesystem::path root = image_root().lexically_normal();
+        const std::filesystem::path out = (root / p).lexically_normal();
+        const std::filesystem::path rel = out.lexically_relative(root);
+        bool unsafe = rel.empty() || rel.is_absolute();
+        for (const auto& part : rel) {
+            if (part == "..") {
+                unsafe = true;
+                break;
+            }
+        }
+        if (unsafe) {
+            throw std::runtime_error("image path escapes images/: " + image);
+        }
+        return out;
     }
 
     bool execute(const std::string& line)
@@ -324,7 +359,7 @@ private:
             std::string xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Partitions>\n";
             for (const auto& part : request_.partitions) {
                 std::string size_text;
-                if (part.name == "userdata" && part.size_bytes == 0) {
+                if (iequals_ascii(part.name, "userdata") && part.size_bytes == 0) {
                     size_text = "0xffffffff";
                 } else {
                     const std::uint64_t size_mb = part.size_bytes / (1024ULL * 1024ULL);
@@ -550,8 +585,14 @@ private:
 AutomatedTaskResult run_automated_task(const AutomatedTaskRequest& request,
                                        const AutomatedTaskLogFn& log)
 {
-    Runner runner(request, log);
-    return runner.run();
+    try {
+        Runner runner(request, log);
+        return runner.run();
+    } catch (const std::exception& e) {
+        return {false, e.what(), false};
+    } catch (...) {
+        return {false, "unknown automated task error", false};
+    }
 }
 
 } // namespace sfd

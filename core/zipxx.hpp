@@ -191,10 +191,25 @@ public:
     void extract_all(const std::filesystem::path& dest_dir) const {
         check_open();
         std::filesystem::create_directories(dest_dir);
+        const auto root = std::filesystem::absolute(dest_dir).lexically_normal();
         const std::int64_t n = zip_get_num_entries(zf_, 0);
         for (std::int64_t i = 0; i < n; ++i) {
             auto info = query_info(static_cast<zip_uint64_t>(i));
-            auto out  = dest_dir / info.name;
+
+            // 防止 zip slip：条目必须落在 dest_dir 内。
+            auto out = (root / info.name).lexically_normal();
+            auto rel = out.lexically_relative(root);
+            bool unsafe = rel.empty() || rel.is_absolute() || out == root;
+            for (const auto& part : rel) {
+                if (part == "..") {
+                    unsafe = true;
+                    break;
+                }
+            }
+            if (unsafe) {
+                throw Exception("unsafe path in zip: " + info.name);
+            }
+
             if (info.is_directory) std::filesystem::create_directories(out);
             else                   extract(info.name, out);
         }
