@@ -1,6 +1,6 @@
 # SFD Tool — 架构文档
 
-> 相关文档： [README_ZH](README_ZH.md) · [操作手册](docs/USER_GUIDE_ZH.md) · [CMake 使用指南](docs/cmake.md) · [版本发布流程](docs/RELEASE_GUIDE_ZH.md) · [版本记录](docs/VERSION_LOG.md)
+> 相关文档： [README_ZH](README_ZH.md) · [操作手册](docs/USER_GUIDE_ZH.md) · [自动化任务包指南](docs/AUTOMATED_TASK_ZH.md) · [CMake 使用指南](docs/cmake.md) · [版本发布流程](docs/RELEASE_GUIDE_ZH.md) · [版本记录](docs/VERSION_LOG.md)
 
 ## 项目简介
 
@@ -183,6 +183,65 @@ UI 层（如 `page_partition`）在执行备份/还原操作时，统一走这�
 
 - `tests/test_blocksize_and_backup_service.cpp`
 - `tests/test_partition_backup_paths.cpp`
+
+---
+
+## 自动化任务模块（Automated task）
+
+自动化任务由 UI 页面和 core 层执行器组成：
+
+- `pages/page_automated_task.cpp`：
+  - 加载 ZIP、校验 `package.json`；
+  - 检查包内分区与设备分区是否兼容；
+  - 维护 `Package Info`、任务列表、分区列表和底部日志；
+  - 点击 `Start` 后调用 core 执行器，并把日志通过 GUI 线程回填。
+- `core/automated_task.h/.cpp`：
+  - 提供 `sfd::run_automated_task(request, log_callback)`；
+  - 按顺序解析 `actions`，逐条执行命令；
+  - 任一条命令失败立即停止并返回错误；
+  - 不直接依赖 GTK，日志通过回调输出。
+- `core/zipxx.hpp`：
+  - 基于 libzip 的 ZIP 读取/解压封装；
+  - 读取根目录 `package.json`，解压包内容。
+
+### 包格式
+
+ZIP 根目录必须包含 `package.json`：
+
+```json
+{
+  "name": "example",
+  "author": "Ryan",
+  "version": "0.0.0",
+  "contact": "ryan110413@outlook.com",
+  "type": "single_act",
+  "actions": ["repartition"],
+  "partitions": [
+    ["boot", "35"],
+    ["userdata", "0xffffffff"]
+  ]
+}
+```
+
+- `type` 只接受 `write_part` 或 `single_act`；
+- `write_part` 要求 ZIP 内存在 `images/`；
+- `partitions` 可选，大小单位默认 MB；
+- `userdata` 只检查存在性，支持 `0xffffffff` 表示剩余空间；
+- 包内出现 `splloader` 会被拒绝。
+
+### 执行流程
+
+1. `Load` 选择解压目录并校验包；
+2. 调用 `check_partition()` 逐个检查分区存在性和大小；
+3. 设备不可用或分区不兼容时禁用 `Start`，可点击 `Re-check Package` 重试；
+4. `Start` 前弹出安全确认，确认后在后台线程执行；
+5. `reset` / `poweroff` / `reboot-*` 成功后返回 `device_detached`，
+   UI 禁用全部按钮并提示设备断开。
+
+支持的命令和用户操作说明见
+[docs/AUTOMATED_TASK_ZH.md](docs/AUTOMATED_TASK_ZH.md) /
+[docs/AUTOMATED_TASK_EN.md](docs/AUTOMATED_TASK_EN.md)。核心执行器的
+解析/失败行为由 `tests/test_automated_task.cpp` 覆盖。
 
 ---
 

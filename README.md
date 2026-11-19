@@ -170,8 +170,9 @@ For `e_bl`, flash backup image and execute a factory reset.
 ## Features
 
 - **Cross‑platform GUI** (GTK4)
-  - Tabs for Connect, Partition Operation, PAC Flash, Manual Operation,
-    Advanced Operation, Advanced Settings, Debug Options, Log, and About.
+  - Tabs for Connect, Partition Operation, PAC Flash, Automated Task,
+    Manual Operation, Advanced Operation, Advanced Settings, Debug Options,
+    Log, and About.
 - **Partition backup and restore**
   - Read/write individual partitions.
   - Block‑size‑aware backup/restore pipeline to avoid alignment issues.
@@ -179,6 +180,12 @@ For `e_bl`, flash backup image and execute a factory reset.
     of images (see user guide for details).
 - **PAC firmware flashing**
   - Inspect PAC contents and flash selected partitions.
+- **Automated task packages**
+  - Load ZIP packages containing `package.json` and optional `images/`;
+  - Validate partition names/sizes against the connected device;
+  - Execute ordered `actions` such as `write_part`, `repartition`, and `reset`;
+  - Dedicated log pane at the bottom of the page.
+  - See [Automated Task Packages](docs/AUTOMATED_TASK_EN.md) for the package format and command reference.
 - **Manual low‑level operations**
   - Read/write by address, execute code at arbitrary addresses, etc.
 - **Advanced maintenance tools**
@@ -228,6 +235,7 @@ cmake --build build -j
 On Windows you can use a Visual Studio generator, on macOS and Linux Ninja or
 Makefiles. See:
 
+- [docs/AUTOMATED_TASK_EN.md](docs/AUTOMATED_TASK_EN.md) – Automated task package format and command reference.
 - [docs/cmake_EN.md](docs/cmake_EN.md) – English CMake/build guide.
 - [docs/cmake.md](docs/cmake.md) – Chinese CMake/build guide with more
   details, including per‑user config and `ui_language`.
