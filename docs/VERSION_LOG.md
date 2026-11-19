@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 3.5.3 LTV Edition
+Version 3.6.0 LTV Edition
 
 Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
 
@@ -519,6 +519,9 @@ Remove unstable blk_size detection
 
 ---v 3.5.3---
 同步上游Trustos修复逻辑
+
+---v 3.6.0---
+新增自动化任务功能(GUI)
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
