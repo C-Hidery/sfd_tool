@@ -62,14 +62,14 @@ Arch Linux 用户可以使用此AUR包：
 
 ``` bash
 # Ubuntu/Debian
-sudo apt install libusb-1.0-0-dev gcc g++ libgtk-4-dev pkg-config make cmake gettext nlohmann-json3-dev libxml2-dev
+sudo apt install libusb-1.0-0-dev gcc g++ libgtk-4-dev libzip-dev pkg-config make cmake gettext nlohmann-json3-dev libxml2-dev
 # Fedora/RHEL
-sudo dnf install gcc-c++ gtk4-devel libusb1-devel libusb1 pkgconf-pkg-config make cmake gettext json-devel libxml2-devel
+sudo dnf install gcc-c++ gtk4-devel libusb1-devel libusb1 libzip-devel pkgconf-pkg-config make cmake gettext json-devel libxml2-devel
 # macOS
-brew install libusb gtk4 pkg-config make cmake gettext nlohmann-json libxml2
+brew install libusb gtk4 libzip pkg-config make cmake gettext nlohmann-json libxml2
 # Android(Termux)
 pkg install x11-repo
-pkg install termux-api libusb clang git pkg-config gtk4 glib pango libcairo gdk-pixbuf at-spi2-core xorgproto xorg-util-macros make cmake attr gettext nlohmann-json libxml2
+pkg install termux-api libusb clang git pkg-config gtk4 glib pango libcairo gdk-pixbuf at-spi2-core xorgproto xorg-util-macros make cmake attr gettext nlohmann-json libxml2 libzip
 ```
 
 然后make:
@@ -205,6 +205,7 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
   - 「连接」页：设备连接与基本信息。
   - 「分区操作」页：分区列表、备份、还原、从文件夹批量还原等。
   - 「PAC 刷写」页：加载 PAC、查看分区、选择刷写内容并执行刷机。
+  - 「自动化任务」页：加载 ZIP 自动化包，检查分区兼容性，按 `actions` 执行命令并查看日志（[说明](docs/AUTOMATED_TASK_ZH.md)）。
   - 「手动操作」页：按地址读写、执行指定地址代码等高级操作。
   - 「高级操作」页：其他高风险维护功能。
   - 「高级设置」页：块大小模式、调试选项等全局设置。
@@ -221,6 +222,12 @@ termux-usb -e './sfd_tool --no-gui --usb-fd' /dev/bus/usb/xxx/xxx
   - 解析 PAC 文件，展示其中的分区列表；
   - 按选项执行 PAC 刷机流程；
   - 可以只解析 PAC，不立即刷写。
+
+- **自动化任务包**
+  - 加载包含 `package.json` 和可选 `images/` 的 ZIP 包；
+  - 按包内分区表检查设备分区是否存在、大小是否匹配；
+  - 按顺序执行 `write_part`、`repartition`、`reset` 等命令；
+  - 页面底部提供独立日志窗口。
 
 - **命令行模式（CLI）**
   - 使用 `--no-gui` 参数在终端中运行；
@@ -247,6 +254,7 @@ cmake --build build -j
 
 详细说明请参考：
 
+- [docs/AUTOMATED_TASK_ZH.md](docs/AUTOMATED_TASK_ZH.md) – 自动化任务包格式与命令说明；
 - [docs/cmake.md](docs/cmake.md) – CMake 使用说明（中文，包含 per-user 配置与 `ui_language`）；
 - [docs/cmake_EN.md](docs/cmake_EN.md) – CMake 使用说明（英文简版）。
 

@@ -1,3 +1,9 @@
+sfd-tool (3.6.0-1-ltv) unstable; urgency=medium
+
+  * 新增自动化任务功能(GUI)
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Thu, 19 Nov 2026 19:54:14 +0800
+
 sfd-tool (3.5.3-1-ltv) unstable; urgency=medium
 
   * 同步上游Trustos修复逻辑

@@ -50,6 +50,7 @@
 #include "pages/page_about.h"
 #include "pages/page_log.h"
 #include "pages/page_pac_flash.h"
+#include "pages/page_automated_task.h"
 #include <thread>
 #include <chrono>
 #include <vector>
@@ -536,6 +537,7 @@ int gtk_kmain(int argc, char** argv) {
     create_manual_page(helper, notebook);
     create_advanced_op_page(helper, notebook);
     create_pac_flash_page(helper, notebook);
+    create_automated_task_page(helper, notebook);
     create_advanced_set_page(helper, notebook);
     create_debug_page(helper, notebook);
     create_log_page(helper, notebook);
@@ -583,6 +585,7 @@ int gtk_kmain(int argc, char** argv) {
     bind_manual_signals(helper);
     bind_advanced_op_signals(helper);
     bind_pac_flash_signals(helper);
+    bind_automated_task_signals(helper);
     bind_advanced_set_signals(helper);
     bind_debug_signals(helper);
     bind_log_signals(helper);

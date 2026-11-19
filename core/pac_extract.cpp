@@ -725,7 +725,8 @@ static void show_partition_table_comparison_dialog(
     std::size_t pac_count,
     std::size_t missing_count,
     std::size_t extra_count,
-    std::size_t mismatch_count)
+    std::size_t mismatch_count,
+    bool package_mode = false)
 {
     GtkWidget* dialog = gtk_dialog_new_with_buttons(
         _("Partition Table Comparison"),
@@ -738,21 +739,35 @@ static void show_partition_table_comparison_dialog(
 
     std::string summary = _("Device partitions: ");
     summary += std::to_string(device_count);
-    summary += _(", PAC partitions: ");
-    summary += std::to_string(pac_count);
-    summary += _(", Missing in PAC: ");
-    summary += std::to_string(missing_count);
-    summary += _(", Extra in PAC: ");
-    summary += std::to_string(extra_count);
-    summary += _(", Size mismatch: ");
-    summary += std::to_string(mismatch_count);
+    if (package_mode)
+    {
+        summary += _(", Package partitions: ");
+        summary += std::to_string(pac_count);
+        summary += _(", Missing on device: ");
+        summary += std::to_string(missing_count);
+        summary += _(", Size mismatch: ");
+        summary += std::to_string(mismatch_count);
+    }
+    else
+    {
+        summary += _(", PAC partitions: ");
+        summary += std::to_string(pac_count);
+        summary += _(", Missing in PAC: ");
+        summary += std::to_string(missing_count);
+        summary += _(", Extra in PAC: ");
+        summary += std::to_string(extra_count);
+        summary += _(", Size mismatch: ");
+        summary += std::to_string(mismatch_count);
+    }
 
     GtkWidget* summary_label = gtk_label_new(summary.c_str());
     gtk_widget_set_halign(summary_label, GTK_ALIGN_START);
     gtkBoxPackStart(content, summary_label, FALSE, FALSE, 0);
 
-    GtkWidget* warning_label = gtk_label_new(
-        _("PAC flashing has been aborted because the device and PAC partition tables are inconsistent."));
+    const char* warning_text = package_mode
+        ? _("Package rejected because the device and package partition tables are inconsistent.")
+        : _("PAC flashing has been aborted because the device and PAC partition tables are inconsistent.");
+    GtkWidget* warning_label = gtk_label_new(warning_text);
     gtk_widget_set_halign(warning_label, GTK_ALIGN_START);
     gtk_widget_set_margin_bottom(warning_label, 8);
     gtkBoxPackStart(content, warning_label, FALSE, FALSE, 0);
@@ -766,7 +781,7 @@ static void show_partition_table_comparison_dialog(
     sfd_row_view_add_text_column(tree, _("Status"), 0, FALSE);
     sfd_row_view_add_text_column(tree, _("Partition Name"), 1, FALSE);
     sfd_row_view_add_text_column(tree, _("Device Size"), 2, FALSE);
-    sfd_row_view_add_text_column(tree, _("PAC Size"), 3, FALSE);
+    sfd_row_view_add_text_column(tree, package_mode ? _("Package Size") : _("PAC Size"), 3, FALSE);
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), tree);
 
     for (const auto& entry : entries)
@@ -778,10 +793,10 @@ static void show_partition_table_comparison_dialog(
             status = _("OK");
             break;
         case PartitionDiffKind::MissingInPac:
-            status = _("Missing in PAC");
+            status = package_mode ? _("Missing on device") : _("Missing in PAC");
             break;
         case PartitionDiffKind::ExtraInPac:
-            status = _("Extra in PAC");
+            status = package_mode ? _("Extra in package") : _("Extra in PAC");
             break;
         case PartitionDiffKind::SizeMismatch:
             status = _("Size mismatch");
@@ -803,6 +818,42 @@ static void show_partition_table_comparison_dialog(
 #endif
     runDialog(GTK_DIALOG(dialog));
     destroyWidget(dialog);
+}
+
+void show_package_partition_check_dialog(
+    _GtkWindow* parent,
+    const std::vector<PackagePartitionCheckEntry>& entries,
+    std::size_t device_count,
+    std::size_t package_count,
+    std::size_t missing_count,
+    std::size_t mismatch_count)
+{
+    std::vector<PartitionTableDiffEntry> dialog_entries;
+    dialog_entries.reserve(entries.size());
+    for (const auto& entry : entries)
+    {
+        PartitionTableDiffEntry converted;
+        converted.name = entry.name;
+        converted.device_size = entry.device_size;
+        converted.pac_size = entry.package_size;
+        switch (entry.kind)
+        {
+        case PackagePartitionCheckKind::Match:
+            converted.kind = PartitionDiffKind::Match;
+            break;
+        case PackagePartitionCheckKind::MissingOnDevice:
+            converted.kind = PartitionDiffKind::MissingInPac;
+            break;
+        case PackagePartitionCheckKind::SizeMismatch:
+            converted.kind = PartitionDiffKind::SizeMismatch;
+            break;
+        }
+        dialog_entries.push_back(std::move(converted));
+    }
+
+    show_partition_table_comparison_dialog(
+        parent, dialog_entries, device_count, package_count,
+        missing_count, 0, mismatch_count, true);
 }
 
 bool pac_flash(const char* folder)

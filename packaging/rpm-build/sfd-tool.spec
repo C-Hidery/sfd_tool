@@ -9,7 +9,7 @@
 %global _lto_cflags %{nil}
 
 Name:           sfd-tool
-Version:        3.5.3
+Version:        3.6.0
 Release:        1%{?dist}
 Summary:        Spreadtrum Firmware Dumper Tool
 
@@ -22,11 +22,13 @@ BuildRequires:  cmake
 BuildRequires:  ninja-build
 BuildRequires:  gtk4-devel
 BuildRequires:  libusb1-devel
+BuildRequires:  libzip-devel
 BuildRequires:  pkgconf-pkg-config
 BuildRequires:  desktop-file-utils
 BuildRequires:  gtk-update-icon-cache
 Requires:       gtk4
 Requires:       libusb1
+Requires:       libzip
 
 %description
 GUI tool for dumping and programming Spreadtrum device firmware.
@@ -63,6 +65,9 @@ DESTDIR="%{buildroot}" cmake --install build_cmake --prefix "%{_prefix}"
 %doc %{_datadir}/doc/%{name}/*
 
 %changelog
+* Thu Nov 19 2026 RyanCrepa <Ryan110413@outlook.com> - 3.6.0-1-ltv
+- 新增自动化任务功能(GUI)
+
 * Sat Nov 07 2026 RyanCrepa <Ryan110413@outlook.com> - 3.5.3-1-ltv
 - 同步上游Trustos修复逻辑
 

@@ -11,6 +11,7 @@ add_library(pages_lib STATIC
     page_about.cpp
     page_log.cpp
     page_pac_flash.cpp
+    page_automated_task.cpp
 )
 
 target_include_directories(pages_lib
