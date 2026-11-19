@@ -26,6 +26,11 @@ constexpr std::size_t kProductionInfoSize = 0x2000;
 std::vector<uint8_t> build_phasecheck_buffer(const std::string& sn1 = std::string(),
                                              const std::string& sn2 = std::string());
 
+// 从设备读回的 8K PhaseCheck 数据里提取 SN（移植自 RD 的
+// CPhaseCheckBuild::FindSnFrom8K：SP05 取 header.SN，SP09/SP15 从 8K 末尾
+// 反向找最后一个 magic 匹配的块，取其 SN1）。
+std::string find_phasecheck_sn(const std::vector<uint8_t>& data);
+
 // 处理一个生成型操作。
 // 返回 true 表示该操作已被本模块识别并处理（是否真正写入见日志）；
 // 返回 false 表示本模块不认识该操作，调用方继续走“不支持”告警。

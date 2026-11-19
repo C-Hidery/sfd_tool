@@ -912,7 +912,7 @@ static std::vector<FileInfo> pac_xml_exec_order()
     {
         if (!prd.empty())
         {
-            DEG_LOG(W, "PAC 产品名 \"%s\" 在 XML 的 ProductList 中找不到，改用第一个 Scheme。", prd.c_str());
+            DEG_LOG(W, "PAC product name \"%s\" not found in XML ProductList, using the first Scheme.", prd.c_str());
         }
         files = parser.getPrimaryFiles();
     }
@@ -1463,7 +1463,7 @@ bool pac_flash(const char* folder)
                 if (pac_type_is_fdl(f.type) || !my_strnicmp(it.pac_id.c_str(), "FDL", 3))
                 {
                     it.kind = PacPlanItem::Skip;
-                    it.reason = "FDL 由引导阶段处理";
+                    it.reason = "FDL handled by boot stage";
                 }
                 else if (f.flag == 0)
                 {
@@ -1473,7 +1473,7 @@ bool pac_flash(const char* folder)
                 else if (it.pac_index < 0 || it.pac_size == 0)
                 {
                     it.kind = PacPlanItem::Skip;
-                    it.reason = "PAC 中没有该文件的数据";
+                    it.reason = "no data for this file in PAC";
                 }
                 else
                 {
@@ -1487,7 +1487,7 @@ bool pac_flash(const char* folder)
                             it.partition.c_str(), it.pac_id.c_str(), f.type.c_str(), f.checkFlag);
                     break;
                 case PacPlanItem::Unsupported:
-                    DEG_LOG(W, "PAC plan: ID=%s Type=%s Flag=0 需要生成内容（RD 会写），当前不支持，跳过",
+                    DEG_LOG(W, "PAC plan: ID=%s Type=%s Flag=0 needs generated content (RD writes it), unsupported, skipped",
                             it.pac_id.c_str(), f.type.c_str());
                     break;
                 case PacPlanItem::Skip:
@@ -1520,8 +1520,8 @@ bool pac_flash(const char* folder)
                 it.pac_name = unpac.u16_to_u8(pf.name, MAX_U16_SN);
                 it.pac_size = size;
                 it.partition = g_app_state.pacXml.getPartitionByOperation(pid);
-                it.reason = "PAC 条目未在 XML 中列出";
-                DEG_LOG(W, "PAC plan: %s 未在 XML 中列出，按 PAC 顺序补刷到 %s",
+                it.reason = "PAC entry not listed in XML";
+                DEG_LOG(W, "PAC plan: %s not listed in XML, flashing to %s in PAC order",
                         pid.c_str(), it.partition.c_str());
                 plan.push_back(std::move(it));
             }
@@ -1538,7 +1538,7 @@ bool pac_flash(const char* folder)
 
             if (partition.empty())
             {
-                DEG_LOG(W, "PAC 条目 %s 在 XML 中没有 Block/分区映射，跳过。", id.c_str());
+                DEG_LOG(W, "PAC entry %s has no Block/partition mapping in XML, skipped.", id.c_str());
                 return;
             }
 
@@ -1748,7 +1748,7 @@ bool pac_flash(const char* folder)
             {
                 if (it.partition.empty())
                 {
-                    DEG_LOG(W, "PAC 擦除操作 %s 没有分区名，跳过。", it.pac_id.c_str());
+                    DEG_LOG(W, "PAC erase operation %s has no partition name, skipped.", it.pac_id.c_str());
                     continue;
                 }
                 if (!hasPartition(g_app_state.flash.selected_pacptable, it.partition))
@@ -1787,7 +1787,7 @@ bool pac_flash(const char* folder)
                 if (!pac_generate::run_operation(io, it.pac_id, it.info.type, it.partition,
                                                  block_size, g_app_state.flash.isCMethod))
                 {
-                    DEG_LOG(W, "PAC operation %s (Type=%s) 需要生成内容，当前不支持，已跳过。",
+                    DEG_LOG(W, "PAC operation %s (Type=%s) needs generated content, unsupported, skipped.",
                             it.pac_id.c_str(), it.info.type.c_str());
                 }
                 continue;
