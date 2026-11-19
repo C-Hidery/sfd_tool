@@ -7,7 +7,7 @@ SFD Tool GUI
 
 Version 3.6.0 LTV Edition
 
-Copyright 2026 Ryan Crepa    QQ:3285087232    @Bilibili RyanCrepa
+Copyright 2026 Ryan Crepa (ryan110413@outlook.com)
 
 Version logs:
 
