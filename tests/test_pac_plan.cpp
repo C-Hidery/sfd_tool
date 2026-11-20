@@ -107,7 +107,7 @@ bool load(PacFile& pac, const std::string& path)
 }
 }  // namespace
 
-TEST_CASE("pac_plan: 执行顺序以 XML 为准，而不是 PAC 文件表顺序")
+TEST_CASE("pac_plan: execution order follows the XML scheme, not the PAC table")
 {
     TempPac pac_path("order");
     std::vector<FakeFile> files = {
@@ -159,7 +159,7 @@ TEST_CASE("pac_plan: 执行顺序以 XML 为准，而不是 PAC 文件表顺序"
     CHECK(plan[4].partition == "splloader");
 }
 
-TEST_CASE("pac_plan: Flag=1 但 PAC 没有数据时跳过")
+TEST_CASE("pac_plan: Flag=1 entry without data in PAC is skipped")
 {
     TempPac pac_path("nodata");
     std::vector<FakeFile> files = {{"GHOST", "", 1, 0, ""}};
@@ -179,7 +179,7 @@ TEST_CASE("pac_plan: Flag=1 但 PAC 没有数据时跳过")
     CHECK(plan[0].reason == "no data for this file in PAC");
 }
 
-TEST_CASE("pac_plan: PAC 有数据但 XML 未列出的条目走 leftover 补刷")
+TEST_CASE("pac_plan: PAC data not listed in XML becomes a leftover flash item")
 {
     TempPac pac_path("leftover");
     std::vector<FakeFile> files = {
@@ -207,7 +207,7 @@ TEST_CASE("pac_plan: PAC 有数据但 XML 未列出的条目走 leftover 补刷"
     CHECK(plan[1].leftover == true);
 }
 
-TEST_CASE("pac_plan: PAC 产品名带 PAC_ 前缀也能匹配 XML")
+TEST_CASE("pac_plan: PAC product name with PAC_ prefix still matches XML")
 {
     TempPac pac_path("prefix");
     std::vector<FakeFile> files = {{"BOOT", "boot.img", 1, 8, "bootdata"}};
@@ -228,7 +228,7 @@ TEST_CASE("pac_plan: PAC 产品名带 PAC_ 前缀也能匹配 XML")
     CHECK(plan[0].pac_index == 0);
 }
 
-TEST_CASE("pac_plan: XML 用 IDAlias 也能匹配 PAC 里的 ID")
+TEST_CASE("pac_plan: XML IDAlias matches the ID in the PAC table")
 {
     TempPac pac_path("alias");
     std::vector<FakeFile> files = {{"NV_NR", "nv.bin", 1, 8, "nvdata!!"}};
@@ -251,7 +251,7 @@ TEST_CASE("pac_plan: XML 用 IDAlias 也能匹配 PAC 里的 ID")
     CHECK(plan[0].pac_index == 0);
 }
 
-TEST_CASE("pac_plan: 空 PAC / 空 XML 返回空计划")
+TEST_CASE("pac_plan: empty PAC or empty XML yields an empty plan")
 {
     TempPac pac_path("empty");
     make_pac_file(pac_path.path(), "demo", {});
