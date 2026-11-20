@@ -15,6 +15,9 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
+#include <atomic>
+#include <mutex>
+#include <condition_variable>
 
 // 全局变量
 bool g_window_is_dragging = false;
@@ -253,9 +256,69 @@ void gui_run_main_loop() {
 }
 
 void gui_quit_main_loop() {
+    // 所有退出 GUI 的路径（关闭窗口、Ctrl+Q、延时退出）都视为主窗口已关闭，
+    // 先唤醒等待窗口关闭的线程，避免它们永远阻塞。
+    markMainWindowClosed();
     if (g_gui_main_loop && g_main_loop_is_running(g_gui_main_loop)) {
         g_main_loop_quit(g_gui_main_loop);
     }
+}
+
+// ---------- 主窗口关闭等待 ----------
+// 退出 GUI 时（关闭窗口 / Ctrl+Q / 延时退出）由 GUI 线程置位；工作线程阻塞
+// 等待该标志，主线程则运行嵌套主循环继续处理 GTK 事件，否则窗口无法被关闭。
+static std::atomic<bool> g_main_window_closed{false};
+static std::mutex g_main_window_closed_mutex;
+static std::condition_variable g_main_window_closed_cv;
+static std::mutex g_wait_loop_mutex;
+static GMainLoop* g_wait_loop = nullptr;
+
+void markMainWindowClosed() {
+    if (g_main_window_closed.exchange(true)) {
+        return; // 已经通知过
+    }
+    g_main_window_closed_cv.notify_all();
+
+    std::lock_guard<std::mutex> lock(g_wait_loop_mutex);
+    if (g_wait_loop) {
+        g_main_loop_quit(g_wait_loop);
+    }
+}
+
+bool isMainWindowClosed() {
+    return g_main_window_closed.load();
+}
+
+void waitForMainWindowClose() {
+    if (g_main_window_closed.load()) {
+        return;
+    }
+
+    if (g_main_context_is_owner(g_main_context_default())) {
+        // 主线程：阻塞期间必须继续派发 GTK 事件，否则用户无法点击关闭按钮。
+        GMainLoop* loop = g_main_loop_new(g_main_context_default(), FALSE);
+        bool wait_started = false;
+        {
+            std::lock_guard<std::mutex> lock(g_wait_loop_mutex);
+            if (!g_main_window_closed.load()) {
+                g_wait_loop = loop;
+                wait_started = true;
+            }
+        }
+        if (wait_started) {
+            g_main_loop_run(loop);
+            std::lock_guard<std::mutex> lock(g_wait_loop_mutex);
+            if (g_wait_loop == loop) {
+                g_wait_loop = nullptr;
+            }
+        }
+        g_main_loop_unref(loop);
+        return;
+    }
+
+    // 工作线程：不接触 GTK，仅等待 GUI 线程在窗口销毁时通知。
+    std::unique_lock<std::mutex> lock(g_main_window_closed_mutex);
+    g_main_window_closed_cv.wait(lock, [] { return g_main_window_closed.load(); });
 }
 
 // ---------- 对话框函数（GTK4 所有 API 均有效） ----------
@@ -394,6 +457,7 @@ std::string showSaveFileDialog(GtkWindow* parent,
 // ==================== 线程安全对话框（Thread-Safe Dialogs） ====================
 
 bool showConfirmDialogSyncInThread(GtkWindow* parent, const char* title, const char* message) {
+    if (isMainWindowClosed()) return false;
     if (g_main_context_is_owner(g_main_context_default())) {
         waitForDragEnd(parent);                // 若有拖拽则等待结束
         return showConfirmDialog(parent, title, message);
@@ -429,6 +493,7 @@ bool showConfirmDialogSyncInThread(GtkWindow* parent, const char* title, const c
 }
 
 std::string showInputDialogSyncInThread(GtkWindow* parent, const char* title, const char* message) {
+    if (isMainWindowClosed()) return {};
     if (g_main_context_is_owner(g_main_context_default())) {
         waitForDragEnd(parent);                // 若有拖拽则等待结束
         return showInputDialog(parent, title, message);
@@ -464,6 +529,8 @@ std::string showInputDialogSyncInThread(GtkWindow* parent, const char* title, co
 }
 
 void showErrorDialogSyncInThread(GtkWindow* parent, const char* title, const char* message) {
+    // GUI 主循环已退出时，调度到主线程的回调永远不会执行，直接返回避免永久阻塞。
+    if (isMainWindowClosed()) return;
     if (g_main_context_is_owner(g_main_context_default())) {
         waitForDragEnd(parent);                // 若有拖拽则等待结束
         showErrorDialog(parent, title, message);
@@ -497,6 +564,7 @@ void showErrorDialogSyncInThread(GtkWindow* parent, const char* title, const cha
 }
 
 void showInfoDialogSyncInThread(GtkWindow* parent, const char* title, const char* message) {
+    if (isMainWindowClosed()) return;
     if (g_main_context_is_owner(g_main_context_default())) {
         waitForDragEnd(parent);                // 若有拖拽则等待结束
         showInfoDialog(parent, title, message);
@@ -530,6 +598,7 @@ void showInfoDialogSyncInThread(GtkWindow* parent, const char* title, const char
 }
 
 void showWarningDialogSyncInThread(GtkWindow* parent, const char* title, const char* message) {
+    if (isMainWindowClosed()) return;
     if (g_main_context_is_owner(g_main_context_default())) {
         waitForDragEnd(parent);                // 若有拖拽则等待结束
         showWarningDialog(parent, title, message);
@@ -563,6 +632,7 @@ void showWarningDialogSyncInThread(GtkWindow* parent, const char* title, const c
 }
 
 std::string showFileChooserSyncInThread(GtkWindow* parent, bool open) {
+    if (isMainWindowClosed()) return {};
     if (g_main_context_is_owner(g_main_context_default())) {
         waitForDragEnd(parent);                // 若有拖拽则等待结束
         return showFileChooser(parent, open);
@@ -594,6 +664,7 @@ std::string showFileChooserSyncInThread(GtkWindow* parent, bool open) {
 }
 
 std::string showFolderChooserSyncInThread(GtkWindow* parent) {
+    if (isMainWindowClosed()) return {};
     if (g_main_context_is_owner(g_main_context_default())) {
         waitForDragEnd(parent);                // 若有拖拽则等待结束
         return showFolderChooser(parent);

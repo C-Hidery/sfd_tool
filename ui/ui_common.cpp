@@ -141,6 +141,11 @@ void EnableWidgets(GtkWidgetHelper& helper) {
 }
 
 void DisableWidgets(GtkWidgetHelper& helper) {
+	// GUI 已关闭时控件已被 GTK 销毁，再调用 set_sensitive 会触发
+	// "GTK_IS_WIDGET (widget)" 断言（例如后台线程在退出阶段报错）。
+	if (isMainWindowClosed()) {
+		return;
+	}
 	helper.disableWidget("fdl_exec");
 	helper.disableWidget("poweroff");
 	helper.disableWidget("reboot");

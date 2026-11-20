@@ -29,6 +29,14 @@ bool isWindowDragging(GtkWindow* window);
 void initDragDetection(GtkWindow* window);
 void gui_run_main_loop();
 void gui_quit_main_loop();
+
+// 主窗口关闭通知与等待：
+// 退出 GUI 后通过 isMainWindowClosed() 判断 GUI 是否仍可用；
+// 错误退出或刷写完成后用 waitForMainWindowClose() 阻塞当前线程，
+// 直到用户关闭主窗口，避免后续代码继续执行导致未定义行为。
+void markMainWindowClosed();
+bool isMainWindowClosed();
+void waitForMainWindowClose();
 void gtkBoxPackStart(GtkWidget* box, GtkWidget* child, bool expand, bool fill, int padding);
 void gtkContainerAdd(GtkWidget* container, GtkWidget* child);
 void gtkFrameSetLabelAlign(GtkWidget* frame, float xalign, float yalign = -1);

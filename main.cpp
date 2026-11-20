@@ -373,13 +373,8 @@ void crash_handler(int sig) {
     } else {
         // 命令行模式
         fprintf(stderr, "Program crashed. Exiting...\n");
-#ifndef _WIN32
         std::this_thread::sleep_for(std::chrono::seconds(3));
         std::exit(EXIT_FAILURE);
-#else
-		system("pause");
-		std::exit(EXIT_FAILURE);
-#endif
     }
     
     // 4. 等待用户阅读错误信息
