@@ -38,7 +38,7 @@ void put_block(std::vector<uint8_t>& data, std::size_t offset, uint32_t magic, c
 
 TEST_CASE("phasecheck defaults match RD (SP09 / PASS VALUE 0 / 7 stations)")
 {
-    const std::vector<uint8_t> buf = pac_generate::build_phasecheck_buffer("");
+    const std::vector<uint8_t> buf = pac_generate::build_phasecheck_buffer();
 
     CHECK(buf.size() == pac_generate::kProductionInfoSize);
     CHECK(read_u32(buf, 0) == kSp09Magic);
@@ -51,33 +51,25 @@ TEST_CASE("phasecheck defaults match RD (SP09 / PASS VALUE 0 / 7 stations)")
     CHECK(buf[0x1000] == 0xFF);
 }
 
-TEST_CASE("phasecheck reads SP15 multi-station config from PhaseCheck.ini")
+TEST_CASE("phasecheck ignores a user ini (always built-in SP09 / 7 stations)")
 {
+    // 用户提供的 ini 只用于 ISE；PhaseCheck 必须始终使用内置默认值。
     const std::string path = "test_phasecheck_tmp.ini";
     {
         std::ofstream f(path);
         REQUIRE(f.good());
-        f << "[VERSION]\n"
-             "MAGIC NUMBER = SP15\n"
-             "[STATE FLAG]\n"
-             "PASS VALUE = 0\n"
-             "[STATION]\n"
-             "STATION NUMBER = 3\n"
-             "STATION 1 = DOWNLOAD\n"
-             "STATION 2 = CFT\n"
-             "STATION 3 = IMEI\n";
+        f << "[VERSION]\nMAGIC NUMBER = SP15\n[STATE FLAG]\nPASS VALUE = 1\n"
+             "[STATION]\nSTATION NUMBER = 3\nSTATION 1 = DOWNLOAD\n"
+             "STATION 2 = CFT\nSTATION 3 = IMEI\n";
     }
 
-    const std::vector<uint8_t> buf = pac_generate::build_phasecheck_buffer(path);
+    const std::vector<uint8_t> buf = pac_generate::build_phasecheck_buffer();
     std::remove(path.c_str());
 
-    CHECK(buf.size() == pac_generate::kProductionInfoSize);
-    CHECK(read_u32(buf, 0) == kSp15Magic);
-    // SP15：magic(4) + sn1(64) + sn2(64) + station_num(int)
+    CHECK(read_u32(buf, 0) == kSp09Magic);
     int32_t stations = 0;
-    std::memcpy(&stations, buf.data() + 4 + 64 + 64, sizeof(stations));
-    CHECK(stations == 3);
-    CHECK(std::memcmp(buf.data() + 136, "DOWNLOAD", 8) == 0);
+    std::memcpy(&stations, buf.data() + 4 + 24 + 24, sizeof(stations));
+    CHECK(stations == 7);   // 内置 7 站点，不受 ini 的 3 站点影响
 }
 
 TEST_CASE("find_phasecheck_sn: SP09 picks SN1 of the last block in 8K")
@@ -124,7 +116,7 @@ TEST_CASE("find_phasecheck_sn: empty SN returns empty string")
 
 TEST_CASE("build_phasecheck_buffer keeps SN in SN1 and leaves SN2 empty")
 {
-    const std::vector<uint8_t> buf = pac_generate::build_phasecheck_buffer("", "SN123456");
+    const std::vector<uint8_t> buf = pac_generate::build_phasecheck_buffer("SN123456");
 
     CHECK(read_u32(buf, 0) == kSp09Magic);
     CHECK(std::memcmp(buf.data() + 4, "SN123456", 8) == 0);
@@ -164,29 +156,37 @@ TEST_CASE("apr: missing file yields an all-zero payload")
     for (uint8_t b : payload) CHECK(b == 0);
 }
 
-TEST_CASE("phasecheck_ini_usable: requires a non-empty station table")
+TEST_CASE("ise_ini_usable: needs [ISE]/[ISE_DATA] with Data/File/Size")
 {
-    const std::string good = "test_pc_good.ini";
+    const std::string ise_ok = "test_ise_ok.ini";
     {
-        std::ofstream f(good);
+        std::ofstream f(ise_ok);
+        REQUIRE(f.good());
+        f << "[ISE]\nData=00112233\n";
+    }
+    const std::string only_station = "test_ise_station_only.ini";
+    {
+        std::ofstream f(only_station);
         REQUIRE(f.good());
         f << "[VERSION]\nMAGIC NUMBER = SP09\n[STATION]\nSTATION NUMBER = 2\n"
              "STATION 1 = DOWNLOAD\nSTATION 2 = CFT\n";
     }
-    const std::string no_station = "test_pc_nostation.ini";
+    const std::string empty_ise = "test_ise_empty.ini";
     {
-        std::ofstream f(no_station);
+        std::ofstream f(empty_ise);
         REQUIRE(f.good());
-        f << "[VERSION]\nMAGIC NUMBER = SP09\n";
+        f << "[ISE]\n; nothing useful here\n";
     }
 
-    CHECK(pac_generate::phasecheck_ini_usable(good));
-    CHECK_FALSE(pac_generate::phasecheck_ini_usable(no_station));
-    CHECK_FALSE(pac_generate::phasecheck_ini_usable("no_such_ini.ini"));
-    CHECK_FALSE(pac_generate::phasecheck_ini_usable(""));
+    CHECK(pac_generate::ise_ini_usable(ise_ok));
+    CHECK_FALSE(pac_generate::ise_ini_usable(only_station));
+    CHECK_FALSE(pac_generate::ise_ini_usable(empty_ise));
+    CHECK_FALSE(pac_generate::ise_ini_usable("no_such_ini.ini"));
+    CHECK_FALSE(pac_generate::ise_ini_usable(""));
 
-    std::remove(good.c_str());
-    std::remove(no_station.c_str());
+    std::remove(ise_ok.c_str());
+    std::remove(only_station.c_str());
+    std::remove(empty_ise.c_str());
 }
 
 TEST_CASE("build_ise_payload: supports Data= / File= / Size=")
@@ -242,9 +242,9 @@ TEST_CASE("build_ise_payload: supports Data= / File= / Size=")
 
 TEST_CASE("phasecheck: DOWNLOAD station bits match RD Cnst8KBuffer")
 {
-    // 默认 SP09 / PASS VALUE 0 / 7 站点（DOWNLOAD 在第 0 位）
+    // 内置默认：SP09 / PASS VALUE 0 / 7 站点（DOWNLOAD 在第 0 位）
     // RD: iItem &= ~(1<<0) (0x7FFF -> 0x7FFE), iTestSign &= ~(1<<0) (0xFFFF -> 0xFFFE)
-    const std::vector<uint8_t> buf = pac_generate::build_phasecheck_buffer("");
+    const std::vector<uint8_t> buf = pac_generate::build_phasecheck_buffer();
 
     CHECK(buf[219] == 0x01);  // sign_flag = PASS_0_FAIL_1
     uint16_t test_sign = 0;
@@ -253,23 +253,64 @@ TEST_CASE("phasecheck: DOWNLOAD station bits match RD Cnst8KBuffer")
     std::memcpy(&item, buf.data() + 254, sizeof(item));
     CHECK(test_sign == 0xFFFE);
     CHECK(item == 0x7FFE);
+}
 
-    // SP15 + PASS VALUE 1：sign_flag=0，iItem 置位 DOWNLOAD 位，iTestSign 保持 0
-    const std::string ini = "test_pc_dl.ini";
-    {
-        std::ofstream f(ini);
-        REQUIRE(f.good());
-        f << "[VERSION]\nMAGIC NUMBER = SP15\n[STATE FLAG]\nPASS VALUE = 1\n"
-             "[STATION]\nSTATION NUMBER = 3\nSTATION 1 = DOWNLOAD\nSTATION 2 = CFT\nSTATION 3 = IMEI\n";
-    }
-    const std::vector<uint8_t> buf15 = pac_generate::build_phasecheck_buffer(ini);
-    std::remove(ini.c_str());
+TEST_CASE("detect_phasecheck_format: follows the magic found in the 8K")
+{
+    std::vector<uint8_t> data(pac_generate::kProductionInfoSize, 0xFF);
 
-    CHECK(buf15[449] == 0x00);
+    put_block(data, 0, kSp09Magic, "X");
+    CHECK(pac_generate::detect_phasecheck_format(data) == pac_generate::PhaseCheckFormat::Sp09);
+
+    put_block(data, 0, kSp15Magic, "X");
+    CHECK(pac_generate::detect_phasecheck_format(data) == pac_generate::PhaseCheckFormat::Sp15);
+
+    put_block(data, 0, kSp05Magic, "X");
+    CHECK(pac_generate::detect_phasecheck_format(data) == pac_generate::PhaseCheckFormat::Sp05);
+
+    // 头块没有 magic，但末尾有 SP15 块 → SP15
+    std::vector<uint8_t> tail_only(pac_generate::kProductionInfoSize, 0xFF);
+    put_block(tail_only, tail_only.size() - 492, kSp15Magic, "Y");
+    CHECK(pac_generate::detect_phasecheck_format(tail_only) == pac_generate::PhaseCheckFormat::Sp15);
+
+    // 全是 0xFF → 回退 SP09
+    const std::vector<uint8_t> blank(pac_generate::kProductionInfoSize, 0xFF);
+    CHECK(pac_generate::detect_phasecheck_format(blank) == pac_generate::PhaseCheckFormat::Sp09);
+}
+
+TEST_CASE("build_phasecheck_buffer: explicit SP15 format")
+{
+    const std::vector<uint8_t> buf = pac_generate::build_phasecheck_buffer(
+        "SN15SN", std::string(), pac_generate::PhaseCheckFormat::Sp15);
+
+    CHECK(buf.size() == pac_generate::kProductionInfoSize);
+    CHECK(read_u32(buf, 0) == kSp15Magic);
+
+    int32_t stations = 0;
+    std::memcpy(&stations, buf.data() + 4 + 64 + 64, sizeof(stations));
+    CHECK(stations == 7);
+    CHECK(std::memcmp(buf.data() + 136, "DOWNLOAD", 8) == 0);
+    CHECK(std::memcmp(buf.data() + 4, "SN15SN", 6) == 0);
+    CHECK(buf[449] == 0x01);  // sign_flag = PASS_0_FAIL_1
+
     uint32_t test_sign32 = 0;
     uint32_t item32 = 0;
-    std::memcpy(&test_sign32, buf15.data() + 484, sizeof(test_sign32));
-    std::memcpy(&item32, buf15.data() + 488, sizeof(item32));
-    CHECK(test_sign32 == 0u);
-    CHECK(item32 == 1u);
+    std::memcpy(&test_sign32, buf.data() + 484, sizeof(test_sign32));
+    std::memcpy(&item32, buf.data() + 488, sizeof(item32));
+    CHECK(test_sign32 == 0xFFFFFFFEu);  // DOWNLOAD 位被清
+    CHECK(item32 == 0xFFFFFFFEu);
+}
+
+TEST_CASE("build_phasecheck_buffer: explicit SP05 format marks DOWNLOAD as PASS")
+{
+    const std::vector<uint8_t> buf = pac_generate::build_phasecheck_buffer(
+        "SN05", std::string(), pac_generate::PhaseCheckFormat::Sp05);
+
+    CHECK(read_u32(buf, 0) == kSp05Magic);
+    CHECK(buf[4] == 1);   // big_endian
+    CHECK(buf[5] == 7);   // station_num
+
+    // header(216) + item0: station_name[16] test_times[4] failure[4] test_state[16]
+    CHECK(std::memcmp(buf.data() + 216, "DOWNLOAD", 8) == 0);
+    CHECK(std::memcmp(buf.data() + 240, "PASS", 4) == 0);
 }

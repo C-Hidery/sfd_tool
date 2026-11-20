@@ -122,7 +122,6 @@ struct PhaseCheckConfig
     PhaseCheckMagic magic = PhaseCheckMagic::Sp09;
     int pass_value = 0;
     std::vector<std::string> stations;
-    std::string ini_path;  // 为空表示使用内置默认
 };
 
 std::string trim_copy(std::string s)
@@ -143,18 +142,36 @@ std::string upper_copy(std::string s)
     return s;
 }
 
-// 解析显式指定的 PhaseCheck.ini；返回 false 表示文件不可读。
-bool parse_phasecheck_ini(const std::string& path, PhaseCheckConfig& cfg)
-{
-    std::ifstream f(path);
-    if (!f) return false;
+// 工具内置的 PhaseCheck.ini 默认值（拷贝自 RD 发行版
+// SPD_Research_Tool_R23.0.0001/PhaseCheck.ini：SP09 / PASS VALUE 0 / 7 站点）。
+// 用户通过 GUI/CLI 选择的 ini 仅用于 ISE，不改变 PhaseCheck 的内容。
+constexpr const char* kBuiltinPhaseCheckIni = R"INI(
+[VERSION]
+MAGIC NUMBER     = SP09
 
+[STATE FLAG]
+PASS VALUE = 0
+
+[STATION]
+STATION NUMBER   = 7
+STATION 1        =DOWNLOAD
+STATION 2        =WRITESN
+STATION 3        =CFT
+STATION 4        =BBAT
+STATION 5        =WCN
+STATION 6        =ANTENNA
+STATION 7        =IMEI
+)INI";
+
+// 解析 PhaseCheck.ini 文本
+void parse_phasecheck_ini(std::istream& in, PhaseCheckConfig& cfg)
+{
     std::string section;
     std::vector<std::pair<int, std::string>> stations;  // (序号, 名字)
     int station_number = -1;
 
     std::string line;
-    while (std::getline(f, line))
+    while (std::getline(in, line))
     {
         const std::size_t comment = line.find_first_of(";#");
         if (comment != std::string::npos)
@@ -215,30 +232,23 @@ bool parse_phasecheck_ini(const std::string& path, PhaseCheckConfig& cfg)
     }
 
     cfg.stations = std::move(parsed);
-    cfg.ini_path = path;
-    return true;
 }
 
-PhaseCheckConfig load_phasecheck_config(const std::string& ini_path)
+PhaseCheckConfig load_phasecheck_config()
 {
     PhaseCheckConfig cfg;
-    // RD 发行版 PhaseCheck.ini 的默认值：SP09 / PASS VALUE 0 / 7 个站点
     cfg.magic = PhaseCheckMagic::Sp09;
     cfg.pass_value = 0;
     cfg.stations = {"DOWNLOAD", "WRITESN", "CFT", "BBAT", "WCN", "ANTENNA", "IMEI"};
 
-    if (ini_path.empty()) return cfg;
-
-    PhaseCheckConfig from_ini;
-    if (parse_phasecheck_ini(ini_path, from_ini) && !from_ini.stations.empty())
+    // 固定使用内置默认值（等价 RD 的 PhaseCheck.ini）。
+    std::istringstream builtin(kBuiltinPhaseCheckIni);
+    PhaseCheckConfig from_builtin;
+    parse_phasecheck_ini(builtin, from_builtin);
+    if (!from_builtin.stations.empty())
     {
-        return from_ini;
+        cfg = from_builtin;
     }
-
-    // 文件不可读或站点表为空：保留 magic/pass value（若有），站点仍用默认值。
-    cfg.magic = from_ini.magic;
-    cfg.pass_value = from_ini.pass_value;
-    cfg.ini_path = ini_path;
     return cfg;
 }
 
@@ -441,9 +451,10 @@ bool write_buffer_to_partition(spdio_t* io, const std::string& partition,
     return true;
 }
 
-// 读设备上 PhaseCheck 所在分区的前 8K，用于提取旧 SN（RD 的 AddReadSN 行为：
-// 读同一个 Block，长度按 8K 处理）。
-bool read_device_sn(spdio_t* io, const std::string& partition, std::string& sn)
+// 读设备上 PhaseCheck 所在分区的前 8K，用于提取旧 SN 并判断产测格式
+// （RD 的 AddReadSN 行为：读同一个 Block，长度按 8K 处理）。
+bool read_phasecheck_from_device(spdio_t* io, const std::string& partition,
+                                 std::string& sn, PhaseCheckFormat& format)
 {
     get_partition_info(io, partition.c_str(), 1);
     if (!gPartInfo.size) return false;
@@ -468,8 +479,9 @@ bool read_device_sn(spdio_t* io, const std::string& partition, std::string& sn)
     delete[] raw;
 
     data.resize(kProductionInfoSize, 0xFF);  // RD: 读回不足 8K 时用 0xFF 补齐
+    format = detect_phasecheck_format(data);
     sn = find_phasecheck_sn(data);
-    return !sn.empty();
+    return true;
 }
 }  // namespace
 
@@ -534,11 +546,54 @@ std::string find_phasecheck_sn(const std::vector<uint8_t>& data)
     return std::string();
 }
 
-bool phasecheck_ini_usable(const std::string& ini_path)
+PhaseCheckFormat detect_phasecheck_format(const std::vector<uint8_t>& data)
+{
+    if (data.size() < 4) return PhaseCheckFormat::Sp09;
+
+    uint32_t magic0 = 0;
+    std::memcpy(&magic0, data.data(), sizeof(magic0));
+    if (magic0 == kSp05Magic) return PhaseCheckFormat::Sp05;
+    if (magic0 == kSp09Magic) return PhaseCheckFormat::Sp09;
+    if (magic0 == kSp15Magic) return PhaseCheckFormat::Sp15;
+
+    // 头块没有 magic 时，按 RD 的方式在 8K 内反向找块（SP15 优先，因为块更大）。
+    if (data.size() >= kProductionInfoSize)
+    {
+        auto scan = [&data](std::size_t block, uint32_t magic) -> bool
+        {
+            if (block == 0 || data.size() < block) return false;
+            const std::size_t total = data.size() / block;
+            const uint8_t* cur = data.data() + data.size() - block;
+            for (std::size_t i = 0; i + 1 < total; ++i)
+            {
+                uint32_t v = 0;
+                std::memcpy(&v, cur, sizeof(v));
+                if (v == magic) return true;
+                cur -= block;
+            }
+            return false;
+        };
+        if (scan(sizeof(Sp15PhaseCheck), kSp15Magic)) return PhaseCheckFormat::Sp15;
+        if (scan(sizeof(Sp09PhaseCheck), kSp09Magic)) return PhaseCheckFormat::Sp09;
+    }
+    return PhaseCheckFormat::Sp09;
+}
+
+bool ise_ini_usable(const std::string& ini_path)
 {
     if (ini_path.empty()) return false;
-    PhaseCheckConfig cfg;
-    return parse_phasecheck_ini(ini_path, cfg) && !cfg.stations.empty();
+
+    std::map<std::string, std::map<std::string, std::string>> sections;
+    if (!read_ini_sections(ini_path, sections)) return false;
+
+    for (const char* name : {"ISE", "ISE_DATA"})
+    {
+        auto it = sections.find(name);
+        if (it == sections.end()) continue;
+        const auto& kv = it->second;
+        if (kv.count("DATA") || kv.count("FILE") || kv.count("SIZE")) return true;
+    }
+    return false;
 }
 
 bool build_ise_payload(const std::string& ini_path, const std::string& op_id,
@@ -625,12 +680,17 @@ bool build_ise_payload(const std::string& ini_path, const std::string& op_id,
     return true;
 }
 
-std::vector<uint8_t> build_phasecheck_buffer(const std::string& ini_path,
-                                             const std::string& sn1, const std::string& sn2)
+std::vector<uint8_t> build_phasecheck_buffer(const std::string& sn1, const std::string& sn2,
+                                             PhaseCheckFormat format)
 {
     // RD: memset(lpData, 0xFF, 8K) 后把结构体放在缓冲区起始处
     std::vector<uint8_t> buf(kProductionInfoSize, 0xFF);
-    const PhaseCheckConfig cfg = load_phasecheck_config(ini_path);
+    PhaseCheckConfig cfg = load_phasecheck_config();
+
+    // 站点表固定用内置默认值；只有结构版本跟随设备现有 phasecheck。
+    cfg.magic = (format == PhaseCheckFormat::Sp05) ? PhaseCheckMagic::Sp05
+              : (format == PhaseCheckFormat::Sp15) ? PhaseCheckMagic::Sp15
+                                                   : PhaseCheckMagic::Sp09;
 
     switch (cfg.magic)
     {
@@ -646,15 +706,8 @@ std::vector<uint8_t> build_phasecheck_buffer(const std::string& ini_path,
         break;
     }
 
-    if (cfg.ini_path.empty())
-    {
-        DEG_LOG(I, "PhaseCheck: no ini selected, using built-in defaults (SP09 / PASS VALUE 0 / %zu stations)",
-                cfg.stations.size());
-    }
-    else
-    {
-        DEG_LOG(I, "PhaseCheck: using %s (%zu stations)", cfg.ini_path.c_str(), cfg.stations.size());
-    }
+    DEG_LOG(I, "PhaseCheck: built-in default config (SP09 / PASS VALUE 0 / %zu stations)",
+            cfg.stations.size());
     return buf;
 }
 
@@ -734,17 +787,6 @@ bool run_operation(spdio_t* io, const std::string& op_id, const std::string& typ
             return true;
         }
 
-        // ini 必须由用户显式选择（GUI 文件选择 / CLI 输入），不再自动探测。
-        if (ini_path.empty())
-        {
-            DEG_LOG(E, "PhaseCheck: no PhaseCheck.ini selected on the PAC page, skipped");
-            return true;
-        }
-        if (!phasecheck_ini_usable(ini_path))
-        {
-            DEG_LOG(E, "PhaseCheck: ini is not usable (%s), skipped", ini_path.c_str());
-            return true;
-        }
 
         std::size_t size = kProductionInfoSize;
         if (block_size > 0 && block_size <= kProductionInfoSize)
@@ -756,16 +798,21 @@ bool run_operation(spdio_t* io, const std::string& op_id, const std::string& typ
         // RD 会先读设备上同一分区的旧 PhaseCheck，用 FindSnFrom8K 取 SN，
         // 再带着 SN 重新生成 8K 写回去。
         std::string sn;
-        if (read_device_sn(io, partition, sn))
+        PhaseCheckFormat format = PhaseCheckFormat::Sp09;
+        if (read_phasecheck_from_device(io, partition, sn, format))
         {
-            DEG_LOG(OP, "PhaseCheck: read SN \"%s\" from device partition %s", sn.c_str(), partition.c_str());
+            const char* fmt_name = (format == PhaseCheckFormat::Sp05) ? "SP05"
+                                 : (format == PhaseCheckFormat::Sp15) ? "SP15" : "SP09";
+            DEG_LOG(OP, "PhaseCheck: device format=%s, SN=\"%s\" (partition %s)",
+                    fmt_name, sn.c_str(), partition.c_str());
         }
         else
         {
-            DEG_LOG(W, "PhaseCheck: no SN found on device partition %s, writing empty SN", partition.c_str());
+            DEG_LOG(W, "PhaseCheck: no phasecheck found on device partition %s, "
+                       "using SP09 and empty SN", partition.c_str());
         }
 
-        std::vector<uint8_t> buf = build_phasecheck_buffer(ini_path, sn);
+        std::vector<uint8_t> buf = build_phasecheck_buffer(sn, std::string(), format);
         buf.resize(size, 0xFF);
 
         get_partition_info(io, partition.c_str(), 1);
@@ -796,6 +843,13 @@ bool run_operation(spdio_t* io, const std::string& op_id, const std::string& typ
                     "%s (Type=%s, Block=%s): ISE generation disabled (shell only); "
                     "enable it on the PAC page and select a PhaseCheck.ini to generate.",
                     op_id.c_str(), type.c_str(), partition.c_str());
+            return true;
+        }
+
+        if (!ise_ini_usable(ini_path))
+        {
+            DEG_LOG(W, "%s: no usable ISE ini selected (need [ISE]/[ISE_DATA] with Data/File/Size), skipped",
+                    op_id.c_str());
             return true;
         }
 

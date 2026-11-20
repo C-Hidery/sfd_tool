@@ -7,7 +7,7 @@
 #include "../core/usb_transport.h"
 #include "../core/config_service.h"
 #include "../core/pac_extract.h"  // FindFDLInExtFloder & Stages
-#include "../core/pac_generate.h"  // phasecheck_ini_usable
+#include "../core/pac_generate.h"  // ise_ini_usable
 #include "../i18n.h"
 #include "ui/ui_common.h"
 #include "ui/gtk_row_view.hpp"
@@ -98,18 +98,18 @@ void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 	}).detach();
 }
 
-void on_button_clicked_pac_phasecheck_ini(GtkWidgetHelper helper) {
+void on_button_clicked_pac_ise_ini(GtkWidgetHelper helper) {
 	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
 	std::string filename = showFileChooser(parent, true);
 	if (filename.empty()) return;
 
 	g_app_state.flash.phasecheckIniPath = filename;
-	helper.setLabelText(helper.getWidget("pac_phasecheck_ini_label"), filename.c_str());
+	helper.setLabelText(helper.getWidget("pac_ise_ini_label"), filename.c_str());
 
-	if (!pac_generate::phasecheck_ini_usable(filename)) {
+	if (!pac_generate::ise_ini_usable(filename)) {
 		showInfoDialogSyncInThread(parent, _("Warning"),
-			_("This ini has no usable [STATION] section; PhaseCheck generation will be skipped. "
-			  "The [ISE]/[ISE_DATA] section is still used when ISE is enabled."));
+			_("This ini has no usable [ISE]/[ISE_DATA] section (Data/File/Size). "
+			  "ISE generation will be skipped."));
 	}
 }
 
@@ -261,7 +261,7 @@ GtkWidget* PacFlashPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     GtkWidget* writePhaseCheck = gtk_check_button_new_with_label(_("Write PhaseCheck (production info)"));
     gtk_widget_set_name(writePhaseCheck, "pac_write_phasecheck");
     gtk_widget_set_tooltip_text(writePhaseCheck,
-        _("Generate 8K phase-check data from PhaseCheck.ini and write it to miscdata."));
+        _("Generate 8K phase-check data with the built-in PhaseCheck.ini default and write it to miscdata."));
     helper.addWidget("pac_write_phasecheck", writePhaseCheck);
     gtk_box_append(GTK_BOX(flashCardBox), writePhaseCheck);
 
@@ -272,18 +272,18 @@ GtkWidget* PacFlashPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     helper.addWidget("pac_write_apr", writeAprCheck);
     gtk_box_append(GTK_BOX(flashCardBox), writeAprCheck);
 
-    // PhaseCheck / ISE 生成所需的 ini（可选，用户显式选择）
+    // ISE 生成所需的 ini（可选，仅影响 ISE；PhaseCheck 固定用内置默认值）
     GtkWidget* iniRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-    GtkWidget* iniBtn = gtk_button_new_with_label(_("Select PhaseCheck.ini (optional)"));
-    gtk_widget_set_name(iniBtn, "pac_phasecheck_ini_select");
-    helper.addWidget("pac_phasecheck_ini_select", iniBtn);
+    GtkWidget* iniBtn = gtk_button_new_with_label(_("Select ISE ini (optional)"));
+    gtk_widget_set_name(iniBtn, "pac_ise_ini_select");
+    helper.addWidget("pac_ise_ini_select", iniBtn);
 
     GtkWidget* iniLabel = gtk_label_new(_("No ini selected"));
-    gtk_widget_set_name(iniLabel, "pac_phasecheck_ini_label");
+    gtk_widget_set_name(iniLabel, "pac_ise_ini_label");
     gtk_label_set_ellipsize(GTK_LABEL(iniLabel), PANGO_ELLIPSIZE_MIDDLE);
     gtk_widget_set_hexpand(iniLabel, TRUE);
     gtk_widget_set_halign(iniLabel, GTK_ALIGN_START);
-    helper.addWidget("pac_phasecheck_ini_label", iniLabel);
+    helper.addWidget("pac_ise_ini_label", iniLabel);
 
     gtk_box_append(GTK_BOX(iniRow), iniBtn);
     gtk_box_append(GTK_BOX(iniRow), iniLabel);
@@ -324,10 +324,10 @@ void PacFlashPage::bindSignals(GtkWidgetHelper& helper) {
 			on_button_clicked_pac_unpack(helper);
 		});
 	}
-	GtkWidget* iniBtn = helper.getWidget("pac_phasecheck_ini_select");
+	GtkWidget* iniBtn = helper.getWidget("pac_ise_ini_select");
 	if (iniBtn) {
 		helper.bindClick(iniBtn, [helper]() {
-			on_button_clicked_pac_phasecheck_ini(helper);
+			on_button_clicked_pac_ise_ini(helper);
 		});
 	}
 	GtkWidget* pacFlashBtn = helper.getWidget("pac_flash_start");

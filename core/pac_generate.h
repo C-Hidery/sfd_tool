@@ -20,16 +20,27 @@ namespace pac_generate
 // PhaseCheck 生产信息区大小（RD: PRODUCTION_INFO_SIZE = 8K）
 constexpr std::size_t kProductionInfoSize = 0x2000;
 
-// 构造 8K PhaseCheck 缓冲区：整体 0xFF 填充，头部放 SP15 结构。
-// RD 会用 PhaseCheck.ini + 设备 SN 填充站点信息；在缺少这些输入时，
-// 这里写入“单站点 DOWNLOAD、空 SN”的合法结构（与 RD 的默认值一致）。
-// ini_path 由用户显式指定（GUI 文件选择 / CLI 输入）；为空时使用内置默认值。
-std::vector<uint8_t> build_phasecheck_buffer(const std::string& ini_path,
-                                             const std::string& sn1 = std::string(),
-                                             const std::string& sn2 = std::string());
+// PhaseCheck 的格式版本（对应 RD 的 SP05/SP09/SP15 结构）。
+enum class PhaseCheckFormat
+{
+    Sp05,
+    Sp09,
+    Sp15
+};
 
-// ini 是否可用（可读且能解析出至少一个站点）。
-bool phasecheck_ini_usable(const std::string& ini_path);
+// 从设备读回的 8K 数据里判断产测格式；识别不出时返回 Sp09。
+PhaseCheckFormat detect_phasecheck_format(const std::vector<uint8_t>& data);
+
+// 构造 8K PhaseCheck 缓冲区：整体 0xFF 填充，头部放 RD 的结构。
+// 站点表固定使用工具内置的 PhaseCheck.ini 默认值（SP09 / PASS VALUE 0 / 7 站点，
+// 取自 RD 发行版），不受用户为 ISE 选择的 ini 影响。
+// format 默认 Sp09；刷写时由设备现有 phasecheck 的 magic 决定（见 detect_phasecheck_format）。
+std::vector<uint8_t> build_phasecheck_buffer(const std::string& sn1 = std::string(),
+                                             const std::string& sn2 = std::string(),
+                                             PhaseCheckFormat format = PhaseCheckFormat::Sp09);
+
+// 用户为 ISE 选择的 ini 是否可用（可读且含 [ISE]/[ISE_DATA] 段）。
+bool ise_ini_usable(const std::string& ini_path);
 
 // ---- ISE ----
 // 从 ini 的 [ISE] / [ISE_DATA] 段生成 ISE 负载，支持：

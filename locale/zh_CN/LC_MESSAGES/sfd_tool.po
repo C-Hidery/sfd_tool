@@ -1541,3 +1541,15 @@ msgstr "写入 ISE（用所选 ini 的 [ISE] 段生成）"
 
 msgid "Off: keep the shell warning and write nothing. On: read [ISE]/[ISE_DATA] from the selected ini (Data=<hex>, File=<path> or Size=<bytes>) and write it to the ISE partitions."
 msgstr "关闭：保持空壳告警、不写入。开启：从所选 ini 的 [ISE]/[ISE_DATA] 段读取（Data=<十六进制>、File=<路径> 或 Size=<字节数>）并写入 ISE 分区。"
+
+
+# ===== Auto-appended entries from sfd_tool.pot =====
+
+msgid "This ini has no usable [ISE]/[ISE_DATA] section (Data/File/Size). ISE generation will be skipped."
+msgstr "该 ini 没有可用的 [ISE]/[ISE_DATA] 段（Data/File/Size），将跳过 ISE 生成。"
+
+msgid "Generate 8K phase-check data with the built-in PhaseCheck.ini default and write it to miscdata."
+msgstr "使用内置 PhaseCheck.ini 默认值生成 8K 产测信息并写入 miscdata。"
+
+msgid "Select ISE ini (optional)"
+msgstr "选择 ISE ini（可选）"

@@ -1386,9 +1386,9 @@ bool pac_flash(const char* folder)
         }
 
         g_app_state.flash.phasecheckIniPath.clear();
-        if (g_app_state.flash.isPacWritePhaseCheck || g_app_state.flash.isPacWriteIse)
+        if (g_app_state.flash.isPacWriteIse)
         {
-            std::cout << "Enter path to PhaseCheck.ini: " << std::endl;
+            std::cout << "Enter path to the ISE ini ([ISE]/[ISE_DATA] section): " << std::endl;
             std::string v;
             std::getline(std::cin, v);
             const std::size_t b = v.find_first_not_of(" \t\r\n");
