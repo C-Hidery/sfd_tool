@@ -886,17 +886,18 @@ static std::string pac_strip_pac_prefix(std::string s)
     return s;
 }
 
+namespace pac_plan
+{
 // PAC 内 XML 的执行顺序：先按产品名选中 Scheme（取不到就用第一个 Product），
 // 然后按 <SchemeList>/<Scheme>/<File> 的原始顺序返回，这就是 RD 的执行顺序。
-static std::vector<FileInfo> pac_xml_exec_order()
+std::vector<FileInfo> xml_exec_order(const PacFile& pac, const PacXMLParser& xml)
 {
     std::vector<FileInfo> files;
-    const PacXMLParser& parser = g_app_state.pacXml;
     const std::string prd = pac_strip_pac_prefix(
-        PacFile::u16_to_u8(g_app_state.pacFile.head.fw_name, MAX_U16_SN));
+        PacFile::u16_to_u8(pac.head.fw_name, MAX_U16_SN));
 
     std::string chosen;
-    for (const std::string& name : parser.getProductNames())
+    for (const std::string& name : xml.getProductNames())
     {
         if (!prd.empty() && !my_stricmp(pac_strip_pac_prefix(name).c_str(), prd.c_str()))
         {
@@ -906,18 +907,103 @@ static std::vector<FileInfo> pac_xml_exec_order()
     }
     if (!chosen.empty())
     {
-        files = parser.getFilesByProduct(chosen);
+        files = xml.getFilesByProduct(chosen);
     }
     if (files.empty())
     {
         if (!prd.empty())
         {
-            DEG_LOG(W, "PAC product name \"%s\" not found in XML ProductList, using the first Scheme.", prd.c_str());
+            DEG_LOG(W, "PAC product name \"%s\" not found in XML ProductList, using the first Scheme.",
+                    prd.c_str());
         }
-        files = parser.getPrimaryFiles();
+        files = xml.getPrimaryFiles();
     }
     return files;
 }
+
+std::vector<Item> build(const PacFile& pac, const PacXMLParser& xml)
+{
+    std::vector<Item> plan;
+    if (pac.fileCount <= 0 || !pac.files) return plan;
+
+    std::vector<char> consumed(static_cast<size_t>(pac.fileCount), 0);
+
+    // 1) XML 顺序：每个 File 归类成 Flash/Erase/Unsupported/Skip
+    for (const FileInfo& f : xml_exec_order(pac, xml))
+    {
+        Item it;
+        it.info = f;
+        it.pac_id = f.id;
+
+        // 用 ID 或 IDAlias 在 PAC 文件表里找对应条目（大小写不敏感，与 RD 的 MakeUpper 一致）
+        for (int i = 0; i < pac.fileCount; ++i)
+        {
+            if (consumed[static_cast<size_t>(i)]) continue;
+            const std::string pid = PacFile::u16_to_u8(pac.files[i].id, MAX_U16_SN);
+            if (!my_stricmp(pid.c_str(), f.id.c_str()) ||
+                (!f.idAlias.empty() && !my_stricmp(pid.c_str(), f.idAlias.c_str())))
+            {
+                it.pac_index = i;
+                consumed[static_cast<size_t>(i)] = 1;
+                break;
+            }
+        }
+
+        if (it.pac_index >= 0)
+        {
+            const sprd_file_t& pf = pac.files[it.pac_index];
+            it.pac_name = PacFile::u16_to_u8(pf.name, MAX_U16_SN);
+            it.pac_size = (static_cast<uint64_t>(pf.size_high) << 32) | pf.size;
+        }
+        it.partition = f.blocks.empty() ? std::string() : f.blocks.front().id;
+
+        if (pac_type_is_fdl(f.type) || !my_strnicmp(it.pac_id.c_str(), "FDL", 3))
+        {
+            it.kind = Kind::Skip;
+            it.reason = "FDL handled by boot stage";
+        }
+        else if (f.flag == 0)
+        {
+            it.kind = pac_type_is_erase(f.type) ? Kind::Erase : Kind::Unsupported;
+        }
+        else if (it.pac_index < 0 || it.pac_size == 0)
+        {
+            it.kind = Kind::Skip;
+            it.reason = "no data for this file in PAC";
+        }
+        else
+        {
+            it.kind = Kind::Flash;
+        }
+        plan.push_back(std::move(it));
+    }
+
+    // 2) XML 未列出的 PAC 数据条目：RD 会因“文件数与 XML 不一致”直接拒包，
+    //    这里为兼容仍按 PAC 顺序补刷，并标记 leftover 由调用方告警。
+    for (int i = 0; i < pac.fileCount; ++i)
+    {
+        if (consumed[static_cast<size_t>(i)]) continue;
+        const sprd_file_t& pf = pac.files[i];
+        if (pf.type == 0 || pf.type == 0x101 || pf.type == 2) continue;
+        const std::string pid = PacFile::u16_to_u8(pf.id, MAX_U16_SN);
+        if (!my_strnicmp(pid.c_str(), "FDL", 3)) continue;
+        const uint64_t size = (static_cast<uint64_t>(pf.size_high) << 32) | pf.size;
+        if (!size) continue;
+
+        Item it;
+        it.kind = Kind::Flash;
+        it.leftover = true;
+        it.pac_index = i;
+        it.pac_id = pid;
+        it.pac_name = PacFile::u16_to_u8(pf.name, MAX_U16_SN);
+        it.pac_size = size;
+        it.partition = xml.getPartitionByOperation(pid);
+        it.reason = "PAC entry not listed in XML";
+        plan.push_back(std::move(it));
+    }
+    return plan;
+}
+}  // namespace pac_plan
 
 bool pac_flash(const char* folder)
 {
@@ -1412,123 +1498,42 @@ bool pac_flash(const char* folder)
         //     而不是 PAC 文件表顺序；
         //   * Flag=0 的条目是“操作”（PAC 表里 nFileFlag=0、无数据），按 <Type> 执行：
         //       EraseFlash / EraseFlash2 / EraseFlashByID -> 擦除 Block 对应的分区；
-        //     需要生成内容的操作（PhaseCheck / ISE / APR ...）明确告警后跳过；
+        //     需要生成内容的操作（PhaseCheck / ISE / APR ...）交给 pac_generate；
         //   * Flag=1 的条目仍按原有规则写入（分区勾选、NV 合并、userdata 规则）。
+        // 计划本身由 pac_plan::build() 生成（纯数据，可单元测试）。
         // ------------------------------------------------------------------
-        struct PacPlanItem
+        const std::vector<pac_plan::Item> plan = pac_plan::build(unpac, g_app_state.pacXml);
+        for (const pac_plan::Item& it : plan)
         {
-            enum Kind { Flash, Erase, Unsupported, Skip } kind = Skip;
-            FileInfo info;
-            int pac_index = -1;
-            std::string pac_id;
-            std::string pac_name;
-            uint64_t pac_size = 0;
-            std::string partition;
-            std::string reason;
-        };
-
-        std::vector<PacPlanItem> plan;
-        std::vector<char> consumed(unpac.fileCount > 0 ? static_cast<size_t>(unpac.fileCount) : 0, 0);
-
-        if (unpac.fileCount > 0)
-        {
-            const std::vector<FileInfo> xml_files = pac_xml_exec_order();
-            for (const FileInfo& f : xml_files)
+            if (it.leftover)
             {
-                PacPlanItem it;
-                it.info = f;
-                it.pac_id = f.id;
-
-                for (int i = 0; i < unpac.fileCount; ++i)
-                {
-                    if (consumed[static_cast<size_t>(i)]) continue;
-                    const std::string pid = unpac.u16_to_u8(unpac.files[i].id, MAX_U16_SN);
-                    if (!my_stricmp(pid.c_str(), f.id.c_str()) ||
-                        (!f.idAlias.empty() && !my_stricmp(pid.c_str(), f.idAlias.c_str())))
-                    {
-                        it.pac_index = i;
-                        consumed[static_cast<size_t>(i)] = 1;
-                        break;
-                    }
-                }
-
-                if (it.pac_index >= 0)
-                {
-                    const sprd_file_t& pf = unpac.files[it.pac_index];
-                    it.pac_name = unpac.u16_to_u8(pf.name, MAX_U16_SN);
-                    it.pac_size = (static_cast<uint64_t>(pf.size_high) << 32) | pf.size;
-                }
-                it.partition = f.blocks.empty() ? std::string() : f.blocks.front().id;
-
-                if (pac_type_is_fdl(f.type) || !my_strnicmp(it.pac_id.c_str(), "FDL", 3))
-                {
-                    it.kind = PacPlanItem::Skip;
-                    it.reason = "FDL handled by boot stage";
-                }
-                else if (f.flag == 0)
-                {
-                    it.kind = pac_type_is_erase(f.type) ? PacPlanItem::Erase
-                                                        : PacPlanItem::Unsupported;
-                }
-                else if (it.pac_index < 0 || it.pac_size == 0)
-                {
-                    it.kind = PacPlanItem::Skip;
-                    it.reason = "no data for this file in PAC";
-                }
-                else
-                {
-                    it.kind = PacPlanItem::Flash;
-                }
-
-                switch (it.kind)
-                {
-                case PacPlanItem::Erase:
-                    DEG_LOG(I, "PAC plan: erase %s (ID=%s, Type=%s, Flag=0, CheckFlag=%d)",
-                            it.partition.c_str(), it.pac_id.c_str(), f.type.c_str(), f.checkFlag);
-                    break;
-                case PacPlanItem::Unsupported:
-                    DEG_LOG(W, "PAC plan: ID=%s Type=%s Flag=0 needs generated content (RD writes it), unsupported, skipped",
-                            it.pac_id.c_str(), f.type.c_str());
-                    break;
-                case PacPlanItem::Skip:
-                    DEG_LOG(I, "PAC plan: skip %s (%s)", it.pac_id.c_str(), it.reason.c_str());
-                    break;
-                case PacPlanItem::Flash:
-                    DEG_LOG(I, "PAC plan: flash %s -> %s (Type=%s, Flag=1)",
-                            it.pac_id.c_str(), it.partition.c_str(), f.type.c_str());
-                    break;
-                }
-                plan.push_back(std::move(it));
-            }
-
-            // XML 未列出的 PAC 数据条目：RD 会因“文件数与 XML 不一致”直接拒包，
-            // 这里为兼容仍按 PAC 顺序补刷，并明确告警。
-            for (int i = 0; i < unpac.fileCount; ++i)
-            {
-                if (consumed[static_cast<size_t>(i)]) continue;
-                const sprd_file_t& pf = unpac.files[i];
-                if (pf.type == 0 || pf.type == 0x101 || pf.type == 2) continue;
-                const std::string pid = unpac.u16_to_u8(pf.id, MAX_U16_SN);
-                if (!my_strnicmp(pid.c_str(), "FDL", 3)) continue;
-                const uint64_t size = (static_cast<uint64_t>(pf.size_high) << 32) | pf.size;
-                if (!size) continue;
-
-                PacPlanItem it;
-                it.kind = PacPlanItem::Flash;
-                it.pac_index = i;
-                it.pac_id = pid;
-                it.pac_name = unpac.u16_to_u8(pf.name, MAX_U16_SN);
-                it.pac_size = size;
-                it.partition = g_app_state.pacXml.getPartitionByOperation(pid);
-                it.reason = "PAC entry not listed in XML";
                 DEG_LOG(W, "PAC plan: %s not listed in XML, flashing to %s in PAC order",
-                        pid.c_str(), it.partition.c_str());
-                plan.push_back(std::move(it));
+                        it.pac_id.c_str(), it.partition.c_str());
+                continue;
+            }
+            switch (it.kind)
+            {
+            case pac_plan::Kind::Erase:
+                DEG_LOG(I, "PAC plan: erase %s (ID=%s, Type=%s, Flag=0, CheckFlag=%d)",
+                        it.partition.c_str(), it.pac_id.c_str(), it.info.type.c_str(),
+                        it.info.checkFlag);
+                break;
+            case pac_plan::Kind::Unsupported:
+                DEG_LOG(W, "PAC plan: ID=%s Type=%s Flag=0 needs generated content (RD writes it)",
+                        it.pac_id.c_str(), it.info.type.c_str());
+                break;
+            case pac_plan::Kind::Skip:
+                DEG_LOG(I, "PAC plan: skip %s (%s)", it.pac_id.c_str(), it.reason.c_str());
+                break;
+            case pac_plan::Kind::Flash:
+                DEG_LOG(I, "PAC plan: flash %s -> %s (Type=%s, Flag=1)",
+                        it.pac_id.c_str(), it.partition.c_str(), it.info.type.c_str());
+                break;
             }
         }
 
         // 写入一个 Flag=1 条目（保持原有的分区选择 / NV 合并 / userdata 规则）
-        auto flash_one = [&](const PacPlanItem& it) -> void
+        auto flash_one = [&](const pac_plan::Item& it) -> void
         {
             if (it.pac_index < 0) return;
 
@@ -1742,9 +1747,9 @@ bool pac_flash(const char* folder)
         int dlnv_plan = -1;
         for (size_t k = 0; k < plan.size(); ++k)
         {
-            const PacPlanItem& it = plan[k];
+            const pac_plan::Item& it = plan[k];
 
-            if (it.kind == PacPlanItem::Erase)
+            if (it.kind == pac_plan::Kind::Erase)
             {
                 if (it.partition.empty())
                 {
@@ -1769,7 +1774,7 @@ bool pac_flash(const char* folder)
                 continue;
             }
 
-            if (it.kind == PacPlanItem::Unsupported)
+            if (it.kind == pac_plan::Kind::Unsupported)
             {
                 // RD 的“生成型操作”：内容由工具生成后写入 Block 指定的分区。
                 if (!it.partition.empty() &&
@@ -1793,7 +1798,7 @@ bool pac_flash(const char* folder)
                 continue;
             }
 
-            if (it.kind != PacPlanItem::Flash) continue;
+            if (it.kind != pac_plan::Kind::Flash) continue;
 
             // downloadnv 保持“最后写”的既有行为（NV 合并需要其它 NV 先落盘）。
             if (dlnv_plan < 0 && it.partition.find("downloadnv") != std::string::npos)
