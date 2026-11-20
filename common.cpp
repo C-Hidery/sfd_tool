@@ -3188,6 +3188,7 @@ int get_nvlist_xml(spdio_t* io, const char* fn)
         if (trimmed.empty()) continue;
 
         long id = strtol(trimmed.c_str(), nullptr, 0);
+        const std::string item_name = xmlutil::prop(nvItem, "name");
         if (id >= 0 && id < 0x10000)
         {
             io->nvid_list[id] = 1;
@@ -3196,10 +3197,19 @@ int get_nvlist_xml(spdio_t* io, const char* fn)
             {
                 nv_name_entry_t& e = io->nv_names[io->nv_name_count++];
                 e.id = (uint16_t)id;
-                std::snprintf(e.name, sizeof(e.name), "%s",
-                              xmlutil::prop(nvItem, "name").c_str());
+                std::snprintf(e.name, sizeof(e.name), "%s", item_name.c_str());
             }
             if (io->verbose) printf("saved id 0x%lX to list\n", id);
+        }
+        else if (!item_name.empty() && io->nv_names &&
+                 io->nv_name_count < NV_NAME_MAX_ITEMS)
+        {
+            // ID 是 0xFFFF/0xFFFFFFFF 这类占位值（例如 IMEI）：只记名字，
+            // 由合并阶段按名字处理（RD 用 m_aIMEIID 展开成多个 ID）。
+            nv_name_entry_t& e = io->nv_names[io->nv_name_count++];
+            e.id = 0xFFFF;
+            std::snprintf(e.name, sizeof(e.name), "%s", item_name.c_str());
+            if (io->verbose) printf("saved placeholder item \"%s\"\n", item_name.c_str());
         }
     }
 

@@ -1967,6 +1967,61 @@ bool pac_flash(const char* folder)
             }
         }
 
+        // RD 风格 NV 合并预校验：在写任何分区之前，先把所有 NV item 的匹配、
+        // 长度、版本、端序检查一遍；有问题直接中止，避免刷到一半才失败。
+        if (g_app_state.flash.isPacMergingNV &&
+            get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str()))
+        {
+            for (const pac_plan::Item& it : plan)
+            {
+                if (it.kind != pac_plan::Kind::Flash || it.pac_index < 0) continue;
+                if (it.pac_size == 0 || it.partition.empty()) continue;
+                if (!hasPartition(g_app_state.flash.selected_pacptable, it.partition)) continue;
+
+                const bool nv_entry = !my_strnicmp(it.info.type.c_str(), "NV", 2);
+                const bool nv_named = strstr(it.partition.c_str(), "fixnv1") != nullptr ||
+                                      strstr(it.partition.c_str(), "downloadnv") != nullptr;
+                if (!nv_entry && !nv_named) continue;
+
+                std::string name = it.pac_name;
+                if (name.empty()) continue;
+#ifndef _WIN32
+                std::string file_path = g_app_state.flash.pac_folder + "/" + name;
+#else
+                std::string file_path = g_app_state.flash.pac_folder + "\\" + name;
+#endif
+                get_partition_info(io, it.partition.c_str(), 1);
+                if (!gPartInfo.size) continue;
+
+                uint64_t old_size = 0;
+                TempFile old = dump_partition_to_temp(io, it.partition.c_str(), 0,
+                                                      static_cast<uint64_t>(gPartInfo.size),
+                                                      blk_size ? blk_size : DEFAULT_BLK_SIZE,
+                                                      &old_size);
+                if (old.empty() || old_size == 0)
+                {
+                    DEG_LOG(E, "NV pre-check: cannot read old data of %s, aborting",
+                            it.partition.c_str());
+                    ERR_EXIT("NV pre-check: cannot read old data of %s", it.partition.c_str());
+                }
+
+                size_t a_size = 0;
+                size_t b_size = 0;
+                uint8_t* a = loadfile(old.c_str(), &a_size, 0);
+                uint8_t* b = loadfile(file_path.c_str(), &b_size, 0);
+                const bool ok = a && b && merge_nv_rd_validate(io, a, a_size, b, b_size);
+                if (a) delete[] a;
+                if (b) delete[] b;
+                if (!ok)
+                {
+                    DEG_LOG(E, "NV pre-check failed for %s, aborting before any write",
+                            it.partition.c_str());
+                    ERR_EXIT("NV pre-check failed for %s", it.partition.c_str());
+                }
+                DEG_LOG(I, "NV pre-check passed: %s", it.partition.c_str());
+            }
+        }
+
         // 写入一个 Flag=1 条目（保持原有的分区选择 / NV 合并 / userdata 规则）
         auto flash_one = [&](const pac_plan::Item& it) -> void
         {

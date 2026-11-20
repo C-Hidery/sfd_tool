@@ -9,6 +9,7 @@
 
 #include <cstring>
 #include <ctime>
+#include <utility>
 
 namespace
 {
@@ -60,7 +61,7 @@ enum class CaliKind
 //   - 版本一致时按结构体做（必要时端序转换）整体旧值覆盖；
 //   - 版本不一致 → 失败（RD 返回 ERR_STRUCT_VER_NOT_MATCH）。
 bool preserve_cali(CaliKind kind, uint16_t item_id, uint8_t* new_buf, size_t new_size,
-                   const uint8_t* old_buf, size_t old_size)
+                   const uint8_t* old_buf, size_t old_size, bool apply)
 {
     nv_preserve::ItemLocation new_it;
     nv_preserve::ItemLocation old_it;
@@ -97,11 +98,16 @@ bool preserve_cali(CaliKind kind, uint16_t item_id, uint8_t* new_buf, size_t new
 
     const bool is_td = (kind == CaliKind::Td);
     const std::size_t expected = spd_cali::cali_expected_size(is_td, old_ver);
-    if (expected != 0 && new_it.length < expected)
+    if (expected != 0 && new_it.length != expected)
     {
-        DEG_LOG(E, "merge_nv_rd: cali item 0x%x length %zu < expected %zu",
+        DEG_LOG(E, "merge_nv_rd: cali item 0x%x length %zu != expected %zu",
                 item_id, new_it.length, expected);
         return false;
+    }
+
+    if (!apply)
+    {
+        return true;
     }
 
     if (!is_td)
@@ -152,7 +158,8 @@ bool preserve_cali(CaliKind kind, uint16_t item_id, uint8_t* new_buf, size_t new
 
 // 通用 preserve（对应 XPreserveNVItem 的“整项拷贝”分支）。
 bool preserve_plain(uint16_t item_id, uint8_t* new_buf, size_t new_size,
-                    const uint8_t* old_buf, size_t old_size, bool continue_missing)
+                    const uint8_t* old_buf, size_t old_size, bool continue_missing,
+                    bool apply)
 {
     nv_preserve::ItemLocation old_it;
     if (!nv_preserve::find_item(item_id, old_buf, old_size, old_it))
@@ -173,12 +180,6 @@ bool preserve_plain(uint16_t item_id, uint8_t* new_buf, size_t new_size,
         return false;
     }
 
-    if (item_id == nv_preserve::kBtItemId && old_it.big_endian != new_it.big_endian)
-    {
-        DEG_LOG(E, "merge_nv_rd: BT item endian mismatch");
-        return false;
-    }
-
     if (old_it.length != new_it.length)
     {
         DEG_LOG(E, "merge_nv_rd: item 0x%x length mismatch (old=%zu new=%zu)",
@@ -186,7 +187,17 @@ bool preserve_plain(uint16_t item_id, uint8_t* new_buf, size_t new_size,
         return false;
     }
 
-    std::memcpy(new_buf + new_it.offset, old_buf + old_it.offset, new_it.length);
+    if (apply)
+    {
+        std::memcpy(new_buf + new_it.offset, old_buf + old_it.offset, new_it.length);
+        if (item_id == nv_preserve::kBtItemId && old_it.big_endian != new_it.big_endian &&
+            new_it.length >= 8)
+        {
+            // RD 的 BTConvEndian：bt_addr[6] 原样，xtal_dac 做字节交换。
+            uint8_t* dst = new_buf + new_it.offset;
+            std::swap(dst[6], dst[7]);
+        }
+    }
     return true;
 }
 }  // namespace
@@ -247,26 +258,41 @@ bool nv_preserve::find_item(uint16_t id, const uint8_t* buf, std::size_t size,
 
 // RD 风格合并：以新镜像为底，按 <NVItem> 的名字前缀选择 preserve 方式，再写回。
 // 返回 false 表示失败（调用方应中止刷机）。
-bool merge_nv_rd(spdio_t* io, const uint8_t* a, size_t a_size, const uint8_t* b,
-                 size_t b_size, uint8_t* c, size_t c_cap, size_t* c_size)
+namespace
+{
+bool merge_impl(spdio_t* io, const uint8_t* a, size_t a_size, const uint8_t* b,
+                size_t b_size, uint8_t* c, size_t c_cap, size_t* c_size, bool apply)
 {
     if (c_size)
     {
         *c_size = 0;
     }
-    if (!c || !b || b_size < 4)
+    if (!b || b_size < 4)
     {
         DEG_LOG(E, "merge_nv_rd: invalid buffer");
         return false;
     }
-    if (c_cap < b_size)
+    if (apply)
     {
-        DEG_LOG(E, "merge_nv_rd: output buffer too small (%zu < %zu bytes)", c_cap, b_size);
-        return false;
+        if (!c)
+        {
+            DEG_LOG(E, "merge_nv_rd: invalid output buffer");
+            return false;
+        }
+        if (c_cap < b_size)
+        {
+            DEG_LOG(E, "merge_nv_rd: output buffer too small (%zu < %zu bytes)", c_cap, b_size);
+            return false;
+        }
+        std::memcpy(c, b, b_size);
+        if (c_size)
+        {
+            *c_size = b_size;
+        }
     }
-
-    std::memcpy(c, b, b_size);
-    *c_size = b_size;
+    const size_t out_size = b_size;
+    // 校验模式下没有输出缓冲，直接以新镜像 b 作为“新值”检查。
+    uint8_t* new_base = apply ? c : const_cast<uint8_t*>(b);
 
     if (!io || !a || a_size < 4)
     {
@@ -280,15 +306,40 @@ bool merge_nv_rd(spdio_t* io, const uint8_t* a, size_t a_size, const uint8_t* b,
         {
             uint16_t item_id = io->nv_names[i].id;
             const char* name = io->nv_names[i].name;
-            if (io->nvid_list && !io->nvid_list[item_id])
+            const bool placeholder = (item_id == 0xFFFF);
+            if (!placeholder && io->nvid_list && !io->nvid_list[item_id])
             {
+                continue;
+            }
+
+            // RD: name=="IMEI" -> XPreserveIMEIs(m_aIMEIID)，m_aIMEIID = 0x5 + 0x179/0x186/0x1e4
+            // （见 BMFileType.ini 的 [IMEI_ID]）。第一个用 item 自己的 Continue，其余为 TRUE。
+            if (name[0] != '\0' && std::strcmp(name, "IMEI") == 0)
+            {
+                static const uint16_t kImeiIds[] = {0x5, 0x179, 0x186, 0x1e4};
+                bool first = true;
+                for (uint16_t imei_id : kImeiIds)
+                {
+                    const bool cont = first ? (io->nv_continue && io->nv_continue[imei_id]) : true;
+                    first = false;
+                    if (!preserve_plain(imei_id, new_base, out_size, a, a_size, cont, apply))
+                    {
+                        return false;
+                    }
+                }
+                continue;
+            }
+
+            if (placeholder)
+            {
+                DEG_LOG(W, "merge_nv_rd: placeholder item \"%s\" skipped", name);
                 continue;
             }
 
             if (starts_with_ci(name, "Calibration"))
             {
                 if (item_id == 0xFFFF) item_id = nv_preserve::kGsmCaliItemId;
-                if (!preserve_cali(CaliKind::Gsm, item_id, c, *c_size, a, a_size))
+                if (!preserve_cali(CaliKind::Gsm, item_id, new_base, out_size, a, a_size, apply))
                 {
                     return false;
                 }
@@ -297,7 +348,7 @@ bool merge_nv_rd(spdio_t* io, const uint8_t* a, size_t a_size, const uint8_t* b,
             if (starts_with_ci(name, "TD_Calibration"))
             {
                 if (item_id == 0xFFFF) item_id = nv_preserve::kTdCaliItemId;
-                if (!preserve_cali(CaliKind::Td, item_id, c, *c_size, a, a_size))
+                if (!preserve_cali(CaliKind::Td, item_id, new_base, out_size, a, a_size, apply))
                 {
                     return false;
                 }
@@ -312,7 +363,7 @@ bool merge_nv_rd(spdio_t* io, const uint8_t* a, size_t a_size, const uint8_t* b,
             }
 
             const bool cont = io->nv_continue && io->nv_continue[item_id];
-            if (!preserve_plain(item_id, c, *c_size, a, a_size, cont))
+            if (!preserve_plain(item_id, new_base, out_size, a, a_size, cont, apply))
             {
                 return false;
             }
@@ -332,10 +383,23 @@ bool merge_nv_rd(spdio_t* io, const uint8_t* a, size_t a_size, const uint8_t* b,
             continue;
         }
         const bool cont = io->nv_continue && io->nv_continue[id];
-        if (!preserve_plain(static_cast<uint16_t>(id), c, *c_size, a, a_size, cont))
+        if (!preserve_plain(static_cast<uint16_t>(id), new_base, out_size, a, a_size, cont, apply))
         {
             return false;
         }
     }
     return true;
+}
+}  // namespace
+
+bool merge_nv_rd(spdio_t* io, const uint8_t* a, size_t a_size, const uint8_t* b,
+                 size_t b_size, uint8_t* c, size_t c_cap, size_t* c_size)
+{
+    return merge_impl(io, a, a_size, b, b_size, c, c_cap, c_size, true);
+}
+
+bool merge_nv_rd_validate(spdio_t* io, const uint8_t* a, size_t a_size,
+                          const uint8_t* b, size_t b_size)
+{
+    return merge_impl(io, a, a_size, b, b_size, nullptr, 0, nullptr, false);
 }

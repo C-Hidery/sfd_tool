@@ -358,3 +358,63 @@ TEST_CASE("merge_nv_rd: generic path skips calibration IDs like XPreserveNVItem"
     CHECK(std::memcmp(out.data() + it.offset, new_cali.data(), new_cali.size()) == 0);
     free_nv(io);
 }
+
+TEST_CASE("merge_nv_rd_validate: checks without producing output")
+{
+    const auto old_nv = make_nv({{0x100, bytes("OLD1")}});
+    const auto new_nv = make_nv({{0x100, bytes("NEW1")}});
+
+    spdio_t io{};
+    io.verbose = 0;
+    io.nvid_list = new int[0x10000]();
+    io.nv_continue = new uint8_t[0x10000]();
+    io.nvid_list[0x100] = 1;
+
+    CHECK(merge_nv_rd_validate(&io, old_nv.data(), old_nv.size(), new_nv.data(), new_nv.size()));
+
+    // 长度不一致 → 校验失败
+    const auto bad_nv = make_nv({{0x100, bytes("NEW")}});
+    CHECK_FALSE(merge_nv_rd_validate(&io, old_nv.data(), old_nv.size(), bad_nv.data(), bad_nv.size()));
+
+    // 设备缺项：Continue=0 → 失败；Continue=1 → 通过
+    const auto missing_old = make_nv({{0x101, bytes("X")}});
+    CHECK_FALSE(merge_nv_rd_validate(&io, missing_old.data(), missing_old.size(),
+                                     new_nv.data(), new_nv.size()));
+    io.nv_continue[0x100] = 1;
+    CHECK(merge_nv_rd_validate(&io, missing_old.data(), missing_old.size(),
+                               new_nv.data(), new_nv.size()));
+
+    delete[] io.nvid_list;
+    delete[] io.nv_continue;
+}
+
+TEST_CASE("merge_nv_rd: IMEI name preserves the RD [IMEI_ID] list")
+{
+    const auto old_nv = make_nv({{0x5, bytes("IMEI1")},
+                                 {0x179, bytes("IMEI2")},
+                                 {0x186, bytes("IMEI3")},
+                                 {0x1e4, bytes("IMEI4")}});
+    const auto new_nv = make_nv({{0x5, bytes("PAC01")},
+                                 {0x179, bytes("PAC02")},
+                                 {0x186, bytes("PAC03")},
+                                 {0x1e4, bytes("PAC04")}});
+
+    spdio_t io{};
+    io.verbose = 0;
+    io.nvid_list = new int[0x10000]();
+    io.nv_continue = new uint8_t[0x10000]();
+    set_nv_names(io, {{0xFFFF, "IMEI"}});
+
+    std::vector<uint8_t> out(new_nv.size() + MERGE_NV_SLACK, 0);
+    size_t out_size = 0;
+    REQUIRE(merge_nv_rd(&io, old_nv.data(), old_nv.size(), new_nv.data(), new_nv.size(),
+                        out.data(), out.size(), &out_size));
+
+    nv_preserve::ItemLocation it;
+    for (uint16_t id : {0x5, 0x179, 0x186, 0x1e4})
+    {
+        REQUIRE(nv_preserve::find_item(id, out.data(), out_size, it));
+        CHECK(std::memcmp(out.data() + it.offset, "IMEI", 4) == 0);
+    }
+    free_nv(io);
+}

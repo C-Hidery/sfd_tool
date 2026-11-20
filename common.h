@@ -396,6 +396,10 @@ void load_merged_nv(spdio_t *io, const char *name, const uint8_t *data, size_t s
 // 返回 false 表示按 RD 逻辑合并失败（调用方应中止刷机并报错）。
 bool merge_nv_rd(spdio_t *io, const uint8_t *a, size_t a_size, const uint8_t *b,
                  size_t b_size, uint8_t *c, size_t c_cap, size_t *c_size);
+
+// 只做校验、不写输出（用于刷写前 dry-run）。返回 false 表示按 RD 逻辑会失败。
+bool merge_nv_rd_validate(spdio_t *io, const uint8_t *a, size_t a_size,
+                          const uint8_t *b, size_t b_size);
 void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab, int CMethod);
 void load_partition_force(spdio_t *io, const int id, const char *fn, unsigned step, int CMethod);
 int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned step, int CMethod);
