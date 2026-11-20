@@ -6,6 +6,7 @@ add_library(core_lib STATIC
     aes128.cpp
     file_io.cpp
     pac_extract.cpp
+    pac_generate.cpp
     usb_transport.cpp
     spd_protocol.cpp
     device_attach_helpers.cpp
@@ -14,6 +15,7 @@ add_library(core_lib STATIC
         automated_task.h
         config_service.cpp
         Unpac.cpp
+        pac_generate.h
         xmlutil.hpp
         PacXMLParser.hpp
         file_buf.h

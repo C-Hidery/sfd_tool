@@ -102,6 +102,8 @@ ZIP 根目录必须包含 `package.json`：
 点击 `Start` 后会先显示安全确认警告，确认后按 `Task Selection`
 中的顺序执行。任意一条命令失败都会立即终止，并弹窗显示失败原因。
 
+- `wait TIME` 会等待指定秒数后继续；
+- `pause message` 会弹出 Info 对话框显示消息，点击确认后继续执行；
 - 命令执行和输出显示在页面底部 Log；
 - `reset`、`poweroff`、`reboot-fastboot`、`reboot-recovery`
   成功后会断开设备，工具会禁用所有 GUI 按钮，并提示重新连接设备、
@@ -131,6 +133,8 @@ ZIP 根目录必须包含 `package.json`：
 | `reboot-recovery` | 重启到 recovery |
 | `set_active a\|b` | 设置活动 slot |
 | `timeout value` | 设置设备超时时间（毫秒） |
+| `wait TIME` | 等待 TIME 秒后继续 |
+| `pause message` | 弹窗显示 message，等待用户确认后继续 |
 | `print TEXT` | 在底部日志输出文本 |
 
 `write_part` 和 `write_parts` 的镜像路径根目录是解压目录下的

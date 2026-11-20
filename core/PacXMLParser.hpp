@@ -39,6 +39,7 @@ struct SchemeInfo {
 struct ProductInfo {
     std::string name;
     std::string schemeName;
+    int apr = 0;   // <APR>：1 表示该产品需要写 APR 信息
 };
 
 // ==================== PAC XML 解析器 ====================
@@ -109,6 +110,13 @@ public:
     std::string getSchemeName(const std::string& productName) const {
         auto it = m_productMap.find(productName);
         return (it != m_productMap.end()) ? it->second : "";
+    }
+
+    // 产品级 <APR> 标志（RD: IsEnableAPR()）
+    int getProductApr(const std::string& productName) const {
+        for (const auto& p : m_products)
+            if (p.name == productName) return p.apr;
+        return 0;
     }
 
     std::vector<FileInfo> getFilesByScheme(const std::string& schemeName) const {
@@ -187,6 +195,7 @@ private:
                 ProductInfo product;
                 product.name       = xmlutil::prop(pNode, "name");
                 product.schemeName = xmlutil::childText(pNode, "SchemeName");
+                product.apr        = xmlutil::childInt(pNode, "APR", 0);
                 if (!product.name.empty()) {
                     m_products.push_back(product);
                     m_productMap[product.name] = product.schemeName;

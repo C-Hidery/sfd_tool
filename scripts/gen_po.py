@@ -296,7 +296,20 @@ translation_dict = {
     "Start flashing the selected partitions from the folder?": "确认从所选文件夹开始刷入勾选的分区吗？",
     "Partition read completed! Saved to: ": "分区读取完成！已保存到：",
     "Disk GUID": "磁盘 GUID",
-    "UUID": "UUID"
+    "UUID": "UUID",
+    # PAC generation options (PhaseCheck / APR / ISE)
+    "Write PhaseCheck (production info)": "写入 PhaseCheck（产测信息）",
+    "Generate 8K phase-check data from PhaseCheck.ini and write it to miscdata.": "从 PhaseCheck.ini 生成 8K 产测信息并写入 miscdata。",
+    "Write APR info (PAC build time)": "写入 APR 信息（PAC 构建时间）",
+    "Send BSL_CMD_WRITE_APR_INFO with the PAC file build time (needs <APR>1</APR> in the PAC XML).": "发送 BSL_CMD_WRITE_APR_INFO，携带 PAC 文件构建时间（需 PAC XML 中 <APR>1</APR>）。",
+    "Select PhaseCheck.ini (optional)": "选择 PhaseCheck.ini（可选）",
+    "Select ISE ini (optional)": "选择 ISE ini（可选）",
+    "Generate 8K phase-check data with the built-in PhaseCheck.ini default and write it to miscdata.": "使用内置 PhaseCheck.ini 默认值生成 8K 产测信息并写入 miscdata。",
+    "This ini has no usable [ISE]/[ISE_DATA] section (Data/File/Size). ISE generation will be skipped.": "该 ini 没有可用的 [ISE]/[ISE_DATA] 段（Data/File/Size），将跳过 ISE 生成。",
+    "No ini selected": "未选择 ini",
+    "This ini has no usable [STATION] section; PhaseCheck generation will be skipped. The [ISE]/[ISE_DATA] section is still used when ISE is enabled.": "该 ini 没有可用的 [STATION] 段，将跳过 PhaseCheck 生成；启用 ISE 时仍会读取 [ISE]/[ISE_DATA] 段。",
+    "Write ISE (generate from [ISE] section of the selected ini)": "写入 ISE（用所选 ini 的 [ISE] 段生成）",
+    "Off: keep the shell warning and write nothing. On: read [ISE]/[ISE_DATA] from the selected ini (Data=<hex>, File=<path> or Size=<bytes>) and write it to the ISE partitions.": "关闭：保持空壳告警、不写入。开启：从所选 ini 的 [ISE]/[ISE_DATA] 段读取（Data=<十六进制>、File=<路径> 或 Size=<字节数>）并写入 ISE 分区。"
 }
 
 pot_path = "locale/sfd_tool.pot"

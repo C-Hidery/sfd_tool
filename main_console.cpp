@@ -2401,6 +2401,11 @@ int main_console(int argc, char** argv)
             }
             fi.close();
             bool i_is = pac_extract(fn, path);
+            if (isToolMode && i_is)
+            {
+                // tool mode：不连设备，打印离线计划，便于对比两个 PAC 的差异。
+                pac_print_offline_plan();
+            }
             pac_part_select_t* select_table = nullptr;
             if (!isToolMode && i_is)
             {

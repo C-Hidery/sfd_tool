@@ -4,11 +4,18 @@
  */
 #include "logging.h"
 #include "../i18n.h"
+#include <cstdlib>
 extern bool Err_Showed;
 extern bool isHelperInit;
 extern GtkWidgetHelper helper;
 
 void ERR_EXIT(const char* format, ...) {
+	// GUI 已经关闭（进程正在退出）时，后台线程不能再触碰 GTK 或 iostream，
+	// 直接结束进程，避免与主线程的退出清理竞争而导致二次崩溃或卡死。
+	if (isHelperInit && isMainWindowClosed()) {
+		std::_Exit(EXIT_FAILURE);
+	}
+
 	va_list args;
 
 	// 计算格式化后所需的长度（不含终止符）
@@ -49,31 +56,27 @@ void ERR_EXIT(const char* format, ...) {
             if (main_window) {
                 showErrorDialog(GTK_WINDOW(main_window), 
                               _("Error"), 
-                              (std::string(_("An error occurred. The application will now exit.")) + std::string("\n\nOutput:\n\n") + buffer).c_str());
+                              (std::string(_("An error occurred. The widget of the program has been disabled.\nYou have to restart the program.")) + std::string("\n\nOutput:\n\n") + buffer).c_str());
             }
         } else {
             DisableWidgets(helper);
             showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), 
                     _("Error"), 
-                    (std::string(_("An error occurred. The application will now exit.")) + std::string("\n\nOutput:\n\n") + buffer).c_str());
+                    (std::string(_("An error occurred. The widget of the program has been disabled.\nYou have to restart the program.")) + std::string("\n\nOutput:\n\n") + buffer).c_str());
         }
+
+        // 禁用组件后阻塞当前线程，直到用户关闭主窗口：
+        // 防止 ERR_EXIT 返回后调用方继续执行后续代码（此时设备/全局状态可能已失效）。
+        // 窗口关闭后主线程已在退出流程中，这里用 _Exit 立即结束进程，
+        // 跳过 atexit/静态析构，避免与主线程的退出清理重复执行。
+        waitForMainWindowClose();
+        std::_Exit(EXIT_FAILURE);
     } else {
         // 命令行模式
-        fprintf(stderr, "Fatal error. Exiting...\n");
-#ifndef _WIN32
-        std::this_thread::sleep_for(std::chrono::seconds(3));
-        std::exit(EXIT_FAILURE);
-#else
-		system("pause");
-		std::exit(EXIT_FAILURE);
-#endif
+        fprintf(stderr, "Fatal error. Exiting...Press any key to exit.\n");
+        std::cin.get();
+    	std::exit(EXIT_FAILURE);
     }
-    
-    // 4. 等待用户阅读错误信息
-    std::this_thread::sleep_for(std::chrono::seconds(3));
-    
-    // 5. 强制退出
-    std::exit(EXIT_FAILURE);
 }
 
 // 内部：统一的实际输出函数，保持原有格式/路由行为

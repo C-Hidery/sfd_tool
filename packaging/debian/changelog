@@ -1,3 +1,9 @@
+sfd-tool (3.6.1-1-ltv) unstable; urgency=medium
+
+  * 完全修复了PAC刷写并通过测试
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Fri, 20 Nov 2026 19:06:39 +0800
+
 sfd-tool (3.6.0-1-ltv) unstable; urgency=medium
 
   * 新增自动化任务功能(GUI)

@@ -16,6 +16,8 @@ struct AutomatedTaskPartition {
     std::uint64_t size_bytes = 0;
 };
 
+using AutomatedTaskPauseFn = std::function<void(const std::string& message)>;
+
 struct AutomatedTaskRequest {
     // ZIP 解压根目录；write_part / write_parts 的镜像根目录为 <root>/images。
     std::string package_root;
@@ -23,6 +25,8 @@ struct AutomatedTaskRequest {
     std::vector<AutomatedTaskPartition> partitions;
     // 按顺序执行的命令，每个元素是一行命令。
     std::vector<std::string> actions;
+    // pause 命令的 UI 回调，必须阻塞到用户确认。
+    AutomatedTaskPauseFn on_pause;
 };
 
 struct AutomatedTaskResult {

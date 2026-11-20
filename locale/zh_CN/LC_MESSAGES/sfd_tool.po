@@ -34,13 +34,8 @@ msgid "Program Crash"
 msgstr "程序崩溃"
 
 #: main.cpp:77
-msgid ""
-"The program encountered an unhandled exception, which may be caused by "
-"device connection issues or a bug in the program.\n"
-"\n"
-"It is recommended to check the device connection, ensure the correct options "
-"are used, and try running the tool again."
-msgstr "程序发生了未处理的异常，可能是由于设备连接问题或程序错误引起的。\n\n建议检查设备连接，确保使用了正确的选项，并尝试重新运行工具。"
+msgid "The program encountered an unhandled exception, which may be caused by device connection issues or a bug in the program.\n\nIt is recommended to check the device connection, ensure the correct options are used, and try running the tool again.\nYou can save the output log in prompt window before close this dialog."
+msgstr "程序发生了未处理的异常，可能是由于设备连接问题或程序错误引起的。\n\n建议检查设备连接，确保使用了正确的选项，并尝试重新运行工具。\n你可以在关闭此对话框之前在控制台窗口保存输出日志。"
 
 #: main.cpp:298 main.cpp:304 main.cpp:308 main.cpp:339 main.cpp:345
 #: main.cpp:349 main.cpp:367 main.cpp:408 main.cpp:414 main.cpp:418
@@ -982,8 +977,8 @@ msgstr "XML文件中的分区太多"
 msgid "Empty partition name found in XML file."
 msgstr "在XML文件中发现空的分区名"
 
-msgid "An error occurred. The application will now exit."
-msgstr "监测到错误，应用程序将退出"
+msgid "An error occurred. The widget of the program has been disabled.\nYou have to restart the program."
+msgstr "监测到错误，组件已被禁用。\n请重启程序。"
 
 # ===== Auto-appended entries from sfd_tool.pot =====
 
@@ -1084,8 +1079,8 @@ msgstr "PAC文件解包成功。"
 msgid "Failed to unpack PAC."
 msgstr "PAC文件解包失败。"
 
-msgid "PAC flashed successfully, the program will be exited in 5 seconds..."
-msgstr "PAC文件刷写成功，程序将在5秒内退出......"
+msgid "PAC flashed successfully, please check your device.\nWidgets of the program has been disabled, you can close the program now."
+msgstr "PAC文件刷写成功，请检查你的设备。\n程序组件已被禁用，你可以关闭程序了。"
 
 msgid "Failed to flash PAC."
 msgstr "PAC文件刷写失败。"
@@ -1516,3 +1511,45 @@ msgstr "设备已断开，所有操作已禁用。请重新连接设备并重启
 
 msgid "Automated task failed: "
 msgstr "自动化任务失败："
+
+
+# ===== Auto-appended entries from sfd_tool.pot =====
+
+msgid "This ini has no usable [STATION] section; PhaseCheck generation will be skipped. The [ISE]/[ISE_DATA] section is still used when ISE is enabled."
+msgstr "该 ini 没有可用的 [STATION] 段，将跳过 PhaseCheck 生成；启用 ISE 时仍会读取 [ISE]/[ISE_DATA] 段。"
+
+msgid "Write PhaseCheck (production info)"
+msgstr "写入 PhaseCheck（产测信息）"
+
+msgid "Generate 8K phase-check data from PhaseCheck.ini and write it to miscdata."
+msgstr "从 PhaseCheck.ini 生成 8K 产测信息并写入 miscdata。"
+
+msgid "Write APR info (PAC build time)"
+msgstr "写入 APR 信息（PAC 构建时间）"
+
+msgid "Send BSL_CMD_WRITE_APR_INFO with the PAC file build time (needs <APR>1</APR> in the PAC XML)."
+msgstr "发送 BSL_CMD_WRITE_APR_INFO，携带 PAC 文件构建时间（需 PAC XML 中 <APR>1</APR>）。"
+
+msgid "Select PhaseCheck.ini (optional)"
+msgstr "选择 PhaseCheck.ini（可选）"
+
+msgid "No ini selected"
+msgstr "未选择 ini"
+
+msgid "Write ISE (generate from [ISE] section of the selected ini)"
+msgstr "写入 ISE（用所选 ini 的 [ISE] 段生成）"
+
+msgid "Off: keep the shell warning and write nothing. On: read [ISE]/[ISE_DATA] from the selected ini (Data=<hex>, File=<path> or Size=<bytes>) and write it to the ISE partitions."
+msgstr "关闭：保持空壳告警、不写入。开启：从所选 ini 的 [ISE]/[ISE_DATA] 段读取（Data=<十六进制>、File=<路径> 或 Size=<字节数>）并写入 ISE 分区。"
+
+
+# ===== Auto-appended entries from sfd_tool.pot =====
+
+msgid "This ini has no usable [ISE]/[ISE_DATA] section (Data/File/Size). ISE generation will be skipped."
+msgstr "该 ini 没有可用的 [ISE]/[ISE_DATA] 段（Data/File/Size），将跳过 ISE 生成。"
+
+msgid "Generate 8K phase-check data with the built-in PhaseCheck.ini default and write it to miscdata."
+msgstr "使用内置 PhaseCheck.ini 默认值生成 8K 产测信息并写入 miscdata。"
+
+msgid "Select ISE ini (optional)"
+msgstr "选择 ISE ini（可选）"
