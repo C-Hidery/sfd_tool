@@ -7,6 +7,8 @@ add_library(core_lib STATIC
     file_io.cpp
     pac_extract.cpp
     pac_generate.cpp
+    nv_preserve.cpp
+    spd_calibration.cpp
     usb_transport.cpp
     spd_protocol.cpp
     device_attach_helpers.cpp

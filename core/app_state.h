@@ -35,6 +35,7 @@ struct FlashState {
     bool isPacWritePhaseCheck = false; // PAC 页勾选：生成并写入 PhaseCheck（miscdata）
     bool isPacWriteApr = false;        // PAC 页勾选：写 APR 信息（PAC 构建时间）
     bool isPacWriteIse = false;        // PAC 页勾选：按 ini 生成 ISE/ISE_DATA
+    bool isPacWriteProdnv = false;     // PAC 页勾选：写 ProdNV（会覆盖 IMEI/SN 等产测数据）
     std::string phasecheckIniPath;     // 用户显式选择的 PhaseCheck.ini（为空=未指定）
     std::string pacFilePath;           // 当前 PAC 文件路径（APR 时间戳等使用）
     std::string pac_folder;  // PAC 刷机时解压的临时文件夹路径
@@ -57,11 +58,8 @@ struct ErrorState {
 
 struct PacNVMem
 {
-    // 读出的旧 NV 数据存放在系统临时文件中，这里只持有 RAII 句柄（内部保存
-    // 路径）。TempFile 析构时自动删除，整个 PAC 刷机过程不长期占用内存。
-    TempFile nr_fixnv1_file_path;
-    TempFile l_fixnv1_file_path;
-    TempFile downloadnv_file_path;
+    // NV 合并改为“写前按需读回分区”（见 pac_merge_nv_from_device），
+    // 不再长期持有旧 NV 的临时文件。
     std::vector<std::string> missing_parts;
     std::vector<std::string> extra_parts;
     bool isHasMissingParts() const { return !missing_parts.empty(); }

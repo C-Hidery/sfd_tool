@@ -1118,6 +1118,65 @@ std::vector<Item> build(const PacFile& pac, const PacXMLParser& xml, int storage
 }
 }  // namespace pac_plan
 
+// 读回设备上的 NV 分区，按 XML <NVBackup> 的 item 列表与 PAC 镜像合并后再写。
+// 对应 RD 的 ReadFlashByID + 合并 + DownloadByID。
+static bool pac_merge_nv_from_device(spdio_t* io, const std::string& partition,
+                                     const std::string& pac_file_path)
+{
+    get_partition_info(io, partition.c_str(), 1);
+    if (!gPartInfo.size)
+    {
+        DEG_LOG(W, "NV merge: partition %s not found, skipped", partition.c_str());
+        return false;
+    }
+
+    const unsigned step = blk_size ? blk_size : DEFAULT_BLK_SIZE;
+    uint64_t old_size = 0;
+    TempFile old = dump_partition_to_temp(io, partition.c_str(), 0,
+                                          static_cast<uint64_t>(gPartInfo.size), step, &old_size);
+    if (old.empty() || old_size == 0)
+    {
+        DEG_LOG(W, "NV merge: failed to read old data of %s, skipped", partition.c_str());
+        return false;
+    }
+
+    size_t a_size = 0;
+    size_t b_size = 0;
+    size_t c_size = 0;
+    uint8_t* a = loadfile(old.c_str(), &a_size, 0);
+    uint8_t* b = loadfile(pac_file_path.c_str(), &b_size, 0);
+    if (!a || !b)
+    {
+        if (a) delete[] a;
+        if (b) delete[] b;
+        DEG_LOG(W, "NV merge: cannot load old/new image for %s, skipped", partition.c_str());
+        return false;
+    }
+
+    uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+    if (!c)
+    {
+        delete[] a;
+        delete[] b;
+        return false;
+    }
+
+    const bool merged = merge_nv_rd(io, a, a_size, b, b_size, c,
+                                    a_size + b_size + MERGE_NV_SLACK, &c_size);
+
+    delete[] a;
+    delete[] b;
+    if (!merged)
+    {
+        free(c);
+        return false;
+    }
+
+    load_merged_nv(io, partition.c_str(), c, c_size, step);
+    free(c);
+    return true;
+}
+
 static const char* pac_plan_kind_name(pac_plan::Kind kind)
 {
     switch (kind)
@@ -1301,10 +1360,11 @@ bool pac_flash(const char* folder)
     bool writePhaseCheck_GUI = helper.getCheckButtonState(helper.getWidget("pac_write_phasecheck"));
     bool writeApr_GUI = helper.getCheckButtonState(helper.getWidget("pac_write_apr"));
     bool writeIse_GUI = helper.getCheckButtonState(helper.getWidget("pac_write_ise"));
-    DEG_LOG(I, "PAC Flash: Merging NV=%s, Repartition=%s, PhaseCheck=%s, APR=%s, ISE=%s",
+    bool writeProdnv_GUI = helper.getCheckButtonState(helper.getWidget("pac_write_prodnv"));
+    DEG_LOG(I, "PAC Flash: Merging NV=%s, Repartition=%s, PhaseCheck=%s, APR=%s, ISE=%s, ProdNV=%s",
             isMergingNV_GUI ? "true" : "false", isRepartitionGUI ? "true" : "false",
             writePhaseCheck_GUI ? "true" : "false", writeApr_GUI ? "true" : "false",
-            writeIse_GUI ? "true" : "false");
+            writeIse_GUI ? "true" : "false", writeProdnv_GUI ? "true" : "false");
     std::string xmlPath = FindFirstXMLFile(folder);
     if (xmlPath.empty())
     {
@@ -1325,6 +1385,7 @@ bool pac_flash(const char* folder)
         g_app_state.flash.isPacWritePhaseCheck = writePhaseCheck_GUI;
         g_app_state.flash.isPacWriteApr = writeApr_GUI;
         g_app_state.flash.isPacWriteIse = writeIse_GUI;
+        g_app_state.flash.isPacWriteProdnv = writeProdnv_GUI;
         // phasecheckIniPath 由 PAC 页的 “Select PhaseCheck.ini” 按钮写入。
     }
     else
@@ -1383,6 +1444,26 @@ bool pac_flash(const char* folder)
             std::string v;
             std::getline(std::cin, v);
             g_app_state.flash.isPacWriteIse = (v == "y" || v == "Y");
+        }
+
+        // ProdNV：默认不写（写入会覆盖设备 IMEI/SN 等产测数据）。
+        bool has_prodnv = false;
+        for (const FileInfo& f : xml_files)
+        {
+            if (f.flag != 0 && !f.blocks.empty() &&
+                !my_stricmp(f.blocks.front().id.c_str(), "prodnv"))
+            {
+                has_prodnv = true;
+                break;
+            }
+        }
+        g_app_state.flash.isPacWriteProdnv = false;
+        if (has_prodnv)
+        {
+            std::cout << "Do you want to write ProdNV (overwrites IMEI/SN)? (y/N): " << std::endl;
+            std::string v;
+            std::getline(std::cin, v);
+            g_app_state.flash.isPacWriteProdnv = (v == "y" || v == "Y");
         }
 
         g_app_state.flash.phasecheckIniPath.clear();
@@ -1798,33 +1879,6 @@ bool pac_flash(const char* folder)
                 return;
             }
         }
-        if (g_app_state.flash.isPacMergingNV)
-        {
-            auto& pacptable = g_app_state.flash.selected_pacptable;
-            uint64_t nv_size = 0;
-            get_partition_info(io, "nr_fixnv1", 1);
-            if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
-            {
-                // TempFile 的 move 赋值会自动删除上一个临时文件
-                g_app_state.pac.nr_fixnv1_file_path = dump_partition_to_temp(
-                    io, gPartInfo.name, 0, gPartInfo.size,
-                    blk_size ? blk_size : DEFAULT_BLK_SIZE, &nv_size);
-            }
-            get_partition_info(io, "l_fixnv1", 1);
-            if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
-            {
-                g_app_state.pac.l_fixnv1_file_path = dump_partition_to_temp(
-                    io, gPartInfo.name, 0, gPartInfo.size,
-                    blk_size ? blk_size : DEFAULT_BLK_SIZE, &nv_size);
-            }
-            get_partition_info(io, "downloadnv", 1);
-            if (gPartInfo.size && hasPartition(pacptable, gPartInfo.name))
-            {
-                g_app_state.pac.downloadnv_file_path = dump_partition_to_temp(
-                    io, gPartInfo.name, 0, gPartInfo.size,
-                    blk_size ? blk_size : DEFAULT_BLK_SIZE, &nv_size);
-            }
-        }
         bool i_is = false;
         if (isHelperInit)
         {
@@ -1913,6 +1967,61 @@ bool pac_flash(const char* folder)
             }
         }
 
+        // RD 风格 NV 合并预校验：在写任何分区之前，先把所有 NV item 的匹配、
+        // 长度、版本、端序检查一遍；有问题直接中止，避免刷到一半才失败。
+        if (g_app_state.flash.isPacMergingNV &&
+            get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str()))
+        {
+            for (const pac_plan::Item& it : plan)
+            {
+                if (it.kind != pac_plan::Kind::Flash || it.pac_index < 0) continue;
+                if (it.pac_size == 0 || it.partition.empty()) continue;
+                if (!hasPartition(g_app_state.flash.selected_pacptable, it.partition)) continue;
+
+                const bool nv_entry = !my_strnicmp(it.info.type.c_str(), "NV", 2);
+                const bool nv_named = strstr(it.partition.c_str(), "fixnv1") != nullptr ||
+                                      strstr(it.partition.c_str(), "downloadnv") != nullptr;
+                if (!nv_entry && !nv_named) continue;
+
+                std::string name = it.pac_name;
+                if (name.empty()) continue;
+#ifndef _WIN32
+                std::string file_path = g_app_state.flash.pac_folder + "/" + name;
+#else
+                std::string file_path = g_app_state.flash.pac_folder + "\\" + name;
+#endif
+                get_partition_info(io, it.partition.c_str(), 1);
+                if (!gPartInfo.size) continue;
+
+                uint64_t old_size = 0;
+                TempFile old = dump_partition_to_temp(io, it.partition.c_str(), 0,
+                                                      static_cast<uint64_t>(gPartInfo.size),
+                                                      blk_size ? blk_size : DEFAULT_BLK_SIZE,
+                                                      &old_size);
+                if (old.empty() || old_size == 0)
+                {
+                    DEG_LOG(E, "NV pre-check: cannot read old data of %s, aborting",
+                            it.partition.c_str());
+                    ERR_EXIT("NV pre-check: cannot read old data of %s", it.partition.c_str());
+                }
+
+                size_t a_size = 0;
+                size_t b_size = 0;
+                uint8_t* a = loadfile(old.c_str(), &a_size, 0);
+                uint8_t* b = loadfile(file_path.c_str(), &b_size, 0);
+                const bool ok = a && b && merge_nv_rd_validate(io, a, a_size, b, b_size);
+                if (a) delete[] a;
+                if (b) delete[] b;
+                if (!ok)
+                {
+                    DEG_LOG(E, "NV pre-check failed for %s, aborting before any write",
+                            it.partition.c_str());
+                    ERR_EXIT("NV pre-check failed for %s", it.partition.c_str());
+                }
+                DEG_LOG(I, "NV pre-check passed: %s", it.partition.c_str());
+            }
+        }
+
         // 写入一个 Flag=1 条目（保持原有的分区选择 / NV 合并 / userdata 规则）
         auto flash_one = [&](const pac_plan::Item& it) -> void
         {
@@ -1931,7 +2040,11 @@ bool pac_flash(const char* folder)
             gui_idle_call([id, partition]() { bottom_bar_set_status("PAC Flashing: " + id + " -> " + partition); });
 
             if (!strcmp(partition.c_str(), "miscdata")) return;
-            if (!strcmp(partition.c_str(), "prodnv")) return;
+            if (!strcmp(partition.c_str(), "prodnv") && !g_app_state.flash.isPacWriteProdnv)
+            {
+                DEG_LOG(I, "prodnv not selected on the PAC page, skipped");
+                return;
+            }
 
             if (!strcmp(partition.c_str(), "userdata") &&
                 hasPartition(g_app_state.flash.selected_pacptable, "userdata"))
@@ -1975,47 +2088,38 @@ bool pac_flash(const char* folder)
             }
             if (!strcmp(partition.c_str(), "userdata")) return;
 
-            if (g_app_state.flash.isPacMergingNV && strstr(partition.c_str(), "fixnv1"))
+            // NV 合并（对齐 RD）：对 XML 里 Type 以 NV 开头的条目（NV / NV_NAND /
+            // NV_COMM / *_SLOT）以及名字含 fixnv1/downloadnv 的分区，先读回设备旧内容，
+            // 按 XML <NVBackup> 里通过 backup / NVFlag 过滤出的 item 列表合并，再写回。
+            const bool nv_entry = !my_strnicmp(it.info.type.c_str(), "NV", 2);
+            const bool nv_named = strstr(partition.c_str(), "fixnv1") != nullptr ||
+                                  strstr(partition.c_str(), "downloadnv") != nullptr;
+            if (g_app_state.flash.isPacMergingNV && (nv_entry || nv_named) &&
+                hasPartition(g_app_state.flash.selected_pacptable, partition))
             {
-                const bool is_nr = strstr(partition.c_str(), "nr_fixnv1") != nullptr;
-                const bool is_l = strstr(partition.c_str(), "l_fixnv1") != nullptr;
-                const TempFile& old_file = is_nr ? g_app_state.pac.nr_fixnv1_file_path
-                                                 : g_app_state.pac.l_fixnv1_file_path;
-
-                if ((is_nr || is_l) && hasPartition(g_app_state.flash.selected_pacptable, partition))
-                {
-                    std::string name = unpac.u16_to_u8(file.name, MAX_U16_SN);
-                    if (name.empty()) return;
-                    if (old_file.empty())
-                    {
-                        DEG_LOG(W, "Failed to load old NV data for %s, skipping writing.", partition.c_str());
-                        return;
-                    }
-                    if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str()))
-                    {
-                        size_t a_size = 0, b_size = 0, c_size = 0;
-                        uint8_t* a = loadfile(old_file.c_str(), &a_size, 0);
+                std::string name = unpac.u16_to_u8(file.name, MAX_U16_SN);
+                if (name.empty()) return;
 #ifndef _WIN32
-                        std::string file_path = g_app_state.flash.pac_folder + "/" + name;
+                std::string file_path = g_app_state.flash.pac_folder + "/" + name;
 #else
-                        std::string file_path = g_app_state.flash.pac_folder + "\\" + name;
+                std::string file_path = g_app_state.flash.pac_folder + "\\" + name;
 #endif
-                        uint8_t* b = loadfile(file_path.c_str(), &b_size, 0);
-                        if (!a || !b)
-                        {
-                            if (a) delete[](a);
-                            if (b) delete[](b);
-                            return;
-                        }
-                        uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
-                        merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
-                        load_merged_nv(io, partition.c_str(), c, c_size,
-                                       blk_size ? blk_size : DEFAULT_BLK_SIZE);
-                        delete[](a);
-                        delete[](b);
-                        free(c);
-                        return;
-                    }
+                DEG_LOG(I, "NV merge: partition %s (Type=%s)", partition.c_str(),
+                        it.info.type.c_str());
+                if (!get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str()))
+                {
+                    DEG_LOG(W, "NV merge: XML disables NV backup, writing %s unmerged",
+                            partition.c_str());
+                }
+                else if (pac_merge_nv_from_device(io, partition, file_path))
+                {
+                    return;
+                }
+                else
+                {
+                    // 按 RD 逻辑：合并失败即中止刷机并报错。
+                    DEG_LOG(E, "NV merge failed for %s, aborting PAC flash", partition.c_str());
+                    ERR_EXIT("NV merge failed for %s", partition.c_str());
                 }
             }
 
@@ -2034,37 +2138,6 @@ bool pac_flash(const char* folder)
                 std::string file_path = g_app_state.flash.pac_folder + "\\" + name;
 #endif
                 DEG_LOG(I, "Flashing partition: %s", partition.c_str());
-                if (g_app_state.flash.isPacMergingNV)
-                {
-                    if (g_app_state.pac.downloadnv_file_path.empty())
-                    {
-                        DEG_LOG(W, "Failed to load old NV data for downloadnv, skipping writing.");
-                        return;
-                    }
-                    if (get_nvlist_xml(io, g_app_state.flash.pac_xmlPath.c_str()))
-                    {
-                        size_t a_size = 0, b_size = 0, c_size = 0;
-                        uint8_t* a = loadfile(g_app_state.pac.downloadnv_file_path.c_str(), &a_size, 0);
-                        uint8_t* b = loadfile(file_path.c_str(), &b_size, 0);
-                        if (!a || !b)
-                        {
-                            DEG_LOG(W, "downloadnv image or old NV data is empty/missing, skipping.");
-                            if (a) delete[] a;
-                            if (b) delete[] b;
-                        }
-                        else
-                        {
-                            uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
-                            merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
-                            load_merged_nv(io, partition.c_str(), c, c_size,
-                                           blk_size ? blk_size : DEFAULT_BLK_SIZE);
-                            delete[] a;
-                            delete[] b;
-                            free(c);
-                        }
-                    }
-                    return;
-                }
                 EnhancedFile f = oxfopen_enhanced(file_path.c_str(), "rb");
                 if (!f)
                 {
@@ -2244,9 +2317,6 @@ bool pac_flash(const char* folder)
         if (isHelperInit)
         {
             DisableWidgets(helper);
-            // 禁用组件后阻塞刷写线程，直到用户关闭主窗口，
-            // 避免该线程结束或后续清理与主循环退出过程交叉导致未定义行为。
-            waitForMainWindowClose();
         }
     };
     if (isHelperInit)

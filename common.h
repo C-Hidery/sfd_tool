@@ -165,6 +165,14 @@ typedef struct {
     int saved;
 } NVEntry;
 
+#define NV_NAME_MAX_ITEMS 4096
+#define NV_NAME_LEN 96
+typedef struct
+{
+	uint16_t id;
+	char name[NV_NAME_LEN];
+} nv_name_entry_t;
+
 typedef struct spdio_t {
 	uint8_t *raw_buf, *enc_buf, *recv_buf, *temp_buf, *untranscode_buf, *send_buf;
 #if USE_LIBUSB
@@ -193,6 +201,9 @@ typedef struct spdio_t {
 	int nor_bar;
 	int part_count;
 	int *nvid_list;
+	uint8_t *nv_continue;  // 每个 NV item 的 Continue 标志（缺失时是否容忍）
+	int nv_name_count;     // <NVItem> 的 name 表（RD 按名字前缀选择合并方式）
+	nv_name_entry_t *nv_names;
 	IUsbTransport *transport; // 传输实现指针，用于承载 IUsbTransport 适配器
 	void *_alloc_ptr;
 } spdio_t;
@@ -380,6 +391,15 @@ void load_nv_partition(spdio_t *io, const char *name, const char *fn, unsigned s
 // 把 merge_nv() 的结果写入系统临时文件，再用文件版 load_nv_partition 写回设备。
 // 临时文件由 RAII 在函数返回时删除，调用方无需处理。
 void load_merged_nv(spdio_t *io, const char *name, const uint8_t *data, size_t size, unsigned step);
+// RD 风格 NV 合并：以新镜像为底，按 nvid_list 逐 item 从旧镜像 preserve（对齐 RD 的
+// ReadFlashByID + XPreserveNVItem/GSMCaliPreserve/XTDCaliPreserve + DownloadByID）。
+// 返回 false 表示按 RD 逻辑合并失败（调用方应中止刷机并报错）。
+bool merge_nv_rd(spdio_t *io, const uint8_t *a, size_t a_size, const uint8_t *b,
+                 size_t b_size, uint8_t *c, size_t c_cap, size_t *c_size);
+
+// 只做校验、不写输出（用于刷写前 dry-run）。返回 false 表示按 RD 逻辑会失败。
+bool merge_nv_rd_validate(spdio_t *io, const uint8_t *a, size_t a_size,
+                          const uint8_t *b, size_t b_size);
 void load_partitions(spdio_t *io, const char *path, unsigned step, int force_ab, int CMethod);
 void load_partition_force(spdio_t *io, const int id, const char *fn, unsigned step, int CMethod);
 int load_partition_unify(spdio_t *io, const char *name, const char *fn, unsigned step, int CMethod);
