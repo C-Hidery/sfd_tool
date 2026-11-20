@@ -3125,6 +3125,11 @@ int get_nvlist_xml(spdio_t* io, const char* fn)
     }
     memset(io->nvid_list, 0, 0x10000 * sizeof(int));
     memset(io->nv_continue, 0, 0x10000);
+    if (!io->nv_names)
+    {
+        io->nv_names = (nv_name_entry_t*)calloc(NV_NAME_MAX_ITEMS, sizeof(nv_name_entry_t));
+    }
+    io->nv_name_count = 0;
 
     // 3. 产品级 <NVBackup backup="0">：本次不做 NV 备份/合并
     auto nvBackups = xmlutil::descendants(root, "NVBackup");
@@ -3187,6 +3192,13 @@ int get_nvlist_xml(spdio_t* io, const char* fn)
         {
             io->nvid_list[id] = 1;
             if (continue_missing) io->nv_continue[id] = 1;
+            if (io->nv_names && io->nv_name_count < NV_NAME_MAX_ITEMS)
+            {
+                nv_name_entry_t& e = io->nv_names[io->nv_name_count++];
+                e.id = (uint16_t)id;
+                std::snprintf(e.name, sizeof(e.name), "%s",
+                              xmlutil::prop(nvItem, "name").c_str());
+            }
             if (io->verbose) printf("saved id 0x%lX to list\n", id);
         }
     }
@@ -3223,6 +3235,7 @@ int get_nvlist_cfg(spdio_t* io, char* fn)
     if (!io->nv_continue) ERR_EXIT("malloc failed\n");
     memset(io->nvid_list, 0, 0x10000 * sizeof(int));
     memset(io->nv_continue, 0, 0x10000);
+    io->nv_name_count = 0;  // cfg 模式没有 <NVItem> 名字，按 ID 通用拷贝
     while (cfg_fd.gets(line, sizeof(line)))
     {
         if (line[0] == '#' || line[0] == '\0') continue;

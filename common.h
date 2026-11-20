@@ -165,6 +165,14 @@ typedef struct {
     int saved;
 } NVEntry;
 
+#define NV_NAME_MAX_ITEMS 4096
+#define NV_NAME_LEN 96
+typedef struct
+{
+	uint16_t id;
+	char name[NV_NAME_LEN];
+} nv_name_entry_t;
+
 typedef struct spdio_t {
 	uint8_t *raw_buf, *enc_buf, *recv_buf, *temp_buf, *untranscode_buf, *send_buf;
 #if USE_LIBUSB
@@ -194,6 +202,8 @@ typedef struct spdio_t {
 	int part_count;
 	int *nvid_list;
 	uint8_t *nv_continue;  // 每个 NV item 的 Continue 标志（缺失时是否容忍）
+	int nv_name_count;     // <NVItem> 的 name 表（RD 按名字前缀选择合并方式）
+	nv_name_entry_t *nv_names;
 	IUsbTransport *transport; // 传输实现指针，用于承载 IUsbTransport 适配器
 	void *_alloc_ptr;
 } spdio_t;

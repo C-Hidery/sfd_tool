@@ -10,11 +10,17 @@
 #include "spd_calibration_structs.h"
 
 // Windows 类型/宏的兼容定义（只在本移植文件里使用）。
+// Windows 上直接复用 windows.h 的定义，避免 typedef 冲突（DWORD 在 Windows
+// 上是 unsigned long，虽然同为 32 位，但重复 typedef 会编译失败）。
+#ifdef _WIN32
+#include <windows.h>
+#else
 typedef std::uint8_t  BYTE;
 typedef std::uint16_t WORD;
 typedef std::uint32_t DWORD;
 typedef BYTE*         LPBYTE;
 typedef int           BOOL;
+#endif
 
 #ifndef TRUE
 #define TRUE 1
@@ -62,7 +68,8 @@ namespace spd_cali
 constexpr int kGsmCaliVaPolicy = 0;
 
 // 校准 item 在“给定版本”下的期望长度（4 字节对齐）；未知版本返回 0。
-std::size_t cali_expected_size(std::uint16_t item_id, std::uint16_t version);
+// is_td=false → GSM (Ver A/B/C)，true → TD (Ver 3/4/5)。
+std::size_t cali_expected_size(bool is_td, std::uint16_t version);
 
 void gsm_cali_ver_a_to_a(LPBYTE pFileBuf, DWORD dwOffsetFile, BOOL bFileBigEndian,
                          LPBYTE pModuBuf, DWORD dwOffsetModu, BOOL bModuBigEndian);

@@ -58,13 +58,33 @@ std::vector<uint8_t> bytes(const char* s)
 // 构造某个校准版本的合法长度负载：全 0，仅写入版本号。
 std::vector<uint8_t> make_cali_payload(uint16_t item_id, uint16_t ver)
 {
-    std::size_t len = spd_cali::cali_expected_size(item_id, ver);
+    std::size_t len = spd_cali::cali_expected_size(item_id == 0x516, ver);
     if (len == 0) len = 16;
     std::vector<uint8_t> buf(len, 0);
     buf[0] = static_cast<uint8_t>(ver & 0xFF);
     buf[1] = static_cast<uint8_t>(ver >> 8);
     return buf;
 }
+
+void set_nv_names(spdio_t& io, std::initializer_list<std::pair<uint16_t, const char*>> items)
+{
+    io.nv_names = static_cast<nv_name_entry_t*>(std::calloc(NV_NAME_MAX_ITEMS, sizeof(nv_name_entry_t)));
+    io.nv_name_count = 0;
+    for (const auto& it : items)
+    {
+        nv_name_entry_t& e = io.nv_names[io.nv_name_count++];
+        e.id = it.first;
+        std::snprintf(e.name, sizeof(e.name), "%s", it.second);
+    }
+}
+
+void free_nv(spdio_t& io)
+{
+    delete[] io.nvid_list;
+    delete[] io.nv_continue;
+    std::free(io.nv_names);
+}
+
 }  // namespace
 
 // ---------------- get_nvlist_xml ----------------
@@ -184,6 +204,7 @@ TEST_CASE("merge_nv_rd: GSM calibration keeps old payload when versions match")
     io.verbose = 0;
     io.nvid_list = new int[0x10000]();
     io.nvid_list[0x2] = 1;
+    set_nv_names(io, {{0x2, "Calibration"}});
 
     std::vector<uint8_t> out(new_nv.size() + MERGE_NV_SLACK, 0);
     size_t out_size = 0;
@@ -211,6 +232,7 @@ TEST_CASE("merge_nv_rd: TD calibration keeps old payload when versions match")
     io.verbose = 0;
     io.nvid_list = new int[0x10000]();
     io.nvid_list[0x516] = 1;
+    set_nv_names(io, {{0x516, "TD_Calibration"}});
 
     std::vector<uint8_t> out(new_nv.size() + MERGE_NV_SLACK, 0);
     size_t out_size = 0;
@@ -236,6 +258,7 @@ TEST_CASE("merge_nv_rd: calibration version mismatch keeps the PAC value")
     io.verbose = 0;
     io.nvid_list = new int[0x10000]();
     io.nvid_list[0x2] = 1;
+    set_nv_names(io, {{0x2, "Calibration"}});
 
     std::vector<uint8_t> out(new_nv.size() + MERGE_NV_SLACK, 0);
     size_t out_size = 0;
@@ -280,4 +303,58 @@ TEST_CASE("merge_nv_rd: missing old item fails unless Continue=1")
         delete[] io.nvid_list;
         delete[] io.nv_continue;
     }
+}
+
+TEST_CASE("merge_nv_rd: dispatch is by NVItem name, not by fixed ID")
+{
+    // 名字是 TD_Calibration（ID 0x2067，非 0x516）→ 走 TD 校准路径
+    const auto old_cali = make_cali_payload(0x516, 4);
+    auto new_cali = make_cali_payload(0x516, 4);
+    new_cali[2] = 0xAA;
+
+    const auto old_nv = make_nv({{0x2067, old_cali}});
+    const auto new_nv = make_nv({{0x2067, new_cali}});
+
+    spdio_t io{};
+    io.verbose = 0;
+    io.nvid_list = new int[0x10000]();
+    io.nvid_list[0x2067] = 1;
+    set_nv_names(io, {{0x2067, "TD_Calibration_PARAM"}});
+
+    std::vector<uint8_t> out(new_nv.size() + MERGE_NV_SLACK, 0);
+    size_t out_size = 0;
+    REQUIRE(merge_nv_rd(&io, old_nv.data(), old_nv.size(), new_nv.data(), new_nv.size(),
+                        out.data(), out.size(), &out_size));
+
+    nv_preserve::ItemLocation it;
+    REQUIRE(nv_preserve::find_item(0x2067, out.data(), out_size, it));
+    CHECK(std::memcmp(out.data() + it.offset, old_cali.data(), 8) == 0);
+    free_nv(io);
+}
+
+TEST_CASE("merge_nv_rd: generic path skips calibration IDs like XPreserveNVItem")
+{
+    // ID 0x2 但名字不是 Calibration → RD 的 XPreserveNVItem 直接跳过（保留新值）
+    const auto old_cali = make_cali_payload(0x2, 0xFF0A);
+    auto new_cali = make_cali_payload(0x2, 0xFF0A);
+    new_cali[2] = 0xAA;
+
+    const auto old_nv = make_nv({{0x2, old_cali}});
+    const auto new_nv = make_nv({{0x2, new_cali}});
+
+    spdio_t io{};
+    io.verbose = 0;
+    io.nvid_list = new int[0x10000]();
+    io.nvid_list[0x2] = 1;
+    set_nv_names(io, {{0x2, "SomeOtherItem"}});
+
+    std::vector<uint8_t> out(new_nv.size() + MERGE_NV_SLACK, 0);
+    size_t out_size = 0;
+    REQUIRE(merge_nv_rd(&io, old_nv.data(), old_nv.size(), new_nv.data(), new_nv.size(),
+                        out.data(), out.size(), &out_size));
+
+    nv_preserve::ItemLocation it;
+    REQUIRE(nv_preserve::find_item(0x2, out.data(), out_size, it));
+    CHECK(std::memcmp(out.data() + it.offset, new_cali.data(), new_cali.size()) == 0);
+    free_nv(io);
 }

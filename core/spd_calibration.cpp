@@ -18,9 +18,9 @@ namespace
 constexpr std::size_t align4(std::size_t n) { return (n + 3) & ~static_cast<std::size_t>(3); }
 }  // namespace
 
-std::size_t cali_expected_size(std::uint16_t item_id, std::uint16_t version)
+std::size_t cali_expected_size(bool is_td, std::uint16_t version)
 {
-    if (item_id == 0x2)  // GSM
+    if (!is_td)  // GSM
     {
         switch (version)
         {
@@ -30,7 +30,7 @@ std::size_t cali_expected_size(std::uint16_t item_id, std::uint16_t version)
         default: return 0;
         }
     }
-    if (item_id == 0x516)  // TD
+    // TD
     {
         switch (version)
         {
