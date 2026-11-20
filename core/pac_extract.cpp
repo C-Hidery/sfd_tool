@@ -2236,13 +2236,12 @@ bool pac_flash(const char* folder)
                 {
                     showInfoDialog(
                         GTK_WINDOW(helper.getWidget("main_window")), _("Success"),
-                        _("PAC flashed successfully, the program will be exited in 5 seconds..."));
+                        _("PAC flashed successfully, please check your device.\nWidgets of the program has been disabled, you can close the program now."));
                 }, GTK_WINDOW(helper.getWidget("main_window")));
-            DEG_LOG(I, "PAC flashed successfully, the program will be exited in 5 seconds...");
+            DEG_LOG(I, "PAC flashed successfully, please check your device, press any key to exit.");
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
         spdio_free(io);
-        exit(0);
+        if (isHelperInit) DisableWidgets(helper);
     };
     if (isHelperInit)
     {
@@ -2253,6 +2252,8 @@ bool pac_flash(const char* folder)
     else
     {
         into_func();
+        std::cin.get();
+        std::exit(0);
         return true;
     }
 }

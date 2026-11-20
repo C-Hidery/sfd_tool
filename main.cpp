@@ -361,14 +361,14 @@ void crash_handler(int sig) {
             if (main_window) {
                 showErrorDialog(GTK_WINDOW(main_window),
 				 _("Program Crash"),
-				 _("The program encountered an unhandled exception, which may be caused by device connection issues or a bug in the program.\n\nIt is recommended to check the device connection, ensure the correct options are used, and try running the tool again."));
+				 _("The program encountered an unhandled exception, which may be caused by device connection issues or a bug in the program.\n\nIt is recommended to check the device connection, ensure the correct options are used, and try running the tool again.\nYou can save the output log in prompt window before close this dialog."));
 		
             }
         } else {
 			DisableWidgets(helper);
             showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), 
 						_("Program Crash"), 
-                        _("The program encountered an unhandled exception, which may be caused by device connection issues or a bug in the program.\n\nIt is recommended to check the device connection, ensure the correct options are used, and try running the tool again."));
+                        _("The program encountered an unhandled exception, which may be caused by device connection issues or a bug in the program.\n\nIt is recommended to check the device connection, ensure the correct options are used, and try running the tool again.\nYou can save the output log in prompt window before close this dialog."));
         }
     } else {
         // 命令行模式

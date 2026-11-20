@@ -24,13 +24,13 @@ BlockSizeConfig MakeBlockSizeConfigFromGui();
 void ResetBlockSizeToDefault();
 
 // 初始化允许控件
-void Enable_Startup(GtkWidgetHelper helper);
+void Enable_Startup(GtkWidgetHelper& helper);
 // 启用/禁用全部控件
-void EnableWidgets(GtkWidgetHelper helper);
-void DisableWidgets(GtkWidgetHelper helper);
+void EnableWidgets(GtkWidgetHelper& helper);
+void DisableWidgets(GtkWidgetHelper& helper);
 
 // Root 权限检查
-void check_root_permission(GtkWidgetHelper helper);
+void check_root_permission(GtkWidgetHelper& helper);
 
 // 底部控制栏
 GtkWidget* create_bottom_controls(GtkWidgetHelper& helper);
@@ -39,11 +39,11 @@ GtkWidget* create_bottom_controls(GtkWidgetHelper& helper);
 void bind_bottom_signals(GtkWidgetHelper& helper, GtkWidget* bottomContainer);
 
 // 统一的设备连接状态检查：未连接时弹框并退出
-void ensure_device_attached_or_exit(GtkWidgetHelper helper);
+void ensure_device_attached_or_exit(GtkWidgetHelper& helper);
 
 // 统一的设备连接状态检查：未连接时弹框但不退出
 // 返回 true 表示设备未连接（已弹框），调用方应中止后续操作；false 表示设备已连接。
-bool ensure_device_attached_or_warn(GtkWidgetHelper helper);
+bool ensure_device_attached_or_warn(GtkWidgetHelper& helper);
 
 // 日志 UI 操作：在日志标签页追加一行文本
 // type 通常对应 common.h 中的 msg_type（I/W/E/OP/DE），message 为已格式化好的单行文本

@@ -49,31 +49,20 @@ void ERR_EXIT(const char* format, ...) {
             if (main_window) {
                 showErrorDialog(GTK_WINDOW(main_window), 
                               _("Error"), 
-                              (std::string(_("An error occurred. The application will now exit.")) + std::string("\n\nOutput:\n\n") + buffer).c_str());
+                              (std::string(_("An error occurred. The widget of the program has been disabled.\nYou have to restart the program.")) + std::string("\n\nOutput:\n\n") + buffer).c_str());
             }
         } else {
             DisableWidgets(helper);
             showErrorDialogSyncInThread(GTK_WINDOW(helper.getWidget("main_window")), 
                     _("Error"), 
-                    (std::string(_("An error occurred. The application will now exit.")) + std::string("\n\nOutput:\n\n") + buffer).c_str());
+                    (std::string(_("An error occurred. The widget of the program has been disabled.\nYou have to restart the program.")) + std::string("\n\nOutput:\n\n") + buffer).c_str());
         }
     } else {
         // 命令行模式
-        fprintf(stderr, "Fatal error. Exiting...\n");
-#ifndef _WIN32
-        std::this_thread::sleep_for(std::chrono::seconds(3));
-        std::exit(EXIT_FAILURE);
-#else
-		system("pause");
-		std::exit(EXIT_FAILURE);
-#endif
+        fprintf(stderr, "Fatal error. Exiting...Press any key to exit.\n");
+        std::cin.get();
+    	std::exit(EXIT_FAILURE);
     }
-    
-    // 4. 等待用户阅读错误信息
-    std::this_thread::sleep_for(std::chrono::seconds(3));
-    
-    // 5. 强制退出
-    std::exit(EXIT_FAILURE);
 }
 
 // 内部：统一的实际输出函数，保持原有格式/路由行为

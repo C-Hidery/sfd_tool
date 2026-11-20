@@ -80,12 +80,12 @@ void ResetBlockSizeToDefault() {
 }
 
 // 前向声明回调函数（来自其他页面模块）
-void on_button_clicked_poweroff(GtkWidgetHelper helper);
-void on_button_clicked_reboot(GtkWidgetHelper helper);
-void on_button_clicked_recovery(GtkWidgetHelper helper);
-void on_button_clicked_fastboot(GtkWidgetHelper helper);
+void on_button_clicked_poweroff(GtkWidgetHelper& helper);
+void on_button_clicked_reboot(GtkWidgetHelper& helper);
+void on_button_clicked_recovery(GtkWidgetHelper& helper);
+void on_button_clicked_fastboot(GtkWidgetHelper& helper);
 
-void Enable_Startup(GtkWidgetHelper helper) {
+void Enable_Startup(GtkWidgetHelper& helper) {
 	helper.enableWidget("transcode_en");
 	helper.enableWidget("transcode_dis");
 	helper.enableWidget("end_data_dis");
@@ -99,7 +99,7 @@ void Enable_Startup(GtkWidgetHelper helper) {
 	helper.enableWidget("nand_id_rec");
 }
 
-void EnableWidgets(GtkWidgetHelper helper) {
+void EnableWidgets(GtkWidgetHelper& helper) {
 	helper.enableWidget("poweroff");
 	helper.enableWidget("reboot");
 	helper.enableWidget("recovery");
@@ -140,7 +140,7 @@ void EnableWidgets(GtkWidgetHelper helper) {
 	helper.enableWidget("force_flash_dis");
 }
 
-void DisableWidgets(GtkWidgetHelper helper) {
+void DisableWidgets(GtkWidgetHelper& helper) {
 	helper.disableWidget("fdl_exec");
 	helper.disableWidget("poweroff");
 	helper.disableWidget("reboot");
@@ -198,14 +198,14 @@ void DisableWidgets(GtkWidgetHelper helper) {
 	helper.disableWidget("nand_id_rec");
 }
 
-void ensure_device_attached_or_exit(GtkWidgetHelper helper) {
+void ensure_device_attached_or_exit(GtkWidgetHelper& helper) {
     (void)helper;
 	if (m_bOpened == -1) {
 		ERR_EXIT("device unattached, exiting...\n");
 	}
 }
 
-bool ensure_device_attached_or_warn(GtkWidgetHelper helper) {
+bool ensure_device_attached_or_warn(GtkWidgetHelper& helper) {
 	if (m_bOpened == -1) {
 		DEG_LOG(E, "device unattached, exiting...");
 		gui_idle_call_wait_drag([helper]() {
@@ -314,7 +314,7 @@ GtkWidget* create_bottom_controls(GtkWidgetHelper& helper) {
 }
 
 
-void on_button_clicked_poweroff(GtkWidgetHelper helper) {
+void on_button_clicked_poweroff(GtkWidgetHelper& helper) {
 	ensure_device_attached_or_exit(helper);
 	encode_msg_nocpy(io, BSL_CMD_POWER_OFF, 0);
 	if (!send_and_check(io)) {
@@ -323,7 +323,7 @@ void on_button_clicked_poweroff(GtkWidgetHelper helper) {
 	}
 }
 
-void on_button_clicked_reboot(GtkWidgetHelper helper) {
+void on_button_clicked_reboot(GtkWidgetHelper& helper) {
 	ensure_device_attached_or_exit(helper);
 	encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
 	if (!send_and_check(io)) {
@@ -332,7 +332,7 @@ void on_button_clicked_reboot(GtkWidgetHelper helper) {
 	}
 }
 
-void on_button_clicked_recovery(GtkWidgetHelper helper) {
+void on_button_clicked_recovery(GtkWidgetHelper& helper) {
 	ensure_device_attached_or_exit(helper);
 	char* miscbuf = NEWN char[0x800];
 	if (!miscbuf) ERR_EXIT("malloc failed\n");
@@ -347,7 +347,7 @@ void on_button_clicked_recovery(GtkWidgetHelper helper) {
 	}
 }
 
-void on_button_clicked_fastboot(GtkWidgetHelper helper) {
+void on_button_clicked_fastboot(GtkWidgetHelper& helper) {
 	ensure_device_attached_or_exit(helper);
 	char* miscbuf = NEWN char[0x800];
 	if (!miscbuf) ERR_EXIT("malloc failed\n");
