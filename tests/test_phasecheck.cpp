@@ -26,38 +26,19 @@ uint32_t read_u32(const std::vector<uint8_t>& data, std::size_t offset)
     return v;
 }
 
-void set_env(const char* key, const char* value)
-{
-#ifdef _WIN32
-    _putenv_s(key, value);
-#else
-    setenv(key, value, 1);
-#endif
-}
-
-void unset_env(const char* key)
-{
-#ifdef _WIN32
-    _putenv_s(key, "");
-#else
-    unsetenv(key);
-#endif
-}
-
-// 在指定块偏移处放一个 magic + SN（结构体其余部分按 RD 的 ZeroMemory 语义补 0）
+// 在指定块偏移处放 magic + SN（其余按 RD 的 ZeroMemory 语义补 0）
 void put_block(std::vector<uint8_t>& data, std::size_t offset, uint32_t magic, const char* sn)
 {
     std::memcpy(data.data() + offset, &magic, sizeof(magic));
     std::memset(data.data() + offset + 4, 0, 64);
     std::memcpy(data.data() + offset + 4, sn, std::strlen(sn));
 }
+
 }  // namespace
 
 TEST_CASE("phasecheck defaults match RD (SP09 / PASS VALUE 0 / 7 stations)")
 {
-    unset_env("SFD_PHASECHECK_INI");
-
-    const std::vector<uint8_t> buf = pac_generate::build_phasecheck_buffer();
+    const std::vector<uint8_t> buf = pac_generate::build_phasecheck_buffer("");
 
     CHECK(buf.size() == pac_generate::kProductionInfoSize);
     CHECK(read_u32(buf, 0) == kSp09Magic);
@@ -87,9 +68,7 @@ TEST_CASE("phasecheck reads SP15 multi-station config from PhaseCheck.ini")
              "STATION 3 = IMEI\n";
     }
 
-    set_env("SFD_PHASECHECK_INI", path.c_str());
-    const std::vector<uint8_t> buf = pac_generate::build_phasecheck_buffer();
-    unset_env("SFD_PHASECHECK_INI");
+    const std::vector<uint8_t> buf = pac_generate::build_phasecheck_buffer(path);
     std::remove(path.c_str());
 
     CHECK(buf.size() == pac_generate::kProductionInfoSize);
@@ -145,13 +124,118 @@ TEST_CASE("find_phasecheck_sn: empty SN returns empty string")
 
 TEST_CASE("build_phasecheck_buffer keeps SN in SN1 and leaves SN2 empty")
 {
-    unset_env("SFD_PHASECHECK_INI");
-
-    const std::vector<uint8_t> buf = pac_generate::build_phasecheck_buffer("SN123456");
+    const std::vector<uint8_t> buf = pac_generate::build_phasecheck_buffer("", "SN123456");
 
     CHECK(read_u32(buf, 0) == kSp09Magic);
     CHECK(std::memcmp(buf.data() + 4, "SN123456", 8) == 0);
     CHECK(pac_generate::find_phasecheck_sn(buf) == "SN123456");
     // SN2 保持为空
     CHECK(buf[4 + 24] == 0);
+}
+
+TEST_CASE("apr: unix time to FILETIME and 8-byte little-endian payload")
+{
+    CHECK(pac_generate::apr_filetime_from_unix(0, 0) == 116444736000000000ULL);
+    CHECK(pac_generate::apr_filetime_from_unix(1, 0) == 116444736000000000ULL + 10000000ULL);
+    CHECK(pac_generate::apr_filetime_from_unix(0, 500) == 116444736000000000ULL + 5);
+
+    const std::string path = "test_apr_tmp.bin";
+    {
+        std::ofstream f(path, std::ios::binary);
+        REQUIRE(f.good());
+        f << "x";
+    }
+    const std::vector<uint8_t> payload = pac_generate::build_apr_payload(path);
+    std::remove(path.c_str());
+
+    REQUIRE(payload.size() == 8);
+    uint64_t filetime = 0;
+    for (int i = 0; i < 8; ++i)
+    {
+        filetime |= static_cast<uint64_t>(payload[static_cast<size_t>(i)]) << (8 * i);
+    }
+    CHECK(filetime >= 116444736000000000ULL);  // 1970 之后
+}
+
+TEST_CASE("apr: missing file yields an all-zero payload")
+{
+    const std::vector<uint8_t> payload = pac_generate::build_apr_payload("no_such_pac_file.pac");
+    REQUIRE(payload.size() == 8);
+    for (uint8_t b : payload) CHECK(b == 0);
+}
+
+TEST_CASE("phasecheck_ini_usable: requires a non-empty station table")
+{
+    const std::string good = "test_pc_good.ini";
+    {
+        std::ofstream f(good);
+        REQUIRE(f.good());
+        f << "[VERSION]\nMAGIC NUMBER = SP09\n[STATION]\nSTATION NUMBER = 2\n"
+             "STATION 1 = DOWNLOAD\nSTATION 2 = CFT\n";
+    }
+    const std::string no_station = "test_pc_nostation.ini";
+    {
+        std::ofstream f(no_station);
+        REQUIRE(f.good());
+        f << "[VERSION]\nMAGIC NUMBER = SP09\n";
+    }
+
+    CHECK(pac_generate::phasecheck_ini_usable(good));
+    CHECK_FALSE(pac_generate::phasecheck_ini_usable(no_station));
+    CHECK_FALSE(pac_generate::phasecheck_ini_usable("no_such_ini.ini"));
+    CHECK_FALSE(pac_generate::phasecheck_ini_usable(""));
+
+    std::remove(good.c_str());
+    std::remove(no_station.c_str());
+}
+
+TEST_CASE("build_ise_payload: supports Data= / File= / Size=")
+{
+    const std::string ini = "test_ise.ini";
+    const std::string bin = "test_ise.bin";
+    {
+        std::ofstream f(ini);
+        REQUIRE(f.good());
+        f << "[ISE]\nData=00 11 22 33\n";
+    }
+    {
+        std::ofstream f(bin, std::ios::binary);
+        REQUIRE(f.good());
+        f << "ABCD";
+    }
+
+    std::vector<uint8_t> out;
+    std::string err;
+
+    REQUIRE(pac_generate::build_ise_payload(ini, "ISE", out, err));
+    REQUIRE(out.size() == 4);
+    CHECK(out[0] == 0x00);
+    CHECK(out[3] == 0x33);
+
+    {
+        std::ofstream f(ini);
+        f << "[ISE_DATA]\nFile=test_ise.bin\n";
+    }
+    CHECK(pac_generate::build_ise_payload(ini, "ISE_DATA", out, err));
+    REQUIRE(out.size() == 4);
+    CHECK(std::memcmp(out.data(), "ABCD", 4) == 0);
+
+    {
+        std::ofstream f(ini);
+        f << "[ISE]\nSize=0x10\n";
+    }
+    CHECK(pac_generate::build_ise_payload(ini, "ISE", out, err));
+    CHECK(out.size() == 16);
+    for (uint8_t b : out) CHECK(b == 0xFF);
+    std::remove(bin.c_str());
+
+    // 没有 [ISE] 段 → 失败并保持空壳告警
+    {
+        std::ofstream f(ini);
+        f << "[VERSION]\nMAGIC NUMBER = SP09\n";
+    }
+    CHECK_FALSE(pac_generate::build_ise_payload(ini, "ISE", out, err));
+    CHECK_FALSE(err.empty());
+
+    std::remove(ini.c_str());
 }

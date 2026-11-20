@@ -77,9 +77,22 @@ struct Item
     bool leftover = false;     // PAC 里有数据但 XML 没列（兜底补刷）
 };
 
+// 设备存储类型（与 Da_Info.dwStorageType 的取值一致）
+constexpr int kStorageNand = 0x101;
+constexpr int kStorageEmmc = 0x102;
+constexpr int kStorageUfs = 0x103;
+
+// 按 PAC 头里的产品名在 XML 的 ProductList 中选中对应 Product，返回其名字；
+// 匹配不上时返回空串（调用方回退到第一个 Scheme）。
+std::string product_name(const PacFile& pac, const PacXMLParser& xml);
+
 // 按 PAC 头里的产品名选 Scheme，返回 XML 原始顺序的 File 列表。
 std::vector<FileInfo> xml_exec_order(const PacFile& pac, const PacXMLParser& xml);
 
 // 生成执行计划：XML 顺序 + PAC 表匹配 + 类型分类 + 兜底补刷。
-std::vector<Item> build(const PacFile& pac, const PacXMLParser& xml);
+//
+// storage_type：设备存储类型。当 PAC 同时提供 SPLLoaderEMMC / SPLLoaderUFS
+// 两个 SPL 变体（它们都指向 splloader 分区）时，按该值只保留匹配的那个；
+// 传 0（未知）或 0x101（NAND）时不做筛选，保持原行为。
+std::vector<Item> build(const PacFile& pac, const PacXMLParser& xml, int storage_type = 0);
 }  // namespace pac_plan

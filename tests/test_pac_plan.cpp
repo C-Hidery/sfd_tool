@@ -265,3 +265,115 @@ TEST_CASE("pac_plan: empty PAC or empty XML yields an empty plan")
     const std::vector<pac_plan::Item> plan = pac_plan::build(pac, xml);
     CHECK(plan.empty());
 }
+
+namespace
+{
+std::string spl_xml()
+{
+    return "<File><ID>SPLLoaderEMMC</ID><IDAlias>SPL_LOADER_EMMC</IDAlias>"
+           "<Type>UBOOT_LOADER2</Type><Flag>1</Flag><CheckFlag>0</CheckFlag>"
+           "<Block id=\"splloader\"><Base>0x80000000</Base><Size>0x0</Size></Block></File>"
+           "<File><ID>SPLLoaderUFS</ID><IDAlias>SPL_LOADER_UFS</IDAlias>"
+           "<Type>UBOOT_LOADER2</Type><Flag>1</Flag><CheckFlag>0</CheckFlag>"
+           "<Block id=\"splloader\"><Base>0x80000000</Base><Size>0x0</Size></Block></File>";
+}
+}  // namespace
+
+TEST_CASE("pac_plan: eMMC device flashes only SPLLoaderEMMC and skips SPLLoaderUFS")
+{
+    TempPac pac_path("spl_emmc");
+    make_pac_file(pac_path.path(), "demo", {
+        {"SPLLoaderEMMC", "spl_emmc.bin", 1, 8, "emmcSpl!"},
+        {"SPLLoaderUFS", "spl_ufs.bin", 1, 8, "ufsSpl!!"},
+    });
+
+    PacFile pac;
+    REQUIRE(load(pac, pac_path.path()));
+    PacXMLParser xml;
+    REQUIRE(xml.loadFromString(xml_doc("demo", spl_xml())));
+
+    const std::vector<pac_plan::Item> plan = pac_plan::build(pac, xml, pac_plan::kStorageEmmc);
+    REQUIRE(plan.size() == 2);
+
+    CHECK(plan[0].pac_id == "SPLLoaderEMMC");
+    CHECK(plan[0].kind == pac_plan::Kind::Flash);
+    CHECK(plan[1].pac_id == "SPLLoaderUFS");
+    CHECK(plan[1].kind == pac_plan::Kind::Skip);
+    CHECK(plan[1].reason.find("UFS") != std::string::npos);
+}
+
+TEST_CASE("pac_plan: UFS device flashes only SPLLoaderUFS and skips SPLLoaderEMMC")
+{
+    TempPac pac_path("spl_ufs");
+    make_pac_file(pac_path.path(), "demo", {
+        {"SPLLoaderEMMC", "spl_emmc.bin", 1, 8, "emmcSpl!"},
+        {"SPLLoaderUFS", "spl_ufs.bin", 1, 8, "ufsSpl!!"},
+    });
+
+    PacFile pac;
+    REQUIRE(load(pac, pac_path.path()));
+    PacXMLParser xml;
+    REQUIRE(xml.loadFromString(xml_doc("demo", spl_xml())));
+
+    const std::vector<pac_plan::Item> plan = pac_plan::build(pac, xml, pac_plan::kStorageUfs);
+    REQUIRE(plan.size() == 2);
+
+    CHECK(plan[0].pac_id == "SPLLoaderEMMC");
+    CHECK(plan[0].kind == pac_plan::Kind::Skip);
+    CHECK(plan[0].reason.find("eMMC") != std::string::npos);
+    CHECK(plan[1].pac_id == "SPLLoaderUFS");
+    CHECK(plan[1].kind == pac_plan::Kind::Flash);
+}
+
+TEST_CASE("pac_plan: unknown storage type keeps both SPL variants (legacy behavior)")
+{
+    TempPac pac_path("spl_unknown");
+    make_pac_file(pac_path.path(), "demo", {
+        {"SPLLoaderEMMC", "spl_emmc.bin", 1, 8, "emmcSpl!"},
+        {"SPLLoaderUFS", "spl_ufs.bin", 1, 8, "ufsSpl!!"},
+    });
+
+    PacFile pac;
+    REQUIRE(load(pac, pac_path.path()));
+    PacXMLParser xml;
+    REQUIRE(xml.loadFromString(xml_doc("demo", spl_xml())));
+
+    const std::vector<pac_plan::Item> plan = pac_plan::build(pac, xml, 0);
+    REQUIRE(plan.size() == 2);
+    CHECK(plan[0].kind == pac_plan::Kind::Flash);
+    CHECK(plan[1].kind == pac_plan::Kind::Flash);
+}
+
+TEST_CASE("pac_plan: single SPL variant in the PAC is never filtered out")
+{
+    TempPac pac_path("spl_only_ufs");
+    make_pac_file(pac_path.path(), "demo", {
+        {"SPLLoaderUFS", "spl_ufs.bin", 1, 8, "ufsSpl!!"},
+    });
+
+    PacFile pac;
+    REQUIRE(load(pac, pac_path.path()));
+    PacXMLParser xml;
+    REQUIRE(xml.loadFromString(xml_doc("demo", spl_xml())));
+
+    const std::vector<pac_plan::Item> plan = pac_plan::build(pac, xml, pac_plan::kStorageEmmc);
+    REQUIRE(plan.size() == 2);
+    CHECK(plan[0].kind == pac_plan::Kind::Skip);   // EMMC：PAC 里没有数据
+    CHECK(plan[1].pac_id == "SPLLoaderUFS");
+    CHECK(plan[1].kind == pac_plan::Kind::Flash);  // 唯一变体，保留
+}
+
+TEST_CASE("PacXMLParser: reads the product-level <APR> flag")
+{
+    PacXMLParser xml;
+    REQUIRE(xml.loadFromString(
+        "<BMAConfig><ProductList>"
+        "<Product name=\"demo\"><SchemeName>S1</SchemeName><APR>1</APR></Product>"
+        "<Product name=\"other\"><SchemeName>S2</SchemeName><APR>0</APR></Product>"
+        "</ProductList>"
+        "<SchemeList><Scheme name=\"S1\"/><Scheme name=\"S2\"/></SchemeList></BMAConfig>"));
+
+    CHECK(xml.getProductApr("demo") == 1);
+    CHECK(xml.getProductApr("other") == 0);
+    CHECK(xml.getProductApr("missing") == 0);
+}

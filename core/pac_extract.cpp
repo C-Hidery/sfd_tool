@@ -318,6 +318,7 @@ bool pac_extract(const char* fn, const char* folder)
 {
     // 每次解包都重新判定 PAC 类型，避免上一次 RDA PAC 的标记残留到普通 PAC。
     g_app_state.flash.isPacRdaTable = false;
+    g_app_state.flash.pacFilePath = (fn != nullptr) ? fn : "";
 #ifndef _WIN32
     if (mkdir(folder, 0755) != 0 && errno != EEXIST) return false;
 #else
@@ -886,25 +887,83 @@ static std::string pac_strip_pac_prefix(std::string s)
     return s;
 }
 
+namespace
+{
+bool contains_ci(const std::string& haystack, const char* needle)
+{
+    std::string h(haystack);
+    std::string n(needle);
+    for (char& c : h) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    for (char& c : n) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    return h.find(n) != std::string::npos;
+}
+
+enum class SplVariant
+{
+    None,
+    Emmc,
+    Ufs
+};
+
+// SPLLoaderEMMC / SPL_LOADER_EMMC / SPLLoaderUFS / SPL_LOADER_UFS：
+// 只认以 SPL 开头且带存储类型后缀的 ID/IDAlias，避免误伤其它条目。
+SplVariant spl_variant_of(const FileInfo& f)
+{
+    for (const std::string* name : {&f.id, &f.idAlias})
+    {
+        if (name->empty()) continue;
+        if (my_strnicmp(name->c_str(), "SPL", 3) != 0) continue;
+        if (contains_ci(*name, "EMMC")) return SplVariant::Emmc;
+        if (contains_ci(*name, "UFS")) return SplVariant::Ufs;
+    }
+    return SplVariant::None;
+}
+
+// PAC 文件表里是否同时存在 EMMC / UFS 两种 SPL 变体
+bool pac_has_both_spl_variants(const PacFile& pac)
+{
+    bool has_emmc = false;
+    bool has_ufs = false;
+    for (int i = 0; i < pac.fileCount; ++i)
+    {
+        const std::string id = PacFile::u16_to_u8(pac.files[i].id, MAX_U16_SN);
+        if (id.empty() || my_strnicmp(id.c_str(), "SPL", 3) != 0) continue;
+        if (contains_ci(id, "EMMC")) has_emmc = true;
+        else if (contains_ci(id, "UFS")) has_ufs = true;
+        if (has_emmc && has_ufs) return true;
+    }
+    return false;
+}
+
+}  // namespace
+
 namespace pac_plan
 {
 // PAC 内 XML 的执行顺序：先按产品名选中 Scheme（取不到就用第一个 Product），
 // 然后按 <SchemeList>/<Scheme>/<File> 的原始顺序返回，这就是 RD 的执行顺序。
+std::string product_name(const PacFile& pac, const PacXMLParser& xml)
+{
+    const std::string prd = pac_strip_pac_prefix(
+        PacFile::u16_to_u8(pac.head.fw_name, MAX_U16_SN));
+    if (prd.empty()) return std::string();
+
+    for (const std::string& name : xml.getProductNames())
+    {
+        if (!my_stricmp(pac_strip_pac_prefix(name).c_str(), prd.c_str()))
+        {
+            return name;
+        }
+    }
+    return std::string();
+}
+
 std::vector<FileInfo> xml_exec_order(const PacFile& pac, const PacXMLParser& xml)
 {
     std::vector<FileInfo> files;
     const std::string prd = pac_strip_pac_prefix(
         PacFile::u16_to_u8(pac.head.fw_name, MAX_U16_SN));
+    const std::string chosen = product_name(pac, xml);
 
-    std::string chosen;
-    for (const std::string& name : xml.getProductNames())
-    {
-        if (!prd.empty() && !my_stricmp(pac_strip_pac_prefix(name).c_str(), prd.c_str()))
-        {
-            chosen = name;
-            break;
-        }
-    }
     if (!chosen.empty())
     {
         files = xml.getFilesByProduct(chosen);
@@ -921,7 +980,7 @@ std::vector<FileInfo> xml_exec_order(const PacFile& pac, const PacXMLParser& xml
     return files;
 }
 
-std::vector<Item> build(const PacFile& pac, const PacXMLParser& xml)
+std::vector<Item> build(const PacFile& pac, const PacXMLParser& xml, int storage_type)
 {
     std::vector<Item> plan;
     if (pac.fileCount <= 0 || !pac.files) return plan;
@@ -978,6 +1037,53 @@ std::vector<Item> build(const PacFile& pac, const PacXMLParser& xml)
         plan.push_back(std::move(it));
     }
 
+    // 2) SPL 变体选择：SPLLoaderEMMC / SPLLoaderUFS 都写到 splloader，
+    //    若两个都在包里，按设备存储类型只保留匹配的一个（RD 由勾选决定，这里自动化）。
+    if (storage_type == kStorageEmmc || storage_type == kStorageUfs)
+    {
+        bool has_emmc = false;
+        bool has_ufs = false;
+        for (const Item& it : plan)
+        {
+            if (it.kind != Kind::Flash) continue;
+            const SplVariant v = spl_variant_of(it.info);
+            if (v == SplVariant::Emmc) has_emmc = true;
+            else if (v == SplVariant::Ufs) has_ufs = true;
+        }
+
+        if (has_emmc && has_ufs)
+        {
+            for (Item& it : plan)
+            {
+                if (it.kind != Kind::Flash) continue;
+                const SplVariant v = spl_variant_of(it.info);
+                if (v == SplVariant::None) continue;
+                if (storage_type == kStorageEmmc && v == SplVariant::Ufs)
+                {
+                    it.kind = Kind::Skip;
+                    it.reason = "SPL variant for UFS, device storage is eMMC";
+                }
+                else if (storage_type == kStorageUfs && v == SplVariant::Emmc)
+                {
+                    it.kind = Kind::Skip;
+                    it.reason = "SPL variant for eMMC, device storage is UFS";
+                }
+            }
+        }
+        else if (has_emmc || has_ufs)
+        {
+            // 包里只有一种变体：不筛掉，但提示可能与设备不匹配。
+            const SplVariant only = has_emmc ? SplVariant::Emmc : SplVariant::Ufs;
+            const char* want = (storage_type == kStorageEmmc) ? "eMMC" : "UFS";
+            const char* have = (only == SplVariant::Emmc) ? "eMMC" : "UFS";
+            if (storage_type == kStorageEmmc ? only != SplVariant::Emmc : only != SplVariant::Ufs)
+            {
+                DEG_LOG(W, "PAC plan: only the %s SPL variant is present, but device storage is %s; "
+                           "keeping it (no alternative in PAC)", have, want);
+            }
+        }
+    }
+
     // 2) XML 未列出的 PAC 数据条目：RD 会因“文件数与 XML 不一致”直接拒包，
     //    这里为兼容仍按 PAC 顺序补刷，并标记 leftover 由调用方告警。
     for (int i = 0; i < pac.fileCount; ++i)
@@ -1009,7 +1115,13 @@ bool pac_flash(const char* folder)
 {
     bool isMergingNV_GUI = helper.getCheckButtonState(helper.getWidget("pac_merge_nv"));
     bool isRepartitionGUI = helper.getCheckButtonState(helper.getWidget("pac_repartition"));
-    DEG_LOG(I, "PAC Flash: Merging NV=%s, Repartition=%s", isMergingNV_GUI ? "true" : "false", isRepartitionGUI ? "true" : "false");
+    bool writePhaseCheck_GUI = helper.getCheckButtonState(helper.getWidget("pac_write_phasecheck"));
+    bool writeApr_GUI = helper.getCheckButtonState(helper.getWidget("pac_write_apr"));
+    bool writeIse_GUI = helper.getCheckButtonState(helper.getWidget("pac_write_ise"));
+    DEG_LOG(I, "PAC Flash: Merging NV=%s, Repartition=%s, PhaseCheck=%s, APR=%s, ISE=%s",
+            isMergingNV_GUI ? "true" : "false", isRepartitionGUI ? "true" : "false",
+            writePhaseCheck_GUI ? "true" : "false", writeApr_GUI ? "true" : "false",
+            writeIse_GUI ? "true" : "false");
     std::string xmlPath = FindFirstXMLFile(folder);
     if (xmlPath.empty())
     {
@@ -1027,6 +1139,10 @@ bool pac_flash(const char* folder)
     if (isHelperInit)
     {
         g_app_state.flash.isPacMergingNV = isMergingNV_GUI;
+        g_app_state.flash.isPacWritePhaseCheck = writePhaseCheck_GUI;
+        g_app_state.flash.isPacWriteApr = writeApr_GUI;
+        g_app_state.flash.isPacWriteIse = writeIse_GUI;
+        // phasecheckIniPath 由 PAC 页的 “Select PhaseCheck.ini” 按钮写入。
     }
     else
     {
@@ -1034,6 +1150,75 @@ bool pac_flash(const char* folder)
         std::string n;
         std::getline(std::cin, n);
         g_app_state.flash.isPacMergingNV = (n == "Y" || n == "y");
+
+        // 生成型操作（对应 PAC 页的勾选项）：CLI 保持询问，默认 No。
+        const std::vector<FileInfo> xml_files = pac_plan::xml_exec_order(g_app_state.pacFile, g_app_state.pacXml);
+        bool has_phasecheck = false;
+        for (const FileInfo& f : xml_files)
+        {
+            if (!my_stricmp(f.id.c_str(), "PhaseCheck") ||
+                (!f.idAlias.empty() && !my_stricmp(f.idAlias.c_str(), "PhaseCheck")))
+            {
+                has_phasecheck = true;
+                break;
+            }
+        }
+        g_app_state.flash.isPacWritePhaseCheck = false;
+        if (has_phasecheck)
+        {
+            std::cout << "Do you want to write PhaseCheck production info? (y/N): " << std::endl;
+            std::string v;
+            std::getline(std::cin, v);
+            g_app_state.flash.isPacWritePhaseCheck = (v == "y" || v == "Y");
+        }
+
+        const std::string prd = pac_plan::product_name(g_app_state.pacFile, g_app_state.pacXml);
+        g_app_state.flash.isPacWriteApr = false;
+        if (!prd.empty() && g_app_state.pacXml.getProductApr(prd) != 0)
+        {
+            std::cout << "Do you want to write APR info (PAC build time)? (y/N): " << std::endl;
+            std::string v;
+            std::getline(std::cin, v);
+            g_app_state.flash.isPacWriteApr = (v == "y" || v == "Y");
+        }
+
+        // ISE：默认空壳；选择生成时会要求提供 ini 路径。
+        bool has_ise = false;
+        for (const FileInfo& f : xml_files)
+        {
+            if (!my_stricmp(f.id.c_str(), "ISE") || !my_stricmp(f.idAlias.c_str(), "ISE") ||
+                !my_stricmp(f.id.c_str(), "ISE_DATA") || !my_stricmp(f.idAlias.c_str(), "ISE_DATA"))
+            {
+                has_ise = true;
+                break;
+            }
+        }
+        g_app_state.flash.isPacWriteIse = false;
+        if (has_ise)
+        {
+            std::cout << "Do you want to generate ISE from your PhaseCheck.ini? (y/N): " << std::endl;
+            std::string v;
+            std::getline(std::cin, v);
+            g_app_state.flash.isPacWriteIse = (v == "y" || v == "Y");
+        }
+
+        g_app_state.flash.phasecheckIniPath.clear();
+        if (g_app_state.flash.isPacWritePhaseCheck || g_app_state.flash.isPacWriteIse)
+        {
+            std::cout << "Enter path to PhaseCheck.ini: " << std::endl;
+            std::string v;
+            std::getline(std::cin, v);
+            const std::size_t b = v.find_first_not_of(" \t\r\n");
+            const std::size_t e = v.find_last_not_of(" \t\r\n");
+            const std::string ini = (b == std::string::npos) ? std::string() : v.substr(b, e - b + 1);
+            g_app_state.flash.phasecheckIniPath = ini;
+
+            EnhancedFile probe = oxfopen_enhanced(ini.c_str(), "rb");
+            if (!probe)
+            {
+                DEG_LOG(W, "PhaseCheck.ini not readable: %s; generation will be skipped", ini.c_str());
+            }
+        }
     }
     if (!pac_validate_required_files())
     {
@@ -1502,7 +1687,20 @@ bool pac_flash(const char* folder)
         //   * Flag=1 的条目仍按原有规则写入（分区勾选、NV 合并、userdata 规则）。
         // 计划本身由 pac_plan::build() 生成（纯数据，可单元测试）。
         // ------------------------------------------------------------------
-        const std::vector<pac_plan::Item> plan = pac_plan::build(unpac, g_app_state.pacXml);
+        // SPL 变体筛选需要知道设备是 eMMC 还是 UFS。Da_Info 里通常已有值；
+        // 若未知（老 FDL2 只回 ACK）且 PAC 同时带了两份 SPL，读一次分区表来判定。
+        int storage_type = static_cast<int>(Da_Info.dwStorageType);
+        if (storage_type != pac_plan::kStorageNand && storage_type != pac_plan::kStorageEmmc &&
+            storage_type != pac_plan::kStorageUfs && pac_has_both_spl_variants(unpac))
+        {
+            if (!io->ptable)
+            {
+                io->ptable = partition_list(io, &io->part_count);
+            }
+            storage_type = static_cast<int>(Da_Info.dwStorageType);
+            DEG_LOG(I, "PAC flash: storage type detected from partition table: 0x%x", storage_type);
+        }
+        const std::vector<pac_plan::Item> plan = pac_plan::build(unpac, g_app_state.pacXml, storage_type);
         for (const pac_plan::Item& it : plan)
         {
             if (it.leftover)
@@ -1790,7 +1988,10 @@ bool pac_flash(const char* folder)
                     block_size = strtoull(it.info.blocks.front().size.c_str(), nullptr, 0);
                 }
                 if (!pac_generate::run_operation(io, it.pac_id, it.info.type, it.partition,
-                                                 block_size, g_app_state.flash.isCMethod))
+                                                 block_size, g_app_state.flash.isCMethod,
+                                                 g_app_state.flash.isPacWritePhaseCheck,
+                                                 g_app_state.flash.isPacWriteIse,
+                                                 g_app_state.flash.phasecheckIniPath))
                 {
                     DEG_LOG(W, "PAC operation %s (Type=%s) needs generated content, unsupported, skipped.",
                             it.pac_id.c_str(), it.info.type.c_str());
@@ -1809,6 +2010,26 @@ bool pac_flash(const char* folder)
             flash_one(it);
         }
         if (dlnv_plan >= 0) flash_one(plan[static_cast<size_t>(dlnv_plan)]);
+
+        // APR：RD 在最后一个刷写步骤之后追加 WriteAPRInfo（负载是 PAC 文件时间）。
+        if (g_app_state.flash.isPacWriteApr)
+        {
+            // 与 RD 一致：不仅勾选，还要求 XML 的 <APR> 为 1（IsEnableAPR）。
+            const std::string apr_prd = pac_plan::product_name(unpac, g_app_state.pacXml);
+            if (apr_prd.empty() || g_app_state.pacXml.getProductApr(apr_prd) == 0)
+            {
+                DEG_LOG(W, "APR: XML product does not enable <APR>, skipped");
+            }
+            else if (g_app_state.flash.pacFilePath.empty())
+            {
+                DEG_LOG(W, "APR: PAC file path unknown, skipped");
+            }
+            else if (!pac_generate::write_apr_info(io, g_app_state.flash.pacFilePath))
+            {
+                DEG_LOG(W, "APR: writing PAC build time failed, continuing");
+            }
+        }
+
         gui_idle_call([](){ bottom_bar_set_status("Rebooting..."); });
         encode_msg_nocpy(io, BSL_CMD_NORMAL_RESET, 0);
         if (!send_and_check(io))

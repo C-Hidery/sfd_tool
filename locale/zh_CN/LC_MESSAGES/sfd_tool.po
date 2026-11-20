@@ -1516,3 +1516,33 @@ msgstr "设备已断开，所有操作已禁用。请重新连接设备并重启
 
 msgid "Automated task failed: "
 msgstr "自动化任务失败："
+
+
+# ===== Auto-appended entries from sfd_tool.pot =====
+
+msgid "This ini has no usable [STATION] section; PhaseCheck generation will be skipped. The [ISE]/[ISE_DATA] section is still used when ISE is enabled."
+msgstr "该 ini 没有可用的 [STATION] 段，将跳过 PhaseCheck 生成；启用 ISE 时仍会读取 [ISE]/[ISE_DATA] 段。"
+
+msgid "Write PhaseCheck (production info)"
+msgstr "写入 PhaseCheck（产测信息）"
+
+msgid "Generate 8K phase-check data from PhaseCheck.ini and write it to miscdata."
+msgstr "从 PhaseCheck.ini 生成 8K 产测信息并写入 miscdata。"
+
+msgid "Write APR info (PAC build time)"
+msgstr "写入 APR 信息（PAC 构建时间）"
+
+msgid "Send BSL_CMD_WRITE_APR_INFO with the PAC file build time (needs <APR>1</APR> in the PAC XML)."
+msgstr "发送 BSL_CMD_WRITE_APR_INFO，携带 PAC 文件构建时间（需 PAC XML 中 <APR>1</APR>）。"
+
+msgid "Select PhaseCheck.ini (optional)"
+msgstr "选择 PhaseCheck.ini（可选）"
+
+msgid "No ini selected"
+msgstr "未选择 ini"
+
+msgid "Write ISE (generate from [ISE] section of the selected ini)"
+msgstr "写入 ISE（用所选 ini 的 [ISE] 段生成）"
+
+msgid "Off: keep the shell warning and write nothing. On: read [ISE]/[ISE_DATA] from the selected ini (Data=<hex>, File=<path> or Size=<bytes>) and write it to the ISE partitions."
+msgstr "关闭：保持空壳告警、不写入。开启：从所选 ini 的 [ISE]/[ISE_DATA] 段读取（Data=<十六进制>、File=<路径> 或 Size=<字节数>）并写入 ISE 分区。"

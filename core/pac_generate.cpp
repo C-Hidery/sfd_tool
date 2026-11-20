@@ -9,7 +9,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
+#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -18,11 +20,13 @@
 #include <windows.h>
 #else
 #include <limits.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #endif
 
 #include "file_io.h"
 #include "logging.h"
+#include "spd_protocol.h"
 
 namespace pac_generate
 {
@@ -139,58 +143,11 @@ std::string upper_copy(std::string s)
     return s;
 }
 
-std::string exe_dir()
-{
-#ifdef _WIN32
-    char buf[MAX_PATH] = {0};
-    if (GetModuleFileNameA(nullptr, buf, MAX_PATH) == 0) return std::string();
-    std::string p(buf);
-#else
-    char buf[PATH_MAX] = {0};
-    const ssize_t n = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
-    if (n <= 0) return std::string();
-    std::string p(buf, static_cast<std::size_t>(n));
-#endif
-    const std::size_t pos = p.find_last_of("/\\");
-    return (pos == std::string::npos) ? std::string() : p.substr(0, pos);
-}
-
-std::string env_value(const char* name)
-{
-    const char* v = std::getenv(name);
-    return v ? std::string(v) : std::string();
-}
-
-// 与 RD 一致：PhaseCheck.ini 放在程序目录；额外支持环境变量与当前目录，便于产线覆盖。
-std::string find_phasecheck_ini()
-{
-    const std::string from_env = env_value("SFD_PHASECHECK_INI");
-    if (!from_env.empty())
-    {
-        std::ifstream f(from_env);
-        if (f.good()) return from_env;
-    }
-
-    const std::string cwd_ini = "PhaseCheck.ini";
-    {
-        std::ifstream f(cwd_ini);
-        if (f.good()) return cwd_ini;
-    }
-
-    const std::string dir = exe_dir();
-    if (!dir.empty())
-    {
-        const std::string p = dir + "/PhaseCheck.ini";
-        std::ifstream f(p);
-        if (f.good()) return p;
-    }
-    return std::string();
-}
-
-void parse_phasecheck_ini(const std::string& path, PhaseCheckConfig& cfg)
+// 解析显式指定的 PhaseCheck.ini；返回 false 表示文件不可读。
+bool parse_phasecheck_ini(const std::string& path, PhaseCheckConfig& cfg)
 {
     std::ifstream f(path);
-    if (!f) return;
+    if (!f) return false;
 
     std::string section;
     std::vector<std::pair<int, std::string>> stations;  // (序号, 名字)
@@ -251,7 +208,7 @@ void parse_phasecheck_ini(const std::string& path, PhaseCheckConfig& cfg)
               });
 
     std::vector<std::string> parsed;
-    for (const auto& s : stations) parsed.push_back(s.second);
+    for (const auto& st : stations) parsed.push_back(st.second);
     if (station_number > 0 && static_cast<std::size_t>(station_number) <= parsed.size())
     {
         parsed.resize(static_cast<std::size_t>(station_number));
@@ -259,9 +216,10 @@ void parse_phasecheck_ini(const std::string& path, PhaseCheckConfig& cfg)
 
     cfg.stations = std::move(parsed);
     cfg.ini_path = path;
+    return true;
 }
 
-PhaseCheckConfig load_phasecheck_config()
+PhaseCheckConfig load_phasecheck_config(const std::string& ini_path)
 {
     PhaseCheckConfig cfg;
     // RD 发行版 PhaseCheck.ini 的默认值：SP09 / PASS VALUE 0 / 7 个站点
@@ -269,25 +227,84 @@ PhaseCheckConfig load_phasecheck_config()
     cfg.pass_value = 0;
     cfg.stations = {"DOWNLOAD", "WRITESN", "CFT", "BBAT", "WCN", "ANTENNA", "IMEI"};
 
-    const std::string ini = find_phasecheck_ini();
-    if (!ini.empty())
+    if (ini_path.empty()) return cfg;
+
+    PhaseCheckConfig from_ini;
+    if (parse_phasecheck_ini(ini_path, from_ini) && !from_ini.stations.empty())
     {
-        PhaseCheckConfig from_ini;
-        parse_phasecheck_ini(ini, from_ini);
-        if (!from_ini.stations.empty())
-        {
-            cfg = from_ini;
-        }
-        else
-        {
-            // 文件存在但站点表为空：沿用默认站点，保留 ini 里的 magic/pass value。
-            cfg.magic = from_ini.magic;
-            cfg.pass_value = from_ini.pass_value;
-            cfg.ini_path = ini;
-        }
+        return from_ini;
     }
+
+    // 文件不可读或站点表为空：保留 magic/pass value（若有），站点仍用默认值。
+    cfg.magic = from_ini.magic;
+    cfg.pass_value = from_ini.pass_value;
+    cfg.ini_path = ini_path;
     return cfg;
 }
+
+// 读取 ini 的所有段落，供 ISE 负载使用
+bool read_ini_sections(const std::string& path,
+                       std::map<std::string, std::map<std::string, std::string>>& out)
+{
+    std::ifstream f(path);
+    if (!f) return false;
+
+    std::string section;
+    std::string line;
+    while (std::getline(f, line))
+    {
+        const std::size_t comment = line.find_first_of(";#");
+        if (comment != std::string::npos)
+        {
+            line = line.substr(0, comment);
+        }
+        line = trim_copy(line);
+        if (line.empty()) continue;
+
+        if (line.front() == '[' && line.back() == ']')
+        {
+            section = upper_copy(trim_copy(line.substr(1, line.size() - 2)));
+            continue;
+        }
+
+        const std::size_t eq = line.find('=');
+        if (eq == std::string::npos || section.empty()) continue;
+        out[section][upper_copy(trim_copy(line.substr(0, eq)))] = trim_copy(line.substr(eq + 1));
+    }
+    return true;
+}
+
+bool parse_hex_bytes(const std::string& text, std::vector<uint8_t>& out)
+{
+    std::string s;
+    s.reserve(text.size());
+    for (char c : text)
+    {
+        if (!std::isspace(static_cast<unsigned char>(c))) s.push_back(c);
+    }
+    if (s.empty() || (s.size() % 2) != 0) return false;
+
+    auto hex_val = [](char c) -> int
+    {
+        if (c >= '0' && c <= '9') return c - '0';
+        const char u = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        if (u >= 'A' && u <= 'F') return u - 'A' + 10;
+        return -1;
+    };
+
+    out.clear();
+    out.reserve(s.size() / 2);
+    for (std::size_t i = 0; i < s.size(); i += 2)
+    {
+        const int hi = hex_val(s[i]);
+        const int lo = hex_val(s[i + 1]);
+        if (hi < 0 || lo < 0) return false;
+        out.push_back(static_cast<uint8_t>((hi << 4) | lo));
+    }
+    return true;
+}
+
+constexpr std::size_t kMaxIsePayload = 64u * 1024u * 1024u;
 
 void fill_sp05(std::vector<uint8_t>& buf, const PhaseCheckConfig& cfg,
                const std::string& sn1, const std::string& sn2)
@@ -481,11 +498,103 @@ std::string find_phasecheck_sn(const std::vector<uint8_t>& data)
     return std::string();
 }
 
-std::vector<uint8_t> build_phasecheck_buffer(const std::string& sn1, const std::string& sn2)
+bool phasecheck_ini_usable(const std::string& ini_path)
+{
+    if (ini_path.empty()) return false;
+    PhaseCheckConfig cfg;
+    return parse_phasecheck_ini(ini_path, cfg) && !cfg.stations.empty();
+}
+
+bool build_ise_payload(const std::string& ini_path, const std::string& op_id,
+                       std::vector<uint8_t>& out, std::string& err)
+{
+    out.clear();
+    err.clear();
+    if (ini_path.empty())
+    {
+        err = "no PhaseCheck.ini selected";
+        return false;
+    }
+
+    std::map<std::string, std::map<std::string, std::string>> sections;
+    if (!read_ini_sections(ini_path, sections))
+    {
+        err = "ini not readable";
+        return false;
+    }
+
+    // 优先用与操作同名的段（[ISE] / [ISE_DATA]），否则回退到 [ISE]。
+    const std::string want = upper_copy(op_id);
+    auto it = sections.find(want);
+    if (it == sections.end()) it = sections.find("ISE");
+    if (it == sections.end())
+    {
+        err = "no [ISE] section in ini";
+        return false;
+    }
+    const auto& kv = it->second;
+
+    auto data_it = kv.find("DATA");
+    auto file_it = kv.find("FILE");
+    auto size_it = kv.find("SIZE");
+
+    if (data_it != kv.end())
+    {
+        if (!parse_hex_bytes(data_it->second, out) || out.empty())
+        {
+            err = "invalid Data= (expect even-length hex)";
+            return false;
+        }
+    }
+    else if (file_it != kv.end())
+    {
+        std::filesystem::path p(file_it->second);
+        if (p.is_relative())
+        {
+            p = std::filesystem::path(ini_path).parent_path() / p;
+        }
+        size_t n = 0;
+        uint8_t* raw = loadfile(p.string().c_str(), &n, 0);
+        if (!raw || n == 0)
+        {
+            delete[] raw;
+            err = "File= not readable: " + p.string();
+            return false;
+        }
+        out.assign(raw, raw + n);
+        delete[] raw;
+    }
+    else if (size_it != kv.end())
+    {
+        const unsigned long long n = std::strtoull(size_it->second.c_str(), nullptr, 0);
+        if (n == 0)
+        {
+            err = "Size= is zero";
+            return false;
+        }
+        out.assign(static_cast<std::size_t>(n), 0xFF);  // 擦除态填充
+    }
+    else
+    {
+        err = "no Data/File/Size in [ISE] section";
+        return false;
+    }
+
+    if (out.size() > kMaxIsePayload)
+    {
+        err = "payload exceeds 64MB";
+        out.clear();
+        return false;
+    }
+    return true;
+}
+
+std::vector<uint8_t> build_phasecheck_buffer(const std::string& ini_path,
+                                             const std::string& sn1, const std::string& sn2)
 {
     // RD: memset(lpData, 0xFF, 8K) 后把结构体放在缓冲区起始处
     std::vector<uint8_t> buf(kProductionInfoSize, 0xFF);
-    const PhaseCheckConfig cfg = load_phasecheck_config();
+    const PhaseCheckConfig cfg = load_phasecheck_config(ini_path);
 
     switch (cfg.magic)
     {
@@ -503,7 +612,7 @@ std::vector<uint8_t> build_phasecheck_buffer(const std::string& sn1, const std::
 
     if (cfg.ini_path.empty())
     {
-        DEG_LOG(I, "PhaseCheck: PhaseCheck.ini not found, using RD defaults (SP09 / PASS VALUE 0 / %zu stations)",
+        DEG_LOG(I, "PhaseCheck: no ini selected, using built-in defaults (SP09 / PASS VALUE 0 / %zu stations)",
                 cfg.stations.size());
     }
     else
@@ -513,15 +622,91 @@ std::vector<uint8_t> build_phasecheck_buffer(const std::string& sn1, const std::
     return buf;
 }
 
+namespace
+{
+uint64_t file_mtime_filetime(const std::string& path)
+{
+    if (path.empty()) return 0;
+#ifdef _WIN32
+    WIN32_FILE_ATTRIBUTE_DATA fad{};
+    if (!GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &fad)) return 0;
+    return (static_cast<uint64_t>(fad.ftLastWriteTime.dwHighDateTime) << 32) |
+           static_cast<uint64_t>(fad.ftLastWriteTime.dwLowDateTime);
+#else
+    struct stat st{};
+    if (::stat(path.c_str(), &st) != 0) return 0;
+    return apr_filetime_from_unix(static_cast<uint64_t>(st.st_mtime), 0);
+#endif
+}
+}  // namespace
+
+uint64_t apr_filetime_from_unix(uint64_t sec, uint32_t nsec)
+{
+    // Windows FILETIME：自 1601-01-01 起的 100ns 数；1601 -> 1970 相差 11644473600 秒。
+    constexpr uint64_t kEpochDiff = 11644473600ULL;
+    return (sec + kEpochDiff) * 10000000ULL + static_cast<uint64_t>(nsec / 100U);
+}
+
+std::vector<uint8_t> build_apr_payload(const std::string& pac_path)
+{
+    const uint64_t filetime = file_mtime_filetime(pac_path);
+    std::vector<uint8_t> payload(sizeof(uint64_t), 0);
+    for (std::size_t i = 0; i < payload.size(); ++i)
+    {
+        payload[i] = static_cast<uint8_t>((filetime >> (8 * i)) & 0xFFu);
+    }
+    return payload;
+}
+
+bool write_apr_info(spdio_t* io, const std::string& pac_path)
+{
+    if (!io || pac_path.empty()) return false;
+
+    const uint64_t filetime = file_mtime_filetime(pac_path);
+    const std::vector<uint8_t> payload = build_apr_payload(pac_path);
+
+    std::memcpy(io->temp_buf, payload.data(), payload.size());
+    encode_msg_nocpy(io, BSL_CMD_WRITE_APR_INFO, payload.size());
+
+    if (send_and_check(io) != 0)
+    {
+        DEG_LOG(W, "APR: device rejected BSL_CMD_WRITE_APR_INFO, continuing");
+        return false;
+    }
+    DEG_LOG(OP, "APR: wrote PAC build time (filetime=0x%016llx) from %s",
+            static_cast<unsigned long long>(filetime), pac_path.c_str());
+    return true;
+}
+
 bool run_operation(spdio_t* io, const std::string& op_id, const std::string& type,
-                   const std::string& partition, uint64_t block_size, int CMethod)
+                   const std::string& partition, uint64_t block_size, int CMethod,
+                   bool write_phasecheck, bool write_ise, const std::string& ini_path)
 {
     // ---- PhaseCheck：生成 8K 生产信息并写 miscdata（RD 行为）----
     if (!my_stricmp(op_id.c_str(), "PhaseCheck"))
     {
+        // 由 PAC 页的勾选项控制（默认不勾，等同 RD 的 Research 配置 NeedPhaseCheck=0）。
+        if (!write_phasecheck)
+        {
+            DEG_LOG(I, "PhaseCheck: not selected on the PAC page, skipped");
+            return true;
+        }
+
         if (partition.empty())
         {
             DEG_LOG(W, "PhaseCheck: no Block/partition in XML, skipped");
+            return true;
+        }
+
+        // ini 必须由用户显式选择（GUI 文件选择 / CLI 输入），不再自动探测。
+        if (ini_path.empty())
+        {
+            DEG_LOG(E, "PhaseCheck: no PhaseCheck.ini selected on the PAC page, skipped");
+            return true;
+        }
+        if (!phasecheck_ini_usable(ini_path))
+        {
+            DEG_LOG(E, "PhaseCheck: ini is not usable (%s), skipped", ini_path.c_str());
             return true;
         }
 
@@ -544,7 +729,7 @@ bool run_operation(spdio_t* io, const std::string& op_id, const std::string& typ
             DEG_LOG(W, "PhaseCheck: no SN found on device partition %s, writing empty SN", partition.c_str());
         }
 
-        std::vector<uint8_t> buf = build_phasecheck_buffer(sn);
+        std::vector<uint8_t> buf = build_phasecheck_buffer(ini_path, sn);
         buf.resize(size, 0xFF);
 
         get_partition_info(io, partition.c_str(), 1);
@@ -564,16 +749,47 @@ bool run_operation(spdio_t* io, const std::string& op_id, const std::string& typ
     }
 
     // ---- ISE / ISE_DATA ----
-    // 查过 RD 的 BMFileType.ini（R23 / R27）：没有 ISE 段，它们落到 [CODE2] =
-    // DownloadByID；而 RD 的 _Download 对 llCodeSize==0 会直接返回失败
-    // ("[ID] file size is zero.")。这两条在 XML 里 Flag=0、Block Size=0x0，
-    // 所以 RD 实际不会写它们（写了必然报错）。这里与之等价：只告警、不写。
+    // 默认“空壳”：RD 的 [CODE2] 只有 DownloadByID，零长度会直接失败，所以 RD 实际跳过。
+    // 若用户在 PAC 页打开 ISE 开关并显式选择可用的 ini，则按 ini 的 [ISE]/[ISE_DATA]
+    // 段生成内容写入对应分区；否则保持告警、不写。
     if (!my_stricmp(op_id.c_str(), "ISE") || !my_stricmp(op_id.c_str(), "ISE_DATA"))
     {
-        DEG_LOG(W,
-                "%s (Type=%s, Block=%s): Flag=0 with Block Size=0; RD [CODE2] only has "
-                "DownloadByID which fails on zero length, so RD skips it; nothing written here.",
-                op_id.c_str(), type.c_str(), partition.c_str());
+        if (!write_ise)
+        {
+            DEG_LOG(W,
+                    "%s (Type=%s, Block=%s): ISE generation disabled (shell only); "
+                    "enable it on the PAC page and select a PhaseCheck.ini to generate.",
+                    op_id.c_str(), type.c_str(), partition.c_str());
+            return true;
+        }
+
+        std::vector<uint8_t> payload;
+        std::string err;
+        if (!build_ise_payload(ini_path, op_id, payload, err))
+        {
+            DEG_LOG(W, "%s: cannot generate from ini (%s), skipped; keeping shell warning.",
+                    op_id.c_str(), err.c_str());
+            return true;
+        }
+
+        if (partition.empty())
+        {
+            DEG_LOG(W, "%s: no Block/partition in XML, skipped", op_id.c_str());
+            return true;
+        }
+        get_partition_info(io, partition.c_str(), 1);
+        if (!gPartInfo.size)
+        {
+            DEG_LOG(W, "%s: partition %s does not exist, skipped", op_id.c_str(), partition.c_str());
+            return true;
+        }
+
+        DEG_LOG(OP, "Generate %s: %zu bytes from %s -> %s (Type=%s)",
+                op_id.c_str(), payload.size(), ini_path.c_str(), partition.c_str(), type.c_str());
+        if (!write_buffer_to_partition(io, partition, payload, CMethod))
+        {
+            DEG_LOG(E, "%s: failed to write %s", op_id.c_str(), partition.c_str());
+        }
         return true;
     }
 

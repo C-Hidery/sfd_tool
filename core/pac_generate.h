@@ -23,8 +23,24 @@ constexpr std::size_t kProductionInfoSize = 0x2000;
 // 构造 8K PhaseCheck 缓冲区：整体 0xFF 填充，头部放 SP15 结构。
 // RD 会用 PhaseCheck.ini + 设备 SN 填充站点信息；在缺少这些输入时，
 // 这里写入“单站点 DOWNLOAD、空 SN”的合法结构（与 RD 的默认值一致）。
-std::vector<uint8_t> build_phasecheck_buffer(const std::string& sn1 = std::string(),
+// ini_path 由用户显式指定（GUI 文件选择 / CLI 输入）；为空时使用内置默认值。
+std::vector<uint8_t> build_phasecheck_buffer(const std::string& ini_path,
+                                             const std::string& sn1 = std::string(),
                                              const std::string& sn2 = std::string());
+
+// ini 是否可用（可读且能解析出至少一个站点）。
+bool phasecheck_ini_usable(const std::string& ini_path);
+
+// ---- ISE ----
+// 从 ini 的 [ISE] / [ISE_DATA] 段生成 ISE 负载，支持：
+//   Data = 十六进制串
+//   File = 相对于 ini 的文件（也可以是绝对路径）
+//   Size = 十进制/0x 十六进制字节数（无 Data/File 时按 0xFF 填充）
+// 返回 false 表示 ini 不可用或该段没有可用值（调用方保持“空壳+警告”）。
+bool build_ise_payload(const std::string& ini_path,
+                       const std::string& op_id,
+                       std::vector<uint8_t>& out,
+                       std::string& err);
 
 // 从设备读回的 8K PhaseCheck 数据里提取 SN（移植自 RD 的
 // CPhaseCheckBuild::FindSnFrom8K：SP05 取 header.SN，SP09/SP15 从 8K 末尾
@@ -34,12 +50,24 @@ std::string find_phasecheck_sn(const std::vector<uint8_t>& data);
 // 处理一个生成型操作。
 // 返回 true 表示该操作已被本模块识别并处理（是否真正写入见日志）；
 // 返回 false 表示本模块不认识该操作，调用方继续走“不支持”告警。
+// write_phasecheck：是否生成并写入 PhaseCheck（对应 PAC 页的勾选项）。
 bool run_operation(spdio_t* io,
                    const std::string& op_id,
                    const std::string& type,
                    const std::string& partition,
                    uint64_t block_size,
-                   int CMethod);
+                   int CMethod,
+                   bool write_phasecheck,
+                   bool write_ise,
+                   const std::string& ini_path);
+
+// ---- APR ----
+// unix 时间 -> Windows FILETIME（100ns，自 1601-01-01），用于 APR 负载。
+uint64_t apr_filetime_from_unix(uint64_t sec, uint32_t nsec);
+// 生成 8 字节小端 FILETIME 负载（取 PAC 文件的修改时间）。
+std::vector<uint8_t> build_apr_payload(const std::string& pac_path);
+// 发送 BSL_CMD_WRITE_APR_INFO（0x22，把 PAC 构建时间写入 miscdata）。
+bool write_apr_info(spdio_t* io, const std::string& pac_path);
 }  // namespace pac_generate
 
 #endif  // PAC_GENERATE_H

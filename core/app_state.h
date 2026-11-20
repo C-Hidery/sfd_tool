@@ -32,6 +32,11 @@ struct FlashState {
     bool w_force_repart = false; // w_force 自我修复：内存表已改名，待回写设备分区表
     bool isPacFlashing = false; // 是否正在进行 PAC 刷机（影响分区选择和写入策略）
     bool isPacMergingNV = false;
+    bool isPacWritePhaseCheck = false; // PAC 页勾选：生成并写入 PhaseCheck（miscdata）
+    bool isPacWriteApr = false;        // PAC 页勾选：写 APR 信息（PAC 构建时间）
+    bool isPacWriteIse = false;        // PAC 页勾选：按 ini 生成 ISE/ISE_DATA
+    std::string phasecheckIniPath;     // 用户显式选择的 PhaseCheck.ini（为空=未指定）
+    std::string pacFilePath;           // 当前 PAC 文件路径（APR 时间戳等使用）
     std::string pac_folder;  // PAC 刷机时解压的临时文件夹路径
     std::string pac_xmlPath; // PAC 刷机时解析出的 XML 路径，供后续分区信息查询使用
     std::vector<std::string> selected_pacptable; // PAC 刷机时用户选择的分区表（仅包含分区名）

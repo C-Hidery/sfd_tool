@@ -7,6 +7,7 @@
 #include "../core/usb_transport.h"
 #include "../core/config_service.h"
 #include "../core/pac_extract.h"  // FindFDLInExtFloder & Stages
+#include "../core/pac_generate.h"  // phasecheck_ini_usable
 #include "../i18n.h"
 #include "ui/ui_common.h"
 #include "ui/gtk_row_view.hpp"
@@ -95,6 +96,21 @@ void on_button_clicked_pac_unpack(GtkWidgetHelper helper) {
 			return;
 		}
 	}).detach();
+}
+
+void on_button_clicked_pac_phasecheck_ini(GtkWidgetHelper helper) {
+	GtkWindow* parent = GTK_WINDOW(helper.getWidget("main_window"));
+	std::string filename = showFileChooser(parent, true);
+	if (filename.empty()) return;
+
+	g_app_state.flash.phasecheckIniPath = filename;
+	helper.setLabelText(helper.getWidget("pac_phasecheck_ini_label"), filename.c_str());
+
+	if (!pac_generate::phasecheck_ini_usable(filename)) {
+		showInfoDialogSyncInThread(parent, _("Warning"),
+			_("This ini has no usable [STATION] section; PhaseCheck generation will be skipped. "
+			  "The [ISE]/[ISE_DATA] section is still used when ISE is enabled."));
+	}
 }
 
 void on_button_clicked_pac_flash_start(GtkWidgetHelper helper) {
@@ -241,6 +257,47 @@ GtkWidget* PacFlashPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     helper.addWidget("pac_repartition", repartitionCheck);
     gtk_box_append(GTK_BOX(flashCardBox), repartitionCheck);
 
+    // 生成型操作（默认都不勾，与 RD 的 Research 配置一致）
+    GtkWidget* writePhaseCheck = gtk_check_button_new_with_label(_("Write PhaseCheck (production info)"));
+    gtk_widget_set_name(writePhaseCheck, "pac_write_phasecheck");
+    gtk_widget_set_tooltip_text(writePhaseCheck,
+        _("Generate 8K phase-check data from PhaseCheck.ini and write it to miscdata."));
+    helper.addWidget("pac_write_phasecheck", writePhaseCheck);
+    gtk_box_append(GTK_BOX(flashCardBox), writePhaseCheck);
+
+    GtkWidget* writeAprCheck = gtk_check_button_new_with_label(_("Write APR info (PAC build time)"));
+    gtk_widget_set_name(writeAprCheck, "pac_write_apr");
+    gtk_widget_set_tooltip_text(writeAprCheck,
+        _("Send BSL_CMD_WRITE_APR_INFO with the PAC file build time (needs <APR>1</APR> in the PAC XML)."));
+    helper.addWidget("pac_write_apr", writeAprCheck);
+    gtk_box_append(GTK_BOX(flashCardBox), writeAprCheck);
+
+    // PhaseCheck / ISE 生成所需的 ini（可选，用户显式选择）
+    GtkWidget* iniRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    GtkWidget* iniBtn = gtk_button_new_with_label(_("Select PhaseCheck.ini (optional)"));
+    gtk_widget_set_name(iniBtn, "pac_phasecheck_ini_select");
+    helper.addWidget("pac_phasecheck_ini_select", iniBtn);
+
+    GtkWidget* iniLabel = gtk_label_new(_("No ini selected"));
+    gtk_widget_set_name(iniLabel, "pac_phasecheck_ini_label");
+    gtk_label_set_ellipsize(GTK_LABEL(iniLabel), PANGO_ELLIPSIZE_MIDDLE);
+    gtk_widget_set_hexpand(iniLabel, TRUE);
+    gtk_widget_set_halign(iniLabel, GTK_ALIGN_START);
+    helper.addWidget("pac_phasecheck_ini_label", iniLabel);
+
+    gtk_box_append(GTK_BOX(iniRow), iniBtn);
+    gtk_box_append(GTK_BOX(iniRow), iniLabel);
+    gtk_box_append(GTK_BOX(flashCardBox), iniRow);
+
+    GtkWidget* writeIseCheck = gtk_check_button_new_with_label(
+        _("Write ISE (generate from [ISE] section of the selected ini)"));
+    gtk_widget_set_name(writeIseCheck, "pac_write_ise");
+    gtk_widget_set_tooltip_text(writeIseCheck,
+        _("Off: keep the shell warning and write nothing. On: read [ISE]/[ISE_DATA] from the selected ini "
+          "(Data=<hex>, File=<path> or Size=<bytes>) and write it to the ISE partitions."));
+    helper.addWidget("pac_write_ise", writeIseCheck);
+    gtk_box_append(GTK_BOX(flashCardBox), writeIseCheck);
+
     GtkWidget* pacFlashBtn = gtk_button_new_with_label(_("START PAC Flash"));
     gtk_widget_set_name(pacFlashBtn, "pac_flash_start");
     gtk_widget_set_size_request(pacFlashBtn, -1, 36);
@@ -265,6 +322,12 @@ void PacFlashPage::bindSignals(GtkWidgetHelper& helper) {
 	if (pacUnpackBtn) {
 		helper.bindClick(pacUnpackBtn, [helper]() {
 			on_button_clicked_pac_unpack(helper);
+		});
+	}
+	GtkWidget* iniBtn = helper.getWidget("pac_phasecheck_ini_select");
+	if (iniBtn) {
+		helper.bindClick(iniBtn, [helper]() {
+			on_button_clicked_pac_phasecheck_ini(helper);
 		});
 	}
 	GtkWidget* pacFlashBtn = helper.getWidget("pac_flash_start");
