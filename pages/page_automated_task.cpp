@@ -696,6 +696,9 @@ void on_button_clicked_start(GtkWidgetHelper helper)
     request.package_root = g_package_root;
     request.partitions = g_package_partitions;
     request.actions = tasks;
+    request.on_pause = [parent](const std::string& message) {
+        showInfoDialogSyncInThread(parent, _("Info"), message.c_str());
+    };
 
     helper.disableWidget("auto_task_start");
     helper.disableWidget("auto_task_recheck");

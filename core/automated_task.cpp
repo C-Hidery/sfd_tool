@@ -10,6 +10,7 @@
 #include "../common.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cctype>
 #include <cerrno>
 #include <climits>
@@ -19,6 +20,7 @@
 #include <stdexcept>
 #include <string>
 #include <system_error>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -51,6 +53,21 @@ bool iequals_ascii(const std::string& a, const char* b)
             return false;
         }
     }
+    return true;
+}
+
+bool parse_uint64(const std::string& text, std::uint64_t& out)
+{
+    if (text.empty() || text[0] == '-') {
+        return false;
+    }
+    errno = 0;
+    char* end = nullptr;
+    const unsigned long long value = std::strtoull(text.c_str(), &end, 0);
+    if (errno == ERANGE || end == text.c_str() || *end != '\0') {
+        return false;
+    }
+    out = static_cast<std::uint64_t>(value);
     return true;
 }
 
@@ -267,6 +284,20 @@ private:
             line.substr(0, name_end == std::string::npos ? line.size() : name_end);
         if (first_word == "print") {
             write_log(command_rest(line));
+            return true;
+        }
+
+        if (first_word == "pause") {
+            const std::string message = command_rest(line);
+            if (message.empty()) {
+                return fail("usage: pause <message>");
+            }
+            if (!request_.on_pause) {
+                return fail("pause is not available without a UI callback");
+            }
+            write_log("pause: waiting for confirmation");
+            request_.on_pause(message);
+            write_log("pause resumed");
             return true;
         }
 
@@ -518,6 +549,23 @@ private:
             }
             set_active(io, tokens[1].c_str(), g_app_state.flash.isCMethod);
             write_log("set_active " + tokens[1]);
+            return true;
+        }
+
+        if (command == "wait") {
+            if (tokens.size() != 2) return fail("usage: wait <seconds>");
+            std::uint64_t seconds = 0;
+            if (!parse_uint64(tokens[1], seconds)) {
+                return fail("wait expects a non-negative integer number of seconds");
+            }
+            const auto max_seconds = std::chrono::seconds::max().count();
+            if (seconds > static_cast<std::uint64_t>(max_seconds)) {
+                return fail("wait duration is too large");
+            }
+            write_log("waiting " + std::to_string(seconds) + " second(s)");
+            std::this_thread::sleep_for(
+                std::chrono::seconds(static_cast<std::chrono::seconds::rep>(seconds)));
+            write_log("wait finished");
             return true;
         }
 

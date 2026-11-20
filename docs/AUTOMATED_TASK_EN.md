@@ -111,6 +111,9 @@ Clicking `Start` first shows a safety confirmation. After confirmation,
 commands run in the order of **Task Selection**. The first failure stops
 execution and shows a warning dialog.
 
+- `wait TIME` pauses execution for TIME seconds;
+- `pause message` shows an Info dialog with the message and waits for
+  confirmation before continuing;
 - Command output appears in the bottom Log pane;
 - `reset`, `poweroff`, `reboot-fastboot`, and `reboot-recovery`
   disconnect the device on success; all GUI buttons are then disabled
@@ -141,6 +144,8 @@ execution and shows a warning dialog.
 | `reboot-recovery` | Reboot to recovery |
 | `set_active a\|b` | Set the active slot |
 | `timeout value` | Set device timeout in milliseconds |
+| `wait TIME` | Wait TIME seconds before continuing |
+| `pause message` | Show an Info dialog and wait for confirmation |
 | `print TEXT` | Print text to the bottom log |
 
 `write_part` and `write_parts` resolve image paths relative to
