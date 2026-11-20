@@ -115,7 +115,7 @@ uint64_t fblk_size = 0;
 int& m_bOpened = g_app_state.device.m_bOpened;
 char* temp;
 #ifndef _WIN32
-void check_root_permission(GtkWidgetHelper helper)
+void check_root_permission(GtkWidgetHelper& helper)
 {
     if (geteuid() != 0)
     {
