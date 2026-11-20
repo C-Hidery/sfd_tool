@@ -309,6 +309,8 @@ translation_dict = {
     "No ini selected": "未选择 ini",
     "This ini has no usable [STATION] section; PhaseCheck generation will be skipped. The [ISE]/[ISE_DATA] section is still used when ISE is enabled.": "该 ini 没有可用的 [STATION] 段，将跳过 PhaseCheck 生成；启用 ISE 时仍会读取 [ISE]/[ISE_DATA] 段。",
     "Write ISE (generate from [ISE] section of the selected ini)": "写入 ISE（用所选 ini 的 [ISE] 段生成）",
+    "Write ProdNV (overwrites IMEI/SN)": "写入 ProdNV（会覆盖 IMEI/SN）",
+    "Write the ProdNV image from the PAC. It overwrites the device IMEI/SN and production data; off by default.": "写入 PAC 里的 ProdNV 镜像。会覆盖设备的 IMEI/SN 与产测数据，默认关闭。",
     "Off: keep the shell warning and write nothing. On: read [ISE]/[ISE_DATA] from the selected ini (Data=<hex>, File=<path> or Size=<bytes>) and write it to the ISE partitions.": "关闭：保持空壳告警、不写入。开启：从所选 ini 的 [ISE]/[ISE_DATA] 段读取（Data=<十六进制>、File=<路径> 或 Size=<字节数>）并写入 ISE 分区。"
 }
 

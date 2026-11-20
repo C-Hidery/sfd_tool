@@ -1553,3 +1553,12 @@ msgstr "使用内置 PhaseCheck.ini 默认值生成 8K 产测信息并写入 mis
 
 msgid "Select ISE ini (optional)"
 msgstr "选择 ISE ini（可选）"
+
+
+# ===== Auto-appended entries from sfd_tool.pot =====
+
+msgid "Write ProdNV (overwrites IMEI/SN)"
+msgstr "写入 ProdNV（会覆盖 IMEI/SN）"
+
+msgid "Write the ProdNV image from the PAC. It overwrites the device IMEI/SN and production data; off by default."
+msgstr "写入 PAC 里的 ProdNV 镜像。会覆盖设备的 IMEI/SN 与产测数据，默认关闭。"

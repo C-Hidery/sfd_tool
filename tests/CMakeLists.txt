@@ -60,6 +60,11 @@ add_executable(test_pac_plan
     ${SFD_TEST_COMMON_SOURCES}
 )
 
+add_executable(test_nv_merge
+    test_nv_merge.cpp
+    ${SFD_TEST_COMMON_SOURCES}
+)
+
 # ====== 平台相关链接设置 ======
 # 为避免 macOS / MSVC 上重复链接 core_lib/pages_lib 的告警，
 # 同时兼顾 GNU ld（Linux / MinGW）静态库之间的循环依赖：
@@ -97,6 +102,7 @@ target_link_libraries(test_temp_file PRIVATE ${SFD_TEST_LIBS})
 target_link_libraries(test_automated_task PRIVATE ${SFD_TEST_LIBS})
 target_link_libraries(test_phasecheck PRIVATE ${SFD_TEST_LIBS})
 target_link_libraries(test_pac_plan PRIVATE ${SFD_TEST_LIBS})
+target_link_libraries(test_nv_merge PRIVATE ${SFD_TEST_LIBS})
 
 # ====== CTest 集成 ======
 
@@ -109,6 +115,7 @@ add_test(NAME temp_file_tests COMMAND test_temp_file)
 add_test(NAME automated_task_tests COMMAND test_automated_task)
 add_test(NAME phasecheck_tests COMMAND test_phasecheck)
 add_test(NAME pac_plan_tests COMMAND test_pac_plan)
+add_test(NAME nv_merge_tests COMMAND test_nv_merge)
 
 # 在 Windows CI 环境下暂时禁用 blocksize_and_backup_service_tests，
 # 避免由于运行时依赖缺失导致整个 ctest 失败。
@@ -128,6 +135,7 @@ set(SFD_TEST_TARGETS
     test_automated_task
     test_phasecheck
     test_pac_plan
+    test_nv_merge
 )
 
 # 将测试目标导出到父作用域，方便顶层 CMake 统一设置编译选项（如 USE_GTK/USE_LIBUSB）

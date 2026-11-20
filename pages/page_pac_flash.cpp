@@ -265,6 +265,14 @@ GtkWidget* PacFlashPage::init(GtkWidgetHelper& helper, GtkWidget* notebook) {
     helper.addWidget("pac_write_phasecheck", writePhaseCheck);
     gtk_box_append(GTK_BOX(flashCardBox), writePhaseCheck);
 
+    GtkWidget* writeProdnvCheck = gtk_check_button_new_with_label(
+        _("Write ProdNV (overwrites IMEI/SN)"));
+    gtk_widget_set_name(writeProdnvCheck, "pac_write_prodnv");
+    gtk_widget_set_tooltip_text(writeProdnvCheck,
+        _("Write the ProdNV image from the PAC. It overwrites the device IMEI/SN and production data; off by default."));
+    helper.addWidget("pac_write_prodnv", writeProdnvCheck);
+    gtk_box_append(GTK_BOX(flashCardBox), writeProdnvCheck);
+
     GtkWidget* writeAprCheck = gtk_check_button_new_with_label(_("Write APR info (PAC build time)"));
     gtk_widget_set_name(writeAprCheck, "pac_write_apr");
     gtk_widget_set_tooltip_text(writeAprCheck,

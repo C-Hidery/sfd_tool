@@ -3114,18 +3114,67 @@ int get_nvlist_xml(spdio_t* io, const char* fn)
         DEG_LOG(E, "malloc failed");
         return 0;
     }
+    if (!io->nv_continue)
+    {
+        io->nv_continue = NEWN uint8_t[0x10000];
+    }
+    if (!io->nv_continue)
+    {
+        DEG_LOG(E, "malloc failed");
+        return 0;
+    }
     memset(io->nvid_list, 0, 0x10000 * sizeof(int));
+    memset(io->nv_continue, 0, 0x10000);
 
-    // 3. 查找所有 <NVItem>（任意嵌套）
+    // 3. 产品级 <NVBackup backup="0">：本次不做 NV 备份/合并
+    auto nvBackups = xmlutil::descendants(root, "NVBackup");
+    if (!nvBackups.empty() && xmlutil::prop(nvBackups.front(), "backup") == "0")
+    {
+        if (io->verbose) DEG_LOG(I, "NVBackup backup=0, NV merge disabled by XML");
+        return 0;
+    }
+
+    // 4. 查找所有 <NVItem>（任意嵌套）
     auto nvItems = xmlutil::descendants(root, "NVItem");
     if (nvItems.empty())
     {
         if (io->verbose) DEG_LOG(W, "can't find NVItem from input");
     }
 
-    // 遍历每个 NVItem，提取其子节点 <ID> 的值
+    // 5. 遍历每个 NVItem：按 backup 属性与 BackupFlag/NVFlag 过滤
+    //    - <NVItem backup="0">：该项不备份/不合并
+    //    - <BackupFlag use="0">：不使用 flag，按默认“保留旧值”处理
+    //    - <NVFlag name="Replace" check="1">：RD 里 bOldReplaceNew 是 UNUSED_ALWAYS，
+    //      实际不生效（始终保留旧值）；这里与其保持一致，仅在 verbose 下提示
     for (xmlNodePtr nvItem : nvItems)
     {
+        if (xmlutil::prop(nvItem, "backup") == "0")
+        {
+            if (io->verbose) DEG_LOG(I, "NVItem backup=0, skipped");
+            continue;
+        }
+
+        // Replace 在 RD 的 preserve 函数中被忽略（UNUSED_ALWAYS），保持同样行为；
+        // Continue=1 对应 RD 的 bContinue：设备上缺该项时容忍（不中断合并）。
+        bool continue_missing = false;
+        for (xmlNodePtr bf : xmlutil::children(nvItem, "BackupFlag"))
+        {
+            if (xmlutil::prop(bf, "use") == "0") continue;
+            for (xmlNodePtr flag : xmlutil::children(bf, "NVFlag"))
+            {
+                const std::string name = xmlutil::prop(flag, "name");
+                if (xmlutil::prop(flag, "check") != "1") continue;
+                if (name == "Replace" && io->verbose)
+                {
+                    DEG_LOG(I, "NVItem Replace=1 ignored (RD behavior: old value wins)");
+                }
+                else if (name == "Continue")
+                {
+                    continue_missing = true;
+                }
+            }
+        }
+
         xmlNodePtr idNode = xmlutil::firstChild(nvItem, "ID");
         if (!idNode) continue;
 
@@ -3137,11 +3186,12 @@ int get_nvlist_xml(spdio_t* io, const char* fn)
         if (id >= 0 && id < 0x10000)
         {
             io->nvid_list[id] = 1;
+            if (continue_missing) io->nv_continue[id] = 1;
             if (io->verbose) printf("saved id 0x%lX to list\n", id);
         }
     }
 
-    // 4. 强制添加固定 ID（与原函数完全一致）
+    // 6. 强制添加固定 ID（与原函数完全一致）
     io->nvid_list[5]      = 1;
     io->nvid_list[0x179]  = 1;
     io->nvid_list[0x186]  = 1;
@@ -3166,7 +3216,13 @@ int get_nvlist_cfg(spdio_t* io, char* fn)
         io->nvid_list = NEWN int[0x10000];
     }
     if (!io->nvid_list) ERR_EXIT("malloc failed\n");
+    if (!io->nv_continue)
+    {
+        io->nv_continue = NEWN uint8_t[0x10000];
+    }
+    if (!io->nv_continue) ERR_EXIT("malloc failed\n");
     memset(io->nvid_list, 0, 0x10000 * sizeof(int));
+    memset(io->nv_continue, 0, 0x10000);
     while (cfg_fd.gets(line, sizeof(line)))
     {
         if (line[0] == '#' || line[0] == '\0') continue;

@@ -248,16 +248,24 @@ void print_help()
             "\t72.read_flash [ADDR] [OFFSET] [SIZE] [FILE]\n"
             "\t\tRead flash content to a file; SIZE 0 means auto-detect until a short read.\n"
             "\t\t`read_flash_dhtb` for reading DHTB Signature for ums9117\n"
-            "\t73.read_mem [ADDR] [SIZE] [FILE]\n"
+            "\t73.mergenv-xml-rd [XML] new_nv\n"
+            "\t\tRD-style NV merge (per-item preserve, calibration-aware) with an XML config, write back.\n"
+            "\t74.mergenv-cfg-rd [CONFIG] new_nv\n"
+            "\t\tRD-style NV merge with a special config file, write back.\n"
+            "\t75.mergenv-xml-ex-rd [XML] old_nv new_nv FILE\n"
+            "\t\tRD-style NV merge with an XML config; old nv image needed.\n"
+            "\t76.mergenv-cfg-ex-rd [CONFIG] old_nv new_nv FILE\n"
+            "\t\tRD-style NV merge with a special config file; old nv image needed.\n"
+            "\t77.read_mem [ADDR] [SIZE] [FILE]\n"
             "\t\tRead memory content to a file\n"
-            "\t74.erase_flash [ADDR] [SIZE]\n"
+            "\t78.erase_flash [ADDR] [SIZE]\n"
             "\t\tErase flash content\n"
-            "\t75.part_guid\n"
+            "\t79.part_guid\n"
             "\t\tDump the GPT disk GUID (and per-partition GUIDs when the table is read from the device), FDL2 stage only.\n"
-            "\t76.pwnexec [9360|9632]\n"
+            "\t80.pwnexec [9360|9632]\n"
             "\t\tLet FDL1 execute a custom FDL2. (ums9360/ums9632 only).\n"
             "\t\tUses the FDL1 image cached when it was sent to 0x65008000.\n"
-            "\t77.pwnexecd [9360|9632] FILE\n"
+            "\t81.pwnexecd [9360|9632] FILE\n"
             "\t\tSame as pwnexec, but resends FDL1 from FILE.\n"
             "Notice:\n"
             "\t1.The compatibility method to get part table sometimes can not get all partitions on your device\n"
@@ -266,11 +274,11 @@ void print_help()
     );
     fprintf(stderr,
             "\nExit Commands\n"
-            "\t78.reboot-recovery\n\t\tFDL2 only\n"
-            "\t79.reboot-fastboot\n\t\tFDL2 only\n"
-            "\t80.reset\n\t\tFDL2 and new FDL1\n"
-            "\t81.poweroff\n\t\tFDL2 and new FDL1\n"
-            "\t82.exit\n\t\tExit the program (Tool mode only.)\n"
+            "\t82.reboot-recovery\n\t\tFDL2 only\n"
+            "\t83.reboot-fastboot\n\t\tFDL2 only\n"
+            "\t84.reset\n\t\tFDL2 and new FDL1\n"
+            "\t85.poweroff\n\t\tFDL2 and new FDL1\n"
+            "\t86.exit\n\t\tExit the program (Tool mode only.)\n"
     );
 }
 
@@ -2860,7 +2868,11 @@ int main_console(int argc, char** argv)
                                             continue;
                                         }
                                         uint8_t *c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
-                                        merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
+                                        if (!merge_nv_rd(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size))
+                                        {
+                                            DEG_LOG(E, "RD-style NV merge failed, aborting");
+                                            ERR_EXIT("RD-style NV merge failed");
+                                        }
                                         send_buf(io, f.addr[0], end_data, blk_size ? blk_size : DEFAULT_BLK_SIZE, c, c_size);
                                         DEG_LOG(OP, "Sent 0x%x to 0x%x.", c_size, f.addr[0]);
                                         delete[](a); delete[](b); free(c);
@@ -4044,6 +4056,190 @@ int main_console(int argc, char** argv)
                 uint8_t* b = loadfile(str2[4], &b_size, 0);
                 uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
                 merge_nv(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size);
+                EnhancedFile fi = oxfopen_enhanced(str2[5], "wb");
+                if (!fi) ERR_EXIT("fopen failed\n");
+                if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+                if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
+                fi.close();
+                delete[](a);
+                delete[](b);
+                free(c);
+            }
+            argc -= 5;
+            argv += 5;
+        }
+        else if (!strcmp(str2[1], "mergenv-xml-rd"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 3)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 3;
+                    argv += 3;
+                }
+                continue;
+            }
+            if (argcount <= 3)
+            {
+                DEG_LOG(W, "mergenv-xml xml new_nv\n");
+                argc = 1;
+                continue;
+            }
+            get_partition_info(io, "nr_fixnv1", 1);
+            if (!gPartInfo.size) get_partition_info(io, "l_fixnv1", 1);
+            if (!gPartInfo.size)
+            {
+                DEG_LOG(E, "part not exist\n");
+                argc -= 3;
+                argv += 3;
+                continue;
+            }
+            uint64_t size = 0;
+            TempFile temp_path = dump_partition_to_temp(io, gPartInfo.name, 0, gPartInfo.size,
+                                                        blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
+            if (temp_path.empty() || !size)
+            {
+                DEG_LOG(E, "dump_partition_to_temp failed");
+                argc = 1;
+                continue;
+            }
+            if (get_nvlist_xml(io, str2[2]))
+            {
+                size_t a_size = 0, b_size = 0, c_size = 0;
+                uint8_t* a = loadfile(temp_path.c_str(), &a_size, 0);
+                uint8_t* b = loadfile(str2[3], &b_size, 0);
+                if (a && b)
+                {
+                    uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                    if (!merge_nv_rd(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size))
+                {
+                    DEG_LOG(E, "RD-style NV merge failed, aborting");
+                    ERR_EXIT("RD-style NV merge failed");
+                }
+                    load_merged_nv(io, gPartInfo.name, c, c_size, 4096);
+                    free(c);
+                }
+                delete[](a);
+                delete[](b);
+            }
+            argc -= 3;
+            argv += 3;
+        }
+        else if (!strcmp(str2[1], "mergenv-xml-ex-rd"))
+        {
+            if (argcount <= 5)
+            {
+                DEG_LOG(W, "mergenv-xml-ex xml old_nv new_nv FILE\n");
+                argc = 1;
+                continue;
+            }
+            if (get_nvlist_xml(io, str2[2]))
+            {
+                size_t a_size = 0, b_size = 0, c_size = 0;
+                uint8_t* a = loadfile(str2[3], &a_size, 0);
+                uint8_t* b = loadfile(str2[4], &b_size, 0);
+                uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                if (!merge_nv_rd(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size))
+                {
+                    DEG_LOG(E, "RD-style NV merge failed, aborting");
+                    ERR_EXIT("RD-style NV merge failed");
+                }
+                EnhancedFile fi = oxfopen_enhanced(str2[5], "wb");
+                if (!fi) ERR_EXIT("fopen failed\n");
+                if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
+                if (fi.write(c, 1, c_size) != c_size) ERR_EXIT("fwrite failed\n");
+                fi.close();
+                delete[](a);
+                delete[](b);
+                free(c);
+            }
+            argc -= 5;
+            argv += 5;
+        }
+        else if (!strcmp(str2[1], "mergenv-cfg-rd"))
+        {
+            if (isToolMode)
+            {
+                if (argcount <= 3)
+                {
+                    argc = 1;
+                }
+                else
+                {
+                    argc -= 3;
+                    argv += 3;
+                }
+                continue;
+            }
+            if (argcount <= 3)
+            {
+                DEG_LOG(W, "mergenv-cfg cfg new_nv\n");
+                argc = 1;
+                continue;
+            }
+            get_partition_info(io, "nr_fixnv1", 1);
+            if (!gPartInfo.size) get_partition_info(io, "l_fixnv1", 1);
+            if (!gPartInfo.size)
+            {
+                DEG_LOG(E, "part not exist\n");
+                argc -= 3;
+                argv += 3;
+                continue;
+            }
+            uint64_t size = 0;
+            TempFile temp_path = dump_partition_to_temp(io, gPartInfo.name, 0, gPartInfo.size,
+                                                        blk_size ? blk_size : DEFAULT_BLK_SIZE, &size);
+            if (temp_path.empty() || !size)
+            {
+                DEG_LOG(E, "dump_partition_to_temp failed");
+                argc = 1;
+                continue;
+            }
+            if (get_nvlist_cfg(io, str2[2]))
+            {
+                size_t a_size = 0, b_size = 0, c_size = 0;
+                uint8_t* a = loadfile(temp_path.c_str(), &a_size, 0);
+                uint8_t* b = loadfile(str2[3], &b_size, 0);
+                if (a && b)
+                {
+                    uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                    if (!merge_nv_rd(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size))
+                {
+                    DEG_LOG(E, "RD-style NV merge failed, aborting");
+                    ERR_EXIT("RD-style NV merge failed");
+                }
+                    load_merged_nv(io, gPartInfo.name, c, c_size, 4096);
+                    free(c);
+                }
+                delete[](a);
+                delete[](b);
+            }
+            argc -= 3;
+            argv += 3;
+        }
+        else if (!strcmp(str2[1], "mergenv-cfg-ex-rd"))
+        {
+            if (argcount <= 5)
+            {
+                DEG_LOG(W, "mergenv-cfg-ex cfg old_nv new_nv FILE\n");
+                argc = 1;
+                continue;
+            }
+            if (get_nvlist_cfg(io, str2[2]))
+            {
+                size_t a_size = 0, b_size = 0, c_size = 0;
+                uint8_t* a = loadfile(str2[3], &a_size, 0);
+                uint8_t* b = loadfile(str2[4], &b_size, 0);
+                uint8_t* c = (uint8_t*)malloc(a_size + b_size + MERGE_NV_SLACK);
+                if (!merge_nv_rd(io, a, a_size, b, b_size, c, a_size + b_size + MERGE_NV_SLACK, &c_size))
+                {
+                    DEG_LOG(E, "RD-style NV merge failed, aborting");
+                    ERR_EXIT("RD-style NV merge failed");
+                }
                 EnhancedFile fi = oxfopen_enhanced(str2[5], "wb");
                 if (!fi) ERR_EXIT("fopen failed\n");
                 if (fi.seek(0, SEEK_SET) != 0) ERR_EXIT("fseek failed\n");
