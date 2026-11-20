@@ -2262,9 +2262,6 @@ bool pac_flash(const char* folder)
         if (isHelperInit)
         {
             DisableWidgets(helper);
-            // 禁用组件后阻塞刷写线程，直到用户关闭主窗口，
-            // 避免该线程结束或后续清理与主循环退出过程交叉导致未定义行为。
-            waitForMainWindowClose();
         }
     };
     if (isHelperInit)
