@@ -1143,6 +1143,65 @@ void pac_print_offline_plan()
         DEG_LOG(W, "RDA table PAC detected (no <Partitions> in XML).");
     }
 
+    // ---- 自检：pac_size / 表项越界 / 重叠 / 配置项位置 ----
+    uint64_t real_size = 0;
+    {
+        EnhancedFile f = oxfopen_enhanced(g_app_state.flash.pacFilePath.c_str(), "rb");
+        if (f)
+        {
+            if (f.seeko(0, SEEK_END) == 0) real_size = f.tello();
+            f.close();
+        }
+    }
+    // V2 头里总大小是 hi/lo 两个 DWORD（偏移 44/48）；V1 只有偏移 48 的 32 位值。
+    uint64_t head_size64 = pac.head.pac_size;
+    {
+        EnhancedFile hf = oxfopen_enhanced(g_app_state.flash.pacFilePath.c_str(), "rb");
+        uint8_t hdr[52] = {0};
+        if (hf && hf.read(hdr, 1, sizeof(hdr)) == sizeof(hdr))
+        {
+            uint32_t hi = 0;
+            uint32_t lo = 0;
+            std::memcpy(&hi, hdr + 44, sizeof(hi));
+            std::memcpy(&lo, hdr + 48, sizeof(lo));
+            head_size64 = (static_cast<uint64_t>(hi) << 32) | lo;
+            hf.close();
+        }
+    }
+    DEG_LOG(I, "---- integrity ----");
+    DEG_LOG(I, "pac_size: header=0x%llx real=0x%llx %s",
+            static_cast<unsigned long long>(head_size64),
+            static_cast<unsigned long long>(real_size),
+            (real_size && head_size64 != real_size) ? "MISMATCH" : "ok");
+
+    int n_bad_range = 0;
+    int n_overlap = 0;
+    uint64_t prev_end = 0;
+    for (int i = 0; i < pac.fileCount; ++i)
+    {
+        const sprd_file_t& f = pac.files[i];
+        const uint64_t size = (static_cast<uint64_t>(f.size_high) << 32) | f.size;
+        const uint64_t offset = (static_cast<uint64_t>(f.pac_offset_high) << 32) | f.pac_offset;
+        if (size == 0) continue;
+        if (real_size && offset + size > real_size)
+        {
+            ++n_bad_range;
+            DEG_LOG(W, "entry #%d out of range: off=0x%llx size=0x%llx (file=0x%llx)",
+                    i, static_cast<unsigned long long>(offset),
+                    static_cast<unsigned long long>(size),
+                    static_cast<unsigned long long>(real_size));
+        }
+        if (offset < prev_end)
+        {
+            ++n_overlap;
+            DEG_LOG(W, "entry #%d overlaps previous data: off=0x%llx < prev_end=0x%llx",
+                    i, static_cast<unsigned long long>(offset),
+                    static_cast<unsigned long long>(prev_end));
+        }
+        if (offset + size > prev_end) prev_end = offset + size;
+    }
+    DEG_LOG(I, "range_errors=%d overlaps=%d", n_bad_range, n_overlap);
+
     // ---- PAC 文件表 ----
     DEG_LOG(I, "---- PAC file table ----");
     for (int i = 0; i < pac.fileCount; ++i)
