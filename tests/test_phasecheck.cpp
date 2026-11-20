@@ -239,3 +239,37 @@ TEST_CASE("build_ise_payload: supports Data= / File= / Size=")
 
     std::remove(ini.c_str());
 }
+
+TEST_CASE("phasecheck: DOWNLOAD station bits match RD Cnst8KBuffer")
+{
+    // 默认 SP09 / PASS VALUE 0 / 7 站点（DOWNLOAD 在第 0 位）
+    // RD: iItem &= ~(1<<0) (0x7FFF -> 0x7FFE), iTestSign &= ~(1<<0) (0xFFFF -> 0xFFFE)
+    const std::vector<uint8_t> buf = pac_generate::build_phasecheck_buffer("");
+
+    CHECK(buf[219] == 0x01);  // sign_flag = PASS_0_FAIL_1
+    uint16_t test_sign = 0;
+    uint16_t item = 0;
+    std::memcpy(&test_sign, buf.data() + 252, sizeof(test_sign));
+    std::memcpy(&item, buf.data() + 254, sizeof(item));
+    CHECK(test_sign == 0xFFFE);
+    CHECK(item == 0x7FFE);
+
+    // SP15 + PASS VALUE 1：sign_flag=0，iItem 置位 DOWNLOAD 位，iTestSign 保持 0
+    const std::string ini = "test_pc_dl.ini";
+    {
+        std::ofstream f(ini);
+        REQUIRE(f.good());
+        f << "[VERSION]\nMAGIC NUMBER = SP15\n[STATE FLAG]\nPASS VALUE = 1\n"
+             "[STATION]\nSTATION NUMBER = 3\nSTATION 1 = DOWNLOAD\nSTATION 2 = CFT\nSTATION 3 = IMEI\n";
+    }
+    const std::vector<uint8_t> buf15 = pac_generate::build_phasecheck_buffer(ini);
+    std::remove(ini.c_str());
+
+    CHECK(buf15[449] == 0x00);
+    uint32_t test_sign32 = 0;
+    uint32_t item32 = 0;
+    std::memcpy(&test_sign32, buf15.data() + 484, sizeof(test_sign32));
+    std::memcpy(&item32, buf15.data() + 488, sizeof(item32));
+    CHECK(test_sign32 == 0u);
+    CHECK(item32 == 1u);
+}

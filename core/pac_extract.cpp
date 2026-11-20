@@ -1111,6 +1111,123 @@ std::vector<Item> build(const PacFile& pac, const PacXMLParser& xml, int storage
 }
 }  // namespace pac_plan
 
+static const char* pac_plan_kind_name(pac_plan::Kind kind)
+{
+    switch (kind)
+    {
+    case pac_plan::Kind::Flash: return "flash";
+    case pac_plan::Kind::Erase: return "erase";
+    case pac_plan::Kind::Unsupported: return "unsupported";
+    case pac_plan::Kind::Skip: return "skip";
+    }
+    return "?";
+}
+
+void pac_print_offline_plan()
+{
+    PacFile& pac = g_app_state.pacFile;
+    PacXMLParser& xml = g_app_state.pacXml;
+
+    DEG_LOG(I, "==== PAC offline plan ====");
+    DEG_LOG(I, "pac_version: %s", PacFile::u16_to_u8(pac.head.pac_version, 24).c_str());
+    DEG_LOG(I, "fw_name: %s", PacFile::u16_to_u8(pac.head.fw_name, MAX_U16_SN).c_str());
+    DEG_LOG(I, "fw_version: %s", PacFile::u16_to_u8(pac.head.fw_version, MAX_U16_SN).c_str());
+    DEG_LOG(I, "fw_alias: %s", PacFile::u16_to_u8(pac.head.fw_alias, 100).c_str());
+    DEG_LOG(I, "file_count: %d", pac.fileCount);
+    if (io != nullptr)
+    {
+        DEG_LOG(I, "XML partitions: %d", io->part_count_pac);
+    }
+    if (g_app_state.flash.isPacRdaTable)
+    {
+        DEG_LOG(W, "RDA table PAC detected (no <Partitions> in XML).");
+    }
+
+    // ---- PAC 文件表 ----
+    DEG_LOG(I, "---- PAC file table ----");
+    for (int i = 0; i < pac.fileCount; ++i)
+    {
+        const sprd_file_t& f = pac.files[i];
+        const std::string id = PacFile::u16_to_u8(f.id, MAX_U16_SN);
+        const std::string name = PacFile::u16_to_u8(f.name, MAX_U16_SN);
+        const uint64_t size = (static_cast<uint64_t>(f.size_high) << 32) | f.size;
+        const uint64_t offset = (static_cast<uint64_t>(f.pac_offset_high) << 32) | f.pac_offset;
+
+        std::string addrs;
+        if (f.addr_num > 0 && f.addr_num <= 5)
+        {
+            char buf[64];
+            for (uint32_t k = 0; k < f.addr_num; ++k)
+            {
+                std::snprintf(buf, sizeof(buf), " 0x%x", f.addr[k]);
+                addrs += buf;
+            }
+        }
+        DEG_LOG(I, "[%2d] id=\"%s\" name=\"%s\" size=0x%llx off=0x%llx type=%u check=%u omit=%u addr_num=%u%s",
+                i, id.c_str(), name.c_str(), static_cast<unsigned long long>(size),
+                static_cast<unsigned long long>(offset), f.type, f.flash_use, f.omit_flag,
+                f.addr_num, addrs.c_str());
+    }
+
+    // ---- XML ----
+    const std::string prd = pac_plan::product_name(pac, xml);
+    DEG_LOG(I, "---- XML ----");
+    DEG_LOG(I, "product: \"%s\" (matched: %s)", prd.c_str(), prd.empty() ? "no" : "yes");
+    if (!prd.empty())
+    {
+        DEG_LOG(I, "APR flag: %d", xml.getProductApr(prd));
+    }
+
+    // ---- 计划（离线：存储类型未知，不做 SPL 变体筛选）----
+    const std::vector<pac_plan::Item> plan = pac_plan::build(pac, xml, 0);
+    DEG_LOG(I, "---- plan (offline, storage type unknown) ----");
+    int n_flash = 0, n_erase = 0, n_unsupported = 0, n_skip = 0, n_leftover = 0;
+    bool has_phasecheck = false;
+    bool has_ise = false;
+    for (std::size_t k = 0; k < plan.size(); ++k)
+    {
+        const pac_plan::Item& it = plan[k];
+        if (it.leftover) ++n_leftover;
+        switch (it.kind)
+        {
+        case pac_plan::Kind::Flash: ++n_flash; break;
+        case pac_plan::Kind::Erase: ++n_erase; break;
+        case pac_plan::Kind::Unsupported: ++n_unsupported; break;
+        case pac_plan::Kind::Skip: ++n_skip; break;
+        }
+        if (!my_stricmp(it.pac_id.c_str(), "PhaseCheck")) has_phasecheck = true;
+        if (!my_stricmp(it.pac_id.c_str(), "ISE") || !my_stricmp(it.pac_id.c_str(), "ISE_DATA"))
+        {
+            has_ise = true;
+        }
+
+        const std::string extra = it.reason.empty() ? std::string() : ("  (" + it.reason + ")");
+        DEG_LOG(I, "[%2zu] %-12s id=\"%s\" type=\"%s\" -> %s size=0x%llx%s",
+                k, pac_plan_kind_name(it.kind), it.pac_id.c_str(), it.info.type.c_str(),
+                it.partition.empty() ? "-" : it.partition.c_str(),
+                static_cast<unsigned long long>(it.pac_size), extra.c_str());
+    }
+
+    // ---- SPL 变体 ----
+    bool spl_emmc = false;
+    bool spl_ufs = false;
+    for (int i = 0; i < pac.fileCount; ++i)
+    {
+        const std::string id = PacFile::u16_to_u8(pac.files[i].id, MAX_U16_SN);
+        if (id.empty() || my_strnicmp(id.c_str(), "SPL", 3) != 0) continue;
+        if (id.find("EMMC") != std::string::npos || id.find("emmc") != std::string::npos) spl_emmc = true;
+        if (id.find("UFS") != std::string::npos || id.find("ufs") != std::string::npos) spl_ufs = true;
+    }
+
+    DEG_LOG(I, "---- summary ----");
+    DEG_LOG(I, "flash=%d erase=%d unsupported=%d skip=%d leftover=%d",
+            n_flash, n_erase, n_unsupported, n_skip, n_leftover);
+    DEG_LOG(I, "PhaseCheck entry: %s; ISE entry: %s",
+            has_phasecheck ? "yes" : "no", has_ise ? "yes" : "no");
+    DEG_LOG(I, "SPL variants in PAC: EMMC=%s UFS=%s (selection happens at flash time by Da_Info.dwStorageType)",
+            spl_emmc ? "yes" : "no", spl_ufs ? "yes" : "no");
+}
+
 bool pac_flash(const char* folder)
 {
     bool isMergingNV_GUI = helper.getCheckButtonState(helper.getWidget("pac_merge_nv"));
@@ -2014,8 +2131,22 @@ bool pac_flash(const char* folder)
         // APR：RD 在最后一个刷写步骤之后追加 WriteAPRInfo（负载是 PAC 文件时间）。
         if (g_app_state.flash.isPacWriteApr)
         {
-            // 与 RD 一致：不仅勾选，还要求 XML 的 <APR> 为 1（IsEnableAPR）。
+            // 与 RD 一致：要求存在实际刷写/擦除操作（bExistFlashOpr），且 XML 的
+            // <APR> 为 1（IsEnableAPR）。
+            bool has_flash_op = false;
+            for (const pac_plan::Item& op : plan)
+            {
+                if (op.kind != pac_plan::Kind::Skip)
+                {
+                    has_flash_op = true;
+                    break;
+                }
+            }
             const std::string apr_prd = pac_plan::product_name(unpac, g_app_state.pacXml);
+            if (!has_flash_op)
+            {
+                DEG_LOG(W, "APR: no flash operation in this PAC, skipped");
+            }
             if (apr_prd.empty() || g_app_state.pacXml.getProductApr(apr_prd) == 0)
             {
                 DEG_LOG(W, "APR: XML product does not enable <APR>, skipped");

@@ -349,6 +349,24 @@ void fill_sp09(std::vector<uint8_t>& buf, const PhaseCheckConfig& cfg,
         pc.item = 0x7FFF;
     }
     std::snprintf(pc.last_fail_description, sizeof(pc.last_fail_description), "PASS");
+
+    // RD 的 Cnst8KBuffer：找到名为 DOWNLOAD 的站点后调整测试位（只处理第一个）
+    for (int32_t i = 0; i < pc.station_num; ++i)
+    {
+        if (!my_stricmp(cfg.stations[static_cast<std::size_t>(i)].c_str(), "DOWNLOAD"))
+        {
+            if (pc.sign_flag == 0x01)
+            {
+                pc.item = static_cast<uint16_t>(pc.item & (0x7FFFu & ~(1u << i)));
+                pc.test_sign = static_cast<uint16_t>(pc.test_sign & (0xFFFFu & ~(1u << i)));
+            }
+            else
+            {
+                pc.item = static_cast<uint16_t>(pc.item | (1u << i));
+            }
+            break;
+        }
+    }
     std::memcpy(buf.data(), &pc, sizeof(pc));
 }
 
@@ -372,6 +390,24 @@ void fill_sp15(std::vector<uint8_t>& buf, const PhaseCheckConfig& cfg,
         pc.item = 0xFFFFFFFFu;
     }
     std::snprintf(pc.last_fail_description, sizeof(pc.last_fail_description), "PASS");
+
+    // 与 RD 的 Cnst8KBuffer 一致：只处理第一个 DOWNLOAD 站点
+    for (int32_t i = 0; i < pc.station_num; ++i)
+    {
+        if (!my_stricmp(cfg.stations[static_cast<std::size_t>(i)].c_str(), "DOWNLOAD"))
+        {
+            if (pc.sign_flag == 0x01)
+            {
+                pc.item &= ~(1u << i);
+                pc.test_sign &= ~(1u << i);
+            }
+            else
+            {
+                pc.item |= (1u << i);
+            }
+            break;
+        }
+    }
     std::memcpy(buf.data(), &pc, sizeof(pc));
 }
 

@@ -39,6 +39,10 @@ void show_package_partition_check_dialog(
     std::size_t mismatch_count);
 
 bool pac_extract(const char* fn, const char* folder);
+
+// 离线计划：不连接设备，打印 PAC 头 / 文件表 / XML 顺序计划 / 摘要。
+// 用于 tool mode 下对比两个 PAC（例如原包与重打包包）的差异。
+void pac_print_offline_plan();
 bool pac_flash(const char* folder);
 std::string ExtractPartitionsWithTags(const std::string& xmlContent);
 std::string FindFirstXMLFile(const std::string& folderPath);
