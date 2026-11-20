@@ -583,6 +583,13 @@ void pac_skip_empty_operations()
         if (file.flag != 0) continue;
         if (file.id.empty()) continue;
         if (my_strnicmp(file.id.c_str(), "FDL", 3) == 0) continue;
+        // 生成型操作由 pac_generate 处理（并各自打日志），这里不再重复报“没有文件”
+        if (my_stricmp(file.id.c_str(), "PhaseCheck") == 0 ||
+            my_stricmp(file.id.c_str(), "ISE") == 0 ||
+            my_stricmp(file.id.c_str(), "ISE_DATA") == 0)
+        {
+            continue;
+        }
 
         DEG_LOG(I, "PAC operation %s (%s) has no file, skipping.",
                 file.id.c_str(), file.type.c_str());
