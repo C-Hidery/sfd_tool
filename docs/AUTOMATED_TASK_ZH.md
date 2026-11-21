@@ -110,6 +110,9 @@ ZIP 根目录必须包含 `package.json`：
   准备命令，然后检查包分区兼容性；不兼容则终止，不会执行后续命令；
 - `wait TIME` 会等待指定秒数后继续；
 - `pause message` 会弹出 Info 对话框显示消息，点击确认后继续执行；
+- 分区读写、擦除、重新分区、`dis_avb_tos`、`e_bl`、`verity`、
+  `set_active`、`cptable` 等命令要求设备已进入 **FDL2** 阶段；
+  未进入 FDL2 会报错并终止执行；
 - 命令执行和输出显示在页面底部 Log；
 - 主窗口底部状态栏会显示当前执行命令、设备模式（BROM/FDL1/FDL2）
   和执行进度，失败或设备断开时同步更新；
@@ -145,7 +148,7 @@ ZIP 根目录必须包含 `package.json`：
 | `pause message` | 弹窗显示 message，等待用户确认后继续 |
 | `fdl FILE addr` | 加载 FDL 文件，路径相对于 `fdl/` 目录 |
 | `exec_addr FILE addr` | 设置 BROM 阶段辅助执行文件，路径相对于 `fdl/` |
-| `exec ADDR` | 执行 FDL1→FDL2 或指定地址代码 |
+| `exec [ADDR]` | FDL1 阶段执行 FDL1→FDL2（无需地址）；BROM 阶段需要地址 |
 | `send FILE addr` | 发送文件到指定地址，路径相对于 `fdl/` |
 | `cptable` | 通过兼容方式读取分区表，供后续兼容性检查使用 |
 | `print TEXT` | 在底部日志输出文本 |

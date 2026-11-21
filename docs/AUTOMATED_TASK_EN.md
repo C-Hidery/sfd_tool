@@ -122,6 +122,9 @@ execution and shows a warning dialog.
 - `wait TIME` pauses execution for TIME seconds;
 - `pause message` shows an Info dialog with the message and waits for
   confirmation before continuing;
+- Partition read/write/erase, repartition, `dis_avb_tos`, `e_bl`,
+  `verity`, `set_active`, and `cptable` require the device to be in
+  **FDL2** stage; otherwise execution stops with an error;
 - Command output appears in the bottom Log pane;
 - the main window status bar shows the current command, device mode
   (BROM/FDL1/FDL2), and progress; it updates on failure or disconnect;
@@ -158,7 +161,7 @@ execution and shows a warning dialog.
 | `pause message` | Show an Info dialog and wait for confirmation |
 | `fdl FILE addr` | Load an FDL file relative to the `fdl/` folder |
 | `exec_addr FILE addr` | Set the BROM-stage helper file relative to `fdl/` |
-| `exec ADDR` | Execute FDL1→FDL2 or code at the given address |
+| `exec [ADDR]` | Execute FDL1→FDL2 in FDL1 (no address); BROM stage requires an address |
 | `send FILE addr` | Send a file relative to `fdl/` to an address |
 | `cptable` | Read the partition table via compatibility mode |
 | `print TEXT` | Print text to the bottom log |

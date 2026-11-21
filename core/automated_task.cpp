@@ -261,6 +261,17 @@ private:
         return true;
     }
 
+    bool require_fdl2()
+    {
+        if (!require_device()) {
+            return false;
+        }
+        if (g_app_state.device.device_stage != FDL2 && fdl2_executed <= 0) {
+            return fail("command requires FDL2 stage");
+        }
+        return true;
+    }
+
     std::filesystem::path package_root() const
     {
         return utf8_to_path(request_.package_root);
@@ -444,7 +455,6 @@ private:
             }
             if (value < 0) value = 0;
             if (value > 0xf800) value = 0xf800;
-            value = (value + 0x7FF) & ~0x7FF;
             blk_size = static_cast<int>(value);
             write_log("blk_size=" + std::to_string(blk_size));
             return true;
@@ -452,7 +462,7 @@ private:
 
         if (command == "write_part") {
             if (tokens.size() != 3) return fail("usage: write_part <name> <image>");
-            if (!require_device()) return false;
+            if (!require_fdl2()) return false;
             const std::filesystem::path image = resolve_image(tokens[2]);
             std::error_code ec;
             if (!std::filesystem::is_regular_file(image, ec) || ec) {
@@ -475,7 +485,7 @@ private:
 
         if (command == "read_part") {
             if (tokens.size() != 3) return fail("usage: read_part <name> <path>");
-            if (!require_device()) return false;
+            if (!require_fdl2()) return false;
             get_partition_info(io, tokens[1].c_str(), 0);
             if (!gPartInfo.size) {
                 return fail("partition does not exist: " + tokens[1]);
@@ -493,7 +503,7 @@ private:
 
         if (command == "erase_part") {
             if (tokens.size() != 2) return fail("usage: erase_part <name>");
-            if (!require_device()) return false;
+            if (!require_fdl2()) return false;
             get_partition_info(io, tokens[1].c_str(), 0);
             if (!gPartInfo.size) {
                 return fail("partition does not exist: " + tokens[1]);
@@ -507,7 +517,7 @@ private:
 
         if (command == "repartition") {
             if (tokens.size() != 1) return fail("usage: repartition");
-            if (!require_device()) return false;
+            if (!require_fdl2()) return false;
             if (request_.partitions.empty()) {
                 return fail("package.json has no partitions for repartition");
             }
@@ -542,7 +552,7 @@ private:
 
         if (command == "write_parts") {
             if (tokens.size() != 1) return fail("usage: write_parts");
-            if (!require_device()) return false;
+            if (!require_fdl2()) return false;
             const std::filesystem::path dir = image_root();
             std::error_code ec;
             if (!std::filesystem::is_directory(dir, ec) || ec) {
@@ -557,7 +567,7 @@ private:
 
         if (command == "dis_avb_tos") {
             if (tokens.size() != 2) return fail("usage: dis_avb_tos <backup>");
-            if (!require_device()) return false;
+            if (!require_fdl2()) return false;
 
             get_partition_info(io, "trustos", 1);
             if (!gPartInfo.size) {
@@ -608,7 +618,7 @@ private:
 
         if (command == "e_bl") {
             if (tokens.size() != 2) return fail("usage: e_bl <backup>");
-            if (!require_device()) return false;
+            if (!require_fdl2()) return false;
             get_partition_info(io, "miscdata", 1);
             if (!gPartInfo.size) {
                 return fail("miscdata partition not found");
@@ -631,7 +641,7 @@ private:
             if (!parse_int(tokens[1], value) || (value != 0 && value != 1)) {
                 return fail("verity expects 0 or 1");
             }
-            if (!require_device()) return false;
+            if (!require_fdl2()) return false;
             if (value) {
                 dm_enable(io, step(), g_app_state.flash.isCMethod);
             } else {
@@ -668,7 +678,7 @@ private:
             if (tokens[1] != "a" && tokens[1] != "b") {
                 return fail("set_active expects a or b");
             }
-            if (!require_device()) return false;
+            if (!require_fdl2()) return false;
             if (g_app_state.flash.selected_ab < 0) {
                 select_ab(io);
             }
@@ -755,16 +765,20 @@ private:
         }
 
         if (command == "exec") {
-            if (tokens.size() != 2) return fail("usage: exec <addr>");
+            if (tokens.size() > 2) return fail("usage: exec [addr]");
             if (!require_device()) return false;
             if (fdl2_executed > 0) {
                 write_log("FDL2 is already executed, skipped");
                 return true;
             }
+            // FDL1 阶段执行 exec 不需要地址；BROM 阶段才需要 addr。
             if (fdl1_loaded > 0) {
                 return exec_fdl1_to_fdl2();
             }
 
+            if (tokens.size() != 2) {
+                return fail("exec requires an address when running in BROM");
+            }
             std::uint32_t addr = 0;
             if (!parse_u32(tokens[1], addr)) {
                 return fail("invalid address: " + tokens[1]);
@@ -778,7 +792,7 @@ private:
 
         if (command == "cptable") {
             if (tokens.size() != 1) return fail("usage: cptable");
-            if (!require_device()) return false;
+            if (!require_fdl2()) return false;
             if (!io->part_count_c && !io->part_count) {
                 write_log("reading partition table through compatibility method");
                 io->Cptable = partition_list_d(io);
