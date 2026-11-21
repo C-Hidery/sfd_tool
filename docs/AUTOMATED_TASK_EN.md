@@ -127,7 +127,8 @@ execution and shows a warning dialog.
   **FDL2** stage; otherwise execution stops with an error;
 - Command output appears in the bottom Log pane;
 - the main window status bar shows the current command, device mode
-  (BROM/FDL1/FDL2), and progress; it updates on failure or disconnect;
+  (BROM/FDL1/FDL2), storage type, A/B slot, and progress; it updates on
+  failure or disconnect;
 - `reset`, `poweroff`, `reboot-fastboot`, and `reboot-recovery`
   disconnect the device on success; all GUI buttons are then disabled
   and the user is asked to reconnect and restart the tool;
@@ -162,14 +163,15 @@ execution and shows a warning dialog.
 | `fdl FILE addr` | Load an FDL file relative to the `fdl/` folder |
 | `exec_addr FILE addr` | Set the BROM-stage helper file relative to `fdl/` |
 | `exec [ADDR]` | Execute FDL1→FDL2 in FDL1 (no address); BROM stage requires an address |
-| `send FILE addr` | Send a file relative to `fdl/` to an address |
+| `send FILE addr` | Send a file to an address (path used as provided) |
 | `cptable` | Read the partition table via compatibility mode |
 | `print TEXT` | Print text to the bottom log |
 
 `write_part` and `write_parts` resolve image paths relative to
 `<extraction_dir>/images/`; `fdl_exec_wpart` also uses the root
 `images/` folder.
-`fdl`, `exec_addr`, and `send` resolve file paths relative to `fdl/`.
+`fdl` and `exec_addr` resolve file paths relative to `fdl/`; `send`
+uses the path as provided.
 Paths for `read_part`, `dis_avb_tos`, and `e_bl` are used as provided.
 
 ---

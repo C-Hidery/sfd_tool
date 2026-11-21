@@ -384,22 +384,41 @@ void set_bottom_mode_async(const std::string& text)
     });
 }
 
-void update_bottom_mode_from_stage_async()
+void set_bottom_storage_async(const std::string& text)
+{
+    gui_idle_call([text]() mutable {
+        bottom_bar_set_storage(text);
+    });
+}
+
+void set_bottom_slot_async(const std::string& text)
+{
+    gui_idle_call([text]() mutable {
+        bottom_bar_set_slot(text);
+    });
+}
+
+void update_bottom_device_info_async()
 {
     gui_idle_call([]() {
         switch (g_app_state.device.device_stage) {
-        case FDL2:
-            bottom_bar_set_mode("FDL2");
-            break;
-        case FDL1:
-            bottom_bar_set_mode("FDL1");
-            break;
-        case BROM:
-            bottom_bar_set_mode("BROM");
-            break;
-        default:
-            bottom_bar_set_mode("Unknown");
-            break;
+        case FDL2: bottom_bar_set_mode("FDL2"); break;
+        case FDL1: bottom_bar_set_mode("FDL1"); break;
+        case BROM: bottom_bar_set_mode("BROM"); break;
+        default:   bottom_bar_set_mode("Unknown"); break;
+        }
+
+        switch (Da_Info.dwStorageType) {
+        case 0x101: bottom_bar_set_storage("Nand"); break;
+        case 0x102: bottom_bar_set_storage("EMMC"); break;
+        case 0x103: bottom_bar_set_storage("UFS"); break;
+        default:    bottom_bar_set_storage("Unknown"); break;
+        }
+
+        switch (g_app_state.flash.selected_ab) {
+        case 2:  bottom_bar_set_slot("Slot B"); break;
+        case 1:  bottom_bar_set_slot("Slot A"); break;
+        default: bottom_bar_set_slot("Not VAB"); break;
         }
     });
 }
@@ -876,15 +895,27 @@ void on_button_clicked_start(GtkWidgetHelper helper)
     append_auto_task_log(helper, "=== Automated task start ===");
     bottom_bar_set_status(_("Automated task running..."));
     bottom_bar_set_progress(0.0, "0%");
-    update_bottom_mode_from_stage_async();
+    update_bottom_device_info_async();
 
     std::thread([helper, parent, request, prefix_actions, suffix_actions,
                  fdl_deferred, specs]() {
-        const auto log = [helper](const std::string& line) {
+        const int total_actions = static_cast<int>(request.actions.size());
+        int completed_actions = 0;
+        const auto log = [helper, total_actions, &completed_actions](
+                             const std::string& line) {
             append_auto_task_log(helper, line);
             if (line.rfind("[cmd] ", 0) == 0) {
+                ++completed_actions;
                 set_bottom_status_async(
                     std::string(_("Automated task: ")) + line.substr(6));
+                if (total_actions > 0) {
+                    const double fraction =
+                        static_cast<double>(completed_actions) / total_actions;
+                    const int percent = static_cast<int>(fraction * 100.0);
+                    set_bottom_progress_async(fraction,
+                                              std::to_string(percent) + "%");
+                }
+                update_bottom_device_info_async();
             }
         };
         auto enable_retry = [helper]() {
@@ -896,8 +927,7 @@ void on_button_clicked_start(GtkWidgetHelper helper)
         auto show_failure = [&](const std::string& message) {
             append_auto_task_log(helper, "Automated task failed: " + message);
             set_bottom_status_async(_("Automated task failed"));
-            set_bottom_progress_async(0.0, "0%");
-            update_bottom_mode_from_stage_async();
+            update_bottom_device_info_async();
             const std::string text = std::string(_("Automated task failed: ")) + message;
             showWarningDialogSyncInThread(parent, _("Warning"), text.c_str());
             enable_retry();
@@ -906,6 +936,8 @@ void on_button_clicked_start(GtkWidgetHelper helper)
             append_auto_task_log(helper, "Device disconnected by reset/poweroff/reboot command.");
             set_bottom_status_async(_("Device disconnected"));
             set_bottom_mode_async(_("Not connected"));
+            set_bottom_storage_async("Unknown");
+            set_bottom_slot_async("Unknown");
             set_bottom_progress_async(0.0, "0%");
             gui_idle_call_wait_drag([helper, parent]() {
                 disable_all_gui_controls(helper);
@@ -934,7 +966,7 @@ void on_button_clicked_start(GtkWidgetHelper helper)
 
                 append_auto_task_log(helper, "checking package partition compatibility...");
                 set_bottom_status_async(_("Checking package compatibility..."));
-                update_bottom_mode_from_stage_async();
+                update_bottom_device_info_async();
                 PackagePartitionCheckResult check = check_package_partitions(specs);
                 const bool compatible = check.device_available &&
                                         check.missing == 0 && check.mismatch == 0;
@@ -961,8 +993,7 @@ void on_button_clicked_start(GtkWidgetHelper helper)
                             }, parent);
                     }
                     set_bottom_status_async(_("Package compatibility check failed"));
-                    set_bottom_progress_async(0.0, "0%");
-                    update_bottom_mode_from_stage_async();
+                    update_bottom_device_info_async();
                     enable_retry();
                     return;
                 }
@@ -981,7 +1012,7 @@ void on_button_clicked_start(GtkWidgetHelper helper)
                 append_auto_task_log(helper, "Automated task completed.");
                 set_bottom_status_async(_("Automated task completed."));
                 set_bottom_progress_async(1.0, "100%");
-                update_bottom_mode_from_stage_async();
+                update_bottom_device_info_async();
                 showInfoDialogSyncInThread(parent, _("Info"),
                                            _("Automated task completed."));
                 enable_retry();

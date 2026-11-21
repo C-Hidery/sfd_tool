@@ -114,8 +114,8 @@ ZIP 根目录必须包含 `package.json`：
   `set_active`、`cptable` 等命令要求设备已进入 **FDL2** 阶段；
   未进入 FDL2 会报错并终止执行；
 - 命令执行和输出显示在页面底部 Log；
-- 主窗口底部状态栏会显示当前执行命令、设备模式（BROM/FDL1/FDL2）
-  和执行进度，失败或设备断开时同步更新；
+- 主窗口底部状态栏会显示当前执行命令、设备模式（BROM/FDL1/FDL2）、
+  存储类型、A/B slot 和执行进度；失败或设备断开时同步更新；
 - `reset`、`poweroff`、`reboot-fastboot`、`reboot-recovery`
   成功后会断开设备，工具会禁用所有 GUI 按钮，并提示重新连接设备、
   重启工具；
@@ -149,13 +149,13 @@ ZIP 根目录必须包含 `package.json`：
 | `fdl FILE addr` | 加载 FDL 文件，路径相对于 `fdl/` 目录 |
 | `exec_addr FILE addr` | 设置 BROM 阶段辅助执行文件，路径相对于 `fdl/` |
 | `exec [ADDR]` | FDL1 阶段执行 FDL1→FDL2（无需地址）；BROM 阶段需要地址 |
-| `send FILE addr` | 发送文件到指定地址，路径相对于 `fdl/` |
+| `send FILE addr` | 发送文件到指定地址（路径按命令中给出的使用） |
 | `cptable` | 通过兼容方式读取分区表，供后续兼容性检查使用 |
 | `print TEXT` | 在底部日志输出文本 |
 
 `write_part` 和 `write_parts` 的镜像路径根目录默认为解压目录下的
 `images/`；`fdl_exec_wpart` 同样使用解压根目录下的 `images/`。`fdl`、
-`exec_addr`、`send` 的文件路径相对于 `fdl/`。`read_part`、
+`exec_addr` 的文件路径相对于 `fdl/`；`send` 按命令中给出的路径使用。`read_part`、
 `dis_avb_tos`、`e_bl` 的路径参数按命令中给出的路径使用。
 
 ---

@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cctype>
+#include <cmath>
 #include <cerrno>
 #include <climits>
 #include <cstdlib>
@@ -336,6 +337,8 @@ private:
 
     bool finish_brom_exec(std::uint32_t addr)
     {
+        write_log("Execute FDL1");
+
         if (addr == 0x5500 || addr == 0x65000800) {
             highspeed = 1;
             if (!baudrate) {
@@ -357,6 +360,7 @@ private:
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
+        write_log("Check baud FDL1 done.");
 
         if (!std::memcmp(io->raw_buf + 4, "SPRD4", 5)) {
             g_app_state.device.device_mode = SPRD4;
@@ -369,10 +373,81 @@ private:
         if (send_and_check(io)) {
             return fail("FDL connect failed");
         }
+        write_log("FDL1 connected.");
+
+#if !USE_LIBUSB
+        if (baudrate) {
+            uint8_t* data = io->temp_buf;
+            WRITE32_BE(data, baudrate);
+            encode_msg_nocpy(io, BSL_CMD_CHANGE_BAUD, 4);
+            if (!send_and_check(io)) {
+                write_log("Change baud FDL1 to " + std::to_string(baudrate));
+                call_SetProperty(io->handle, 0, 100, &baudrate);
+            }
+        }
+#endif
+
+        if (keep_charge) {
+            encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
+            if (!send_and_check(io)) {
+                write_log("Keep charge FDL1.");
+            }
+        }
+
         fdl1_loaded = 1;
         g_app_state.device.device_stage = FDL1;
-        write_log("FDL1 executed and connected");
         return true;
+    }
+
+    bool load_fdl_exact(const std::string& file_utf8, std::uint32_t addr)
+    {
+        if (fdl2_executed > 0) {
+            write_log("FDL2 is already executed, skipped.");
+            return true;
+        }
+
+        if (fdl1_loaded > 0) {
+            if (fdl2_executed != -1) {
+                const unsigned fdl_step =
+                    g_app_state.device.device_mode == SPRD3
+                        ? (blk_size ? static_cast<unsigned>(blk_size) : 528u)
+                        : 528u;
+                send_file(io, file_utf8.c_str(), addr, end_data, fdl_step, 0, 0);
+            }
+            return true;
+        }
+
+        if (fdl1_loaded != -1) {
+            // pwnexec 需要保留原始 FDL1 数据。
+            if (addr == 0x65008000) {
+                std::size_t n = 0;
+                uint8_t* m = loadfile(file_utf8.c_str(), &n, 0);
+                if (m) {
+                    delete[] g_fdl1_img;
+                    g_fdl1_img = m;
+                    g_fdl1_img_size = n;
+                    write_log("Cached FDL1 image for pwnexec (" +
+                              std::to_string(n) + " bytes)");
+                }
+            }
+
+            send_file(io, file_utf8.c_str(), addr, end_data, 528, 0, 0);
+            if (exec_addr_ > 0 && !exec_file_.empty()) {
+                send_file(io, exec_file_.c_str(), exec_addr_, 0, 528, 0, 0);
+            } else {
+                encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+                if (send_and_check(io)) {
+                    return fail("FDL exec failed");
+                }
+            }
+        } else {
+            encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+            if (send_and_check(io)) {
+                return fail("FDL exec failed");
+            }
+        }
+
+        return finish_brom_exec(addr);
     }
 
     bool exec_fdl1_to_fdl2()
@@ -396,19 +471,78 @@ private:
             encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
             if (!send_and_check(io)) {
                 io->flags &= ~FLAGS_TRANSCODE;
+                write_log("Try to disable transcode 0x7D.");
             }
         }
 
-        io->ptable = partition_list(io, &io->part_count);
+        int verbose = io->verbose;
+        io->verbose = -1;
+        g_spl_size = check_partition(io, "splloader", 1);
+        io->verbose = verbose;
+
+        if (Da_Info.bSupportRawData) {
+            blk_size = 0xf800;
+            io->ptable = partition_list(io, &io->part_count);
+            if (fdl2_executed) {
+                Da_Info.bSupportRawData = 0;
+                write_log("Raw data mode disabled for SPRD4.");
+            } else {
+                encode_msg_nocpy(io, BSL_CMD_ENABLE_RAW_DATA, 0);
+                if (!send_and_check(io)) {
+                    write_log("Raw data mode enabled.");
+                }
+            }
+        } else if (highspeed || Da_Info.dwStorageType == 0x103) {
+            blk_size = 0xf800;
+            io->ptable = partition_list(io, &io->part_count);
+        } else if (Da_Info.dwStorageType == 0x102) {
+            io->ptable = partition_list(io, &io->part_count);
+        } else if (Da_Info.dwStorageType == 0x101) {
+            write_log("Device storage is nand.");
+        }
+
         if (g_app_state.flash.selected_ab < 0) {
             select_ab(io);
         }
+        if (g_app_state.flash.selected_ab == 2) {
+            write_log("Device is using slot b");
+        } else if (g_app_state.flash.selected_ab == 1) {
+            write_log("Device is using slot a");
+        } else {
+            write_log("Device is not using VAB");
+        }
+
+        if (g_app_state.flash.gpt_failed != 1) {
+            if (g_app_state.flash.selected_ab != 1 &&
+                g_app_state.flash.selected_ab != 2) {
+                if (Da_Info.bSupportRawData) {
+                    write_log("Raw data mode is supported, but disabled for stability.");
+                    Da_Info.bSupportRawData = 0;
+                }
+            }
+        } else if (isUseCptable) {
+            io->Cptable = partition_list_d(io);
+            if (io->Cptable) {
+                g_app_state.flash.isCMethod = 1;
+            }
+        }
+
+        if (!isUseCptable && !io->part_count) {
+            write_log("No partition table found on current device");
+        }
+
+        if (nand_id == DEFAULT_NAND_ID) {
+            nand_info[0] = static_cast<uint8_t>(std::pow(2, nand_id & 3));
+            nand_info[1] = static_cast<int>(32 / std::pow(2, (nand_id >> 2) & 3));
+            nand_info[2] = static_cast<int>(64 * std::pow(2, (nand_id >> 4) & 3));
+        }
+
         fdl2_executed = 1;
         g_app_state.device.device_stage = FDL2;
         if (exec_addr_ > 0) {
             g_app_state.flash.g_w_force = 1;
         }
-        write_log("FDL2 executed");
+        write_log("Execute FDL2");
         return true;
     }
 
@@ -694,7 +828,7 @@ private:
             if (!parse_u32(tokens[2], addr)) {
                 return fail("invalid address: " + tokens[2]);
             }
-            const std::filesystem::path file = resolve_fdl_file(tokens[1]);
+            const std::filesystem::path file = utf8_to_path(tokens[1]);
             std::error_code ec;
             if (!std::filesystem::is_regular_file(file, ec) || ec) {
                 return fail("file not found: " + path_to_utf8(file));
@@ -738,30 +872,8 @@ private:
             }
             const std::string file_utf8 = path_to_utf8(file);
 
-            if (fdl2_executed > 0) {
-                write_log("FDL2 is already executed, skipped");
-                return true;
-            }
-
-            if (fdl1_loaded > 0) {
-                write_log("loading FDL2: " + file_utf8);
-                send_file(io, file_utf8.c_str(), addr, 0, 528, 0, 0);
-                write_log("FDL2 image sent");
-                return true;
-            }
-
-            write_log("loading FDL1: " + file_utf8);
-            send_file(io, file_utf8.c_str(), addr, 0, 528, 0, 0);
-            if (exec_addr_ > 0 && !exec_file_.empty()) {
-                write_log("sending exec_addr file: " + exec_file_);
-                send_file(io, exec_file_.c_str(), exec_addr_, 0, 528, 0, 0);
-            } else {
-                encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
-                if (send_and_check(io)) {
-                    return fail("FDL1 exec failed");
-                }
-            }
-            return finish_brom_exec(addr);
+            write_log("fdl " + file_utf8 + " @ 0x" + std::to_string(addr));
+            return load_fdl_exact(file_utf8, addr);
         }
 
         if (command == "exec") {
