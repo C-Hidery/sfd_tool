@@ -1562,3 +1562,42 @@ msgstr "写入 ProdNV（会覆盖 IMEI/SN）"
 
 msgid "Write the ProdNV image from the PAC. It overwrites the device IMEI/SN and production data; off by default."
 msgstr "写入 PAC 里的 ProdNV 镜像。会覆盖设备的 IMEI/SN 与产测数据，默认关闭。"
+
+msgid " (expected write_part, single_act, fdl_exec or fdl_exec_wpart)."
+msgstr "（应为 write_part、single_act、fdl_exec 或 fdl_exec_wpart）。"
+
+msgid "fdl_exec package requires at least one fdl command."
+msgstr "fdl_exec 类型的包必须包含至少一条 fdl 命令。"
+
+msgid "fdl_exec package requires a fdl folder in the ZIP archive."
+msgstr "fdl_exec 类型的包必须在 ZIP 存档根目录包含 fdl 文件夹。"
+
+msgid "fdl_exec_wpart package requires an images folder in the ZIP archive."
+msgstr "fdl_exec_wpart 类型的包必须在 ZIP 存档根目录包含 images 文件夹。"
+
+msgid "The fdl command must be selected before the compatibility check."
+msgstr "兼容性检查前必须勾选 fdl 命令。"
+
+msgid "Failed to execute automated task."
+msgstr "自动化任务执行失败。"
+
+msgid "Automated task running..."
+msgstr "自动化任务执行中..."
+
+msgid "Automated task: "
+msgstr "自动化任务："
+
+msgid "Automated task failed"
+msgstr "自动化任务失败"
+
+msgid "Device disconnected"
+msgstr "设备已断开"
+
+msgid "Checking package compatibility..."
+msgstr "正在检查包兼容性..."
+
+msgid "Package compatibility check failed"
+msgstr "包兼容性检查失败"
+
+msgid "fdl_exec_wpart package requires a fdl folder in the ZIP archive."
+msgstr "fdl_exec_wpart 类型的包必须在 ZIP 存档根目录包含 fdl 文件夹。"

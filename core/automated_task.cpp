@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cctype>
+#include <cmath>
 #include <cerrno>
 #include <climits>
 #include <cstdlib>
@@ -53,6 +54,22 @@ bool iequals_ascii(const std::string& a, const char* b)
             return false;
         }
     }
+    return true;
+}
+
+bool parse_u32(const std::string& text, std::uint32_t& out)
+{
+    if (text.empty() || text[0] == '-') {
+        return false;
+    }
+    errno = 0;
+    char* end = nullptr;
+    const unsigned long value = std::strtoul(text.c_str(), &end, 0);
+    if (errno == ERANGE || end == text.c_str() || *end != '\0' ||
+        value > 0xffffffffUL) {
+        return false;
+    }
+    out = static_cast<std::uint32_t>(value);
     return true;
 }
 
@@ -214,6 +231,8 @@ private:
     const AutomatedTaskRequest& request_;
     const AutomatedTaskLogFn& log_;
     std::string error_;
+    std::string exec_file_;
+    std::uint32_t exec_addr_ = 0;
     bool terminal_ = false;
 
     void write_log(const std::string& message)
@@ -243,6 +262,17 @@ private:
         return true;
     }
 
+    bool require_fdl2()
+    {
+        if (!require_device()) {
+            return false;
+        }
+        if (g_app_state.device.device_stage != FDL2 && fdl2_executed <= 0) {
+            return fail("command requires FDL2 stage");
+        }
+        return true;
+    }
+
     std::filesystem::path package_root() const
     {
         return utf8_to_path(request_.package_root);
@@ -250,7 +280,36 @@ private:
 
     std::filesystem::path image_root() const
     {
+        if (!request_.image_root.empty()) {
+            return utf8_to_path(request_.image_root);
+        }
         return package_root() / "images";
+    }
+
+    std::filesystem::path resolve_fdl_file(const std::string& file) const
+    {
+        const std::filesystem::path p = utf8_to_path(file);
+        if (request_.fdl_root.empty()) {
+            return p;
+        }
+        if (p.is_absolute()) {
+            throw std::runtime_error("fdl file path must be relative to fdl/");
+        }
+
+        const std::filesystem::path root = utf8_to_path(request_.fdl_root).lexically_normal();
+        const std::filesystem::path out = (root / p).lexically_normal();
+        const std::filesystem::path rel = out.lexically_relative(root);
+        bool unsafe = rel.empty() || rel.is_absolute();
+        for (const auto& part : rel) {
+            if (part == "..") {
+                unsafe = true;
+                break;
+            }
+        }
+        if (unsafe) {
+            throw std::runtime_error("fdl file path escapes fdl/: " + file);
+        }
+        return out;
     }
 
     std::filesystem::path resolve_image(const std::string& image) const
@@ -274,6 +333,217 @@ private:
             throw std::runtime_error("image path escapes images/: " + image);
         }
         return out;
+    }
+
+    bool finish_brom_exec(std::uint32_t addr)
+    {
+        write_log("Execute FDL1");
+
+        if (addr == 0x5500 || addr == 0x65000800) {
+            highspeed = 1;
+            if (!baudrate) {
+                baudrate = 921600;
+            }
+        }
+
+        io->flags &= ~FLAGS_CRC16;
+        encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
+        for (int i = 0; ; ++i) {
+            send_msg(io);
+            recv_msg(io);
+            if (recv_type(io) == BSL_REP_VER) {
+                break;
+            }
+            write_log("Failed to check baud, retry...");
+            if (i == 4) {
+                return fail("can not execute FDL, please reboot the device");
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
+        write_log("Check baud FDL1 done.");
+
+        if (!std::memcmp(io->raw_buf + 4, "SPRD4", 5)) {
+            g_app_state.device.device_mode = SPRD4;
+            if (no_fdl_mode) {
+                fdl2_executed = -1;
+            }
+        }
+
+        encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+        if (send_and_check(io)) {
+            return fail("FDL connect failed");
+        }
+        write_log("FDL1 connected.");
+
+#if !USE_LIBUSB
+        if (baudrate) {
+            uint8_t* data = io->temp_buf;
+            WRITE32_BE(data, baudrate);
+            encode_msg_nocpy(io, BSL_CMD_CHANGE_BAUD, 4);
+            if (!send_and_check(io)) {
+                write_log("Change baud FDL1 to " + std::to_string(baudrate));
+                call_SetProperty(io->handle, 0, 100, &baudrate);
+            }
+        }
+#endif
+
+        if (keep_charge) {
+            encode_msg_nocpy(io, BSL_CMD_KEEP_CHARGE, 0);
+            if (!send_and_check(io)) {
+                write_log("Keep charge FDL1.");
+            }
+        }
+
+        fdl1_loaded = 1;
+        g_app_state.device.device_stage = FDL1;
+        return true;
+    }
+
+    bool load_fdl_exact(const std::string& file_utf8, std::uint32_t addr)
+    {
+        if (fdl2_executed > 0) {
+            write_log("FDL2 is already executed, skipped.");
+            return true;
+        }
+
+        if (fdl1_loaded > 0) {
+            if (fdl2_executed != -1) {
+                const unsigned fdl_step =
+                    g_app_state.device.device_mode == SPRD3
+                        ? (blk_size ? static_cast<unsigned>(blk_size) : 528u)
+                        : 528u;
+                send_file(io, file_utf8.c_str(), addr, end_data, fdl_step, 0, 0);
+            }
+            return true;
+        }
+
+        if (fdl1_loaded != -1) {
+            // pwnexec 需要保留原始 FDL1 数据。
+            if (addr == 0x65008000) {
+                std::size_t n = 0;
+                uint8_t* m = loadfile(file_utf8.c_str(), &n, 0);
+                if (m) {
+                    delete[] g_fdl1_img;
+                    g_fdl1_img = m;
+                    g_fdl1_img_size = n;
+                    write_log("Cached FDL1 image for pwnexec (" +
+                              std::to_string(n) + " bytes)");
+                }
+            }
+
+            send_file(io, file_utf8.c_str(), addr, end_data, 528, 0, 0);
+            if (exec_addr_ > 0 && !exec_file_.empty()) {
+                send_file(io, exec_file_.c_str(), exec_addr_, 0, 528, 0, 0);
+            } else {
+                encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+                if (send_and_check(io)) {
+                    return fail("FDL exec failed");
+                }
+            }
+        } else {
+            encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+            if (send_and_check(io)) {
+                return fail("FDL exec failed");
+            }
+        }
+
+        return finish_brom_exec(addr);
+    }
+
+    bool exec_fdl1_to_fdl2()
+    {
+        std::memset(&Da_Info, 0, sizeof(Da_Info));
+        encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+        send_msg(io);
+        if (!recv_msg_timeout(io, 15000)) {
+            return fail("FDL2 exec timeout");
+        }
+
+        int response = recv_type(io);
+        if (response == BSL_REP_INCOMPATIBLE_PARTITION) {
+            get_Da_Info(io);
+        } else if (response != BSL_REP_ACK) {
+            return fail(std::string("unexpected FDL2 response: ") +
+                        get_bsl_enum_name(response));
+        }
+
+        if (Da_Info.bDisableHDLC) {
+            encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
+            if (!send_and_check(io)) {
+                io->flags &= ~FLAGS_TRANSCODE;
+                write_log("Try to disable transcode 0x7D.");
+            }
+        }
+
+        int verbose = io->verbose;
+        io->verbose = -1;
+        g_spl_size = check_partition(io, "splloader", 1);
+        io->verbose = verbose;
+
+        if (Da_Info.bSupportRawData) {
+            blk_size = 0xf800;
+            io->ptable = partition_list(io, &io->part_count);
+            if (fdl2_executed) {
+                Da_Info.bSupportRawData = 0;
+                write_log("Raw data mode disabled for SPRD4.");
+            } else {
+                encode_msg_nocpy(io, BSL_CMD_ENABLE_RAW_DATA, 0);
+                if (!send_and_check(io)) {
+                    write_log("Raw data mode enabled.");
+                }
+            }
+        } else if (highspeed || Da_Info.dwStorageType == 0x103) {
+            blk_size = 0xf800;
+            io->ptable = partition_list(io, &io->part_count);
+        } else if (Da_Info.dwStorageType == 0x102) {
+            io->ptable = partition_list(io, &io->part_count);
+        } else if (Da_Info.dwStorageType == 0x101) {
+            write_log("Device storage is nand.");
+        }
+
+        if (g_app_state.flash.selected_ab < 0) {
+            select_ab(io);
+        }
+        if (g_app_state.flash.selected_ab == 2) {
+            write_log("Device is using slot b");
+        } else if (g_app_state.flash.selected_ab == 1) {
+            write_log("Device is using slot a");
+        } else {
+            write_log("Device is not using VAB");
+        }
+
+        if (g_app_state.flash.gpt_failed != 1) {
+            if (g_app_state.flash.selected_ab != 1 &&
+                g_app_state.flash.selected_ab != 2) {
+                if (Da_Info.bSupportRawData) {
+                    write_log("Raw data mode is supported, but disabled for stability.");
+                    Da_Info.bSupportRawData = 0;
+                }
+            }
+        } else if (isUseCptable) {
+            io->Cptable = partition_list_d(io);
+            if (io->Cptable) {
+                g_app_state.flash.isCMethod = 1;
+            }
+        }
+
+        if (!isUseCptable && !io->part_count) {
+            write_log("No partition table found on current device");
+        }
+
+        if (nand_id == DEFAULT_NAND_ID) {
+            nand_info[0] = static_cast<uint8_t>(std::pow(2, nand_id & 3));
+            nand_info[1] = static_cast<int>(32 / std::pow(2, (nand_id >> 2) & 3));
+            nand_info[2] = static_cast<int>(64 * std::pow(2, (nand_id >> 4) & 3));
+        }
+
+        fdl2_executed = 1;
+        g_app_state.device.device_stage = FDL2;
+        if (exec_addr_ > 0) {
+            g_app_state.flash.g_w_force = 1;
+        }
+        write_log("Execute FDL2");
+        return true;
     }
 
     bool execute(const std::string& line)
@@ -319,7 +589,6 @@ private:
             }
             if (value < 0) value = 0;
             if (value > 0xf800) value = 0xf800;
-            value = (value + 0x7FF) & ~0x7FF;
             blk_size = static_cast<int>(value);
             write_log("blk_size=" + std::to_string(blk_size));
             return true;
@@ -327,7 +596,7 @@ private:
 
         if (command == "write_part") {
             if (tokens.size() != 3) return fail("usage: write_part <name> <image>");
-            if (!require_device()) return false;
+            if (!require_fdl2()) return false;
             const std::filesystem::path image = resolve_image(tokens[2]);
             std::error_code ec;
             if (!std::filesystem::is_regular_file(image, ec) || ec) {
@@ -350,7 +619,7 @@ private:
 
         if (command == "read_part") {
             if (tokens.size() != 3) return fail("usage: read_part <name> <path>");
-            if (!require_device()) return false;
+            if (!require_fdl2()) return false;
             get_partition_info(io, tokens[1].c_str(), 0);
             if (!gPartInfo.size) {
                 return fail("partition does not exist: " + tokens[1]);
@@ -368,7 +637,7 @@ private:
 
         if (command == "erase_part") {
             if (tokens.size() != 2) return fail("usage: erase_part <name>");
-            if (!require_device()) return false;
+            if (!require_fdl2()) return false;
             get_partition_info(io, tokens[1].c_str(), 0);
             if (!gPartInfo.size) {
                 return fail("partition does not exist: " + tokens[1]);
@@ -382,7 +651,7 @@ private:
 
         if (command == "repartition") {
             if (tokens.size() != 1) return fail("usage: repartition");
-            if (!require_device()) return false;
+            if (!require_fdl2()) return false;
             if (request_.partitions.empty()) {
                 return fail("package.json has no partitions for repartition");
             }
@@ -417,7 +686,7 @@ private:
 
         if (command == "write_parts") {
             if (tokens.size() != 1) return fail("usage: write_parts");
-            if (!require_device()) return false;
+            if (!require_fdl2()) return false;
             const std::filesystem::path dir = image_root();
             std::error_code ec;
             if (!std::filesystem::is_directory(dir, ec) || ec) {
@@ -432,7 +701,7 @@ private:
 
         if (command == "dis_avb_tos") {
             if (tokens.size() != 2) return fail("usage: dis_avb_tos <backup>");
-            if (!require_device()) return false;
+            if (!require_fdl2()) return false;
 
             get_partition_info(io, "trustos", 1);
             if (!gPartInfo.size) {
@@ -483,7 +752,7 @@ private:
 
         if (command == "e_bl") {
             if (tokens.size() != 2) return fail("usage: e_bl <backup>");
-            if (!require_device()) return false;
+            if (!require_fdl2()) return false;
             get_partition_info(io, "miscdata", 1);
             if (!gPartInfo.size) {
                 return fail("miscdata partition not found");
@@ -506,7 +775,7 @@ private:
             if (!parse_int(tokens[1], value) || (value != 0 && value != 1)) {
                 return fail("verity expects 0 or 1");
             }
-            if (!require_device()) return false;
+            if (!require_fdl2()) return false;
             if (value) {
                 dm_enable(io, step(), g_app_state.flash.isCMethod);
             } else {
@@ -543,12 +812,113 @@ private:
             if (tokens[1] != "a" && tokens[1] != "b") {
                 return fail("set_active expects a or b");
             }
-            if (!require_device()) return false;
+            if (!require_fdl2()) return false;
             if (g_app_state.flash.selected_ab < 0) {
                 select_ab(io);
             }
             set_active(io, tokens[1].c_str(), g_app_state.flash.isCMethod);
             write_log("set_active " + tokens[1]);
+            return true;
+        }
+
+        if (command == "send") {
+            if (tokens.size() != 3) return fail("usage: send <file> <addr>");
+            if (!require_device()) return false;
+            std::uint32_t addr = 0;
+            if (!parse_u32(tokens[2], addr)) {
+                return fail("invalid address: " + tokens[2]);
+            }
+            const std::filesystem::path file = utf8_to_path(tokens[1]);
+            std::error_code ec;
+            if (!std::filesystem::is_regular_file(file, ec) || ec) {
+                return fail("file not found: " + path_to_utf8(file));
+            }
+            write_log("send " + path_to_utf8(file) + " to 0x" +
+                      std::to_string(addr));
+            send_file(io, path_to_utf8(file).c_str(), addr, 0, 528, 0, 0);
+            write_log("send ok");
+            return true;
+        }
+
+        if (command == "exec_addr") {
+            if (tokens.size() != 3) return fail("usage: exec_addr <file> <addr>");
+            std::uint32_t addr = 0;
+            if (!parse_u32(tokens[2], addr)) {
+                return fail("invalid address: " + tokens[2]);
+            }
+            const std::filesystem::path file = resolve_fdl_file(tokens[1]);
+            std::error_code ec;
+            if (!std::filesystem::is_regular_file(file, ec) || ec) {
+                return fail("file not found: " + path_to_utf8(file));
+            }
+            exec_file_ = path_to_utf8(file);
+            exec_addr_ = addr;
+            write_log("exec_addr file=" + exec_file_ + " addr=0x" +
+                      std::to_string(addr));
+            return true;
+        }
+
+        if (command == "fdl") {
+            if (tokens.size() != 3) return fail("usage: fdl <file> <addr>");
+            if (!require_device()) return false;
+            std::uint32_t addr = 0;
+            if (!parse_u32(tokens[2], addr)) {
+                return fail("invalid address: " + tokens[2]);
+            }
+            const std::filesystem::path file = resolve_fdl_file(tokens[1]);
+            std::error_code ec;
+            if (!std::filesystem::is_regular_file(file, ec) || ec) {
+                return fail("FDL file not found: " + path_to_utf8(file));
+            }
+            const std::string file_utf8 = path_to_utf8(file);
+
+            write_log("fdl " + file_utf8 + " @ 0x" + std::to_string(addr));
+            return load_fdl_exact(file_utf8, addr);
+        }
+
+        if (command == "exec") {
+            if (tokens.size() > 2) return fail("usage: exec [addr]");
+            if (!require_device()) return false;
+            if (fdl2_executed > 0) {
+                write_log("FDL2 is already executed, skipped");
+                return true;
+            }
+            // FDL1 阶段执行 exec 不需要地址；BROM 阶段才需要 addr。
+            if (fdl1_loaded > 0) {
+                return exec_fdl1_to_fdl2();
+            }
+
+            if (tokens.size() != 2) {
+                return fail("exec requires an address when running in BROM");
+            }
+            std::uint32_t addr = 0;
+            if (!parse_u32(tokens[1], addr)) {
+                return fail("invalid address: " + tokens[1]);
+            }
+            encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+            if (send_and_check(io)) {
+                return fail("FDL exec failed");
+            }
+            return finish_brom_exec(addr);
+        }
+
+        if (command == "cptable") {
+            if (tokens.size() != 1) return fail("usage: cptable");
+            if (!require_fdl2()) return false;
+            if (!io->part_count_c && !io->part_count) {
+                write_log("reading partition table through compatibility method");
+                io->Cptable = partition_list_d(io);
+                if (io->Cptable) {
+                    g_app_state.flash.isCMethod = 1;
+                    write_log("cptable loaded");
+                } else if (io->part_count > 0) {
+                    write_log("partition table loaded through normal method");
+                } else {
+                    return fail("cptable failed: no partition table");
+                }
+            } else {
+                write_log("partition table already loaded");
+            }
             return true;
         }
 

@@ -1500,6 +1500,16 @@ bool pac_flash(const char* folder)
 
     auto into_func = [isRepartitionGUI]() mutable
     {
+        // 与 page_connect 的 FDL 执行流程保持一致：发送 FDL 前先刷新底部状态栏。
+        auto set_fdl_executing = []()
+        {
+            if (!isHelperInit) return;
+            gui_idle_call([]()
+            {
+                const std::string current = helper.getLabelText(helper.getWidget("con"));
+                bottom_bar_set_status(current + " -> FDL Executing");
+            });
+        };
         std::string fdl1_path;
         uint32_t fdl1_base_addr = 0;
         std::string fdl2_path;
@@ -1585,6 +1595,7 @@ bool pac_flash(const char* folder)
                 return;
             }
             fi.close();
+            set_fdl_executing();
             send_file(io, fdl1_path.c_str(), fdl1_base_addr, 0, 528, 0, 0);
             encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
             if (send_and_check(io)) ERR_EXIT("FDL exec failed\n");
@@ -1641,7 +1652,14 @@ bool pac_flash(const char* folder)
             if (!send_and_check(io)) DEG_LOG(OP, "Keep charge FDL1.");
 
             fdl1_loaded = 1;
-            if (isHelperInit) gui_idle_call([](){ bottom_bar_set_mode("FDL1 - PAC"); });
+            if (isHelperInit)
+            {
+                gui_idle_call([]()
+                {
+                    bottom_bar_set_mode("FDL1 - PAC");
+                    bottom_bar_set_status("Connected");
+                });
+            }
             g_app_state.device.device_stage = FDL1;
         }
         if (g_app_state.device.device_stage == FDL1)
@@ -1668,6 +1686,7 @@ bool pac_flash(const char* folder)
             }
             fi.close();
             // FDL2
+            set_fdl_executing();
             send_file(io, fdl2_path.c_str(), fdl2_base_addr, 0, 528, 0, 0);
             memset(&Da_Info, 0, sizeof(Da_Info));
             encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
@@ -1775,7 +1794,27 @@ bool pac_flash(const char* folder)
             g_app_state.device.device_stage = FDL2;
         }
         DEG_LOG(I, "Device is in FDL2 stage now, flash pac");
-        if (isHelperInit) gui_idle_call([](){ bottom_bar_set_mode("FDL2 - PAC"); });
+        if (isHelperInit)
+        {
+            std::string storage;
+            switch (Da_Info.dwStorageType)
+            {
+            case 0x101: storage = "Nand"; break;
+            case 0x102: storage = "EMMC"; break;
+            case 0x103: storage = "UFS"; break;
+            default: break;
+            }
+            const char* slot = "Not VAB";
+            if (g_app_state.flash.selected_ab == 2) slot = "Slot B";
+            else if (g_app_state.flash.selected_ab == 1) slot = "Slot A";
+            gui_idle_call([storage, slot]()
+            {
+                bottom_bar_set_mode("FDL2 - PAC");
+                bottom_bar_set_status("Ready");
+                if (!storage.empty()) bottom_bar_set_storage(storage);
+                bottom_bar_set_slot(slot);
+            });
+        }
         if (!io->ptable || io->part_count <= 0)
         {
             g_app_state.pac.missing_parts.clear();

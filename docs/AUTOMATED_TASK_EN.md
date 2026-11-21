@@ -62,7 +62,7 @@ Fields:
 | `author` | No | Author; may be empty |
 | `version` | No | Version; may be empty |
 | `contact` | No | Contact; may be empty |
-| `type` | Yes | Must be `write_part` or `single_act` |
+| `type` | Yes | `write_part`, `single_act`, `fdl_exec`, or `fdl_exec_wpart` |
 | `actions` | Yes | Non-empty array of command strings |
 | `partitions` | No | Array of `[partition_name, size]` entries |
 
@@ -70,6 +70,9 @@ Constraints:
 
 - `type` must have exactly one value; other values are rejected;
 - `write_part` requires an `images/` folder in the ZIP root;
+- `fdl_exec` requires an `fdl/` folder and at least one `fdl` command;
+- `fdl_exec_wpart` requires both `fdl/` and `images/` folders in the ZIP
+  root, plus at least one `fdl` command;
 - `partitions` is optional and is used for compatibility checks and
   `repartition`;
 - sizes are interpreted as **MB** by default; `35MB` and `35840KB`
@@ -89,18 +92,20 @@ Constraints:
 2. Choose an extraction directory;
 3. The tool reads `package.json` and validates the package type,
    `actions`, partition table, and `images/` folder;
-4. If `partitions` is present, each partition is checked against the device:
+4. For `fdl_exec` / `fdl_exec_wpart`, compatibility is deferred until
+   `Start` has executed the `fdl` / `exec` / `cptable` preparation commands;
+5. If `partitions` is present, each partition is checked against the device:
    - missing partition → failure;
    - size mismatch → failure;
    - `userdata` is checked for existence only;
-5. On failure:
+6. On failure:
    - a warning is shown and the PAC-style partition comparison dialog is
      reused to display differences;
    - the package is rejected and `Start` stays disabled;
-6. If the device is not connected or the partition table is empty:
+7. If the device is not connected or the partition table is empty:
    - a warning explains that compatibility cannot be verified;
    - `Start` stays disabled;
-7. After the device state changes, click **Re-check Package** to validate
+8. After the device state changes, click **Re-check Package** to validate
    again and unlock `Start`.
 
 ---
@@ -111,10 +116,19 @@ Clicking `Start` first shows a safety confirmation. After confirmation,
 commands run in the order of **Task Selection**. The first failure stops
 execution and shows a warning dialog.
 
+- For `fdl_exec` / `fdl_exec_wpart`, the `fdl`, `exec`, and optional
+  `cptable` preparation commands run before the partition compatibility
+  check; incompatible packages stop before remaining actions;
 - `wait TIME` pauses execution for TIME seconds;
 - `pause message` shows an Info dialog with the message and waits for
   confirmation before continuing;
+- Partition read/write/erase, repartition, `dis_avb_tos`, `e_bl`,
+  `verity`, `set_active`, and `cptable` require the device to be in
+  **FDL2** stage; otherwise execution stops with an error;
 - Command output appears in the bottom Log pane;
+- the main window status bar shows the current command, device mode
+  (BROM/FDL1/FDL2), storage type, A/B slot, and progress; it updates on
+  failure or disconnect;
 - `reset`, `poweroff`, `reboot-fastboot`, and `reboot-recovery`
   disconnect the device on success; all GUI buttons are then disabled
   and the user is asked to reconnect and restart the tool;
@@ -146,11 +160,19 @@ execution and shows a warning dialog.
 | `timeout value` | Set device timeout in milliseconds |
 | `wait TIME` | Wait TIME seconds before continuing |
 | `pause message` | Show an Info dialog and wait for confirmation |
+| `fdl FILE addr` | Load an FDL file relative to the `fdl/` folder |
+| `exec_addr FILE addr` | Set the BROM-stage helper file relative to `fdl/` |
+| `exec [ADDR]` | Execute FDL1→FDL2 in FDL1 (no address); BROM stage requires an address |
+| `send FILE addr` | Send a file to an address (path used as provided) |
+| `cptable` | Read the partition table via compatibility mode |
 | `print TEXT` | Print text to the bottom log |
 
 `write_part` and `write_parts` resolve image paths relative to
-`<extraction_dir>/images/`. Paths for `read_part`, `dis_avb_tos`, and
-`e_bl` are used as provided.
+`<extraction_dir>/images/`; `fdl_exec_wpart` also uses the root
+`images/` folder.
+`fdl` and `exec_addr` resolve file paths relative to `fdl/`; `send`
+uses the path as provided.
+Paths for `read_part`, `dis_avb_tos`, and `e_bl` are used as provided.
 
 ---
 

@@ -21,6 +21,10 @@ using AutomatedTaskPauseFn = std::function<void(const std::string& message)>;
 struct AutomatedTaskRequest {
     // ZIP 解压根目录；write_part / write_parts 的镜像根目录为 <root>/images。
     std::string package_root;
+    // 可选覆盖镜像根目录；默认使用 <root>/images。
+    std::string image_root;
+    // fdl/exec_addr/send 的相对路径根目录；fdl_exec 类型使用 <root>/fdl。
+    std::string fdl_root;
     // package.json 中的分区表，供 repartition 使用。
     std::vector<AutomatedTaskPartition> partitions;
     // 按顺序执行的命令，每个元素是一行命令。

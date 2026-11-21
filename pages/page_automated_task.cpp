@@ -10,6 +10,7 @@
 #include "../core/zipxx.hpp"
 #include "../i18n.h"
 #include "ui/gtk_row_view.hpp"
+#include "ui/layout/bottom_bar.h"
 #include "ui/ui_common.h"
 
 #include <nlohmann/json.hpp>
@@ -37,6 +38,9 @@ constexpr const char* kUnknown = "Unknown";
 // 两者都在 GUI 线程写入/读取。
 std::string g_package_archive;
 std::string g_package_root;
+std::string g_package_type;
+std::string g_image_root;
+std::string g_fdl_root;
 std::vector<sfd::AutomatedTaskPartition> g_package_partitions;
 
 std::string trim_ascii(std::string value)
@@ -55,6 +59,32 @@ std::string lower_ascii(std::string value)
     std::transform(value.begin(), value.end(), value.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return value;
+}
+
+bool is_fdl_package_type(const std::string& type)
+{
+    return type == "fdl_exec" || type == "fdl_exec_wpart";
+}
+
+std::string first_action_word(const std::string& action)
+{
+    const std::string line = trim_ascii(action);
+    const std::size_t end = line.find_first_of(" \t\r\n");
+    return line.substr(0, end == std::string::npos ? line.size() : end);
+}
+
+// fdl_exec / fdl_exec_wpart：返回执行兼容性检查前需要先执行的 actions 数量。
+// 以最后一个 fdl / exec / cptable 命令为边界，确保 cptable 先于检查执行。
+std::size_t fdl_checkpoint(const std::vector<std::string>& actions)
+{
+    std::size_t checkpoint = 0;
+    for (std::size_t i = 0; i < actions.size(); ++i) {
+        const std::string word = first_action_word(actions[i]);
+        if (word == "fdl" || word == "exec" || word == "cptable") {
+            checkpoint = i + 1;
+        }
+    }
+    return checkpoint;
 }
 
 // package.json 中的分区大小默认按 MB 解释；同时兼容 "35MB" / "35840KB" / "35M"
@@ -116,6 +146,8 @@ struct PackagePartitionSpec {
     std::string name;
     std::string size;
 };
+
+std::vector<PackagePartitionSpec> g_package_specs;
 
 // 创建带统一内边距的 card 内容盒，与其它页面的卡片保持一致。
 GtkWidget* make_card_box(int pad_h, int pad_v)
@@ -187,10 +219,12 @@ PackageManifest read_package_manifest(const std::string& archive_path)
     if (manifest.info.type.empty()) {
         throw std::runtime_error(_("package.json field \"type\" is required."));
     }
-    if (manifest.info.type != "write_part" && manifest.info.type != "single_act") {
+    if (manifest.info.type != "write_part" &&
+        manifest.info.type != "single_act" &&
+        !is_fdl_package_type(manifest.info.type)) {
         throw std::runtime_error(std::string(_("Unsupported package type: ")) +
                                  manifest.info.type +
-                                 _(" (expected write_part or single_act)."));
+                                 _(" (expected write_part, single_act, fdl_exec or fdl_exec_wpart)."));
     }
 
     if (!doc.contains("actions") || !doc["actions"].is_array() ||
@@ -241,13 +275,50 @@ PackageManifest read_package_manifest(const std::string& archive_path)
     if (manifest.info.type == "write_part") {
         bool has_images_dir = false;
         archive.for_each([&has_images_dir](const zipxx::EntryInfo& entry) {
-            if (entry.name.rfind("images/", 0) == 0) {
+            if (entry.name == "images" || entry.name.rfind("images/", 0) == 0) {
                 has_images_dir = true;
             }
         });
         if (!has_images_dir) {
             throw std::runtime_error(
                 _("write_part package requires an images folder in the ZIP archive."));
+        }
+    }
+
+    if (is_fdl_package_type(manifest.info.type)) {
+        bool has_fdl_cmd = false;
+        for (const auto& action : manifest.actions) {
+            if (action.is_string() &&
+                first_action_word(action.get<std::string>()) == "fdl") {
+                has_fdl_cmd = true;
+                break;
+            }
+        }
+        if (!has_fdl_cmd) {
+            throw std::runtime_error(
+                _("fdl_exec package requires at least one fdl command."));
+        }
+
+        bool has_fdl_dir = false;
+        bool has_images_dir = false;
+        archive.for_each([&has_fdl_dir, &has_images_dir](
+                             const zipxx::EntryInfo& entry) {
+            if (entry.name == "fdl" || entry.name.rfind("fdl/", 0) == 0) {
+                has_fdl_dir = true;
+            }
+            if (entry.name == "images" || entry.name.rfind("images/", 0) == 0) {
+                has_images_dir = true;
+            }
+        });
+        if (!has_fdl_dir) {
+            throw std::runtime_error(
+                manifest.info.type == "fdl_exec_wpart"
+                    ? _("fdl_exec_wpart package requires a fdl folder in the ZIP archive.")
+                    : _("fdl_exec package requires a fdl folder in the ZIP archive."));
+        }
+        if (manifest.info.type == "fdl_exec_wpart" && !has_images_dir) {
+            throw std::runtime_error(
+                _("fdl_exec_wpart package requires an images folder in the ZIP archive."));
         }
     }
 
@@ -290,6 +361,66 @@ void disable_all_gui_controls(GtkWidgetHelper helper)
     for (const char* name : widgets) {
         helper.setWidgetSensitive(name, FALSE);
     }
+}
+
+void set_bottom_status_async(const std::string& text)
+{
+    gui_idle_call([text]() mutable {
+        bottom_bar_set_status(text);
+    });
+}
+
+void set_bottom_progress_async(double fraction, const std::string& percent_text)
+{
+    gui_idle_call([fraction, percent_text]() mutable {
+        bottom_bar_set_progress(fraction, percent_text);
+    });
+}
+
+void set_bottom_mode_async(const std::string& text)
+{
+    gui_idle_call([text]() mutable {
+        bottom_bar_set_mode(text);
+    });
+}
+
+void set_bottom_storage_async(const std::string& text)
+{
+    gui_idle_call([text]() mutable {
+        bottom_bar_set_storage(text);
+    });
+}
+
+void set_bottom_slot_async(const std::string& text)
+{
+    gui_idle_call([text]() mutable {
+        bottom_bar_set_slot(text);
+    });
+}
+
+void update_bottom_device_info_async()
+{
+    gui_idle_call([]() {
+        switch (g_app_state.device.device_stage) {
+        case FDL2: bottom_bar_set_mode("FDL2"); break;
+        case FDL1: bottom_bar_set_mode("FDL1"); break;
+        case BROM: bottom_bar_set_mode("BROM"); break;
+        default:   bottom_bar_set_mode("Unknown"); break;
+        }
+
+        switch (Da_Info.dwStorageType) {
+        case 0x101: bottom_bar_set_storage("Nand"); break;
+        case 0x102: bottom_bar_set_storage("EMMC"); break;
+        case 0x103: bottom_bar_set_storage("UFS"); break;
+        default:    bottom_bar_set_storage("Unknown"); break;
+        }
+
+        switch (g_app_state.flash.selected_ab) {
+        case 2:  bottom_bar_set_slot("Slot B"); break;
+        case 1:  bottom_bar_set_slot("Slot A"); break;
+        default: bottom_bar_set_slot("Not VAB"); break;
+        }
+    });
 }
 
 void append_auto_task_log(GtkWidgetHelper helper, const std::string& message)
@@ -421,6 +552,25 @@ PackagePartitionCheckResult check_package_partitions(
 }
 
 
+std::vector<AutomatedTaskPartitionRow> build_unverified_partition_rows(
+    const std::vector<PackagePartitionSpec>& specs)
+{
+    std::vector<AutomatedTaskPartitionRow> rows;
+    rows.reserve(specs.size());
+    for (const auto& spec : specs) {
+        const bool is_userdata = lower_ascii(spec.name) == "userdata";
+        const std::uint64_t expected =
+            is_userdata ? 0 : parse_package_size_bytes(spec.size);
+        AutomatedTaskPartitionRow row;
+        row.name = spec.name;
+        row.size = is_userdata ? spec.size : format_size_bytes(expected);
+        row.raw_name = spec.name;
+        row.device_size = "-";
+        rows.push_back(row);
+    }
+    return rows;
+}
+
 struct PackageEvaluation {
     PackageManifest manifest;
     PackagePartitionCheckResult check;
@@ -434,13 +584,20 @@ PackageEvaluation evaluate_package(const std::string& archive)
     PackageEvaluation eval;
     eval.manifest = read_package_manifest(archive);
     eval.has_partitions = !eval.manifest.partitions.empty();
-    if (eval.has_partitions) {
+
+    if (is_fdl_package_type(eval.manifest.info.type)) {
+        // fdl_exec / fdl_exec_wpart 需要先执行 fdl（以及可选 cptable），
+        // 兼容性检查推迟到 Start 时进行。
+        eval.check.rows = build_unverified_partition_rows(eval.manifest.partitions);
+        eval.compatibility_ok = true;
+    } else if (eval.has_partitions) {
         eval.check = check_package_partitions(eval.manifest.partitions);
+        eval.compatibility_ok =
+            eval.check.device_available && eval.check.missing == 0 &&
+            eval.check.mismatch == 0;
+    } else {
+        eval.compatibility_ok = true;
     }
-    eval.compatibility_ok =
-        !eval.has_partitions ||
-        (eval.check.device_available && eval.check.missing == 0 &&
-         eval.check.mismatch == 0);
 
     eval.core_partitions.reserve(eval.manifest.partitions.size());
     for (const auto& spec : eval.manifest.partitions) {
@@ -482,6 +639,8 @@ void apply_package_to_ui(GtkWidgetHelper& helper, const PackageEvaluation& eval,
     } else {
         automated_task_set_partitions(helper, {});
     }
+    g_package_type = eval.manifest.info.type;
+    g_package_specs = eval.manifest.partitions;
     g_package_partitions = eval.core_partitions;
     helper.setWidgetSensitive("auto_task_start", eval.compatibility_ok);
 }
@@ -531,6 +690,13 @@ void on_button_clicked_load_package(GtkWidgetHelper helper)
             gui_idle_call([helper, eval, extract_dir, archive]() mutable {
                 g_package_archive = archive;
                 g_package_root = extract_dir;
+                if (is_fdl_package_type(eval.manifest.info.type)) {
+                    g_fdl_root = extract_dir + "/fdl";
+                } else {
+                    g_fdl_root.clear();
+                }
+                // images/ 始终位于解压根目录；默认值即可。
+                g_image_root.clear();
                 apply_package_to_ui(helper, eval);
             });
 
@@ -683,6 +849,26 @@ void on_button_clicked_start(GtkWidgetHelper helper)
         return;
     }
 
+    const bool fdl_deferred = is_fdl_package_type(g_package_type) &&
+                              !g_package_specs.empty();
+    std::vector<std::string> prefix_actions;
+    std::vector<std::string> suffix_actions;
+    if (fdl_deferred) {
+        const bool has_fdl_selected = std::any_of(
+            tasks.begin(), tasks.end(), [](const std::string& action) {
+                return first_action_word(action) == "fdl";
+            });
+        const std::size_t checkpoint = fdl_checkpoint(tasks);
+        if (!has_fdl_selected || checkpoint == 0) {
+            showErrorDialog(
+                parent, _("Error"),
+                _("The fdl command must be selected before the compatibility check."));
+            return;
+        }
+        prefix_actions.assign(tasks.begin(), tasks.begin() + checkpoint);
+        suffix_actions.assign(tasks.begin() + checkpoint, tasks.end());
+    }
+
     const bool confirmed = showConfirmDialog(
         parent, _("Warning"),
         _("Please confirm that this package's actions and partition images are harmless. "
@@ -694,26 +880,65 @@ void on_button_clicked_start(GtkWidgetHelper helper)
 
     sfd::AutomatedTaskRequest request;
     request.package_root = g_package_root;
+    request.image_root = g_image_root;
+    request.fdl_root = g_fdl_root;
     request.partitions = g_package_partitions;
     request.actions = tasks;
     request.on_pause = [parent](const std::string& message) {
         showInfoDialogSyncInThread(parent, _("Info"), message.c_str());
     };
 
+    const std::vector<PackagePartitionSpec> specs = g_package_specs;
     helper.disableWidget("auto_task_start");
     helper.disableWidget("auto_task_recheck");
     helper.disableWidget("auto_task_pkg_load");
     append_auto_task_log(helper, "=== Automated task start ===");
+    bottom_bar_set_status(_("Automated task running..."));
+    bottom_bar_set_progress(0.0, "0%");
+    update_bottom_device_info_async();
 
-    std::thread([helper, parent, request]() {
-        const auto log = [helper](const std::string& line) {
+    std::thread([helper, parent, request, prefix_actions, suffix_actions,
+                 fdl_deferred, specs]() {
+        const int total_actions = static_cast<int>(request.actions.size());
+        int completed_actions = 0;
+        const auto log = [helper, total_actions, &completed_actions](
+                             const std::string& line) {
             append_auto_task_log(helper, line);
+            if (line.rfind("[cmd] ", 0) == 0) {
+                ++completed_actions;
+                set_bottom_status_async(
+                    std::string(_("Automated task: ")) + line.substr(6));
+                if (total_actions > 0) {
+                    const double fraction =
+                        static_cast<double>(completed_actions) / total_actions;
+                    const int percent = static_cast<int>(fraction * 100.0);
+                    set_bottom_progress_async(fraction,
+                                              std::to_string(percent) + "%");
+                }
+                update_bottom_device_info_async();
+            }
         };
-        const sfd::AutomatedTaskResult result =
-            sfd::run_automated_task(request, log);
-
-        if (result.success && result.device_detached) {
+        auto enable_retry = [helper]() {
+            gui_idle_call([helper]() mutable {
+                helper.enableWidget("auto_task_recheck");
+                helper.enableWidget("auto_task_pkg_load");
+            });
+        };
+        auto show_failure = [&](const std::string& message) {
+            append_auto_task_log(helper, "Automated task failed: " + message);
+            set_bottom_status_async(_("Automated task failed"));
+            update_bottom_device_info_async();
+            const std::string text = std::string(_("Automated task failed: ")) + message;
+            showWarningDialogSyncInThread(parent, _("Warning"), text.c_str());
+            enable_retry();
+        };
+        auto handle_detached = [&]() {
             append_auto_task_log(helper, "Device disconnected by reset/poweroff/reboot command.");
+            set_bottom_status_async(_("Device disconnected"));
+            set_bottom_mode_async(_("Not connected"));
+            set_bottom_storage_async("Unknown");
+            set_bottom_slot_async("Unknown");
+            set_bottom_progress_async(0.0, "0%");
             gui_idle_call_wait_drag([helper, parent]() {
                 disable_all_gui_controls(helper);
                 showWarningDialog(
@@ -721,22 +946,83 @@ void on_button_clicked_start(GtkWidgetHelper helper)
                     _("Device disconnected. All controls have been disabled. "
                       "Please reconnect the device and restart the tool."));
             }, parent);
-        } else if (result.success) {
-            append_auto_task_log(helper, "Automated task completed.");
-            showInfoDialogSyncInThread(parent, _("Info"), _("Automated task completed."));
-            gui_idle_call([helper]() mutable {
-                helper.enableWidget("auto_task_recheck");
-                helper.enableWidget("auto_task_pkg_load");
-            });
-        } else {
-            append_auto_task_log(helper, "Automated task failed: " + result.message);
-            const std::string message =
-                std::string(_("Automated task failed: ")) + result.message;
-            showWarningDialogSyncInThread(parent, _("Warning"), message.c_str());
-            gui_idle_call([helper]() mutable {
-                helper.enableWidget("auto_task_recheck");
-                helper.enableWidget("auto_task_pkg_load");
-            });
+        };
+
+        try {
+            sfd::AutomatedTaskResult result;
+
+            if (fdl_deferred) {
+                sfd::AutomatedTaskRequest prefix = request;
+                prefix.actions = prefix_actions;
+                result = sfd::run_automated_task(prefix, log);
+                if (!result.success) {
+                    show_failure(result.message);
+                    return;
+                }
+                if (result.device_detached) {
+                    handle_detached();
+                    return;
+                }
+
+                append_auto_task_log(helper, "checking package partition compatibility...");
+                set_bottom_status_async(_("Checking package compatibility..."));
+                update_bottom_device_info_async();
+                PackagePartitionCheckResult check = check_package_partitions(specs);
+                const bool compatible = check.device_available &&
+                                        check.missing == 0 && check.mismatch == 0;
+
+                gui_idle_call([helper, rows = check.rows]() mutable {
+                    automated_task_set_partitions(helper, rows);
+                });
+
+                if (!compatible) {
+                    if (!check.device_available) {
+                        showWarningDialogSyncInThread(
+                            parent, _("Warning"),
+                            _("Cannot verify package compatibility: device is not connected or the partition table is empty."));
+                    } else {
+                        gui_idle_call_wait_drag(
+                            [parent, entries = check.entries,
+                             device_count = check.device_count,
+                             package_count = specs.size(),
+                             missing = check.missing,
+                             mismatch = check.mismatch]() {
+                                show_package_partition_check_dialog(
+                                    parent, entries, device_count, package_count,
+                                    missing, mismatch);
+                            }, parent);
+                    }
+                    set_bottom_status_async(_("Package compatibility check failed"));
+                    update_bottom_device_info_async();
+                    enable_retry();
+                    return;
+                }
+                append_auto_task_log(helper, "compatibility check passed");
+
+                sfd::AutomatedTaskRequest suffix = request;
+                suffix.actions = suffix_actions;
+                result = sfd::run_automated_task(suffix, log);
+            } else {
+                result = sfd::run_automated_task(request, log);
+            }
+
+            if (result.success && result.device_detached) {
+                handle_detached();
+            } else if (result.success) {
+                append_auto_task_log(helper, "Automated task completed.");
+                set_bottom_status_async(_("Automated task completed."));
+                set_bottom_progress_async(1.0, "100%");
+                update_bottom_device_info_async();
+                showInfoDialogSyncInThread(parent, _("Info"),
+                                           _("Automated task completed."));
+                enable_retry();
+            } else {
+                show_failure(result.message);
+            }
+        } catch (const std::exception& e) {
+            show_failure(e.what());
+        } catch (...) {
+            show_failure(_("Failed to execute automated task."));
         }
     }).detach();
 }

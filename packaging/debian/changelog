@@ -1,3 +1,9 @@
+sfd-tool (3.6.3-1-ltv) unstable; urgency=medium
+
+  * 更新自动化任务功能
+
+ -- RyanCrepa <Ryan110413@outlook.com>  Sat, 21 Nov 2026 21:10:51 +0800
+
 sfd-tool (3.6.2-1-ltv) unstable; urgency=medium
 
   * 更严格的PAC刷写机制(RD-sytle)

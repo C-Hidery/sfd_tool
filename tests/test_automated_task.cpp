@@ -55,3 +55,12 @@ TEST_CASE("automated task wait and pause") {
     CHECK(std::find(logs.begin(), logs.end(), "waiting 0 second(s)") != logs.end());
     CHECK(std::find(logs.begin(), logs.end(), "wait finished") != logs.end());
 }
+
+TEST_CASE("automated task exec_addr validates file") {
+    sfd::AutomatedTaskRequest request;
+    request.actions = {"exec_addr missing.bin 0x1000"};
+
+    const auto result = sfd::run_automated_task(request, {});
+    CHECK_FALSE(result.success);
+    CHECK(result.message.find("file not found") != std::string::npos);
+}
