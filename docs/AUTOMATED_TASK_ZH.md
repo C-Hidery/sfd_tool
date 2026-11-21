@@ -60,7 +60,7 @@ ZIP 根目录必须包含 `package.json`：
 | `author` | 否 | 作者，可为空 |
 | `version` | 否 | 版本，可为空 |
 | `contact` | 否 | 联系方式，可为空 |
-| `type` | 是 | 只能是 `write_part` 或 `single_act` |
+| `type` | 是 | `write_part`、`single_act`、`fdl_exec` 或 `fdl_exec_wpart` |
 | `actions` | 是 | 非空字符串数组，每个元素是一条命令 |
 | `partitions` | 否 | 分区表，元素格式为 `[分区名, 大小]` |
 
@@ -68,6 +68,8 @@ ZIP 根目录必须包含 `package.json`：
 
 - `type` 只能有一个值，其他值或同时出现多个值会被拒绝；
 - `write_part` 类型要求 ZIP 根目录存在 `images/` 文件夹；
+- `fdl_exec` 类型要求 ZIP 根目录存在 `fdl/` 文件夹，并且 `actions` 中至少包含一条 `fdl` 命令；
+- `fdl_exec_wpart` 类型要求 ZIP 根目录同时存在 `fdl/` 和 `images/` 文件夹，并且必须包含 `fdl` 命令；
 - `partitions` 可选，存在时用于兼容性检查和 `repartition`；
 - 分区大小默认单位为 **MB**，也兼容 `35MB`、`35840KB` 等写法；
 - `userdata` 的实际容量随设备变化，**只检查是否存在，不比较大小**；
@@ -82,17 +84,19 @@ ZIP 根目录必须包含 `package.json`：
 1. 点击 `...` 选择 ZIP 包，再点击 `Load`；
 2. 选择解压目录；
 3. 工具读取 `package.json`，校验包类型、`actions`、分区表和 `images/`；
-4. 若包内有 `partitions`，逐个检查设备分区：
+4. 对于 `fdl_exec` / `fdl_exec_wpart`，加载时不立即检查兼容性，而是在
+   `Start` 执行完 `fdl` / `exec` / `cptable` 后再检查；
+5. 若包内有 `partitions`，逐个检查设备分区：
    - 分区不存在 → 失败；
    - 分区存在但大小不匹配 → 失败；
    - `userdata` 只检查存在性；
-5. 检查失败时：
+6. 检查失败时：
    - 弹窗提示，并复用 PAC 分区表比较弹窗展示差异；
    - 拒绝使用该包，`Start` 保持禁用；
-6. 设备未连接或分区表为空时：
+7. 设备未连接或分区表为空时：
    - 警告“无法验证兼容性”；
    - `Start` 保持禁用；
-7. 设备状态变化后，可点击 **Re-check Package** 重新检查并解锁
+8. 设备状态变化后，可点击 **Re-check Package** 重新检查并解锁
    `Start`。
 
 ---
@@ -102,9 +106,13 @@ ZIP 根目录必须包含 `package.json`：
 点击 `Start` 后会先显示安全确认警告，确认后按 `Task Selection`
 中的顺序执行。任意一条命令失败都会立即终止，并弹窗显示失败原因。
 
+- `fdl_exec` / `fdl_exec_wpart` 会先执行 `fdl`、`exec`、`cptable` 等
+  准备命令，然后检查包分区兼容性；不兼容则终止，不会执行后续命令；
 - `wait TIME` 会等待指定秒数后继续；
 - `pause message` 会弹出 Info 对话框显示消息，点击确认后继续执行；
 - 命令执行和输出显示在页面底部 Log；
+- 主窗口底部状态栏会显示当前执行命令、设备模式（BROM/FDL1/FDL2）
+  和执行进度，失败或设备断开时同步更新；
 - `reset`、`poweroff`、`reboot-fastboot`、`reboot-recovery`
   成功后会断开设备，工具会禁用所有 GUI 按钮，并提示重新连接设备、
   重启工具；
@@ -135,11 +143,17 @@ ZIP 根目录必须包含 `package.json`：
 | `timeout value` | 设置设备超时时间（毫秒） |
 | `wait TIME` | 等待 TIME 秒后继续 |
 | `pause message` | 弹窗显示 message，等待用户确认后继续 |
+| `fdl FILE addr` | 加载 FDL 文件，路径相对于 `fdl/` 目录 |
+| `exec_addr FILE addr` | 设置 BROM 阶段辅助执行文件，路径相对于 `fdl/` |
+| `exec ADDR` | 执行 FDL1→FDL2 或指定地址代码 |
+| `send FILE addr` | 发送文件到指定地址，路径相对于 `fdl/` |
+| `cptable` | 通过兼容方式读取分区表，供后续兼容性检查使用 |
 | `print TEXT` | 在底部日志输出文本 |
 
-`write_part` 和 `write_parts` 的镜像路径根目录是解压目录下的
-`images/`。`read_part`、`dis_avb_tos`、`e_bl` 的路径参数按命令中
-给出的路径使用。
+`write_part` 和 `write_parts` 的镜像路径根目录默认为解压目录下的
+`images/`；`fdl_exec_wpart` 同样使用解压根目录下的 `images/`。`fdl`、
+`exec_addr`、`send` 的文件路径相对于 `fdl/`。`read_part`、
+`dis_avb_tos`、`e_bl` 的路径参数按命令中给出的路径使用。
 
 ---
 

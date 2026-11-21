@@ -56,6 +56,22 @@ bool iequals_ascii(const std::string& a, const char* b)
     return true;
 }
 
+bool parse_u32(const std::string& text, std::uint32_t& out)
+{
+    if (text.empty() || text[0] == '-') {
+        return false;
+    }
+    errno = 0;
+    char* end = nullptr;
+    const unsigned long value = std::strtoul(text.c_str(), &end, 0);
+    if (errno == ERANGE || end == text.c_str() || *end != '\0' ||
+        value > 0xffffffffUL) {
+        return false;
+    }
+    out = static_cast<std::uint32_t>(value);
+    return true;
+}
+
 bool parse_uint64(const std::string& text, std::uint64_t& out)
 {
     if (text.empty() || text[0] == '-') {
@@ -214,6 +230,8 @@ private:
     const AutomatedTaskRequest& request_;
     const AutomatedTaskLogFn& log_;
     std::string error_;
+    std::string exec_file_;
+    std::uint32_t exec_addr_ = 0;
     bool terminal_ = false;
 
     void write_log(const std::string& message)
@@ -250,7 +268,36 @@ private:
 
     std::filesystem::path image_root() const
     {
+        if (!request_.image_root.empty()) {
+            return utf8_to_path(request_.image_root);
+        }
         return package_root() / "images";
+    }
+
+    std::filesystem::path resolve_fdl_file(const std::string& file) const
+    {
+        const std::filesystem::path p = utf8_to_path(file);
+        if (request_.fdl_root.empty()) {
+            return p;
+        }
+        if (p.is_absolute()) {
+            throw std::runtime_error("fdl file path must be relative to fdl/");
+        }
+
+        const std::filesystem::path root = utf8_to_path(request_.fdl_root).lexically_normal();
+        const std::filesystem::path out = (root / p).lexically_normal();
+        const std::filesystem::path rel = out.lexically_relative(root);
+        bool unsafe = rel.empty() || rel.is_absolute();
+        for (const auto& part : rel) {
+            if (part == "..") {
+                unsafe = true;
+                break;
+            }
+        }
+        if (unsafe) {
+            throw std::runtime_error("fdl file path escapes fdl/: " + file);
+        }
+        return out;
     }
 
     std::filesystem::path resolve_image(const std::string& image) const
@@ -274,6 +321,84 @@ private:
             throw std::runtime_error("image path escapes images/: " + image);
         }
         return out;
+    }
+
+    bool finish_brom_exec(std::uint32_t addr)
+    {
+        if (addr == 0x5500 || addr == 0x65000800) {
+            highspeed = 1;
+            if (!baudrate) {
+                baudrate = 921600;
+            }
+        }
+
+        io->flags &= ~FLAGS_CRC16;
+        encode_msg(io, BSL_CMD_CHECK_BAUD, nullptr, 1);
+        for (int i = 0; ; ++i) {
+            send_msg(io);
+            recv_msg(io);
+            if (recv_type(io) == BSL_REP_VER) {
+                break;
+            }
+            write_log("Failed to check baud, retry...");
+            if (i == 4) {
+                return fail("can not execute FDL, please reboot the device");
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
+
+        if (!std::memcmp(io->raw_buf + 4, "SPRD4", 5)) {
+            g_app_state.device.device_mode = SPRD4;
+            if (no_fdl_mode) {
+                fdl2_executed = -1;
+            }
+        }
+
+        encode_msg_nocpy(io, BSL_CMD_CONNECT, 0);
+        if (send_and_check(io)) {
+            return fail("FDL connect failed");
+        }
+        fdl1_loaded = 1;
+        g_app_state.device.device_stage = FDL1;
+        write_log("FDL1 executed and connected");
+        return true;
+    }
+
+    bool exec_fdl1_to_fdl2()
+    {
+        std::memset(&Da_Info, 0, sizeof(Da_Info));
+        encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+        send_msg(io);
+        if (!recv_msg_timeout(io, 15000)) {
+            return fail("FDL2 exec timeout");
+        }
+
+        int response = recv_type(io);
+        if (response == BSL_REP_INCOMPATIBLE_PARTITION) {
+            get_Da_Info(io);
+        } else if (response != BSL_REP_ACK) {
+            return fail(std::string("unexpected FDL2 response: ") +
+                        get_bsl_enum_name(response));
+        }
+
+        if (Da_Info.bDisableHDLC) {
+            encode_msg_nocpy(io, BSL_CMD_DISABLE_TRANSCODE, 0);
+            if (!send_and_check(io)) {
+                io->flags &= ~FLAGS_TRANSCODE;
+            }
+        }
+
+        io->ptable = partition_list(io, &io->part_count);
+        if (g_app_state.flash.selected_ab < 0) {
+            select_ab(io);
+        }
+        fdl2_executed = 1;
+        g_app_state.device.device_stage = FDL2;
+        if (exec_addr_ > 0) {
+            g_app_state.flash.g_w_force = 1;
+        }
+        write_log("FDL2 executed");
+        return true;
     }
 
     bool execute(const std::string& line)
@@ -549,6 +674,125 @@ private:
             }
             set_active(io, tokens[1].c_str(), g_app_state.flash.isCMethod);
             write_log("set_active " + tokens[1]);
+            return true;
+        }
+
+        if (command == "send") {
+            if (tokens.size() != 3) return fail("usage: send <file> <addr>");
+            if (!require_device()) return false;
+            std::uint32_t addr = 0;
+            if (!parse_u32(tokens[2], addr)) {
+                return fail("invalid address: " + tokens[2]);
+            }
+            const std::filesystem::path file = resolve_fdl_file(tokens[1]);
+            std::error_code ec;
+            if (!std::filesystem::is_regular_file(file, ec) || ec) {
+                return fail("file not found: " + path_to_utf8(file));
+            }
+            write_log("send " + path_to_utf8(file) + " to 0x" +
+                      std::to_string(addr));
+            send_file(io, path_to_utf8(file).c_str(), addr, 0, 528, 0, 0);
+            write_log("send ok");
+            return true;
+        }
+
+        if (command == "exec_addr") {
+            if (tokens.size() != 3) return fail("usage: exec_addr <file> <addr>");
+            std::uint32_t addr = 0;
+            if (!parse_u32(tokens[2], addr)) {
+                return fail("invalid address: " + tokens[2]);
+            }
+            const std::filesystem::path file = resolve_fdl_file(tokens[1]);
+            std::error_code ec;
+            if (!std::filesystem::is_regular_file(file, ec) || ec) {
+                return fail("file not found: " + path_to_utf8(file));
+            }
+            exec_file_ = path_to_utf8(file);
+            exec_addr_ = addr;
+            write_log("exec_addr file=" + exec_file_ + " addr=0x" +
+                      std::to_string(addr));
+            return true;
+        }
+
+        if (command == "fdl") {
+            if (tokens.size() != 3) return fail("usage: fdl <file> <addr>");
+            if (!require_device()) return false;
+            std::uint32_t addr = 0;
+            if (!parse_u32(tokens[2], addr)) {
+                return fail("invalid address: " + tokens[2]);
+            }
+            const std::filesystem::path file = resolve_fdl_file(tokens[1]);
+            std::error_code ec;
+            if (!std::filesystem::is_regular_file(file, ec) || ec) {
+                return fail("FDL file not found: " + path_to_utf8(file));
+            }
+            const std::string file_utf8 = path_to_utf8(file);
+
+            if (fdl2_executed > 0) {
+                write_log("FDL2 is already executed, skipped");
+                return true;
+            }
+
+            if (fdl1_loaded > 0) {
+                write_log("loading FDL2: " + file_utf8);
+                send_file(io, file_utf8.c_str(), addr, 0, 528, 0, 0);
+                write_log("FDL2 image sent");
+                return true;
+            }
+
+            write_log("loading FDL1: " + file_utf8);
+            send_file(io, file_utf8.c_str(), addr, 0, 528, 0, 0);
+            if (exec_addr_ > 0 && !exec_file_.empty()) {
+                write_log("sending exec_addr file: " + exec_file_);
+                send_file(io, exec_file_.c_str(), exec_addr_, 0, 528, 0, 0);
+            } else {
+                encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+                if (send_and_check(io)) {
+                    return fail("FDL1 exec failed");
+                }
+            }
+            return finish_brom_exec(addr);
+        }
+
+        if (command == "exec") {
+            if (tokens.size() != 2) return fail("usage: exec <addr>");
+            if (!require_device()) return false;
+            if (fdl2_executed > 0) {
+                write_log("FDL2 is already executed, skipped");
+                return true;
+            }
+            if (fdl1_loaded > 0) {
+                return exec_fdl1_to_fdl2();
+            }
+
+            std::uint32_t addr = 0;
+            if (!parse_u32(tokens[1], addr)) {
+                return fail("invalid address: " + tokens[1]);
+            }
+            encode_msg_nocpy(io, BSL_CMD_EXEC_DATA, 0);
+            if (send_and_check(io)) {
+                return fail("FDL exec failed");
+            }
+            return finish_brom_exec(addr);
+        }
+
+        if (command == "cptable") {
+            if (tokens.size() != 1) return fail("usage: cptable");
+            if (!require_device()) return false;
+            if (!io->part_count_c && !io->part_count) {
+                write_log("reading partition table through compatibility method");
+                io->Cptable = partition_list_d(io);
+                if (io->Cptable) {
+                    g_app_state.flash.isCMethod = 1;
+                    write_log("cptable loaded");
+                } else if (io->part_count > 0) {
+                    write_log("partition table loaded through normal method");
+                } else {
+                    return fail("cptable failed: no partition table");
+                }
+            } else {
+                write_log("partition table already loaded");
+            }
             return true;
         }
 
