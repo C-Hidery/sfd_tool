@@ -5,7 +5,7 @@
 
 SFD Tool GUI
 
-Version 3.6.2 LTV Edition
+Version 3.6.3 LTV Edition
 
 Copyright 2026 Ryan Crepa (ryan110413@outlook.com)
 
@@ -528,6 +528,9 @@ Remove unstable blk_size detection
 
 ---v 3.6.2---
 更严格的PAC刷写机制(RD-sytle)
+
+---v 3.6.3---
+更新自动化任务功能
 
 Under GPL v3 License
 Github: C-Hidery/sfd_tool
