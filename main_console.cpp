@@ -3341,8 +3341,8 @@ int main_console(int argc, char** argv)
                 argc = 1;
                 continue;
             }
-            DEG_LOG(W, "e_bl writes the encrypted \"VerifiedBoot-UNLOCK\" blob to miscdata@0x2000, use with caution!");
-            if (!skip_confirm && !check_confirm("Set bootloader status"))
+            DEG_LOG(W, "e_bl writes the encrypted \"VerifiedBoot-UNLOCK\" blob to miscdata@0x2000, may break the device, FULL backup is important, use with caution!");
+            if (!check_confirm("I understand the risk and assume all responsibilities for 'e_bl' command."))
             {
                 argc -= 1;
                 argv += 1;
@@ -4364,7 +4364,7 @@ int main_console(int argc, char** argv)
                 W,
                 "This operation may brick your device, and not all devices support this, if your device is broken, flash backup trustos image, if still not work, flash back all partitions");
             DEG_LOG(W, "Please make a FULL backup for your device before execute this command.");
-            if (check_confirm("Disable AVB by patching trustos"))
+            if (check_confirm("I understand the risk and assume all responsibilities for 'dis_avb_tos' command."))
             {
                 TosPatcher patcher;
                 get_partition_info(io, "trustos", 1);
@@ -4451,7 +4451,7 @@ int main_console(int argc, char** argv)
             else
             {
                 DEG_LOG(W, "This operation may brick your device, if you want to restore, use `verity 1` command");
-                if (check_confirm("Disable dm-verity") == 0)
+                if (check_confirm("I understand the risk and assume all responsibilities for 'verity 0' command") == 0)
                 {
                     argc -= 2;
                     argv += 2;

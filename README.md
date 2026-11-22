@@ -144,7 +144,7 @@ This command will **DISABLE** Android's DM-verity and AVB security verification 
   - Games with anti-cheat protection (PUBG, Genshin Impact, etc.)
 - Malware can easily modify your system without any warning
 - Your device becomes significantly more vulnerable to data theft
-
+- Users must know the risk and assume all responsibilities for their actions
 ## BEFORE CONTINUING
 
 **FULL Backup is very important before these operations!**
