@@ -1854,8 +1854,13 @@ int main_console(int argc, char** argv)
             if (status < 0 || status > 1)
             {
                 DEG_LOG(W, "bl {0,1}");
-                argc -= 2;
-                argv += 2;
+                argc = 1;
+                continue;
+            }
+            DEG_LOG(W, "This operation may break your device, FULL backup is important!");
+            if (!check_confirm("I understand the risk and assume all responsibilities for 'bl' command."))
+            {
+                argc = 1;
                 continue;
             }
             set_bootloader_status(io, status);
