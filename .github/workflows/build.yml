@@ -261,7 +261,7 @@ jobs:
 
   # ==================== Linux DEB 构建（保持不变）====================
   build-linux-deb:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Checkout Repository
@@ -292,7 +292,7 @@ jobs:
 
   # ==================== Linux RPM 构建（保持不变）====================
   build-linux-rpm:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     container:
       image: fedora:latest
     timeout-minutes: 20

@@ -133,9 +133,6 @@ ZIP 根目录必须包含 `package.json`：
 | `blk_size size` | 设置块大小，最大 `0xF800` |
 | `repartition` | 使用 `package.json` 的 `partitions` 重新分区 |
 | `write_parts` | 遍历 `images/`，按文件名批量写入分区 |
-| `dis_avb_tos path` | 备份并修改 TrustOS 以关闭 AVB |
-| `e_bl path` | 备份 `miscdata` 并设置 bootloader 状态 |
-| `verity 0\|1` | 关闭/启用 dm-verity |
 | `slot 0\|1\|2` | 选择 A/B slot |
 | `rawdata 0\|1\|2` | 设置 rawdata 模式 |
 | `reset` | 重启设备 |

@@ -147,9 +147,6 @@ execution and shows a warning dialog.
 | `blk_size size` | Set block size (max `0xF800`) |
 | `repartition` | Repartition using `package.json` `partitions` |
 | `write_parts` | Write all files in `images/` by filename |
-| `dis_avb_tos path` | Back up and patch TrustOS to disable AVB |
-| `e_bl path` | Back up `miscdata` and set bootloader state |
-| `verity 0\|1` | Disable/enable dm-verity |
 | `slot 0\|1\|2` | Select A/B slot |
 | `rawdata 0\|1\|2` | Set rawdata mode |
 | `reset` | Reboot the device |
