@@ -9,6 +9,7 @@
 #include "../core/pac_extract.h"
 #include "../core/zipxx.hpp"
 #include "../i18n.h"
+#include "page_partition.h"
 #include "ui/gtk_row_view.hpp"
 #include "ui/layout/bottom_bar.h"
 #include "ui/ui_common.h"
@@ -421,6 +422,21 @@ void update_bottom_device_info_async()
         default: bottom_bar_set_slot("Not VAB"); break;
         }
     });
+}
+
+// FDL2 执行完成后，把刚读出的分区表同步到分区操作页。
+void refresh_partition_page_from_device()
+{
+    if (!isHelperInit || !io || !io->ptable || io->part_count <= 0) {
+        return;
+    }
+    auto partitions = build_primary_partition_view();
+    if (partitions.empty()) {
+        return;
+    }
+    gui_idle_call_wait_drag([partitions]() mutable {
+        populatePartitionList(helper, partitions);
+    }, GTK_WINDOW(helper.getWidget("main_window")));
 }
 
 void append_auto_task_log(GtkWidgetHelper helper, const std::string& message)
@@ -964,6 +980,8 @@ void on_button_clicked_start(GtkWidgetHelper helper)
                     return;
                 }
 
+                refresh_partition_page_from_device();
+
                 append_auto_task_log(helper, "checking package partition compatibility...");
                 set_bottom_status_async(_("Checking package compatibility..."));
                 update_bottom_device_info_async();
@@ -1009,6 +1027,7 @@ void on_button_clicked_start(GtkWidgetHelper helper)
             if (result.success && result.device_detached) {
                 handle_detached();
             } else if (result.success) {
+                refresh_partition_page_from_device();
                 append_auto_task_log(helper, "Automated task completed.");
                 set_bottom_status_async(_("Automated task completed."));
                 set_bottom_progress_async(1.0, "100%");

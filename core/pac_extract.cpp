@@ -36,6 +36,7 @@
 #include "logging.h"  // 使用统一的 ERR_EXIT
 #include "result.h"   // T2-02: Result/ErrorCode
 #include "../pages/page_pac_flash.h"
+#include "../pages/page_partition.h"
 #include "Unpac.h"
 #include "PacXMLParser.hpp"
 #include "xmlutil.hpp"
@@ -1814,6 +1815,15 @@ bool pac_flash(const char* folder)
                 if (!storage.empty()) bottom_bar_set_storage(storage);
                 bottom_bar_set_slot(slot);
             });
+        }
+        // FDL2 执行完成后，把刚读出的分区表同步到分区操作页。
+        if (isHelperInit && io->ptable && io->part_count > 0)
+        {
+            auto partitions = build_primary_partition_view();
+            gui_idle_call_wait_drag([partitions]() mutable
+            {
+                populatePartitionList(helper, partitions);
+            }, GTK_WINDOW(helper.getWidget("main_window")));
         }
         if (!io->ptable || io->part_count <= 0)
         {

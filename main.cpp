@@ -372,8 +372,8 @@ void crash_handler(int sig) {
         }
     } else {
         // 命令行模式
-        fprintf(stderr, "Program crashed. Exiting...\n");
-        std::this_thread::sleep_for(std::chrono::seconds(3));
+        fprintf(stderr, "Program crashed. Press Enter to exit.\n");
+		std::cin.get();
         std::exit(EXIT_FAILURE);
     }
     

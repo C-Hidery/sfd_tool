@@ -226,7 +226,7 @@ static void update_partition_size_primary(spdio_t* io)
     }
 }
 
-static std::vector<sfd::DevicePartitionInfo> build_primary_partition_view()
+std::vector<sfd::DevicePartitionInfo> build_primary_partition_view()
 {
     std::vector<sfd::DevicePartitionInfo> partitions;
     if (!io || !io->ptable || io->part_count <= 0) return partitions;
