@@ -16,6 +16,7 @@
 #include <strings.h>
 #endif
 #include <algorithm>
+#include <cmath>
 #include <vector>
 #include <string>
 #include <cctype>
@@ -479,11 +480,38 @@ unsigned long long GetTickCount64()
 
 #define PROGRESS_BAR_WIDTH 40
 
+std::string format_remaining_time(double remaining_seconds)
+{
+    if (!std::isfinite(remaining_seconds) || remaining_seconds < 0.0)
+    {
+        return "--:--";
+    }
+
+    // Round up so a running operation never shows 00:00 while work is left.
+    unsigned long long total_seconds =
+        (unsigned long long)std::ceil(remaining_seconds);
+    unsigned long long hours = total_seconds / 3600ULL;
+    unsigned long long minutes = (total_seconds / 60ULL) % 60ULL;
+    unsigned long long seconds = total_seconds % 60ULL;
+
+    char text[32];
+    if (hours > 0)
+    {
+        snprintf(text, sizeof(text), "%llu:%02llu:%02llu", hours, minutes, seconds);
+    }
+    else
+    {
+        snprintf(text, sizeof(text), "%02llu:%02llu", minutes, seconds);
+    }
+    return std::string(text);
+}
+
 struct UiProgressData
 {
     double percent;
     uint64_t done;
     double speed_mb_s;
+    double remaining_seconds;
 };
 
 void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned long long time0)
@@ -506,14 +534,17 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
     if (completed > PROGRESS_BAR_WIDTH) completed = PROGRESS_BAR_WIDTH;
     int remaining = PROGRESS_BAR_WIDTH - completed;
 
-    // 只有整数格变化时才刷新（减少终端重绘与 GUI invoke 次数）；进度结束时
-    // 始终刷新一次，保证 100% 状态可见。
+    // 只有整数格变化（或满 1 秒，便于剩余时间走动）时才刷新，减少终端重绘
+    // 与 GUI invoke 次数；进度结束时始终刷新一次，保证 100% 状态可见。
     static int last_completed = -1;
     static uint64_t last_total = 0;
-    if (completed == last_completed && total == last_total && percent < 1.0)
+    static unsigned long long last_refresh = 0;
+    if (completed == last_completed && total == last_total && percent < 1.0 &&
+        time - last_refresh < 1000)
         return;
     last_completed = completed;
     last_total = total;
+    last_refresh = time;
 
     fprintf(stderr, "Progress: |");
     for (int i = 0; i < completed; i++)
@@ -529,7 +560,21 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
                             ? (double)1000 * done / (double)(time - time0) / 1024.0 / 1024.0
                             : 0.0;
 
-    fprintf(stderr, "|%6.1f%% Speed:%6.2fMb/s\r", percent * 100.0, speed_mb_s);
+    // 剩余时间：用已用时间和已完成比例估算；刚开始（done == 0）时未知。
+    double elapsed_s = (time > time0) ? (double)(time - time0) / 1000.0 : 0.0;
+    double remaining_s = -1.0;
+    if (done >= total && total > 0)
+    {
+        remaining_s = 0.0;
+    }
+    else if (done > 0 && elapsed_s > 0.0)
+    {
+        remaining_s = elapsed_s * (double)(total - done) / (double)done;
+    }
+    std::string remaining_text = format_remaining_time(remaining_s);
+
+    fprintf(stderr, "|%6.1f%% Speed:%6.2fMb/s Remaining:%8s\r",
+            percent * 100.0, speed_mb_s, remaining_text.c_str());
     if (io->nor_bar || percent >= 1.0) fprintf(stderr, "\n");
 
     // GUI 进度条和状态文本：每个数据块触发一次更新，保证视觉连续
@@ -541,13 +586,15 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
             double percent_val = progress_data->percent;
             uint64_t done_value = progress_data->done;
             double speed_val = progress_data->speed_mb_s;
+            double remaining_val = progress_data->remaining_seconds;
 
             if (isHelperInit)
             {
-                // 更新进度条 + 百分比
+                // 更新进度条 + 百分比 + 剩余时间
                 char percent_text[16];
                 snprintf(percent_text, sizeof(percent_text), "%.1f%%", percent_val * 100.0);
-                bottom_bar_set_progress(percent_val, percent_text);
+                bottom_bar_set_progress(percent_val, percent_text,
+                                        format_remaining_time(remaining_val));
 
                 // 更新底部连接状态文本，展示当前进度与速度
                 char status_text[160];
@@ -574,7 +621,7 @@ void print_progress_bar(spdio_t* io, uint64_t done, uint64_t total, unsigned lon
 
             delete progress_data;
             return G_SOURCE_REMOVE;
-        }, new UiProgressData{percent, done, speed_mb_s});
+        }, new UiProgressData{percent, done, speed_mb_s, remaining_s});
     }
 }
 

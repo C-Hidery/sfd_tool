@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -371,10 +372,11 @@ void set_bottom_status_async(const std::string& text)
     });
 }
 
-void set_bottom_progress_async(double fraction, const std::string& percent_text)
+void set_bottom_progress_async(double fraction, const std::string& percent_text,
+                               const std::string& remaining_text = std::string())
 {
-    gui_idle_call([fraction, percent_text]() mutable {
-        bottom_bar_set_progress(fraction, percent_text);
+    gui_idle_call([fraction, percent_text, remaining_text]() mutable {
+        bottom_bar_set_progress(fraction, percent_text, remaining_text);
     });
 }
 
@@ -915,9 +917,10 @@ void on_button_clicked_start(GtkWidgetHelper helper)
 
     std::thread([helper, parent, request, prefix_actions, suffix_actions,
                  fdl_deferred, specs]() {
+        const auto task_start = std::chrono::steady_clock::now();
         const int total_actions = static_cast<int>(request.actions.size());
         int completed_actions = 0;
-        const auto log = [helper, total_actions, &completed_actions](
+        const auto log = [helper, total_actions, &completed_actions, task_start](
                              const std::string& line) {
             append_auto_task_log(helper, line);
             if (line.rfind("[cmd] ", 0) == 0) {
@@ -928,8 +931,22 @@ void on_button_clicked_start(GtkWidgetHelper helper)
                     const double fraction =
                         static_cast<double>(completed_actions) / total_actions;
                     const int percent = static_cast<int>(fraction * 100.0);
+                    const double elapsed_s = std::chrono::duration<double>(
+                        std::chrono::steady_clock::now() - task_start).count();
+                    std::string remaining_text;
+                    if (completed_actions >= total_actions) {
+                        remaining_text = format_remaining_time(0.0);
+                    } else if (completed_actions > 0 && elapsed_s > 0.0) {
+                        remaining_text = format_remaining_time(
+                            elapsed_s *
+                            static_cast<double>(total_actions - completed_actions) /
+                            completed_actions);
+                    } else {
+                        remaining_text = format_remaining_time(-1.0);
+                    }
                     set_bottom_progress_async(fraction,
-                                              std::to_string(percent) + "%");
+                                              std::to_string(percent) + "%",
+                                              remaining_text);
                 }
                 update_bottom_device_info_async();
             }
@@ -1030,7 +1047,7 @@ void on_button_clicked_start(GtkWidgetHelper helper)
                 refresh_partition_page_from_device();
                 append_auto_task_log(helper, "Automated task completed.");
                 set_bottom_status_async(_("Automated task completed."));
-                set_bottom_progress_async(1.0, "100%");
+                set_bottom_progress_async(1.0, "100%", format_remaining_time(0.0));
                 update_bottom_device_info_async();
                 showInfoDialogSyncInThread(parent, _("Info"),
                                            _("Automated task completed."));

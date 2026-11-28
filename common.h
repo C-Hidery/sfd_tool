@@ -451,6 +451,10 @@ int set_bootloader_status(spdio_t* io,int status);
 void add_partition(spdio_t* io, const char* name, long long size);
 int GetStage();
 double get_time();
+// Format a remaining-time estimate in seconds as "MM:SS" (or "H:MM:SS").
+// A negative/NaN/infinite value means the estimate is not available yet and
+// is rendered as "--:--".
+std::string format_remaining_time(double remaining_seconds);
 const char* get_bsl_enum_name(unsigned int value);
 void print_all_bsl_commands();
 void signal_handler(int sig);

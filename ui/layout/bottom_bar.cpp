@@ -17,6 +17,7 @@ namespace {
     GtkWidget* s_slot_value_label       = nullptr;
     GtkWidget* s_progress_bar           = nullptr;
     GtkWidget* s_percent_label          = nullptr;
+    GtkWidget* s_remaining_value_label  = nullptr;
 }
 
 GtkWidget* bottom_bar_create(GtkWidgetHelper& helper_ref) {
@@ -95,11 +96,35 @@ GtkWidget* bottom_bar_create(GtkWidgetHelper& helper_ref) {
     gtk_widget_set_name(progressBar, "progressBar_1");
     helper.addWidget("progressBar_1", progressBar);
     gtk_widget_set_hexpand(progressBar, TRUE);
+    gtk_widget_set_valign(progressBar, GTK_ALIGN_CENTER);
     gtk_widget_set_size_request(progressBar, -1, 4);
-    gtk_widget_set_margin_top(progressBar, 5);
-    gtk_box_append(GTK_BOX(midProgressBox), progressBar);
 
     s_progress_bar = progressBar;
+
+    // 剩余时间：紧挨长进度条右侧显示
+    GtkWidget* progressRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_widget_set_hexpand(progressRow, TRUE);
+    gtk_widget_set_margin_top(progressRow, 5);
+    gtk_box_append(GTK_BOX(progressRow), progressBar);
+
+    GtkWidget* remainingLabel = gtk_label_new(_("Remaining:"));
+    gtk_widget_set_name(remainingLabel, "remaining_label");
+    gtk_widget_set_size_request(remainingLabel, -1, 20);
+    helper.addWidget("remaining_label", remainingLabel);
+
+    GtkWidget* remainingValue = gtk_label_new("--:--");
+    gtk_widget_set_name(remainingValue, "remaining");
+    gtk_widget_set_size_request(remainingValue, 56, 20);
+    helper.addWidget("remaining", remainingValue);
+
+    gtk_label_set_xalign(GTK_LABEL(remainingLabel), 1.0);
+    gtk_label_set_xalign(GTK_LABEL(remainingValue), 1.0);
+    gtk_box_append(GTK_BOX(progressRow), remainingLabel);
+    gtk_box_append(GTK_BOX(progressRow), remainingValue);
+
+    s_remaining_value_label = remainingValue;
+
+    gtk_box_append(GTK_BOX(midProgressBox), progressRow);
 
     // 底部状态栏：左 Status，右 Mode/Storage/Slot/Progress
     GtkWidget* bottomStatusBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 20);
@@ -180,7 +205,7 @@ GtkWidget* bottom_bar_create(GtkWidgetHelper& helper_ref) {
 
     s_slot_value_label = slotMode;
 
-    // 右侧 Progress 文本区域
+    // 右侧 Progress 文本区域：进度百分比
     GtkWidget* prgTextHBox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
     GtkWidget* progressLabel = gtk_label_new(_("Progress:"));
     gtk_widget_set_name(progressLabel, "progress_label");
@@ -248,7 +273,8 @@ void bottom_bar_set_slot(const std::string& text) {
     gtk_label_set_text(GTK_LABEL(s_slot_value_label), text.c_str());
 }
 
-void bottom_bar_set_progress(double fraction, const std::string& percent_text) {
+void bottom_bar_set_progress(double fraction, const std::string& percent_text,
+                             const std::string& remaining_text) {
     if (!s_progress_bar || !s_percent_label) return;
 
     if (fraction < 0.0) fraction = 0.0;
@@ -256,6 +282,11 @@ void bottom_bar_set_progress(double fraction, const std::string& percent_text) {
 
     gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(s_progress_bar), fraction);
     gtk_label_set_text(GTK_LABEL(s_percent_label), percent_text.c_str());
+
+    if (s_remaining_value_label) {
+        gtk_label_set_text(GTK_LABEL(s_remaining_value_label),
+                           remaining_text.empty() ? "--:--" : remaining_text.c_str());
+    }
 }
 
 void bottom_bar_set_io_status(const std::string& text) {
