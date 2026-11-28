@@ -73,7 +73,7 @@ void ERR_EXIT(const char* format, ...) {
         std::_Exit(EXIT_FAILURE);
     } else {
         // 命令行模式
-        fprintf(stderr, "Fatal error. Exiting...Press any key to exit.\n");
+        fprintf(stderr, "Fatal error. Exiting...Press Enter to exit.\n");
         std::cin.get();
     	std::exit(EXIT_FAILURE);
     }

@@ -29,7 +29,9 @@ void bottom_bar_set_slot(const std::string& text);
 
 // Progress 进度条与百分比
 // fraction: [0.0, 1.0]，会在实现中进行 clamp
-void bottom_bar_set_progress(double fraction, const std::string& percent_text);
+// remaining_text: 预估剩余时间文本（例如 "00:42"）；为空时显示 "--:--"
+void bottom_bar_set_progress(double fraction, const std::string& percent_text,
+                             const std::string& remaining_text = std::string());
 
 // 读写速率等 IO 状态文本，例如 "read: XX MB | YY MB/s"
 void bottom_bar_set_io_status(const std::string& text);

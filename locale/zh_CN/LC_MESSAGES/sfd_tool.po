@@ -727,9 +727,13 @@ msgstr "导出"
 msgid "Clear"
 msgstr "清空"
 
-#: main.cpp:3281
+#: ui/layout/bottom_bar.cpp
 msgid "Progress:"
 msgstr "进度:"
+
+#: ui/layout/bottom_bar.cpp
+msgid "Remaining:"
+msgstr "剩余:"
 
 #: main.cpp:3290
 msgid "POWEROFF"

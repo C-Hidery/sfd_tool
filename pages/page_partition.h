@@ -3,10 +3,10 @@
  * SFDTool Copyright (C) 2026 Ryan Crepa
  */
 #pragma once
-#include "ui/GtkWidgetHelper.hpp"
+#include "../ui/GtkWidgetHelper.hpp"
 #include "../common.h"
 #include "../core/flash_service.h"
-#include "ui/ui_page.h"
+#include "../ui/ui_page.h"
 #include <vector>
 
 // Partition 页面实现 IPage 接口，同时对外保留原有辅助函数
@@ -18,6 +18,9 @@ public:
 
 // 填充分区列表到 TreeView（使用 Service 层的 DevicePartitionInfo）
 void populatePartitionList(GtkWidgetHelper& helper, const std::vector<sfd::DevicePartitionInfo>& partitions);
+
+// 从当前设备主分区表（io->ptable）构建分区操作页使用的视图数据
+std::vector<sfd::DevicePartitionInfo> build_primary_partition_view();
 
 // 获取选中的分区名称
 std::string getSelectedPartitionName(GtkWidgetHelper& helper);
